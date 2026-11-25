@@ -1408,21 +1408,24 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `node tools/studio/tracker-guide/make.mjs` (`--check`; never edit it by hand; headless Chromium loading the XP room's
   `kit.js`, the tour's `parts.js` for its signs, `ik.js` and `bodies.js`): a walkway with the welcome, six stands of ways
   to wear trackers (11 trackers; lining up in a T-pose; 6 trackers; feet and headset; headset and controllers; headset and
-  tracked hands) and two robots to try. The robot is `bodies.js`'s mannequin (`HOST.bodies.mannequin()`, added for this:
+  tracked hands) and a robot to try (two until v201). The robot is `bodies.js`'s mannequin (`HOST.bodies.mannequin()`, added for this:
   nothing in the app calls it) exported as a skinned model with Mixamo's bone names; every move is `ik.js`'s, baked: a
   performer's joints turned by a few simple moves, each tracker, headset, controller or tracked wrist fixed to one of its
-  bones, `assign` (the build fails if the rule names a tracker wrongly), `calibrate`, `solve` at 60 Hz, `sample` at 20,
-  `clipOf`. One `robot.glb` holds every clip; each stand places it beside its own pucks model (the targets as bones of
+  bones, lined up as the studio lines up (v201: `fit` with no headset, else sized by the headset's height; `match`, the
+  build failing if any device is tied to another part than the one it is worn on), `calibrate` and `solve` (`'any'`: the
+  same pose as the older setups gave) at 60 Hz, `sample` at 20, `clipOf`. One `robot.glb` holds every clip; each stand places it beside its own pucks model (the targets as bones of
   their own, tagged with their part) with the same clip name, in step on the scene's clock. Stand 2 adds `character.glb`
-  (orange, its armature 0.8: slid in and sized by `calibrate`'s scale) and a countdown; the pucks light up in `assign`'s
-  order. The two robots to try carry `puppet` `{ rig: 'full' }` and `{ rig: 'feet' }` (worn by nobody): *Line up with the
-  performer* on their cards, with editing on (not with `&visit`, which the Experiments card's link uses). The spoken lines
+  (orange, its armature 0.8, standing in its T-pose beside the robot during the countdown, then slid in and sized by `fit`:
+  the robot wears no headset) and a countdown; then a line from each puck to the part it is tied to, each lit in `match`'s
+  order, gone as the character starts to follow (`ln_<id>` bones in the pucks model). The robot to try carries `puppet`
+  `{ rig: 'any' }` (worn by nobody; one is enough since v201, any mix being one way to wear it): *Line up with the
+  performer* on its card, with editing on (not with `&visit`, which the Experiments card's link uses). The spoken lines
   (`script.json`) are sounds only once `voice.mjs` has rendered them (Kokoro, `af_heart`): a pad and a personal cube per
   stand plays its line, a press on its sign (`who: 'own'`) again. About 2.8 MB without the voice; 31,000 triangles and 41
   draws of models as placed. The head's puck on the front of the head (the owner); the knee's on the thigh, 80 % of the way
   to the knee (an assumption, `KNEE` in `parts.js`). Studio code unchanged. `node tools/smoke.mjs --only 'studio guide'`.
   Untested on a headset: the walk, the signs and the pucks' small tags at reading distance, fourteen skinned figures'
-  frame cost on a Quest, wearing the two robots with real trackers; the voice (not rendered, unheard).
+  frame cost on a Quest, wearing the robot with real trackers; the voice (not rendered, unheard).
 - **Untested on a headset**: the grips, the corner stretch, the VR stick walk, objects on the real floor in AR, the
   emitters through HRTF and streamed sounds on a Quest (`createMediaElementSource` there), the frame rate with the
   397,066-triangle scan, the memory peak while its 8,192 px JPEG is decoded before it is drawn down, how the flat-shaded
@@ -1469,19 +1472,31 @@ and the stream plays everywhere at the shell's level. Never fetched or decoded (
   leaves it where the tracker had it; one Undo step each, refused while locked in place. A sound may follow it. A copy
   follows no tracker; a GLB switch turns the offset by the baked turn (`switchedRec`).
 - **A character worn with trackers** (phase 3; `engine/e6l_puppet.js` with `ik.js`, at the repository's root): an object rigged with
-  Mixamo's bone names (`IK.rigOf`; others told why on the card) may carry `puppet` `{ on, rig: 'full' | 'feet', by, map,
-  cal, s, floor }` (`'head'`, a headset alone, waits). *Wear it: whole body* (6 to 11 trackers) or *feet and headset* (a
-  tracker on each foot; the head and hands from the PC's Index, `by` `'index'`, its kinds `'h'`, `'l'`, `'r'` in the
-  stream, or from the performer's own headset, `by` their member id: this device's own head and controllers when it is the
-  performer, else `HOST.collab.body(by)`, guarded). *Line up with the performer*: a 5 s countdown (this device's own), the
-  performer in a T-pose in front of it facing its way; the parts assigned (`IK.assign`), the character moved along the
-  floor so its parts at rest are, on average, where their trackers are, sized (`IK.calibrate`, then again at the scale the
-  record keeps), one change, one Undo step; *Line up again, these parts*; refused while locked in place; why not in words.
+  Mixamo's bone names (`IK.rigOf`; others told why on the card) may carry `puppet` `{ on, rig: 'any' | 'full' | 'feet', by,
+  map, cal, s, floor }`. Since v201 (the owner, 25 November 2026: each device attached to the bone it is nearest to, any mix
+  of devices, the figure stepped into) *Wear it with trackers* makes `rig: 'any'`: any mix of the PC's trackers (11 parts:
+  head, chest, hips, hands, elbows, knees, feet), a headset and its controllers or tracked hands; the *Headset* row says
+  where one comes from: the PC's Index (`by` `'index'`, its kinds `'h'`, `'l'`, `'r'` in the stream), this headset (`by`
+  the performer's member id: this device's own head and controllers when it is the performer, else
+  `HOST.collab.body(by)`, guarded) or *None*. Records of `'full'` and `'feet'` (v126 to v200) are solved as before; lining
+  one up again makes it `'any'`. *Line up with the performer* (this device's own until taken): the character stands at
+  rest in its T-pose (its clip off) for the performer to copy. With a headset it is sized at once so its eyes are as high
+  as the headset, where it stands, and the performer steps into it; with none it comes to them after the 5 s countdown
+  (`IK.fit`: the highest device tried as its eyes, chest and hips, the size and the move along the floor that settle best,
+  sized at the end by the hips' tracker, else the head's). Then `IK.match` ties every device to the part it is nearest to
+  (all together, the least total distance; a device over 0.22 of the character's eye height from every part left out;
+  of two nearest one part within 0.1 of it the nearer tied, the other left out, said why) and the matches are shown
+  (`PUP.line.phase` `'check'`): an opaque line from each device to its part, a small cross at each (amber when left out)
+  and a tag naming its part (`GL.pupLines`, `GL.pupTags` in `GL.edit`), and on the card the 11 parts with their device and
+  distance, or *worked out* (a press: another device for it, or *Nothing*; one tied elsewhere swaps). *Take these*
+  (`pupTake`: `IK.calibrate` `'any'` at the size shown, then its place, size and `puppet` in one change, one Undo step),
+  *Line up again*, *Cancel* (the character back as its record has it). The head or the hips must be tied, else said in
+  words; *Line up again, these parts*; refused while locked in place.
   On and lined up: its own clip off and its bones solved every frame (`IK.solve`, in `itemsStep` in place of `animStep`:
   `pupStep`), alike on every device from the same trackers and record (nothing per bone sent); not solvable now: at rest,
   the card says why; Pause holds it; its holder stays where it is placed (a ghost there while editing); a sound may follow
-  its head bone. *Its parts* (another tracker for a part, swapping; then lined up again), *Head and hands from*, *On* /
-  *Off*, *Stop wearing*. A copy is worn by nobody; a GLB switch keeps it.
+  its head bone. *Its parts* (another tracker for a part, swapping; then lined up again), *Headset*, *On* / *Off*, *Stop
+  wearing*. A copy is worn by nobody; a GLB switch keeps it.
 - **Takes**: *Record a take* (on and lined up): a 3 s countdown, the solved bones sampled 30 times a second on the room's
   clock (`pupClock`) until *Stop* or 120 s, made a clip *Take n* (`IK.clipOf`, bound by the bones' names of the model the
   converter reads: `takeInto`) and the object's GLB made again with its clips and the new one through the converter

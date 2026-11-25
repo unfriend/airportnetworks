@@ -12,17 +12,31 @@
 //                       rest, ... } with its rest pose (the bones' local place and turn as they are now: call it on the
 //                       model as loaded, before a clip plays; rig.toRest() puts them back), or { ok: false, why } (a
 //                       sentence for the card)
-//   SETUPS              the three ways to wear it and their parts: 'full' (trackers on the hips, head, both hands and both
-//                       feet; the chest, elbows and knees if worn), 'feet' (a tracker on each foot; the head and hands from
-//                       a headset and its controllers), 'head' (a headset and two controllers: the feet stepped)
-//   assign(rig, targets, setup, o)   which target is which part, from a T-pose facing the character's way (targets
+//   SETUPS              the ways to wear it and their parts: 'any' (v201: any mix of devices on any of the 11 parts, the
+//                       head or the hips among them; whatever has none worked out), and the fixed ones before it: 'full'
+//                       (trackers on the hips, head, both hands and both feet; the chest, elbows and knees if worn), 'feet'
+//                       (a tracker on each foot; the head and hands from a headset and its controllers), 'head' (a headset
+//                       and two controllers: the feet stepped; people's bodies in bodies.js)
+//   SLOTS               the 11 parts: hips, head, chest, lhand, rhand, lfoot, rfoot, lelbow, relbow, lknee, rknee
+//   match(rig, targets, o)   (v201) the performer standing in the character in its T-pose: every device tied to the part
+//                       it is nearest to (the head's point at the eyes), all together (the smallest total distance, Kuhn and
+//                       Munkres); a device further than LIMIT (0.22 of the character's eye height) from every part left
+//                       out ('far'); of two nearest one part within TWICE (0.1) of each other only the nearer tied ('twice',
+//                       a controller and a wrist tracker) -> { ok, why (nothing seen, nothing near, nothing at the head or
+//                       hips), map, d: { slot: m }, out: [{ id, why, slot, by }], at: { slot: [x, y, z] } }
+//   fit(rig, targets, o)     (v201) no headset: the size and the move along the floor that put the character where the
+//                       performer stands (the highest device tried as its eyes, chest and hips; settled by the parts' mean
+//                       miss; sized at the end as calibrate sizes 'any'), then match there -> match's, and k (times its
+//                       size now, about o.origin) and t ([x, 0, z])
+//   assign(rig, targets, setup, o)   (before v201; kept, unused by the studio) which target is which part, from a T-pose facing the character's way (targets
 //                       { id: pose }): the highest the head, the lowest two the feet, the two furthest out the hands, left
 //                       and right by the character's facing, then the hips, chest, elbows and knees nearest where they
 //                       would be -> { ok, map: { slot: id }, left: [ids not used], why }. 'feet' gives the feet only and
 //                       'head' nothing: the caller names the headset and controllers
 //   calibrate(rig, targets, map, setup, o)   the performer in a T-pose facing the character's way, standing in it: the
 //                       scale (s: the character's hips as high as the performer's, or for 'feet' and 'head' its eyes as high
-//                       as the headset; o.scale false keeps its size), and each part's offset from its target's pose to
+//                       as the headset; 'any' by the hips when tracked, else the head as the eyes; o.scale false keeps its
+//                       size), and each part's offset from its target's pose to
 //                       its bone's world pose at rest with the character scaled by s about its origin (o.floor: the
 //                       floor's height, else the origin's) -> { ok, v, setup, s, floor, map, cal: { slot: [x, y, z, qx,
 //                       qy, qz, qw] } } (plain JSON, for a shared record), or { ok: false, why }. The caller then scales
@@ -36,7 +50,12 @@
 //                       trackers where worn, else a natural bend: elbows down and back, knees forward), the hands and feet
 //                       turned as their targets; 'head' steps its feet (each planted until the hips have left it behind,
 //                       then moved in a short arc to a new place, one foot at a time; gliding under the hips when they
-//                       move faster than a walk: state.glide). state ({} to start) carries what
+//                       move faster than a walk: state.glide). 'any': each part from its device where it has one, else
+//                       as the lighter setups work it out (the hips under the head, their heading 60 % with the feet when
+//                       both are tracked, else following the head; a foot with no tracker stepped, the other planted on its
+//                       tracker; the head turned with the chest when untracked; a hand with nothing on it hanging along its
+//                       side, turned with the chest's heading); the same devices give 'full''s, 'feet''s and 'head''s pose
+//                       number for number. state ({} to start) carries what
 //                       must last between frames (the planted feet, the hips' heading, the last poses seen). Deterministic:
 //                       the same targets, dt and state give the same pose on every device. The toes and the top of the head
 //                       go back to rest; bones it does not know (fingers) keep their pose. -> { ok, why } (for 'head',
@@ -71,6 +90,9 @@ function makeIK(THREE) {
     full: { need: ['hips', 'head', 'lhand', 'rhand', 'lfoot', 'rfoot'], may: ['chest', 'lelbow', 'relbow', 'lknee', 'rknee'] },
     feet: { need: ['head', 'lhand', 'rhand', 'lfoot', 'rfoot'], may: [] },
     head: { need: ['head', 'lhand', 'rhand'], may: [] },
+    // (v201: any mix of devices, each tied to the part it is nearest to; whatever has none is worked out. The head or the
+    // hips must be tracked: solve and calibrate say so in words)
+    any: { need: [], may: ['hips', 'head', 'chest', 'lhand', 'rhand', 'lfoot', 'rfoot', 'lelbow', 'relbow', 'lknee', 'rknee'] },
   };
   const fin = x => typeof x === 'number' && isFinite(x);
   const r4 = x => Math.round(x * 1e4) / 1e4, r5 = x => Math.round(x * 1e5) / 1e5;
@@ -223,6 +245,145 @@ function makeIK(THREE) {
     return { ok: true, map, left: pts.filter(x => !used.has(x)).map(x => x.id) };
   }
 
+  // ---- match and fit (v201): each device tied to the part it is nearest to, with the character standing where the
+  // performer stands in its T-pose (stepped into, or moved and sized there by fit)
+  const SLOTS = Object.keys(SLOT_BONE);
+  // (as fractions of the character's eye height over the floor: a device further than LIMIT from every free part is left
+  // out; two devices nearest the same part and nearer each other than TWICE are worn on it together, and only the nearer
+  // is tied to it. A fit's eye heights EYE_RANGE m, near EYE_AT m preferred)
+  const LIMIT = 0.22, TWICE = 0.1, EYE_RANGE = [1.0, 2.2], EYE_AT = 1.6;
+  // the devices given (sorted by id, so the order they come in never matters)
+  const pointsOf = targets => Object.keys(targets || {}).sort().map(id => ({ id, p: (poseOf(targets[id], newPose()) || {}).p })).filter(x => x.p);
+  // the parts' points at rest where the character stands (the head's at its eyes, where a headset is worn), relative to C
+  function slotRest(rig, C) {
+    const F = frameOf(rig), out = {}, P = newPose();
+    for (const sl of SLOTS) {
+      const b = sl === 'chest' ? rig.chest : SLOT_BONE[sl];
+      out[sl] = restAt(rig, F, sl === 'head' ? rig.eye : rig.rp[b], rig.rq.hips, P).p.clone().sub(C);
+    }
+    return out;
+  }
+  // (those points with the character scaled by k about C and moved by t)
+  const slotsAt = (R0, C, k, t) => { const o = {}; for (const sl of SLOTS) o[sl] = R0[sl].clone().multiplyScalar(k).add(C).add(t); return o; };
+  // the smallest total cost of rows to columns, one to one (n rows, m >= n columns; Kuhn and Munkres, O(n^2 m)): the
+  // column of each row
+  function hungarian(c, n, m) {
+    const u = new Array(n + 1).fill(0), v = new Array(m + 1).fill(0), p = new Array(m + 1).fill(0), way = new Array(m + 1).fill(0);
+    for (let i = 1; i <= n; i++) {
+      p[0] = i;
+      let j0 = 0;
+      const minv = new Array(m + 1).fill(Infinity), used = new Array(m + 1).fill(false);
+      do {
+        used[j0] = true;
+        const i0 = p[j0];
+        let delta = Infinity, j1 = 0;
+        for (let j = 1; j <= m; j++) {
+          if (used[j]) continue;
+          const cur = c[i0 - 1][j - 1] - u[i0] - v[j];
+          if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+          if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+        }
+        for (let j = 0; j <= m; j++) if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta;
+        j0 = j1;
+      } while (p[j0] !== 0);
+      do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+    }
+    const a = new Array(n).fill(-1);
+    for (let j = 1; j <= m; j++) if (p[j]) a[p[j] - 1] = j - 1;
+    return a;
+  }
+  // the devices tied to the parts at points P (H: the character's eye height over the floor there): each device's nearest
+  // part (one further than LIMIT from every part left out, 'far'); of two nearest the same part within TWICE of each other
+  // the nearer kept, the other left out ('twice'); then all together, the smallest total distance, a device left out
+  // ('far') rather than tied further than LIMIT
+  function matchAt(pts, P, H) {
+    const lim = LIMIT * H, twice = TWICE * H, BIG = 1e6;
+    for (const x of pts) { x.near = ''; x.dn = Infinity; for (const sl of SLOTS) { const d = x.p.distanceTo(P[sl]); if (d < x.dn) { x.dn = d; x.near = sl; } } }
+    const out = [], cand = [];
+    let cost = 0;
+    for (const x of pts.slice().sort((a, b) => a.dn - b.dn || (a.id < b.id ? -1 : 1))) {
+      const w = cand.find(y => y.near === x.near && y.p.distanceTo(x.p) < twice);
+      if (x.dn > lim) { out.push({ id: x.id, why: 'far', slot: x.near, d: r4(x.dn) }); cost += lim; } else if (w) out.push({ id: x.id, why: 'twice', slot: x.near, by: w.id, d: r4(x.dn) }); else cand.push(x);
+    }
+    const n = cand.length, m = SLOTS.length + n;
+    const c = cand.map(x => SLOTS.map(sl => { const d = x.p.distanceTo(P[sl]); return d <= lim ? d : BIG; }).concat(new Array(n).fill(lim)));
+    const a = n ? hungarian(c, n, m) : [], got = {}, d = {};
+    cand.forEach((x, i) => {
+      const j = a[i];
+      if (j >= 0 && j < SLOTS.length && c[i][j] < BIG) { got[SLOTS[j]] = x.id; d[SLOTS[j]] = r4(c[i][j]); cost += c[i][j]; } else { out.push({ id: x.id, why: 'far', slot: x.near, d: r4(x.dn) }); cost += lim; }
+    });
+    const map = {}, dist = {};
+    for (const sl of SLOTS) if (got[sl]) { map[sl] = got[sl]; dist[sl] = d[sl]; }
+    out.sort((x, y) => (x.id < y.id ? -1 : 1));
+    return { map, d: dist, out, cost };
+  }
+  // the verdict on a match, in words, and the parts' points (for the lines drawn from each device to its part)
+  function judged(m, pts, P, extra) {
+    const at = {};
+    for (const sl of SLOTS) at[sl] = [r4(P[sl].x), r4(P[sl].y), r4(P[sl].z)];
+    const why = !pts.length ? 'Nothing is seen: no tracker, headset or controller.'
+      : !Object.keys(m.map).length ? 'Nothing is near the character: stand in it in a T-pose, facing its way.'
+        : !m.map.head && !m.map.hips ? 'Nothing is near its head or its hips: wear the headset, or a tracker on the head or on a belt.' : '';
+    return Object.assign({ ok: !why, why, map: m.map, d: m.d, out: m.out, at }, extra || {});
+  }
+  // match(rig, targets, o): the performer standing in the character (stepped into it), every device tied where it is
+  function match(rig, targets, o) {
+    o = o || {};
+    if (!rig || !rig.ok) return { ok: false, map: {}, d: {}, out: [], why: (rig && rig.why) || 'Not a rig.' };
+    rig.root.updateWorldMatrix(true, false);
+    const C = rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : C.y, pts = pointsOf(targets);
+    const P = slotsAt(slotRest(rig, C), C, 1, V()), H = P.head.y - floor;
+    if (!(H > 0.05)) return { ok: false, map: {}, d: {}, out: [], why: 'The character\'s eyes are not above the floor: stand it on the floor.' };
+    return judged(matchAt(pts, P, H), pts, P);
+  }
+  // fit(rig, targets, o): no headset: where and how big the character must be to stand in the performer, then the match
+  // there. Facing its way, the performer's highest device is taken in turn as its eyes, its chest and its hips (each a size
+  // for the character, kept when its eyes come EYE_RANGE m over the floor); at each size it is moved along the floor (the
+  // devices' middle under its hips, then four times by the parts' mean miss) and matched; the size with the least cost
+  // (the distances, LIMIT for each device left out, and a nudge towards eyes EYE_AT m up) wins. Then the size as
+  // calibrate takes it (the hips' tracker as high as its hips, else the head's at its eyes), moved again and matched.
+  // o.origin: the point it is sized about (its root's place); o.floor. -> { ok, why, k (its size, times its size now), t
+  // ([x, 0, z] to move it by), map, d (each part's distance to its device), out (the devices left out: { id, why, slot,
+  // by }), at (each part's point once moved and sized) }
+  function fit(rig, targets, o) {
+    o = o || {};
+    if (!rig || !rig.ok) return { ok: false, map: {}, d: {}, out: [], why: (rig && rig.why) || 'Not a rig.' };
+    rig.root.updateWorldMatrix(true, false);
+    const C = o.origin ? V().copy(o.origin) : rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : C.y, pts = pointsOf(targets);
+    if (!pts.length) return { ok: false, map: {}, d: {}, out: [], why: 'Nothing is seen: no tracker, headset or controller.' };
+    const R0 = slotRest(rig, C), eye0 = R0.head.y, base = C.y - floor;
+    if (!(eye0 > 1e-3) || !(R0.hips.y > 1e-3)) return { ok: false, map: {}, d: {}, out: [], why: 'The character\'s eyes are not above its origin: stand it on the floor.' };
+    const top = pts.reduce((a, b) => (b.p.y > a.p.y ? b : a));
+    const settle = (k, t) => {
+      if (!t) { t = V(); for (const x of pts) t.add(x.p); t.multiplyScalar(1 / pts.length).sub(R0.hips.clone().multiplyScalar(k).add(C)); t.y = 0; }
+      const H = base + k * eye0;
+      let P = slotsAt(R0, C, k, t), m = matchAt(pts, P, H);
+      for (let i = 0; i < 4 && Object.keys(m.map).length; i++) {
+        const miss = V();
+        let n = 0;
+        for (const sl in m.map) { miss.add(pts.find(x => x.id === m.map[sl]).p).sub(P[sl]); n++; }
+        t.x += miss.x / n; t.z += miss.z / n;
+        P = slotsAt(R0, C, k, t); m = matchAt(pts, P, H);
+      }
+      return { k, t, P, m, H };
+    };
+    let best = null;
+    for (const sl of ['head', 'chest', 'hips']) {
+      const k = (top.p.y - C.y) / R0[sl].y, e = base + k * eye0;
+      if (!(k > 0) || e < EYE_RANGE[0] || e > EYE_RANGE[1]) continue;
+      const r = settle(k);
+      r.score = r.m.cost + LIMIT * e * 2 * Math.abs(Math.log(e / EYE_AT));
+      if (!best || r.score < best.score - 1e-9) best = r;
+    }
+    if (!best) return { ok: false, map: {}, d: {}, out: [], why: `Stand up straight in a T-pose: the highest device is ${(top.p.y - floor).toFixed(2)} m over the floor.` };
+    let k = best.k;
+    const by = best.m.map.hips ? 'hips' : best.m.map.head ? 'head' : '';
+    if (by) { const y = pts.find(x => x.id === best.m.map[by]).p.y - C.y; if (y > 0) k = y / R0[by].y; }
+    k = r4(k);
+    const r = settle(k, best.t.clone());
+    return judged(r.m, pts, r.P, { k, t: [r4(r.t.x), 0, r4(r.t.z)] });
+  }
+
   // ---- calibrate: the scale and each part's offset
   function calibrate(rig, targets, map, setup, o) {
     o = o || {};
@@ -234,12 +395,13 @@ function makeIK(THREE) {
       const id = map && map[sl], t = id != null ? poseOf(targets && targets[id], newPose()) : null;
       if (t) { use[sl] = id; got[sl] = t; } else if (S.need.includes(sl)) return { ok: false, why: `Nothing tracks the ${SLOT_WORD[sl]}${id != null ? ` (${id} is not seen)` : ''}.` };
     }
+    if (setup === 'any' && !got.head && !got.hips) return { ok: false, why: 'Nothing tracks the head or the hips: wear the headset, or a tracker on the head or on a belt.' };
     const F = frameOf(rig);
     rig.root.updateWorldMatrix(true, false);
     const R0 = rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : R0.y;
     let k = 1;
     if (o.scale !== false) {
-      const full = setup === 'full', have = (full ? got.hips : got.head).p.y - floor;
+      const full = setup === 'full' || (setup === 'any' && !!got.hips), have = (full ? got.hips : got.head).p.y - floor;
       const mine = (full ? restAt(rig, F, rig.rp.hips, rig.rq.hips, newPose()) : restAt(rig, F, rig.eye, rig.rq.head, newPose())).p.y - floor;
       // (a person's hips stand 0.4 to 1.5 m over the floor and their eyes 0.6 to 2.3 m, kneeling to tall; the character may
       // be any size)
@@ -328,17 +490,21 @@ function makeIK(THREE) {
       t.p.toArray(sn.p); t.q.toArray(sn.q);
       goal(t, cal.cal[sl], G[sl]); have[sl] = true;
     }
+    // ('any', v201: whatever has a device is driven by it, the rest worked out as the lighter setups work them out; the
+    // head or the hips must be known)
+    if (setup === 'any' && !have.head && !have.hips) return { ok: false, why: 'Nothing tracks the head or the hips yet.' };
+    const headT = !!have.head, feetT = !!(have.lfoot && have.rfoot), stepL = setup === 'head' || (setup === 'any' && !have.lfoot), stepR = setup === 'head' || (setup === 'any' && !have.rfoot);
     const F = frameOf(rig, F0), B = rig.bones, R = rig.rest;
     for (const p of rig.parts) RWQ[p].copy(F.q).multiply(rig.rq[p]);
     FW.copy(rig.fwd).applyQuaternion(F.q); UW.copy(rig.up).applyQuaternion(F.q); LW.copy(rig.left).applyQuaternion(F.q);
     // the turns, as deltas from rest in the world: the head's, the hips' (from their tracker, or a heading only), the
     // chest's (from its tracker, or half way from the hips to the head), the spine's spread between them, the neck's half
     // way from the chest to the head
-    Dhd.copy(G.head.q).multiply(q1.copy(RWQ.head).invert());
+    if (headT) Dhd.copy(G.head.q).multiply(q1.copy(RWQ.head).invert());
     if (have.hips) Dh.copy(G.hips.q).multiply(q1.copy(RWQ.hips).invert());
     else {
       let yaw = headingOf(Dhd);
-      if (setup === 'feet') {
+      if (feetT) {
         Dq.copy(G.lfoot.q).multiply(q1.copy(RWQ.lfoot).invert()); v2.copy(FW).applyQuaternion(Dq);
         Dq.copy(G.rfoot.q).multiply(q1.copy(RWQ.rfoot).invert()); v2.add(v3.copy(FW).applyQuaternion(Dq)); v2.y = 0;
         if (v2.lengthSq() > 1e-10) yaw += 0.6 * wrap(yawOf(v2) - yawOf(v3.copy(FW).setY(0)) - yaw);
@@ -352,8 +518,10 @@ function makeIK(THREE) {
       }
       yawQ(yaw, Dh);
     }
+    // (no head tracked: it turns with the chest, its tracker's or the hips')
+    if (!headT) { if (have.chest) Dhd.copy(G.chest.q).multiply(q1.copy(RWQ[rig.chest]).invert()); else Dhd.copy(Dh); }
     if (have.chest) Dc.copy(G.chest.q).multiply(q1.copy(RWQ[rig.chest]).invert());
-    else if (setup === 'head') {
+    else if (!have.hips && !feetT) {
       // ('head', v164: the chest takes half the head's turn about the vertical but only CHEST_TILT of its nod and lean, so
       // someone looking down bends the neck, not the back: the hips stay under them and their feet in their view)
       q2.copy(Dh).invert().multiply(Dhd);
@@ -366,7 +534,7 @@ function makeIK(THREE) {
     WQ.hips.copy(Dh).multiply(RWQ.hips);
     for (let i = 0; i < rig.spines.length; i++) { const p = rig.spines[i]; between(Dh, Dc, (i + 1) / rig.spines.length, Dq); WQ[p].copy(Dq).multiply(RWQ[p]); }
     if (B.neck) WQ.neck.copy(Dn).multiply(RWQ.neck);
-    WQ.head.copy(G.head.q);
+    if (headT) WQ.head.copy(G.head.q); else WQ.head.copy(Dhd).multiply(RWQ.head);
     for (const s of ['lsh', 'rsh']) if (B[s]) WQ[s].copy(Dc).multiply(RWQ[s]);
     // the places down the spine from the hips at the origin; then the hips: their tracker's, else under the head so that
     // the head is where its target is
@@ -374,10 +542,11 @@ function makeIK(THREE) {
     for (const p of rig.parts) if (p !== 'hips' && !LIMB_RE.test(p) && p !== 'headtop') fk(rig, p);
     if (have.hips) hip.copy(G.hips.p);
     else hip.copy(G.head.p).sub(WP.head);
-    // ('feet': the hips lowered as far as both feet need to be reached)
-    if (setup === 'feet') {
+    // ('feet', and 'any' with no hips tracker: the hips lowered as far as the tracked feet need to be reached)
+    if (!have.hips && (have.lfoot || have.rfoot)) {
       let drop = 0;
-      for (const s of ['l', 'r']) {
+      for (const s of SIDES) {
+        if (!have[SN[s].foot]) continue;
         const Lg = rig.limbs[SN[s].leg], reach = (WS[Lg.u] * Lg.a + WS[Lg.u] * R[Lg.l].s * Lg.b) * 0.9995;
         v2.copy(G[SN[s].foot].p).sub(v3.copy(WP[Lg.u]).add(hip));
         if (v2.length() > reach) { const h = v2.y, q = h * h - v2.lengthSq() + reach * reach; drop = Math.max(drop, q >= 0 ? -h - Math.sqrt(q) : -h); }
@@ -385,14 +554,15 @@ function makeIK(THREE) {
       if (drop > 0) hip.y -= drop;
     }
     for (const p of rig.parts) WP[p].add(hip);
-    // the feet: their targets, or ('head') stepped
-    if (setup === 'head') steps(rig, cal, st, dt);
+    // the feet: their targets, or ('head', and in 'any' a foot with nothing on it) stepped
+    if (stepL || stepR) steps(rig, cal, st, dt, !stepL, !stepR);
     // the arms and legs
     for (let j = 0; j < 2; j++) {
       const s = SIDES[j], sg = j ? -1 : 1, L = rig.limbs[SN[s].arm];
       const a = WS[L.u] * L.a, b = WS[L.u] * R[L.l].s * L.b;
       if (have[SN[s].elbow]) KP.copy(G[SN[s].elbow].p).sub(WP[L.u]);
       else KP.copy(UW).multiplyScalar(-0.55).addScaledVector(FW, -0.75).addScaledVector(LW, 0.35 * sg).applyQuaternion(Dc);
+      if (!have[SN[s].hand]) hang(rig, L, s, sg, a + b);   // ('any': a hand with nothing on it hangs at the side)
       HC.copy(L.hinge).applyQuaternion(F.q).applyQuaternion(Dc);   // (the hinge at rest, carried by the chest)
       twoBone(rig, L, WP[L.u], G[SN[s].hand].p, a, b, KP, v2.copy(HC));
       WQ[L.e].copy(G[SN[s].hand].q);
@@ -422,6 +592,19 @@ function makeIK(THREE) {
     return SOLVED;
   }
 
+  // ---- 'any': a hand with nothing on it hangs along its side (v201): below its shoulder by HANG of the arm's length, a
+  // little out and forward, the palm turned in to the thigh; turned with the chest's heading, never its lean, so it hangs
+  // straight down as the body bends (as bodies.js hangs the hands of someone with no controllers)
+  const HANG = [0.95, 0.07, 0.05], HG = V(), DY = Q(), SW = Q();
+  function hang(rig, L, s, sg, len) {
+    yawQ(headingOf(Dc), DY);
+    HG.copy(UW).multiplyScalar(-HANG[0] * len).addScaledVector(LW, sg * HANG[1] * len).addScaledVector(FW, HANG[2] * len).applyQuaternion(DY);
+    const g = G[SN[s].hand];
+    g.p.copy(WP[L.u]).add(HG);
+    SW.setFromUnitVectors(v3.copy(LW).multiplyScalar(sg), HG.copy(UW).negate());
+    g.q.copy(DY).multiply(SW).multiply(RWQ[L.e]);
+  }
+
   // ---- 'head': the stepping feet. Each foot is planted (on the floor, where it was put down) until the hips have left it
   // behind (its home, under the hips as at rest, more than STEP of the legs' length away, or turned more than 0.6 rad from
   // it, or the leg cannot reach it); then it steps, in a short arc over STEP_T, to its home a little ahead of where the hips
@@ -434,7 +617,10 @@ function makeIK(THREE) {
   const STEP = 0.16, STEP_A = 0.6, STEP_T = 0.3, LIFT = 0.08, REACH = 0.006, HURRY = 5, JUMP = 0.1, GLIDE = [1.0, 0.7], GLIDE_T = 0.06;
   const HOME = [newPose(), newPose()], RF = newPose(), RH = newPose(), FL = V(), PF = [newPose(), newPose()];
   const SIDES = ['l', 'r'], LEN = [0, 0], WANT = [0, 0], OVER = [0, 0], FORCED = [false, false];
-  function steps(rig, cal, st, dt) {
+  // ('any', v201: a foot with a tracker (fixL, fixR) is never stepped: it stays planted where its tracker is)
+  const FIX = [false, false];
+  function steps(rig, cal, st, dt, fixL, fixR) {
+    FIX[0] = !!fixL; FIX[1] = !!fixR;
     const F = F0, rootY = rig.root.getWorldPosition(v3).y;
     restAt(rig, F, rig.rp.hips, rig.rq.hips, RH);
     for (let i = 0; i < 2; i++) { const L = rig.limbs[SN[SIDES[i]].leg]; LEN[i] = WS[L.u] * L.a + WS[L.u] * rig.rest[L.l].s * L.b; }
@@ -456,7 +642,10 @@ function makeIK(THREE) {
     hip.toArray(st.prev);
     if (!st.feet) { st.feet = HOME.map(h => ({ p: h.p.toArray(), q: h.q.toArray(), on: true, k: 0, f: null, fq: null })); st.last = 1; st.n = 0; }
     st.started = -1; st.forced = false;
-    for (let i = 0; i < 2; i++) { PF[i].p.fromArray(st.feet[i].p); PF[i].q.fromArray(st.feet[i].q); }
+    for (let i = 0; i < 2; i++) {
+      if (FIX[i]) { const g = G[SN[SIDES[i]].foot], f = st.feet[i]; g.p.toArray(f.p); g.q.toArray(f.q); f.on = true; f.k = 0; f.f = f.fq = null; }
+      PF[i].p.fromArray(st.feet[i].p); PF[i].q.fromArray(st.feet[i].q);
+    }
     const sp = Math.hypot(st.v[0], st.v[1]);
     st.glide = sp > (st.glide ? GLIDE[1] : GLIDE[0]);
     if (st.glide) {
@@ -464,6 +653,7 @@ function makeIK(THREE) {
       const k = dt > 0 ? 1 - Math.exp(-dt / GLIDE_T) : 1;
       for (let i = 0; i < 2; i++) {
         const f = st.feet[i];
+        if (FIX[i]) continue;
         v2.copy(HOME[i].p); v2.x += st.v[0] * GLIDE_T; v2.z += st.v[1] * GLIDE_T;
         PF[i].p.lerp(v2, k); PF[i].p.y = HOME[i].p.y; PF[i].q.slerp(HOME[i].q, k);
         f.on = true; f.k = 0; f.f = f.fq = null;
@@ -474,6 +664,7 @@ function makeIK(THREE) {
       for (let i = 0; i < 2; i++) {
         const f = st.feet[i];
         WANT[i] = OVER[i] = 0;
+        if (FIX[i]) continue;
         if (!f.on) { stepping = i; continue; }
         // (how much nearer reach a step home would bring it: a hip risen over both the foot and its home gains nothing)
         const hj = WP[rig.limbs[SN[SIDES[i]].leg].u];
@@ -545,5 +736,5 @@ function makeIK(THREE) {
     return new T.AnimationClip(name || 'Take', -1, tracks);
   }
 
-  return { rigOf, SETUPS, assign, calibrate, solve, restPose, sample, clipOf, NAMES };
+  return { rigOf, SETUPS, SLOTS, assign, match, fit, calibrate, solve, restPose, sample, clipOf, NAMES };
 }

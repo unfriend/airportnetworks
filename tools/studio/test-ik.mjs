@@ -367,6 +367,96 @@ let take = null;
   ok(!g.frames[g.frames.length - 1].glide && after === 0, '\'head\': slow again, it stops gliding and the feet settle', JSON.stringify({ after }));
 }
 
+// ================================================================ v201: match, fit and 'any'
+// Each device tied to the part it is nearest to (all together), in the T-pose: stepped into (a headset: the character
+// sized by the eyes where it stands, then match), or with no headset fit (the character moved and sized to the performer)
+const slotOf = k => ({ hmd: 'head', lctl: 'lhand', rctl: 'rhand' }[k] || k);
+const tied = (m, names) => names.every(k => m.map[slotOf(k)] === ID[k]) && Object.keys(m.map).length === names.length;
+const shown = m => JSON.stringify({ ok: m.ok, why: m.why, map: Object.fromEntries(Object.entries(m.map || {}).map(([s, id]) => [s, Object.keys(ID).find(k => ID[k] === id)])), out: (m.out || []).map(x => [Object.keys(ID).find(k => ID[k] === x.id) || x.id, x.why, x.slot]), k: m.k, t: m.t });
+// (the headset's way: the character where the performer stands, sized so its eyes are at the headset)
+function stepIn(names, at) {
+  truthAt(0, at); PR.toRest(); placeRig(Object.assign({}, at, { scale: 1 }), PR);
+  if (names.includes('hmd')) { const h = targets(['hmd'])[ID.hmd].p[1], e = IK.restPose(PR, 'eye').p.y; placeRig(Object.assign({}, at, { scale: h / e }), PR); }
+  return IK.match(PR, targets(names), { floor: 0 });
+}
+// (the other way: the character elsewhere, fit, then moved and sized as fit says)
+function fitFrom(names, at, from) {
+  truthAt(0, at); PR.toRest(); placeRig(from, PR);
+  const f = IK.fit(PR, targets(names), { floor: 0 });
+  if (f.ok) placeRig({ x: (from.x || 0) + f.t[0], z: (from.z || 0) + f.t[2], yaw: from.yaw, scale: (from.scale || 1) * f.k }, PR);
+  return f;
+}
+{
+  const perf = { x: 1.2, z: -0.5, yaw: 0.6, scale: 1.08 }, away = { x: 0.1, z: 0.4, yaw: 0.6 };
+  const f11 = fitFrom(ELEVEN, perf, away), at11 = PR.root.position.clone(), s11 = PR.root.scale.x;
+  ok(f11.ok && tied(f11, ELEVEN) && !f11.out.length, 'fit: eleven trackers, the character 1.2 m away and the performer 1.08 times its size: every tracker tied to its part', shown(f11));
+  ok(at11.distanceTo(new THREE.Vector3(1.2, 0, -0.5)) < 0.03 && Math.abs(s11 - 1.08) < 0.01, 'fit: moved to where the performer stands (within 3 cm) and sized to them (within 1 %)', JSON.stringify([at11.toArray().map(mm), s11]));
+  const f6 = fitFrom(SIX, perf, away);
+  ok(f6.ok && tied(f6, SIX) && Math.abs(PR.root.scale.x - 1.08) < 0.01, 'fit: six trackers', shown(f6));
+  const f3 = fitFrom(['hips', 'lfoot', 'rfoot'], {}, away);
+  ok(f3.ok && tied(f3, ['hips', 'lfoot', 'rfoot']) && Math.abs(PR.root.scale.x - 1) < 0.01, 'fit: three trackers (the hips and feet): tied, and sized by the hips', shown(f3) + ' ' + PR.root.scale.x);
+  const s = stepIn(['hmd', 'lctl', 'rctl', 'lfoot', 'rfoot'], perf);
+  ok(s.ok && tied(s, ['hmd', 'lctl', 'rctl', 'lfoot', 'rfoot']), 'match: a headset, its controllers and a tracker on each foot, stepped into', shown(s));
+  const h = stepIn(['hmd', 'lctl', 'rctl'], perf);
+  ok(h.ok && tied(h, ['hmd', 'lctl', 'rctl']), 'match: a headset and its controllers', shown(h));
+  const hf = stepIn(['hmd', 'hips', 'lfoot', 'rfoot'], {});
+  ok(hf.ok && tied(hf, ['hmd', 'hips', 'lfoot', 'rfoot']), 'match: a headset, a belt and the feet', shown(hf));
+  const e11 = stepIn(ELEVEN.concat(['lctl', 'rctl']).filter(k => k !== 'head').concat('hmd'), {});
+  // (two at each hand, a controller and a wrist tracker: the nearer tied, the other left out and said why)
+  const twin = ['lhand', 'rhand'].map(sl => [e11.map[sl], e11.out.find(x => x.slot === sl)]);
+  ok(e11.ok && twin.every(([a, b]) => a && b && b.why === 'twice' && b.by === a) && e11.map.head === ID.hmd && Object.keys(e11.map).length === 11,
+    'match: two devices at each hand (a controller and a tracker): the nearer tied, the other left out, beside it', shown(e11));
+  // a poor stance: the arms 30 degrees down and the elbows bent 20, the performer turned 10 degrees from the character's way
+  const poor = { yaw: 0.17 };
+  truthAt(0, poor);
+  const turn = (b, axis, a) => { const B = TR.bones[b], w = world(B).q, pq = world(B.parent).q; B.quaternion.copy(pq.invert().multiply(new THREE.Quaternion().setFromAxisAngle(axis, a).multiply(w))); truth.scene.updateMatrixWorld(true); };
+  const fw = new THREE.Vector3(0, 0, 1).applyQuaternion(truth.scene.quaternion);
+  turn('larm', fw, 0.52); turn('rarm', fw, -0.52); turn('lfore', new THREE.Vector3(0, 1, 0), 0.35); turn('rfore', new THREE.Vector3(0, 1, 0), -0.35);
+  PR.toRest(); placeRig({ x: -0.6, z: 0.5 }, PR);
+  const fp = IK.fit(PR, targets(ELEVEN), { floor: 0 });
+  console.log(`fit: eleven trackers k ${f11.k} t ${f11.t}, the largest distance ${mm(Math.max(...Object.values(f11.d)))}; a poor stance k ${fp.k}, the largest ${mm(Math.max(...Object.values(fp.d || { x: 0 })))}; three trackers k ${f3.k}`);
+  ok(fp.ok && tied(fp, ELEVEN), 'fit: a poor stance (arms 30 degrees down, elbows bent, turned 10 degrees): every tracker still tied to its part', shown(fp));
+  truthAt(0); PR.toRest(); placeRig({}, PR);
+  const lost = Object.assign(targets(SIX), { 'LHR-FAR001': { p: [2.5, 1, 0], q: [0, 0, 0, 1] } }), fl = IK.match(PR, lost, { floor: 0 });
+  ok(fl.ok && fl.out.length === 1 && fl.out[0].id === 'LHR-FAR001' && fl.out[0].why === 'far' && !Object.values(fl.map).includes('LHR-FAR001'), 'match: a tracker 2.5 m off the body left out (far)', shown(fl));
+  const nh = IK.match(PR, targets(['lhand', 'rhand', 'lfoot', 'rfoot']), { floor: 0 });
+  ok(!nh.ok && /head or its hips/.test(nh.why) && Object.keys(nh.map).length === 4, 'match: nothing near the head or hips refused in words (the hands and feet still shown)', shown(nh));
+  ok(!IK.match(PR, {}, {}).ok && /Nothing is seen/.test(IK.match(PR, {}, {}).why) && /Nothing is seen/.test(IK.fit(PR, {}, {}).why), 'match and fit: nothing seen, said in words');
+  placeRig({}, PR);
+}
+// ---- 'any': the same devices solve as the old setups did, number for number; a hand with nothing on it hangs; any mix
+{
+  const same = (a, b) => a.locals.length === b.locals.length && a.locals.every((l, i) => l.every((v, k) => v === b.locals[i][k]));
+  const walk = () => ({ walking: true }), FEET = ['hmd', 'lctl', 'rctl', 'lfoot', 'rfoot'];
+  ok(same(run('any', SIX, at30(0, 1.1, walk), { locals: true }), run('full', SIX, at30(0, 1.1, walk), { locals: true })), '\'any\' with six trackers: the same pose as \'full\', number for number');
+  ok(same(run('any', FEET, at30(0, 1.1, walk), { locals: true }), run('feet', FEET, at30(0, 1.1, walk), { locals: true })), '\'any\' with the feet, a headset and controllers: the same as \'feet\'');
+  const hw = t => (t > 0.5 ? { walking: true, z: 0.6 * (t - 0.5) } : {});
+  ok(same(run('any', ['hmd', 'lctl', 'rctl'], at30(0, 2.5, hw), { locals: true }), run('head', ['hmd', 'lctl', 'rctl'], at30(0, 2.5, hw), { locals: true })), '\'any\' with a headset and controllers: the same as \'head\' (its steps too)');
+  // the hands hanging: a headset and a tracker on each foot, no controllers
+  const r = run('any', ['hmd', 'lfoot', 'rfoot'], at30(0, 2.2, walk));
+  truthAt(0); PR.toRest(); placeRig({}, PR);
+  const armLen = world(PR.bones.larm).p.distanceTo(world(PR.bones.lfore).p) + world(PR.bones.lfore).p.distanceTo(world(PR.bones.lhand).p);
+  const r2 = run('any', ['hmd', 'lfoot', 'rfoot'], at30(0, 2.2, walk));
+  const sh = ['larm', 'rarm'].map(p => world(PR.bones[p]).p), hd = ['lhand', 'rhand'].map(p => world(PR.bones[p]).p);
+  const drop = hd.map((h, i) => (sh[i].y - h.y) / armLen), aside = hd.map((h, i) => Math.hypot(h.x - sh[i].x, h.z - sh[i].z) / armLen);
+  const feet = Math.max(stats(r.err.lfoot).max, stats(r.err.rfoot).max);
+  console.log(`'any', a headset and the feet: the hands hang ${drop.map(x => x.toFixed(2)).join(' and ')} of the arm's length below the shoulders, ${aside.map(x => x.toFixed(2)).join(' and ')} aside; feet within ${mm(feet)}`);
+  ok(!r.why && !r2.why && drop.every(x => x > 0.8) && aside.every(x => x < 0.25) && feet <= 0.005, '\'any\': a hand with nothing on it hangs at the side (below its shoulder by most of the arm), the tracked feet within 5 mm', JSON.stringify({ drop, aside, feet }));
+  // three trackers: the hips and feet (the head turned with the chest, the hands hanging)
+  const r3 = run('any', ['hips', 'lfoot', 'rfoot'], at30(0, 2.2, walk));
+  const hips3 = stats(r3.err.hips).max, feet3 = Math.max(stats(r3.err.lfoot).max, stats(r3.err.rfoot).max), up3 = world(PR.bones.head).p.y - world(PR.bones.hips).p.y;
+  ok(r3.cal.ok && !r3.why && hips3 <= 0.005 && feet3 <= 0.005 && up3 > 0.3, '\'any\', three trackers (hips and feet): the hips and feet within 5 mm, the head above the hips', JSON.stringify({ hips3, feet3, up3, why: r3.why || r3.cal.why }));
+  // a headset, a belt and the feet: the hips their tracker's
+  const r4 = run('any', ['hmd', 'hips', 'lfoot', 'rfoot'], at30(0, 2.2, walk));
+  ok(!r4.why && stats(r4.err.hips).max <= 0.005 && stats(r4.err.head).max <= 0.02, '\'any\', a headset, a belt and the feet: the hips within 5 mm, the head within 2 cm', JSON.stringify([stats(r4.err.hips).max, stats(r4.err.head).max]));
+  // one foot's tracker and a headset: that foot follows it, the other steps by itself
+  const r5 = run('any', ['hmd', 'lctl', 'rctl', 'lfoot'], at30(0, 2.2, walk));
+  ok(!r5.why && stats(r5.err.lfoot).max <= 0.005 && r5.frames.every(f => f.foot.every(p => Number.isFinite(p.y))), '\'any\', one foot\'s tracker: it follows its tracker within 5 mm, the other stepped', mm(stats(r5.err.lfoot).max));
+  truthAt(0); PR.toRest(); placeRig({}, PR);
+  const no = IK.calibrate(PR, targets(['lhand', 'rhand', 'lfoot', 'rfoot']), mapOf(['lhand', 'rhand', 'lfoot', 'rfoot']), 'any');
+  ok(!no.ok && /head or the hips/.test(no.why), '\'any\' with nothing on the head or hips refused in words', no.why);
+}
+
 // ---- a take: the solved bones sampled and made a clip, played back on the rig
 {
   const clip = IK.clipOf(take.samples, 'Take 1');

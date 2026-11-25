@@ -74,7 +74,7 @@ try {
     if (big > LIMIT.tex) fail(`${p.name}: a picture of ${big} px (at most ${LIMIT.tex})`);
   }
   about = await page.evaluate(() => GUIDE.info());
-  console.log(`lined up: the rule's order at the T-pose stand ${about.order.join(', ')}; scales ${Object.entries(about.cal).map(([k, c]) => `${k} ${c.s}`).join(', ')}`);
+  console.log(`lined up: the matching's order at the T-pose stand ${about.order.join(', ')} (the character slid to ${about.slid}; a robot fit would move at most ${(about.moved * 100).toFixed(1)} cm, left to the offsets); scales ${Object.entries(about.cal).map(([k, c]) => `${k} ${c.s}`).join(', ')}`);
   if (sheet) {
     const pics = [...built].filter(([, b]) => b.pic).map(([n, b]) => [n, b.pic]);
     const png = await page.evaluate(P => {

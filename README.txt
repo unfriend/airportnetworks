@@ -232,8 +232,11 @@ its circle) moves every item there again, for everyone (one Undo step).
 - The tracker guide (Experiments, Tracker guide; or Examples, tracker-guide):
   stands you walk round, one for each way to wear trackers, from eleven on the
   whole body to a headset alone, each on the tutorial's robot with a sign; at
-  the end two robots to wear yourself with trackers (open the scene from
-  Examples, turn on Edit, select one, Line up with the performer).
+  the end a robot to wear yourself with any mix of trackers, a headset and
+  controllers (open the scene from Examples, turn on Edit, select it, Line up
+  with the performer: step into it, or with no headset it comes to you; each
+  device is tied to the part it is nearest to, shown as a line before it is
+  taken).
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth

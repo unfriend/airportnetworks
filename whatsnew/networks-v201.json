@@ -1,0 +1,21 @@
+{
+  "version": "networks-v201",
+  "date": "2026-11-25",
+  "new": [
+    "A studio character can be worn with any mix of devices: trackers, a headset, its controllers or tracked hands. Each one is tied to the part it is nearest to; every other part is worked out, and a hand with nothing on it hangs at the side.",
+    "Lining up: the character stands in a T-pose and you copy it. In a headset it is sized to you at once and you step into it; with no headset it comes to you after the countdown.",
+    "Before the matches are taken, a line runs from each device to its part, and the card lists them. Change one there if a line looks wrong, then Take these. One Undo step.",
+    "The tracker guide's T-pose stand shows the new way (the character comes to the robot, then a line from each puck to its part), and its end has one robot for any mix."
+  ],
+  "test": [
+    "With the PC's trackers and no headset: select a Mixamo character, Wear it with trackers, Headset: None, Line up with the performer. Does it come to you and size to you? Are the lines and the list right?",
+    "In a headset (Headset: This headset): Line up. Is the character sized to you at once? Step into it; after the countdown, are the headset and controllers tied to the head and hands?",
+    "Try a few mixes: a headset alone, a headset and two foot trackers, three trackers on the hips and feet. Does the body look natural, and do the empty hands hang?",
+    "A character lined up before this release: does it still follow as it did?"
+  ],
+  "untested": [
+    "Everything with real trackers, a real headset and controllers or tracked hands: the matching, the step into the figure, the lines' look and the card in a headset.",
+    "How natural the worked-out parts look on a real character (hanging arms, a head turned with the chest when nothing is on it).",
+    "The tracker guide's new spoken lines are not rendered (no voice on the build machine)."
+  ]
+}

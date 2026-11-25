@@ -759,6 +759,14 @@ narration heard from out of the circle, the locks and the People toggle in use.
 
 ### Trackers
 - Props on trackers and the worn character came in v126 (FORMAT networks-38).
+- Lining up by nearness (v201). The owner, 25 November 2026: attach each device to the bone it is nearest to, any mix of
+  devices, step into the figure. Until v200 the trackers' parts came from a rule on the T-pose (highest the head, lowest
+  two the feet, the two furthest out the hands...), which needed six trackers at least and a hand found on both sides, and
+  a character was worn one of two fixed ways (`'full'`, `'feet'`). Now one way, `'any'`: every device (trackers, a
+  headset, controllers, tracked hands) is tied to the part it is nearest to, all together, shown as lines before it is
+  taken, and whatever has none is worked out. In a headset the character is sized to it and stepped into; with none it
+  comes to the performer (`fit`). The tracker guide's T-pose stand, its spoken lines and its try-it robot (one now, not
+  two) were changed to match. No FORMAT bump: no room key or `state()` changed shape.
 
 ### Scene circles wait for their layout (v179)
 - The owner, 20 November 2026, on the open problem that a studio circle made for one scene could come up empty (v157's

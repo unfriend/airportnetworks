@@ -168,6 +168,8 @@ gets at most a line per feature and stays under 70 KB.
   draw; *Bodies: off* gives heads and hands); *My body* (off by default) draws your own in VR.
 - The design room (`#design`) and the studio (`#studio`) are pages in `STORY_EXTRA`, built like stories, placed in a
   room as stations but never by Arrange all.
+- A studio character worn with trackers (v201, `rig: 'any'`): any mix of trackers, a headset and controllers, each tied to
+  the bone it is nearest to (`ik.js` `match`, `fit`), shown as lines before it is taken (`tools/trackers/SPEC.md`).
 - A studio object's clip may follow the distance it covers (*As it moves*, v164: `docs/agents/studio.md`).
 - A story's copy on the relay (v170, `HOST.arrange`): *Copy to relay* (developer mode), `#<key>&arr=<name>[&edit]`, the
   editor drawer, a station's `st.<id>.arr`; the contract `tools/engine/SPEC.md`, the shell's side `docs/agents/shell.md`.

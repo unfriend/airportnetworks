@@ -5,8 +5,9 @@
 //
 // Every motion is the solver's, not drawn by hand: a performer (the same mannequin, never drawn but at the T-pose stand)
 // moves by a few simple turns of its joints; each tracker, headset, controller or tracked wrist is fixed to one of its
-// bones (a rigid offset, as a strap holds it); their poses each frame are the targets, which ik.js's assign (from the
-// T-pose), calibrate and solve turn into the robot's bones, taken 20 times a second with sample and made a clip with clipOf.
+// bones (a rigid offset, as a strap holds it); their poses each frame are the targets, which ik.js's match (from the
+// T-pose: each device tied to the part it is nearest to; fit first with no headset), calibrate and solve (its 'any' setup,
+// v201) turn into the robot's bones, taken 20 times a second with sample and made a clip with clipOf.
 // The pucks drawn are the targets themselves (bones of their own, a second skin), so where the robot's limbs miss them is
 // where the solver guessed. Deterministic: no random numbers at all.
 (function () {
@@ -126,6 +127,7 @@
   // two draws in all (the pucks lit, the tags unlit from one picture)
   function devices(ids, o) {
     o = o || {};
+    const lines = o.lines || {};
     const root = XP.group('devices'), bones = [], lit = [], tags = [], labels = ids.map(id => DEV[id]);
     // the tags' picture: a row each, 384 x 64 px (in a 512 px wide canvas), dark with a bar of the part's colour
     const rows = labels.length, H = Math.pow(2, Math.ceil(Math.log2(rows * 64))), { cv, g } = XP.canvas(512, Math.max(64, H));
@@ -148,6 +150,14 @@
       const parts = shapeOf(d);
       for (const [geo, c] of parts) at(on, lit, geo, c);
       if (off) for (const [geo] of shapeOf(d)) at(off, lit, geo, '#dfe6ee');   // (pale: a tracker not yet given its part)
+      // (the T-pose stand: a line from the puck to the part it is tied to, on a bone of its own, ln_<id>, shown by its size)
+      if (lines[d.id]) {
+        const [a, b2] = lines[d.id], ln = bone('ln_' + d.id, V(), new T.Quaternion()), len = a.distanceTo(b2);
+        const cg = new T.CylinderGeometry(0.008, 0.008, len, 6, 1, true);
+        cg.applyMatrix4(new T.Matrix4().compose(a.clone().add(b2).multiplyScalar(0.5), new T.Quaternion().setFromUnitVectors(V(0, 1, 0), b2.clone().sub(a).normalize()), V(1, 1, 1)));
+        root.updateMatrixWorld(true);
+        at(ln, lit, cg, d.col);
+      }
       // the tag: upright, facing +z at rest (and a copy back to back, so it reads from both sides), its picture's row i
       const h = 0.05, w = h * width[i] / 64, v0 = 1 - (i * 64 + 64) / cv.height, v1 = 1 - (i * 64) / cv.height, u1 = width[i] / 512;
       for (const back of [0, 1]) {
@@ -309,23 +319,32 @@
   }
 
   // ------------------------------------------------------------------ baking --
-  // the solver worn by a setup: the map (assign from the T-pose for 'full', and 'feet''s feet; the headset and its
-  // controllers or tracked wrists named, as the studio's card and bodies.js name them), then calibrate, all from the
-  // performer's T-pose at t = 0
-  function lineUp(rig, T0, setup, ids) {
-    let map = {};
-    const trk = ids.filter(id => DEV[id].kind === 'puck'), named = ids.filter(id => DEV[id].kind !== 'puck');
-    if (setup !== 'head') {
-      const a = IK.assign(rig, Object.fromEntries(trk.map(id => [id, T0[id]])), setup, { floor: 0 });
-      if (!a.ok) throw new Error('assign: ' + a.why);
-      map = a.map;
+  // the solver worn as the studio lines it up (v201): the performer in the T-pose at t = 0, every device it wears tied to
+  // the part it is nearest to (ik.js's match). With a headset the figure stands where it does, sized so its eyes are as
+  // high as the headset; with none, fit sizes it (and says where to move it: t, which a robot standing where its
+  // performer does leaves to the offsets, a few cm, and the T-pose stand's character slides to). Then calibrate ('any').
+  // The build fails if any device is tied to another part than the one it is worn on (an honest check of the matching)
+  function lineUp(rig, root, T0, ids, move) {
+    const floor = 0;
+    let k = 1, t = [0, 0, 0], f = null;
+    if (ids.includes('hmd')) {
+      root.scale.setScalar(1); root.updateMatrixWorld(true);
+      k = +((T0.hmd.p[1] - floor) / (IK.restPose(rig, 'eye').p.y - floor)).toFixed(4);
+    } else {
+      root.scale.setScalar(1); root.updateMatrixWorld(true);
+      f = IK.fit(rig, T0, { floor });
+      if (!f.k) throw new Error('fit: ' + f.why);
+      k = f.k; t = f.t;
     }
-    for (const id of named) map[DEV[id].slot] = id;
-    // (an honest check: the rule must find every tracker where it is worn)
-    for (const id of ids) if (map[DEV[id].slot] !== id) throw new Error(`assign found ${id} (${DEV[id].label}) as ${Object.keys(map).find(s => map[s] === id) || 'nothing'}`);
-    const cal = IK.calibrate(rig, T0, map, setup, { floor: 0 });
+    root.scale.setScalar(k); if (move) root.position.set(t[0], 0, t[2]);
+    root.updateMatrixWorld(true);
+    const m = IK.match(rig, T0, { floor });
+    if (!m.ok) throw new Error('match: ' + m.why);
+    for (const id of ids) if (m.map[DEV[id].slot] !== id) throw new Error(`match tied ${id} (${DEV[id].label}) to ${Object.keys(m.map).find(s => m.map[s] === id) || 'nothing'}`);
+    const cal = IK.calibrate(rig, T0, m.map, 'any', { floor, scale: false });
     if (!cal.ok) throw new Error('calibrate: ' + cal.why);
-    cal.order = Object.keys(map).map(s => map[s]);   // (the order the rule found them in: assign's map, as it made it)
+    cal.s = k; cal.t = t; cal.at = m.at;
+    cal.order = Object.keys(m.map).map(s => m.map[s]);   // (the order the matching gives: ik.js's parts)
     return cal;
   }
   const vtrack = (name, times, vals, step) => new T.VectorKeyframeTrack(name, times, vals, step ? T.InterpolateDiscrete : undefined);
@@ -347,8 +366,8 @@
     if (!rig.ok) throw new Error(rig.why);
     const mv = MOVES[move];
     PF.pose(mv.at(0), 0);
-    const cal = lineUp(rig, PF.targets(ids), setup, ids);
-    root.scale.setScalar(cal.s); root.updateMatrixWorld(true);
+    const cal = lineUp(rig, root, PF.targets(ids), ids);
+    BAKED.moved = Math.max(BAKED.moved || 0, Math.hypot(cal.t[0], cal.t[2]));   // (how far fit would move a robot: left to the offsets)
     const st = {}, samples = [], times = [], dp = {}, dq = {}, N = Math.round(mv.len * HZ);
     // (one loop first, unrecorded, so a stepping solver's state comes round as it will on the second)
     for (let pass = 0; pass < 2; pass++) for (let f = 0; f <= N; f++) {
@@ -361,15 +380,16 @@
         for (const id of ids) { (dp[id] = dp[id] || []).push(...tg[id].p); (dq[id] = dq[id] || []).push(tg[id].q); }
       }
     }
-    return (BAKED[key] = { clip: IK.clipOf(samples, key, FPS), dev: devTracks(ids, times, dp, dq), ids, s: cal.s, map: cal.map, steps: st.n || 0 });
+    return (BAKED[key] = { clip: IK.clipOf(samples, key, FPS), dev: devTracks(ids, times, dp, dq), ids, s: cal.s, map: cal.map, steps: st.n || 0, setup });
   }
 
-  // the T-pose stand: the robot (the performer, wearing 11 trackers, grey) in a T-pose; a 5 s countdown; the trackers
-  // light up in the order the rule finds them; the character (orange, smaller: its own armature 0.8 of the mannequin) slides
-  // from beside it into the performer and is sized to it; the performer's body goes (its trackers stay) and the character
+  // the T-pose stand (v201): the character (orange, smaller: its own armature 0.8 of the mannequin) stands beside the robot
+  // in its T-pose, and the robot (the performer, wearing 11 trackers and no headset, grey) copies it; a 5 s countdown; the
+  // character comes to the performer and is sized to it (ik.js's fit: no headset); a line from each tracker to the part it
+  // is tied to (match), each lit in turn; the lines go, the performer's body goes (its trackers stay) and the character
   // follows the performer's moves (marching, from the T-pose and back to it). Three items of the scene, one clock: the
   // robot (robot.glb, its clip Line up: the performer's own joints), the character (character.glb) and the pucks
-  const TP = GD.TP = { len: 16, count: 0.5, light: 5.6, gap: 0.2, slide: [8, 9.5], beside: -1.3, k: 0.8, go: 9.5, ramp: [9.6, 10.6, 15, 15.9] };
+  const TP = GD.TP = { len: 16, count: 0.5, slide: [5.7, 7.2], light: 7.4, gap: 0.15, beside: -1.3, k: 0.8, go: 10, ramp: [10.1, 11.1, 15, 15.9] };
   function bakeLineup() {
     if (BAKED.lineup) return BAKED.lineup;
     const pf = figure(LOOK.robot, ''), pr = holder('performer', pf), PF = performer(pf, pr);
@@ -378,15 +398,16 @@
     if (!rig.ok) throw new Error(rig.why);
     const ids = ELEVEN;
     PF.pose(MOVES.march.at(0), 0);
-    const cal = lineUp(rig, PF.targets(ids), 'full', ids);
-    const order = cal.order;
+    const cal = lineUp(rig, charRoot, PF.targets(ids), ids, true), mv = V(...cal.t);
+    const order = cal.order, T0 = PF.targets(ids), lines = {};
+    for (const id of ids) lines[id] = [V(...T0[id].p), V(...cal.at[DEV[id].slot])];
     const N = Math.round(TP.len * HZ), st = {}, samples = [], pq = {}, pp = [], times = [], dp = {}, dq = {};
     for (let f = 0; f <= N; f++) {
       const t = f / HZ, w = smooth(TP.ramp[0], TP.ramp[1], t) * (1 - smooth(TP.ramp[2], TP.ramp[3], t));
       PF.pose(MOVES.march.at(Math.max(0, t - TP.ramp[0])), w);
       const tg = PF.targets(ids);
       if (t >= TP.go) {
-        charRoot.scale.setScalar(cal.s); charRoot.updateMatrixWorld(true);
+        charRoot.scale.setScalar(cal.s); charRoot.position.copy(mv); charRoot.updateMatrixWorld(true);
         const r = IK.solve(rig, cal, tg, 1 / HZ, st);
         if (!r.ok) throw new Error(`lineup: solve at ${t}: ${r.why}`);
       } else rig.toRest();
@@ -403,17 +424,19 @@
       vtrack('mixamorigHips.position', times, pp), vtrack('mixamorigHips.scale', [0, TP.go, E], [...s3(1), ...s3(GONE), ...s3(GONE)], true)));
     // the character (character.glb): the solver's bones, sliding in and sized
     const chr = IK.clipOf(samples, 'Line up', FPS);
-    chr.tracks.push(vtrack('character.position', [0, TP.slide[0], TP.slide[1], E], [TP.beside, 0, 0, TP.beside, 0, 0, 0, 0, 0, 0, 0, 0]),
+    chr.tracks.push(vtrack('character.position', [0, TP.slide[0], TP.slide[1], E], [TP.beside, 0, 0, TP.beside, 0, 0, mv.x, 0, mv.z, mv.x, 0, mv.z]),
       vtrack('character.scale', [0, TP.slide[0], TP.slide[1], E], [...s3(1), ...s3(1), ...s3(cal.s), ...s3(cal.s)]));
     chr.resetDuration();
-    // the pucks: their poses, the countdown (5 to 1, a second each), each lit in the rule's order
+    // the pucks: their poses, the countdown (5 to 1, a second each), each lit with its line to its part in the matching's
+    // order, the lines gone as the character starts to follow
     const dev = devTracks(ids, times, dp, dq);
     for (let i = 0; i < 5; i++) { const a = TP.count + i; dev.push(vtrack(`cd${5 - i}.scale`, [0, a, a + 1, E], [...s3(GONE), ...s3(1), ...s3(GONE), ...s3(GONE)], true)); }
     order.forEach((id, i) => {
       const a = TP.light + i * TP.gap;
-      dev.push(vtrack(`dev_${id}_on.scale`, [0, a, E], [...s3(GONE), ...s3(1), ...s3(1)], true), vtrack(`dev_${id}_off.scale`, [0, a, E], [...s3(1), ...s3(GONE), ...s3(GONE)], true));
+      dev.push(vtrack(`dev_${id}_on.scale`, [0, a, E], [...s3(GONE), ...s3(1), ...s3(1)], true), vtrack(`dev_${id}_off.scale`, [0, a, E], [...s3(1), ...s3(GONE), ...s3(GONE)], true),
+        vtrack(`ln_${id}.scale`, [0, a, TP.go, E], [...s3(GONE), ...s3(1), ...s3(GONE), ...s3(GONE)], true));
     });
-    return (BAKED.lineup = { perf, chr, dev, ids, order, s: cal.s, map: cal.map });
+    return (BAKED.lineup = { perf, chr, dev, ids, order, lines, s: cal.s, t: cal.t, map: cal.map });
   }
   // the countdown board: 5 to 1 on tiles, a bone each (a step of its size shows it), above and between the two figures
   function countdown() {
@@ -447,6 +470,7 @@
 
   // ------------------------------------------------------------------ the parts --
   // the stands: key (the clip's name, on robot.glb and on the stand's pucks), the move, the setup, the devices worn
+  // (the setup: the one the stand's devices made before v201, kept for its name; every stand is solved by 'any' now)
   const STANDS = GD.STANDS = [
     ['Eleven trackers', 'march', 'full', ELEVEN, 1],
     ['Six trackers', 'march', 'full', SIX, 3],
@@ -473,13 +497,13 @@
     });
   }
   part('pucks-2', 'models/pucks-2-line-up.glb', () => {
-    const B = bakeLineup(), D = devices(B.ids, { off: true });
+    const B = bakeLineup(), D = devices(B.ids, { off: true, lines: B.lines });
     return { root: XP.group('pucks', D.root, countdown()), clips: [new T.AnimationClip('Line up', -1, B.dev)] };
   });
   GD.info = () => {
     const sc = {};
-    for (const k in BAKED) sc[k] = { s: BAKED[k].s, map: BAKED[k].map, steps: BAKED[k].steps };
-    return { order: BAKED.lineup ? BAKED.lineup.order.map(id => DEV[id].slot) : [], cal: sc, knee: GD.KNEE_AT, head: GD.HEAD_AT,
+    for (const k in BAKED) if (BAKED[k] && BAKED[k].map) sc[k] = { s: BAKED[k].s, map: BAKED[k].map, steps: BAKED[k].steps };
+    return { order: BAKED.lineup ? BAKED.lineup.order.map(id => DEV[id].slot) : [], moved: BAKED.moved || 0, slid: BAKED.lineup ? BAKED.lineup.t : null, cal: sc, knee: GD.KNEE_AT, head: GD.HEAD_AT,
       devices: Object.values(DEV).map(d => ({ id: d.id, slot: d.slot, label: d.label, p: d.p.toArray().map(v => +v.toFixed(3)) })) };
   };
 })();

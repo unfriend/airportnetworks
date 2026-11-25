@@ -2,7 +2,7 @@
 // A floor 8 m wide down -z from where you start (the scene's origin, facing -z) with a walkway down its middle: the welcome
 // at the entrance (the robot waving on the right, the sign on the left), then six stands, odd numbers on the left and even
 // on the right, 3.4 m apart along each side (the right side 1.7 m further on), from the fullest way to wear trackers to the
-// lightest, and at the end two robots to try. Each stand: its robot on a disc, life size, facing the walkway, and its sign
+// lightest, and at the end a robot to try. Each stand: its robot on a disc, life size, facing the walkway, and its sign
 // nearer you, turned towards you as you come. With the spoken lines rendered (voice.mjs: voice/*.mp3) each stand also has a
 // pad on the floor at the walkway's side whose cube (each person's own) plays its line as you step on, and pointing at a
 // sign and pressing plays it again for you alone. Everything is the studio's own records.
@@ -25,9 +25,9 @@ const Z0 = -3.5, PITCH = 3.4, STAGGER = 1.7, END = -14.6;
 const STANDS = [
   [1, 'Whole body: 11 trackers', ['On the front of the head. On the front of the chest. At the back of the hips, on the belt. On the back of each hand. On each upper arm, just above the elbow. On each thigh, just above the knee. On top of each foot, at the front.', 'Nothing is guessed: the elbows and knees go where yours go.'],
     'Each puck is tagged with its part. The robot moves from the pucks alone.'],
-  [2, 'Lining up: the T-pose', ['Stand straight, arms out to the sides, facing the way the character faces. After a 5 s countdown each tracker gets its part:', 'the highest is the head; the lowest two, the feet; the two furthest out, the hands; the one nearest the middle at hip height, the hips; the chest, elbows and knees by height and side.', 'The character moves to you and is sized so its hips are as high as yours.'],
-    'The pucks light up in the order the rule finds them. The orange character is the one worn.'],
-  [3, 'Whole body: 6 trackers', ['Head, hips, both hands and both feet: the fewest for the whole body.', 'The chest, elbows and knees are worked out: elbows bend down and back, knees forward. It looks natural, but it is a guess.'],
+  [2, 'Lining up: the T-pose', ['The character stands in a T-pose and you copy it, facing its way. In a headset you step into it (it is sized to you first); without one it comes to you after a 5 s countdown and is sized to you.', 'Every device you wear (tracker, controller, headset) is tied to the part it is nearest to: a line for each. Change one if it looks wrong. A part with nothing on it is worked out.'],
+    'Here the robot wears 11 trackers and no headset, so the orange character comes to it.'],
+  [3, 'Whole body: 6 trackers', ['Head, hips, both hands and both feet still give the whole body.', 'The chest, elbows and knees are worked out: elbows bend down and back, knees forward. It looks natural, but it is a guess.'],
     'Compare with stand 1: nothing on the chest, the arms or the thighs.'],
   [4, 'Feet and headset', ['A headset and its two controllers give the head and the hands. Add one tracker on top of each foot.', 'The hips are worked out below the head, turned with the head and the feet, and everything in between follows.'],
     'The quick way to get real footwork.'],
@@ -43,13 +43,13 @@ export function signs(voice) {
     ...STANDS.map(([n, title, what, here]) => ({ part: 'sign-' + n, file: `signs/${String(n).padStart(2, '0')}-${SLUG(title)}.glb`, section: 'guide', n, title, what, here, w: 1.1, h: 0.95, size: 29, mid: 1.5 })),
     { part: 'sign-0', file: 'signs/00-welcome.glb', section: 'board', title: 'Tracker guide', w: 1.2, h: 1.0, px: 768, size: 30, mid: 1.5,
       what: ['A tracker is a small puck that knows where it is in the room. Strap a few to your body and a character moves as you move.',
-        'Six stands, from the fullest way to wear them to the lightest, then two robots to try. The tutorial\'s robot stands in for you; every move it makes is worked out from the pucks by the app\'s own solver.'],
+        'Six stands, from the fullest way to wear them to the lightest, then a robot to try. The tutorial\'s robot stands in for you; every move it makes is worked out from the pucks by the app\'s own solver.'],
       here: 'Start at stand 1, on your left.' + hear },
     { part: 'sign-7', file: 'signs/07-try-it-yourself.glb', section: 'try', n: 7, title: 'Try it yourself', w: 1.2, h: 1.15, px: 768, size: 27, mid: 1.55,
-      what: ['With trackers: in a shared room whose relay has trackers switched on, at the studio\'s circle, open this scene from the Scene pane\'s Examples (the Tracker guide card only visits). Turn on Edit, select a robot and choose Line up with the performer.',
-        'Left robot: the whole body, 6 to 11 trackers. Right robot: feet and headset, a tracker on each foot.',
-        'With only a headset: switch on My body in the settings (VR), and look down.'],
-      here: 'Without trackers these two stand still.' },
+      what: ['In a shared room whose relay has trackers switched on, at the studio\'s circle, open this scene from the Scene pane\'s Examples (the Tracker guide card only visits). Turn on Edit and select the robot.',
+        'Put on whatever you have: trackers, a headset, controllers. Step into the robot, face its way, and choose Line up with the performer.',
+        'With only a headset you can also switch on My body in the settings (VR), and look down.'],
+      here: 'Until someone lines up with it, it stands still.' },
   ];
 }
 
@@ -124,14 +124,13 @@ export function makeLayout(parts, files, about) {
     obj('sg' + id, `Sign ${n}: ${STANDS[n - 1][1]}`.slice(0, 60), 'sign-' + n, AT(n, 2.9, n === 2 ? -1.6 : -1.25), SIGN_YAW(n), Object.assign({ locked: true }, sid ? { press: said(sid) } : {}));
   }
 
-  // ---- try it yourself: two robots with their wearing ready (nobody's yet: Line up with the performer on their cards)
+  // ---- try it yourself: one robot with its wearing ready for any mix of devices (v201; nobody's yet: Line up with the
+  // performer on its card)
   const v7 = speak(7, [0, 1.6, END], [0, 0, END + 1.6], [1.6, 1.0]);
-  obj('try001', 'Try: whole body (6 to 11 trackers)', 'robot', [-0.9, 0, END], 0, { clip: 'Idle', s: (about.cal.Idle || {}).s, puppet: { on: false, rig: 'full' } });
-  obj('try002', 'Try: feet and headset', 'robot', [0.9, 0, END], 0, { clip: 'Idle', s: (about.cal.Idle || {}).s, puppet: { on: false, rig: 'feet' } });
-  shape('dsc07a', 'Disc: whole body', 'cylinder', [-0.9, 0.02, END], [1.2, 0.04, 1.2], '#ffd34d', { locked: true });
-  shape('dsc07b', 'Disc: feet and headset', 'cylinder', [0.9, 0.02, END], [1.2, 0.04, 1.2], '#5aa9ff', { locked: true });
-  obj('sgn007', 'Sign 7: Try it yourself', 'sign-7', [0, 0, END - 0.9], 0, Object.assign({ locked: true }, v7 ? { press: said(v7) } : {}));
-  groups.push({ id: 'gtry07', name: 'Try it yourself', items: ['try001', 'try002', 'dsc07a', 'dsc07b', 'sgn007'] });
+  obj('try001', 'Try: any mix of devices', 'robot', [0, 0, END], 0, { clip: 'Idle', s: (about.cal.Idle || {}).s, puppet: { on: false, rig: 'any' } });
+  shape('dsc07a', 'Disc: try it', 'cylinder', [0, 0.02, END], [1.2, 0.04, 1.2], '#ffd34d', { locked: true });
+  obj('sgn007', 'Sign 7: Try it yourself', 'sign-7', [-1.5, 0, END + 0.2], Math.atan2(1.5, 1.2), Object.assign({ locked: true }, v7 ? { press: said(v7) } : {}));
+  groups.push({ id: 'gtry07', name: 'Try it yourself', items: ['try001', 'dsc07a', 'sgn007'] });
 
   // ---- checks
   const ids = new Set(), all = [objects, cubes, sounds, shapes, groups].flat();

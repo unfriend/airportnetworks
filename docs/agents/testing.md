@@ -1116,15 +1116,18 @@ test scene's rig loaded a second time in the page by three.js's own GLTFLoader a
 trackers worn on its bones with seeded random offsets (as `tools/studio/test-ik.mjs` has them; the mean of their offsets
 along the floor made zero by the hips' or the headset's, so lining up puts the character right where the performer
 stands), given as the shell's trackers (the Index's kinds too) or as `HOST.collab.body`, frames run at held times: *Wear
-it* (whole body), the countdown on the card (Line up and Cancel pressed on the headset's card), then lined up from a
-T-pose (the six parts found, the character moved to the performer within 3 mm and sized, one Undo step; Undo, again);
+it with trackers* (`rig: 'any'`, v201), the countdown on the card (Line up and Cancel pressed on the headset's card; with no
+headset *it comes to you*), then the matches shown before they are taken (`phase` `'check'`, the six trackers tied, 24 or
+more lines drawn, the card's list with each distance and *Take these*; a part changed on the card swaps, and back), then
+taken (the character moved to the performer within 3 mm and sized, one Undo step; Undo, again);
 3.3 s of the walk with its hands and feet within 5 mm of the truth (0.06 mm), its clip off; Pause holding it; *Off* (on the
 headset's card) giving its clip back, *On* again; a sound on its head bone following it; `norm`'s rules, the state and
 `layout.json` both ways, a copy worn by nobody, locked not lined up; a second page with the first's record solving the same
 23 bones at one held moment (within 1 degree and 1 mm: 0.0000 of both); a 3 s take (its countdown, 91 keys, *Stop*)
 made into a GLB, downloaded (no relay), whose clips are *Walk* and *Take 1* (3 s, a track a bone and the hips' place),
-*Take 1* at 1.5 s within 0.1 degrees of the bones solved then; and *feet and headset* with the PC's Index (lined up: the
-feet and the Index's headset and controllers), then with a performer's own headset (`HOST.collab.body`): the feet within
+*Take 1* at 1.5 s within 0.1 degrees of the bones solved then; and the feet with the PC's Index as the *Headset* (stepped
+into: sized at once by the headset, *Step into it* on the card; tied: the feet and the Index's headset and controllers),
+then with a performer's own headset (`HOST.collab.body`): the feet within
 5 mm and the hands within 1 cm (0.05 and 0.06 mm); a part given another tracker (swapping), not lined up until it is again.
 
 ### smoke: studio sequences
@@ -1218,7 +1221,7 @@ Its *studio guide* step (`--only 'studio guide'`, about a minute, v200): the Exp
 *Studio* and *Tracker guide* and then the card back, and neither is in `HOST.stories()`; *Tracker guide* opens the studio
 on `examples/tracker-guide` visiting (`&visit`), the Stories screen still on the Experiments set; every model loaded,
 under 10,000 triangles, the scene under 60,000 as placed, the clips its layout names there; its layout read with no bad
-items, the two robots to try worn by nobody with their wearing ready, and the robot a Mixamo rig to `IK.rigOf`. After
+items, the robot to try worn by nobody with its wearing ready (`rig: 'any'`, v201), and the robot a Mixamo rig to `IK.rigOf`. After
 changing `tools/studio/tracker-guide/` (or what it loads: the tour's `parts.js`, `ik.js`, `bodies.js`), run
 `node tools/studio/tracker-guide/make.mjs` and its `--check`.
 
@@ -2395,7 +2398,12 @@ second, no browser) checks the trackers' solver (`ik.js`, at the repository's ro
 rig loaded twice, one walking as the performer: the parts found (and refused in words), which tracker is which from a
 T-pose, and every frame of the whole body (6 and 11 trackers, a performer 1.1 times the size), the feet and a headset,
 and a headset alone (stepped feet: by turns, never both up, a planted foot sliding under 1 cm and lifting under 1.5)
-against the truth, the same output twice, and a take replayed; and since v164, for people's bodies, a headset alone on
+against the truth, the same output twice, and a take replayed; since v201 (67 checks) `fit` and `match` (11 and 6
+trackers with the character 1.2 m away and the performer 1.08 times its size, three trackers, a headset with controllers
+and feet, a headset and controllers, a headset with a belt and feet, two devices at each hand, a poor stance, a tracker
+far off, nothing at the head or hips, nothing seen) and `'any'` (the same pose as `'full'`, `'feet'` and `'head'` number
+for number; hanging hands; the hips and feet alone; a headset, belt and feet; one foot's tracker; refused without head or
+hips); and since v164, for people's bodies, a headset alone on
 this rig with straight legs at rest: the head bobbing 2.5 cm over its height at rest and swaying (no steps, both feet
 planted, none sliding: the old solver stepped 19 times), looking down 1 rad (the back upright, the hips under the head:
 before, 15 cm back and 32 degrees), and moving at 1.6 m/s (the feet glide, no steps; stepping again once slow); run it

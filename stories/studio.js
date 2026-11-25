@@ -20805,17 +20805,31 @@ function makeConverter(THREE, hooks) {
 //                       rest, ... } with its rest pose (the bones' local place and turn as they are now: call it on the
 //                       model as loaded, before a clip plays; rig.toRest() puts them back), or { ok: false, why } (a
 //                       sentence for the card)
-//   SETUPS              the three ways to wear it and their parts: 'full' (trackers on the hips, head, both hands and both
-//                       feet; the chest, elbows and knees if worn), 'feet' (a tracker on each foot; the head and hands from
-//                       a headset and its controllers), 'head' (a headset and two controllers: the feet stepped)
-//   assign(rig, targets, setup, o)   which target is which part, from a T-pose facing the character's way (targets
+//   SETUPS              the ways to wear it and their parts: 'any' (v201: any mix of devices on any of the 11 parts, the
+//                       head or the hips among them; whatever has none worked out), and the fixed ones before it: 'full'
+//                       (trackers on the hips, head, both hands and both feet; the chest, elbows and knees if worn), 'feet'
+//                       (a tracker on each foot; the head and hands from a headset and its controllers), 'head' (a headset
+//                       and two controllers: the feet stepped; people's bodies in bodies.js)
+//   SLOTS               the 11 parts: hips, head, chest, lhand, rhand, lfoot, rfoot, lelbow, relbow, lknee, rknee
+//   match(rig, targets, o)   (v201) the performer standing in the character in its T-pose: every device tied to the part
+//                       it is nearest to (the head's point at the eyes), all together (the smallest total distance, Kuhn and
+//                       Munkres); a device further than LIMIT (0.22 of the character's eye height) from every part left
+//                       out ('far'); of two nearest one part within TWICE (0.1) of each other only the nearer tied ('twice',
+//                       a controller and a wrist tracker) -> { ok, why (nothing seen, nothing near, nothing at the head or
+//                       hips), map, d: { slot: m }, out: [{ id, why, slot, by }], at: { slot: [x, y, z] } }
+//   fit(rig, targets, o)     (v201) no headset: the size and the move along the floor that put the character where the
+//                       performer stands (the highest device tried as its eyes, chest and hips; settled by the parts' mean
+//                       miss; sized at the end as calibrate sizes 'any'), then match there -> match's, and k (times its
+//                       size now, about o.origin) and t ([x, 0, z])
+//   assign(rig, targets, setup, o)   (before v201; kept, unused by the studio) which target is which part, from a T-pose facing the character's way (targets
 //                       { id: pose }): the highest the head, the lowest two the feet, the two furthest out the hands, left
 //                       and right by the character's facing, then the hips, chest, elbows and knees nearest where they
 //                       would be -> { ok, map: { slot: id }, left: [ids not used], why }. 'feet' gives the feet only and
 //                       'head' nothing: the caller names the headset and controllers
 //   calibrate(rig, targets, map, setup, o)   the performer in a T-pose facing the character's way, standing in it: the
 //                       scale (s: the character's hips as high as the performer's, or for 'feet' and 'head' its eyes as high
-//                       as the headset; o.scale false keeps its size), and each part's offset from its target's pose to
+//                       as the headset; 'any' by the hips when tracked, else the head as the eyes; o.scale false keeps its
+//                       size), and each part's offset from its target's pose to
 //                       its bone's world pose at rest with the character scaled by s about its origin (o.floor: the
 //                       floor's height, else the origin's) -> { ok, v, setup, s, floor, map, cal: { slot: [x, y, z, qx,
 //                       qy, qz, qw] } } (plain JSON, for a shared record), or { ok: false, why }. The caller then scales
@@ -20829,7 +20843,12 @@ function makeConverter(THREE, hooks) {
 //                       trackers where worn, else a natural bend: elbows down and back, knees forward), the hands and feet
 //                       turned as their targets; 'head' steps its feet (each planted until the hips have left it behind,
 //                       then moved in a short arc to a new place, one foot at a time; gliding under the hips when they
-//                       move faster than a walk: state.glide). state ({} to start) carries what
+//                       move faster than a walk: state.glide). 'any': each part from its device where it has one, else
+//                       as the lighter setups work it out (the hips under the head, their heading 60 % with the feet when
+//                       both are tracked, else following the head; a foot with no tracker stepped, the other planted on its
+//                       tracker; the head turned with the chest when untracked; a hand with nothing on it hanging along its
+//                       side, turned with the chest's heading); the same devices give 'full''s, 'feet''s and 'head''s pose
+//                       number for number. state ({} to start) carries what
 //                       must last between frames (the planted feet, the hips' heading, the last poses seen). Deterministic:
 //                       the same targets, dt and state give the same pose on every device. The toes and the top of the head
 //                       go back to rest; bones it does not know (fingers) keep their pose. -> { ok, why } (for 'head',
@@ -20864,6 +20883,9 @@ function makeIK(THREE) {
     full: { need: ['hips', 'head', 'lhand', 'rhand', 'lfoot', 'rfoot'], may: ['chest', 'lelbow', 'relbow', 'lknee', 'rknee'] },
     feet: { need: ['head', 'lhand', 'rhand', 'lfoot', 'rfoot'], may: [] },
     head: { need: ['head', 'lhand', 'rhand'], may: [] },
+    // (v201: any mix of devices, each tied to the part it is nearest to; whatever has none is worked out. The head or the
+    // hips must be tracked: solve and calibrate say so in words)
+    any: { need: [], may: ['hips', 'head', 'chest', 'lhand', 'rhand', 'lfoot', 'rfoot', 'lelbow', 'relbow', 'lknee', 'rknee'] },
   };
   const fin = x => typeof x === 'number' && isFinite(x);
   const r4 = x => Math.round(x * 1e4) / 1e4, r5 = x => Math.round(x * 1e5) / 1e5;
@@ -21016,6 +21038,145 @@ function makeIK(THREE) {
     return { ok: true, map, left: pts.filter(x => !used.has(x)).map(x => x.id) };
   }
 
+  // ---- match and fit (v201): each device tied to the part it is nearest to, with the character standing where the
+  // performer stands in its T-pose (stepped into, or moved and sized there by fit)
+  const SLOTS = Object.keys(SLOT_BONE);
+  // (as fractions of the character's eye height over the floor: a device further than LIMIT from every free part is left
+  // out; two devices nearest the same part and nearer each other than TWICE are worn on it together, and only the nearer
+  // is tied to it. A fit's eye heights EYE_RANGE m, near EYE_AT m preferred)
+  const LIMIT = 0.22, TWICE = 0.1, EYE_RANGE = [1.0, 2.2], EYE_AT = 1.6;
+  // the devices given (sorted by id, so the order they come in never matters)
+  const pointsOf = targets => Object.keys(targets || {}).sort().map(id => ({ id, p: (poseOf(targets[id], newPose()) || {}).p })).filter(x => x.p);
+  // the parts' points at rest where the character stands (the head's at its eyes, where a headset is worn), relative to C
+  function slotRest(rig, C) {
+    const F = frameOf(rig), out = {}, P = newPose();
+    for (const sl of SLOTS) {
+      const b = sl === 'chest' ? rig.chest : SLOT_BONE[sl];
+      out[sl] = restAt(rig, F, sl === 'head' ? rig.eye : rig.rp[b], rig.rq.hips, P).p.clone().sub(C);
+    }
+    return out;
+  }
+  // (those points with the character scaled by k about C and moved by t)
+  const slotsAt = (R0, C, k, t) => { const o = {}; for (const sl of SLOTS) o[sl] = R0[sl].clone().multiplyScalar(k).add(C).add(t); return o; };
+  // the smallest total cost of rows to columns, one to one (n rows, m >= n columns; Kuhn and Munkres, O(n^2 m)): the
+  // column of each row
+  function hungarian(c, n, m) {
+    const u = new Array(n + 1).fill(0), v = new Array(m + 1).fill(0), p = new Array(m + 1).fill(0), way = new Array(m + 1).fill(0);
+    for (let i = 1; i <= n; i++) {
+      p[0] = i;
+      let j0 = 0;
+      const minv = new Array(m + 1).fill(Infinity), used = new Array(m + 1).fill(false);
+      do {
+        used[j0] = true;
+        const i0 = p[j0];
+        let delta = Infinity, j1 = 0;
+        for (let j = 1; j <= m; j++) {
+          if (used[j]) continue;
+          const cur = c[i0 - 1][j - 1] - u[i0] - v[j];
+          if (cur < minv[j]) { minv[j] = cur; way[j] = j0; }
+          if (minv[j] < delta) { delta = minv[j]; j1 = j; }
+        }
+        for (let j = 0; j <= m; j++) if (used[j]) { u[p[j]] += delta; v[j] -= delta; } else minv[j] -= delta;
+        j0 = j1;
+      } while (p[j0] !== 0);
+      do { const j1 = way[j0]; p[j0] = p[j1]; j0 = j1; } while (j0);
+    }
+    const a = new Array(n).fill(-1);
+    for (let j = 1; j <= m; j++) if (p[j]) a[p[j] - 1] = j - 1;
+    return a;
+  }
+  // the devices tied to the parts at points P (H: the character's eye height over the floor there): each device's nearest
+  // part (one further than LIMIT from every part left out, 'far'); of two nearest the same part within TWICE of each other
+  // the nearer kept, the other left out ('twice'); then all together, the smallest total distance, a device left out
+  // ('far') rather than tied further than LIMIT
+  function matchAt(pts, P, H) {
+    const lim = LIMIT * H, twice = TWICE * H, BIG = 1e6;
+    for (const x of pts) { x.near = ''; x.dn = Infinity; for (const sl of SLOTS) { const d = x.p.distanceTo(P[sl]); if (d < x.dn) { x.dn = d; x.near = sl; } } }
+    const out = [], cand = [];
+    let cost = 0;
+    for (const x of pts.slice().sort((a, b) => a.dn - b.dn || (a.id < b.id ? -1 : 1))) {
+      const w = cand.find(y => y.near === x.near && y.p.distanceTo(x.p) < twice);
+      if (x.dn > lim) { out.push({ id: x.id, why: 'far', slot: x.near, d: r4(x.dn) }); cost += lim; } else if (w) out.push({ id: x.id, why: 'twice', slot: x.near, by: w.id, d: r4(x.dn) }); else cand.push(x);
+    }
+    const n = cand.length, m = SLOTS.length + n;
+    const c = cand.map(x => SLOTS.map(sl => { const d = x.p.distanceTo(P[sl]); return d <= lim ? d : BIG; }).concat(new Array(n).fill(lim)));
+    const a = n ? hungarian(c, n, m) : [], got = {}, d = {};
+    cand.forEach((x, i) => {
+      const j = a[i];
+      if (j >= 0 && j < SLOTS.length && c[i][j] < BIG) { got[SLOTS[j]] = x.id; d[SLOTS[j]] = r4(c[i][j]); cost += c[i][j]; } else { out.push({ id: x.id, why: 'far', slot: x.near, d: r4(x.dn) }); cost += lim; }
+    });
+    const map = {}, dist = {};
+    for (const sl of SLOTS) if (got[sl]) { map[sl] = got[sl]; dist[sl] = d[sl]; }
+    out.sort((x, y) => (x.id < y.id ? -1 : 1));
+    return { map, d: dist, out, cost };
+  }
+  // the verdict on a match, in words, and the parts' points (for the lines drawn from each device to its part)
+  function judged(m, pts, P, extra) {
+    const at = {};
+    for (const sl of SLOTS) at[sl] = [r4(P[sl].x), r4(P[sl].y), r4(P[sl].z)];
+    const why = !pts.length ? 'Nothing is seen: no tracker, headset or controller.'
+      : !Object.keys(m.map).length ? 'Nothing is near the character: stand in it in a T-pose, facing its way.'
+        : !m.map.head && !m.map.hips ? 'Nothing is near its head or its hips: wear the headset, or a tracker on the head or on a belt.' : '';
+    return Object.assign({ ok: !why, why, map: m.map, d: m.d, out: m.out, at }, extra || {});
+  }
+  // match(rig, targets, o): the performer standing in the character (stepped into it), every device tied where it is
+  function match(rig, targets, o) {
+    o = o || {};
+    if (!rig || !rig.ok) return { ok: false, map: {}, d: {}, out: [], why: (rig && rig.why) || 'Not a rig.' };
+    rig.root.updateWorldMatrix(true, false);
+    const C = rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : C.y, pts = pointsOf(targets);
+    const P = slotsAt(slotRest(rig, C), C, 1, V()), H = P.head.y - floor;
+    if (!(H > 0.05)) return { ok: false, map: {}, d: {}, out: [], why: 'The character\'s eyes are not above the floor: stand it on the floor.' };
+    return judged(matchAt(pts, P, H), pts, P);
+  }
+  // fit(rig, targets, o): no headset: where and how big the character must be to stand in the performer, then the match
+  // there. Facing its way, the performer's highest device is taken in turn as its eyes, its chest and its hips (each a size
+  // for the character, kept when its eyes come EYE_RANGE m over the floor); at each size it is moved along the floor (the
+  // devices' middle under its hips, then four times by the parts' mean miss) and matched; the size with the least cost
+  // (the distances, LIMIT for each device left out, and a nudge towards eyes EYE_AT m up) wins. Then the size as
+  // calibrate takes it (the hips' tracker as high as its hips, else the head's at its eyes), moved again and matched.
+  // o.origin: the point it is sized about (its root's place); o.floor. -> { ok, why, k (its size, times its size now), t
+  // ([x, 0, z] to move it by), map, d (each part's distance to its device), out (the devices left out: { id, why, slot,
+  // by }), at (each part's point once moved and sized) }
+  function fit(rig, targets, o) {
+    o = o || {};
+    if (!rig || !rig.ok) return { ok: false, map: {}, d: {}, out: [], why: (rig && rig.why) || 'Not a rig.' };
+    rig.root.updateWorldMatrix(true, false);
+    const C = o.origin ? V().copy(o.origin) : rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : C.y, pts = pointsOf(targets);
+    if (!pts.length) return { ok: false, map: {}, d: {}, out: [], why: 'Nothing is seen: no tracker, headset or controller.' };
+    const R0 = slotRest(rig, C), eye0 = R0.head.y, base = C.y - floor;
+    if (!(eye0 > 1e-3) || !(R0.hips.y > 1e-3)) return { ok: false, map: {}, d: {}, out: [], why: 'The character\'s eyes are not above its origin: stand it on the floor.' };
+    const top = pts.reduce((a, b) => (b.p.y > a.p.y ? b : a));
+    const settle = (k, t) => {
+      if (!t) { t = V(); for (const x of pts) t.add(x.p); t.multiplyScalar(1 / pts.length).sub(R0.hips.clone().multiplyScalar(k).add(C)); t.y = 0; }
+      const H = base + k * eye0;
+      let P = slotsAt(R0, C, k, t), m = matchAt(pts, P, H);
+      for (let i = 0; i < 4 && Object.keys(m.map).length; i++) {
+        const miss = V();
+        let n = 0;
+        for (const sl in m.map) { miss.add(pts.find(x => x.id === m.map[sl]).p).sub(P[sl]); n++; }
+        t.x += miss.x / n; t.z += miss.z / n;
+        P = slotsAt(R0, C, k, t); m = matchAt(pts, P, H);
+      }
+      return { k, t, P, m, H };
+    };
+    let best = null;
+    for (const sl of ['head', 'chest', 'hips']) {
+      const k = (top.p.y - C.y) / R0[sl].y, e = base + k * eye0;
+      if (!(k > 0) || e < EYE_RANGE[0] || e > EYE_RANGE[1]) continue;
+      const r = settle(k);
+      r.score = r.m.cost + LIMIT * e * 2 * Math.abs(Math.log(e / EYE_AT));
+      if (!best || r.score < best.score - 1e-9) best = r;
+    }
+    if (!best) return { ok: false, map: {}, d: {}, out: [], why: `Stand up straight in a T-pose: the highest device is ${(top.p.y - floor).toFixed(2)} m over the floor.` };
+    let k = best.k;
+    const by = best.m.map.hips ? 'hips' : best.m.map.head ? 'head' : '';
+    if (by) { const y = pts.find(x => x.id === best.m.map[by]).p.y - C.y; if (y > 0) k = y / R0[by].y; }
+    k = r4(k);
+    const r = settle(k, best.t.clone());
+    return judged(r.m, pts, r.P, { k, t: [r4(r.t.x), 0, r4(r.t.z)] });
+  }
+
   // ---- calibrate: the scale and each part's offset
   function calibrate(rig, targets, map, setup, o) {
     o = o || {};
@@ -21027,12 +21188,13 @@ function makeIK(THREE) {
       const id = map && map[sl], t = id != null ? poseOf(targets && targets[id], newPose()) : null;
       if (t) { use[sl] = id; got[sl] = t; } else if (S.need.includes(sl)) return { ok: false, why: `Nothing tracks the ${SLOT_WORD[sl]}${id != null ? ` (${id} is not seen)` : ''}.` };
     }
+    if (setup === 'any' && !got.head && !got.hips) return { ok: false, why: 'Nothing tracks the head or the hips: wear the headset, or a tracker on the head or on a belt.' };
     const F = frameOf(rig);
     rig.root.updateWorldMatrix(true, false);
     const R0 = rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : R0.y;
     let k = 1;
     if (o.scale !== false) {
-      const full = setup === 'full', have = (full ? got.hips : got.head).p.y - floor;
+      const full = setup === 'full' || (setup === 'any' && !!got.hips), have = (full ? got.hips : got.head).p.y - floor;
       const mine = (full ? restAt(rig, F, rig.rp.hips, rig.rq.hips, newPose()) : restAt(rig, F, rig.eye, rig.rq.head, newPose())).p.y - floor;
       // (a person's hips stand 0.4 to 1.5 m over the floor and their eyes 0.6 to 2.3 m, kneeling to tall; the character may
       // be any size)
@@ -21121,17 +21283,21 @@ function makeIK(THREE) {
       t.p.toArray(sn.p); t.q.toArray(sn.q);
       goal(t, cal.cal[sl], G[sl]); have[sl] = true;
     }
+    // ('any', v201: whatever has a device is driven by it, the rest worked out as the lighter setups work them out; the
+    // head or the hips must be known)
+    if (setup === 'any' && !have.head && !have.hips) return { ok: false, why: 'Nothing tracks the head or the hips yet.' };
+    const headT = !!have.head, feetT = !!(have.lfoot && have.rfoot), stepL = setup === 'head' || (setup === 'any' && !have.lfoot), stepR = setup === 'head' || (setup === 'any' && !have.rfoot);
     const F = frameOf(rig, F0), B = rig.bones, R = rig.rest;
     for (const p of rig.parts) RWQ[p].copy(F.q).multiply(rig.rq[p]);
     FW.copy(rig.fwd).applyQuaternion(F.q); UW.copy(rig.up).applyQuaternion(F.q); LW.copy(rig.left).applyQuaternion(F.q);
     // the turns, as deltas from rest in the world: the head's, the hips' (from their tracker, or a heading only), the
     // chest's (from its tracker, or half way from the hips to the head), the spine's spread between them, the neck's half
     // way from the chest to the head
-    Dhd.copy(G.head.q).multiply(q1.copy(RWQ.head).invert());
+    if (headT) Dhd.copy(G.head.q).multiply(q1.copy(RWQ.head).invert());
     if (have.hips) Dh.copy(G.hips.q).multiply(q1.copy(RWQ.hips).invert());
     else {
       let yaw = headingOf(Dhd);
-      if (setup === 'feet') {
+      if (feetT) {
         Dq.copy(G.lfoot.q).multiply(q1.copy(RWQ.lfoot).invert()); v2.copy(FW).applyQuaternion(Dq);
         Dq.copy(G.rfoot.q).multiply(q1.copy(RWQ.rfoot).invert()); v2.add(v3.copy(FW).applyQuaternion(Dq)); v2.y = 0;
         if (v2.lengthSq() > 1e-10) yaw += 0.6 * wrap(yawOf(v2) - yawOf(v3.copy(FW).setY(0)) - yaw);
@@ -21145,8 +21311,10 @@ function makeIK(THREE) {
       }
       yawQ(yaw, Dh);
     }
+    // (no head tracked: it turns with the chest, its tracker's or the hips')
+    if (!headT) { if (have.chest) Dhd.copy(G.chest.q).multiply(q1.copy(RWQ[rig.chest]).invert()); else Dhd.copy(Dh); }
     if (have.chest) Dc.copy(G.chest.q).multiply(q1.copy(RWQ[rig.chest]).invert());
-    else if (setup === 'head') {
+    else if (!have.hips && !feetT) {
       // ('head', v164: the chest takes half the head's turn about the vertical but only CHEST_TILT of its nod and lean, so
       // someone looking down bends the neck, not the back: the hips stay under them and their feet in their view)
       q2.copy(Dh).invert().multiply(Dhd);
@@ -21159,7 +21327,7 @@ function makeIK(THREE) {
     WQ.hips.copy(Dh).multiply(RWQ.hips);
     for (let i = 0; i < rig.spines.length; i++) { const p = rig.spines[i]; between(Dh, Dc, (i + 1) / rig.spines.length, Dq); WQ[p].copy(Dq).multiply(RWQ[p]); }
     if (B.neck) WQ.neck.copy(Dn).multiply(RWQ.neck);
-    WQ.head.copy(G.head.q);
+    if (headT) WQ.head.copy(G.head.q); else WQ.head.copy(Dhd).multiply(RWQ.head);
     for (const s of ['lsh', 'rsh']) if (B[s]) WQ[s].copy(Dc).multiply(RWQ[s]);
     // the places down the spine from the hips at the origin; then the hips: their tracker's, else under the head so that
     // the head is where its target is
@@ -21167,10 +21335,11 @@ function makeIK(THREE) {
     for (const p of rig.parts) if (p !== 'hips' && !LIMB_RE.test(p) && p !== 'headtop') fk(rig, p);
     if (have.hips) hip.copy(G.hips.p);
     else hip.copy(G.head.p).sub(WP.head);
-    // ('feet': the hips lowered as far as both feet need to be reached)
-    if (setup === 'feet') {
+    // ('feet', and 'any' with no hips tracker: the hips lowered as far as the tracked feet need to be reached)
+    if (!have.hips && (have.lfoot || have.rfoot)) {
       let drop = 0;
-      for (const s of ['l', 'r']) {
+      for (const s of SIDES) {
+        if (!have[SN[s].foot]) continue;
         const Lg = rig.limbs[SN[s].leg], reach = (WS[Lg.u] * Lg.a + WS[Lg.u] * R[Lg.l].s * Lg.b) * 0.9995;
         v2.copy(G[SN[s].foot].p).sub(v3.copy(WP[Lg.u]).add(hip));
         if (v2.length() > reach) { const h = v2.y, q = h * h - v2.lengthSq() + reach * reach; drop = Math.max(drop, q >= 0 ? -h - Math.sqrt(q) : -h); }
@@ -21178,14 +21347,15 @@ function makeIK(THREE) {
       if (drop > 0) hip.y -= drop;
     }
     for (const p of rig.parts) WP[p].add(hip);
-    // the feet: their targets, or ('head') stepped
-    if (setup === 'head') steps(rig, cal, st, dt);
+    // the feet: their targets, or ('head', and in 'any' a foot with nothing on it) stepped
+    if (stepL || stepR) steps(rig, cal, st, dt, !stepL, !stepR);
     // the arms and legs
     for (let j = 0; j < 2; j++) {
       const s = SIDES[j], sg = j ? -1 : 1, L = rig.limbs[SN[s].arm];
       const a = WS[L.u] * L.a, b = WS[L.u] * R[L.l].s * L.b;
       if (have[SN[s].elbow]) KP.copy(G[SN[s].elbow].p).sub(WP[L.u]);
       else KP.copy(UW).multiplyScalar(-0.55).addScaledVector(FW, -0.75).addScaledVector(LW, 0.35 * sg).applyQuaternion(Dc);
+      if (!have[SN[s].hand]) hang(rig, L, s, sg, a + b);   // ('any': a hand with nothing on it hangs at the side)
       HC.copy(L.hinge).applyQuaternion(F.q).applyQuaternion(Dc);   // (the hinge at rest, carried by the chest)
       twoBone(rig, L, WP[L.u], G[SN[s].hand].p, a, b, KP, v2.copy(HC));
       WQ[L.e].copy(G[SN[s].hand].q);
@@ -21215,6 +21385,19 @@ function makeIK(THREE) {
     return SOLVED;
   }
 
+  // ---- 'any': a hand with nothing on it hangs along its side (v201): below its shoulder by HANG of the arm's length, a
+  // little out and forward, the palm turned in to the thigh; turned with the chest's heading, never its lean, so it hangs
+  // straight down as the body bends (as bodies.js hangs the hands of someone with no controllers)
+  const HANG = [0.95, 0.07, 0.05], HG = V(), DY = Q(), SW = Q();
+  function hang(rig, L, s, sg, len) {
+    yawQ(headingOf(Dc), DY);
+    HG.copy(UW).multiplyScalar(-HANG[0] * len).addScaledVector(LW, sg * HANG[1] * len).addScaledVector(FW, HANG[2] * len).applyQuaternion(DY);
+    const g = G[SN[s].hand];
+    g.p.copy(WP[L.u]).add(HG);
+    SW.setFromUnitVectors(v3.copy(LW).multiplyScalar(sg), HG.copy(UW).negate());
+    g.q.copy(DY).multiply(SW).multiply(RWQ[L.e]);
+  }
+
   // ---- 'head': the stepping feet. Each foot is planted (on the floor, where it was put down) until the hips have left it
   // behind (its home, under the hips as at rest, more than STEP of the legs' length away, or turned more than 0.6 rad from
   // it, or the leg cannot reach it); then it steps, in a short arc over STEP_T, to its home a little ahead of where the hips
@@ -21227,7 +21410,10 @@ function makeIK(THREE) {
   const STEP = 0.16, STEP_A = 0.6, STEP_T = 0.3, LIFT = 0.08, REACH = 0.006, HURRY = 5, JUMP = 0.1, GLIDE = [1.0, 0.7], GLIDE_T = 0.06;
   const HOME = [newPose(), newPose()], RF = newPose(), RH = newPose(), FL = V(), PF = [newPose(), newPose()];
   const SIDES = ['l', 'r'], LEN = [0, 0], WANT = [0, 0], OVER = [0, 0], FORCED = [false, false];
-  function steps(rig, cal, st, dt) {
+  // ('any', v201: a foot with a tracker (fixL, fixR) is never stepped: it stays planted where its tracker is)
+  const FIX = [false, false];
+  function steps(rig, cal, st, dt, fixL, fixR) {
+    FIX[0] = !!fixL; FIX[1] = !!fixR;
     const F = F0, rootY = rig.root.getWorldPosition(v3).y;
     restAt(rig, F, rig.rp.hips, rig.rq.hips, RH);
     for (let i = 0; i < 2; i++) { const L = rig.limbs[SN[SIDES[i]].leg]; LEN[i] = WS[L.u] * L.a + WS[L.u] * rig.rest[L.l].s * L.b; }
@@ -21249,7 +21435,10 @@ function makeIK(THREE) {
     hip.toArray(st.prev);
     if (!st.feet) { st.feet = HOME.map(h => ({ p: h.p.toArray(), q: h.q.toArray(), on: true, k: 0, f: null, fq: null })); st.last = 1; st.n = 0; }
     st.started = -1; st.forced = false;
-    for (let i = 0; i < 2; i++) { PF[i].p.fromArray(st.feet[i].p); PF[i].q.fromArray(st.feet[i].q); }
+    for (let i = 0; i < 2; i++) {
+      if (FIX[i]) { const g = G[SN[SIDES[i]].foot], f = st.feet[i]; g.p.toArray(f.p); g.q.toArray(f.q); f.on = true; f.k = 0; f.f = f.fq = null; }
+      PF[i].p.fromArray(st.feet[i].p); PF[i].q.fromArray(st.feet[i].q);
+    }
     const sp = Math.hypot(st.v[0], st.v[1]);
     st.glide = sp > (st.glide ? GLIDE[1] : GLIDE[0]);
     if (st.glide) {
@@ -21257,6 +21446,7 @@ function makeIK(THREE) {
       const k = dt > 0 ? 1 - Math.exp(-dt / GLIDE_T) : 1;
       for (let i = 0; i < 2; i++) {
         const f = st.feet[i];
+        if (FIX[i]) continue;
         v2.copy(HOME[i].p); v2.x += st.v[0] * GLIDE_T; v2.z += st.v[1] * GLIDE_T;
         PF[i].p.lerp(v2, k); PF[i].p.y = HOME[i].p.y; PF[i].q.slerp(HOME[i].q, k);
         f.on = true; f.k = 0; f.f = f.fq = null;
@@ -21267,6 +21457,7 @@ function makeIK(THREE) {
       for (let i = 0; i < 2; i++) {
         const f = st.feet[i];
         WANT[i] = OVER[i] = 0;
+        if (FIX[i]) continue;
         if (!f.on) { stepping = i; continue; }
         // (how much nearer reach a step home would bring it: a hip risen over both the foot and its home gains nothing)
         const hj = WP[rig.limbs[SN[SIDES[i]].leg].u];
@@ -21338,7 +21529,7 @@ function makeIK(THREE) {
     return new T.AnimationClip(name || 'Take', -1, tracks);
   }
 
-  return { rigOf, SETUPS, assign, calibrate, solve, restPose, sample, clipOf, NAMES };
+  return { rigOf, SETUPS, SLOTS, assign, match, fit, calibrate, solve, restPose, sample, clipOf, NAMES };
 }
 
 // ================================================================= MODELS ==
@@ -27174,23 +27365,26 @@ function trkState(id) {
 // worn by a performer, its bones solved every frame by the solver (ik.js, makeIK) from the PC's trackers, on every device
 // alike (nothing per bone is sent: the same tracker stream and the same record give the same pose).
 //
-// Two ways to wear it (the third, a headset alone, waits: the owner, "skip that part for now"):
-// - 'full': trackers on the hips (a belt), head, both wrists and both feet (6), and if worn the chest, both elbows and both
-//   knees (up to 11);
-// - 'feet': a tracker on each foot; the head and hands from a headset and its controllers: the PC's Index (by 'index': its
-//   headset and controllers come with the trackers, kinds 'h', 'l' and 'r') or the performer's own headset (by: their
-//   member id; this device's own poses when it is the performer, else HOST.collab.body(by), their presence's head and hands).
-// The object's record gains puppet: { on, rig: 'full' | 'feet', by, map: { slot: <a tracker's id, or '@head', '@l', '@r'
-// for the performer's own headset> }, cal: { slot: [x, y, z, qx, qy, qz, qw] }, s, floor }, kept only when set: which
-// tracker drives which part, each part's offset from its tracker to its bone found at the lining up, the object's scale then
-// and the floor's height (the scene's: 0). Line up with the performer (its card): a 5 s countdown with the performer in a
-// T-pose in front of it facing its way; the trackers given their parts (ik.js's assign: highest the head, lowest two the
-// feet...), the character moved along the floor to where the performer stands (its parts at rest, on average, where their
-// trackers are), scaled so its
-// hips (or for 'feet' its eyes) are as high as the performer's, and each part's offset taken: one change, one Undo step.
+// Worn with any mix of devices (v201; the owner, 25 November 2026: each device attached to the bone it is nearest to, any
+// mix of devices, the figure stepped into): the PC's trackers (up to 11: head, chest, hips, hands, elbows, knees, feet), a
+// headset and its controllers or tracked hands, from the PC's Index (by 'index': its headset and controllers come with the
+// trackers, kinds 'h', 'l' and 'r') or the performer's own headset (by: their member id; this device's own poses when it is
+// the performer, else HOST.collab.body(by), their presence's head and hands), or none (trackers only). Whatever part has a
+// device follows it; ik.js works out the rest (the hips under the head, the spine, natural elbows and knees, feet that step
+// by themselves, hands that hang). Records lined up before v201 ('full', 'feet') are worn as they were.
+// The object's record gains puppet: { on, rig: 'any' (or an older 'full' | 'feet'), by, map: { slot: <a tracker's id, or
+// '@head', '@l', '@r' for the performer's own headset> }, cal: { slot: [x, y, z, qx, qy, qz, qw] }, s, floor }, kept only
+// when set: which device drives which part, each part's offset from its device to its bone found at the lining up, the
+// object's scale then and the floor's height (the scene's: 0). Line up with the performer (its card): the character stands
+// in its T-pose and the performer copies it, facing its way: in a headset they step into it (sized at once so its eyes are
+// as high as the headset), with none it comes to them after a 5 s countdown (ik.js's fit: moved along the floor and sized);
+// then every device is tied to the part it is nearest to (ik.js's match) and shown, a line from each to its part and the
+// list on the card, to be changed there or taken: each part's offset taken, its place and size with it, one change, one
+// Undo step.
 // While it is on and lined up its own clip is off and its bones are solved (the parts the solver knows; fingers keep their
-// rest pose); not solvable now (a part never seen here), it stands at rest and the card says why. Its holder stays where it
-// is placed (the pointer finds it there, a ghost shows it while editing): the solver puts the bones where the trackers are.
+// rest pose); not solvable now (the head and hips never seen here), it stands at rest and the card says why. Its holder
+// stays where it is placed (the pointer finds it there, a ghost shows it while editing): the solver puts the bones where
+// the devices are.
 //
 // Record a take (its card): a 3 s countdown, then the solved bones sampled 30 times a second on the room's clock until Stop
 // (at most 120 s), made into a clip (Take n) and the object's GLB made again with its clips and the new one through the
@@ -27198,10 +27392,10 @@ function trkState(id) {
 // it was already there, every object of that file switched, a new picture; else downloaded). The take then plays as any
 // clip (the card's Animation row, with wearing off).
 const IK = makeIK(THREE);
-const PUP_RIGS = ['full', 'feet'];
+const PUP_RIGS = ['full', 'feet', 'any'];   // ('any' since v201: what a lining up makes; 'full' and 'feet', older records', still worn as they were)
 const PUP_SLOTS = ['hips', 'head', 'chest', 'lhand', 'rhand', 'lfoot', 'rfoot', 'lelbow', 'relbow', 'lknee', 'rknee'];
 const PUP_WORD = { hips: 'Hips', head: 'Head', chest: 'Chest', lhand: 'Left hand', rhand: 'Right hand', lfoot: 'Left foot', rfoot: 'Right foot', lelbow: 'Left elbow', relbow: 'Right elbow', lknee: 'Left knee', rknee: 'Right knee' };
-const PUP_RIG_WORD = { full: 'whole body', feet: 'feet and headset' };
+const PUP_RIG_WORD = { full: 'whole body, lined up before v201', feet: 'feet and headset, lined up before v201', any: 'any mix of devices' };
 const PUP_PART = { hips: 'hips', head: 'head', chest: 'chest', lhand: 'lhand', rhand: 'rhand', lfoot: 'lfoot', rfoot: 'rfoot', lelbow: 'lfore', relbow: 'rfore', lknee: 'lleg', rknee: 'rleg' };   // (the bone each part is lined up with: ik.js's)
 const PUP_BODY = /^@(head|l|r)$/;   // (the performer's own headset's head and hands)
 const PUP_COUNT = 5000, TAKE_COUNT = 3000, TAKE_FPS = 30, TAKE_MAX = 120;
@@ -27249,7 +27443,8 @@ function normPuppet(x) {
   return r;
 }
 // lined up: every part its way of wearing needs has a tracker and an offset
-const pupReady = P => !!(P && P.map && P.cal && IK.SETUPS[P.rig].need.every(s => P.map[s] && P.cal[s]));
+// ('any': the head or the hips at least)
+const pupReady = P => !!(P && P.map && P.cal && (P.rig === 'any' ? ['head', 'hips'].some(s => P.map[s] && P.cal[s]) : IK.SETUPS[P.rig].need.every(s => P.map[s] && P.cal[s])));
 
 // ------------------------------------------------------------- the rig --
 // its bones by Mixamo's names (ik.js's rigOf), found once per model built, at its rest pose (as loaded), or why not
@@ -27326,6 +27521,12 @@ function pupClock() {
 // in place of its animation (itemsStep): on and lined up, its bones solved from the trackers (true: its own clip off); else
 // false, and its clip plays as ever
 function pupStep(it, now, dt) {
+  // (lining up: it stands at rest, in its T-pose, for the performer to copy; its clip off)
+  if (PUP.line && PUP.line.id === it.id && it.rec.puppet && pupRig(it) && it.rig.ok) {
+    if (!it.pupOn) { if (it.mixer) it.mixer.stopAllAction(); it.action = null; it.animKey = ''; it.tl = null; it.pupOn = true; }
+    pupRest(it); it.pst = {}; it.pstRec = null; it.pupWhy = '';
+    return true;
+  }
   const P = it.rec.puppet, rig = P && P.on && pupReady(P) ? pupRig(it) : null;
   if (!rig || !rig.ok) { if (it.pupOn) pupOff(it); it.pupWhy = rig ? rig.why : ''; return false; }
   if (!it.pupOn) { if (it.mixer) it.mixer.stopAllAction(); it.action = null; it.animKey = ''; it.tl = null; pupRest(it); it.pupOn = true; it.pst = {}; it.pstRec = null; }   // (a cube's clips on it too: none while worn, e6n_plays.js)
@@ -27341,90 +27542,158 @@ function pupStep(it, now, dt) {
 function pupOff(it) { it.pupOn = false; it.animKey = ''; it.pupWhy = ''; pupRest(it); }
 
 // ------------------------------------------------------------ lining up --
-// PUP.line: a lining up counting down ({ id, at (performance.now() when it is done), keep: the parts as they are });
+// (v201, the owner, 25 November 2026: each device attached to the bone it is nearest to, any mix of devices, the figure
+// stepped into.) PUP.line: a lining up ({ id, phase: 'count' (counting down, at: performance.now() when it is done) or
+// 'check' (the matches shown, waiting to be taken or changed), keep: the parts as they are, head: the performer wears a
+// headset (the character sized by it and stepped into), p and s: where it stands and its size while lining up (shown,
+// not yet its record's), p0 and s0: its holder's as they were, T: the devices' poses at the countdown's end (the world),
+// m: ik.js's match there (at: each part's point), map: the matches as they stand (changed on the card) });
 // PUP.take: a take ({ id, phase: 'count' | 'rec' | 'make', at, t0, next, samples, name }); the last word on an item's
 // lining up or take (note, noteC, noteId); sec: the countdown's second shown
 const PUP = { line: null, take: null, note: '', noteC: 'muted', noteId: '', sec: -1 };
 const pupSay = (id, s, c) => { PUP.note = s; PUP.noteC = c || 'muted'; PUP.noteId = id; dirty(true); };
-// every frame (trkStep): the countdowns, the card redrawn each second
+// every frame (trkStep): the countdowns, the card redrawn each second, the character shown where and as big as the lining
+// up has it, the lines
 function pupTick(pn) {
   const L = PUP.line, T = PUP.take;
-  const sec = L ? Math.ceil((L.at - pn) / 1000) : T && T.phase === 'count' ? Math.ceil((T.at - pn) / 1000) : T && T.phase === 'rec' ? Math.floor(pupClock() - T.t0) : -1;
+  const sec = L && L.phase === 'count' ? Math.ceil((L.at - pn) / 1000) : T && T.phase === 'count' ? Math.ceil((T.at - pn) / 1000) : T && T.phase === 'rec' ? Math.floor(pupClock() - T.t0) : -1;
   if (sec !== PUP.sec) { PUP.sec = sec; dirty(); }
-  if (L && pn >= L.at) {
-    PUP.line = null;
+  if (L) {
     const it = STU.items.get(L.id);
-    if (it) {
-      const why = !editOn() ? 'Editing is off: not lined up.' : lockWhy(it) ? `${it.rec.name} is locked in place: not lined up.` : pupLineUp(it, L.keep);
-      pupSay(it.id, why || `Lined up with the performer: ${PUP_RIG_WORD[it.rec.puppet.rig]}, ${Object.keys(it.rec.puppet.map).length} parts, scale ${it.rec.s}.`, why ? 'red' : 'green');
-      sfxAct(why ? 'knock' : 'ping', 'world', null);
+    if (!it || !it.rec.puppet) { PUP.line = null; pupLook(); }
+    else if (!editOn() || lockWhy(it)) { pupEnd(it); pupSay(it.id, !editOn() ? 'Editing is off: not lined up.' : `${it.rec.name} is locked in place: not lined up.`, 'red'); }
+    else {
+      pupShow(it, L);
+      if (L.phase === 'count' && pn >= L.at) {
+        const why = !editOn() ? 'Editing is off: not lined up.' : lockWhy(it) ? `${it.rec.name} is locked in place: not lined up.` : pupCheck(it, L);
+        if (why) { pupEnd(it); pupSay(it.id, why, 'red'); sfxAct('knock', 'world', null); } else sfxAct('ping', 'world', null);
+      }
     }
   }
+  if (GL.pupLines) GL.pupLines.visible = !!(PUP.line && PUP.line.phase === 'check' && editOn());
+  if (GL.pupTags) GL.pupTags.forEach((t, i) => { t.visible = GL.pupLines.visible && i < GL.pupN; });
   if (T && T.phase === 'count' && pn >= T.at) { T.phase = 'rec'; T.t0 = pupClock(); T.next = 0; dirty(true); }
 }
+// every device here now, in the world: the PC's trackers, the PC's Index and its controllers (by 'index'), the
+// performer's own headset and hands (by a member: '@head', '@l', '@r', their controllers or tracked wrists)
+function pupDevices(by, W) {
+  const out = {};
+  for (const x of TRK.at.values()) {
+    if (!x.ok || !x.p || !(x.k === 't' || (by === 'index' && (x.k === 'h' || x.k === 'l' || x.k === 'r')))) continue;
+    out[x.id] = worldPose(_pp1.fromArray(x.p), _pq1.fromArray(x.q), W);
+  }
+  if (by && by !== 'index') for (const k of ['head', 'l', 'r']) if (bodyPose(by, k, _pp1, _pq1)) out['@' + k] = worldPose(_pp1, _pq1, W);
+  return out;
+}
+// the headset among them ('' none)
+const pupHmd = (by, D) => (by === 'index' ? Object.keys(D).find(id => (TRK.at.get(id) || {}).k === 'h') || '' : D['@head'] ? '@head' : '');
+// Line up with the performer (its card): the character stands at rest, in its T-pose, for the performer to copy. A
+// performer in a headset: the character sized at once so its eyes are as high as the headset's, where it stands, for them
+// to step into it. A 5 s countdown either way
 function pupLineStart(it, keep) {
-  const P = it.rec.puppet;
-  if (!P || !STU.items.has(it.id)) return;
-  PUP.line = { id: it.id, at: performance.now() + PUP_COUNT, keep: !!keep && !!P.map };
+  const P = it.rec.puppet, rig = P && pupRig(it);
+  if (!P || !STU.items.has(it.id) || !rig || !rig.ok) return;
+  if (PUP.line) pupEnd(STU.items.get(PUP.line.id));
+  pupRest(it); poseRest(it); it.holder.updateMatrixWorld(true);
+  const W = pupW(), D = pupDevices(P.by, W), hmd = pupHmd(P.by, D);
+  const L = { id: it.id, phase: 'count', at: performance.now() + PUP_COUNT, keep: !!keep && !!P.map, head: !!hmd, p: it.rec.p.slice(), s: it.rec.s, p0: it.holder.position.clone(), s0: it.holder.scale.clone() };
+  if (hmd) {
+    const h = D[hmd].p[1] - W.p.y, e = IK.restPose(rig, 'eye').p.y - W.p.y;
+    if (h < 0.6 || h > 2.3) { pupSay(it.id, `Stand up straight in the headset: it is ${h.toFixed(2)} m over the floor.`, 'red'); return; }
+    if (e > 1e-3) L.s = +Math.min(1e4, Math.max(1e-4, it.rec.s * h / e)).toPrecision(4);
+  }
+  PUP.line = L;
+  pupShow(it, L);
   pupSay(it.id, '', 'muted');
 }
-// the lining up itself (the countdown's end): '' done (one change, one Undo step), else why not, in words
-function pupLineUp(it, keep) {
-  const P = it.rec.puppet, rig = P && pupRig(it);
-  if (!P) return 'It is not worn with trackers.';
+// (the character drawn where and as big as the lining up has it, not yet its record's)
+function pupShow(it, L) {
+  const H = it.holder;
+  H.position.fromArray(L.p); H.scale.setScalar(L.s); H.updateMatrixWorld(true);
+}
+// the lining up ended (taken, cancelled, refused): the character as its record has it, the lines gone
+function pupEnd(it) {
+  const L = PUP.line;
+  PUP.line = null; STU.pupSlot = '';
+  if (it && L && L.id === it.id) { it.holder.position.copy(L.p0); it.holder.scale.copy(L.s0); it.holder.updateMatrixWorld(true); }
+  pupLook();
+}
+// the countdown's end: the devices' poses taken; with no headset the character moved along the floor and sized to stand in
+// the performer (ik.js's fit); then each device tied to the part it is nearest to (match; 'Line up again, these parts':
+// the parts as they are, for the devices seen). '' (the matches shown) or why not, in words
+function pupCheck(it, L) {
+  const P = it.rec.puppet, rig = pupRig(it);
   if (!rig || !rig.ok) return rig ? rig.why : 'Its model is not here yet.';
-  if (!TRK.st) return 'No trackers here: line up at the studio\'s circle in a room that uses the PC\'s trackers.';
-  // the character at rest where it is placed; the floor (the scene's, y = 0) in the world
-  pupRest(it); poseRest(it); it.holder.updateMatrixWorld(true);
-  const W = pupW(), floor = W.p.y;
-  // the trackers seen now (worn ones by their place; the Index's headset and controllers by their kind)
-  const worn = {}, idx = {};
-  for (const x of TRK.at.values()) {
-    if (!x.ok) continue;
-    if (x.k === 't') worn[x.id] = worldPose(_pp1.fromArray(x.p), _pq1.fromArray(x.q), W); else idx[x.k] = x.id;
+  pupRest(it); poseRest(it); pupShow(it, L);
+  const W = pupW(), floor = W.p.y, T = pupDevices(P.by, W);
+  if (!Object.keys(T).length) return 'Nothing is seen: no tracker here, and no headset (choose where a headset comes from).';
+  if (!L.head) {
+    const f = IK.fit(rig, T, { floor, origin: it.holder.getWorldPosition(new THREE.Vector3()) });
+    if (!f.k) return f.why;
+    const d = new THREE.Vector3().fromArray(f.t).applyQuaternion(W.q.clone().invert()).divideScalar(W.s.x);
+    L.p = it.holder.position.clone().add(d).toArray().map(v => nz(r3(clamp(v, -1000, 1000))));
+    L.s = +Math.min(1e4, Math.max(1e-4, L.s * f.k)).toPrecision(4);
+    pupShow(it, L);
   }
-  let map;
-  if (keep && P.map) map = Object.assign({}, P.map);
-  else {
-    const a = IK.assign(rig, worn, P.rig, { floor });
-    if (!a.ok) return a.why;
-    map = a.map;
-    if (P.rig === 'feet') {
-      if (P.by === 'index') {
-        if (!idx.h || !idx.l || !idx.r) return 'The PC\'s Index and both its controllers must be seen with the trackers (or choose This headset).';
-        Object.assign(map, { head: idx.h, lhand: idx.l, rhand: idx.r });
-      } else if (P.by) Object.assign(map, { head: '@head', lhand: '@l', rhand: '@r' });
-      else return 'Choose where the head and hands come from: the PC\'s Index, or the performer\'s own headset.';
-    }
-  }
-  const T = pupTargets(P.by, map, W);
-  if (!T[map.lfoot] || !T[map.rfoot]) return 'Both feet\'s trackers must be seen.';
-  // moved along the floor to where the performer stands: so that its parts at rest are, on average, where their trackers are
-  // (each tracker sits off the bone it is strapped to, a belt's behind the hips, a foot's in front of the ankle, a headset in
-  // front of the eyes: on average they mostly cancel out; the parts' offsets taken below keep what is left)
-  const d = new THREE.Vector3();
-  let n = 0;
-  for (const sl of Object.keys(map)) {
-    const t = T[map[sl]], r = IK.restPose(rig, sl === 'head' && P.rig === 'feet' ? 'eye' : PUP_PART[sl]);
-    if (!t || !r) continue;
-    d.x += t.p[0] - r.p.x; d.z += t.p[2] - r.p.z; n++;
-  }
-  d.multiplyScalar(1 / n).applyQuaternion(W.q.clone().invert()).divideScalar(W.s.x);
-  const H = it.holder, p0 = H.position.clone(), s0 = H.scale.clone();
-  const back = () => { H.position.copy(p0); H.scale.copy(s0); H.updateMatrixWorld(true); };
-  const np = p0.clone().add(d).toArray().map(v => nz(r3(clamp(v, -1000, 1000))));
-  H.position.fromArray(np); H.updateMatrixWorld(true);
-  // sized (the hips, or the eyes, as high as the performer's), its offsets taken at the size the record keeps
-  let c = IK.calibrate(rig, T, map, P.rig, { floor });
-  if (!c.ok) { back(); return c.why; }
-  const s = +Math.min(1e4, Math.max(1e-4, it.rec.s * c.s)).toPrecision(4);
-  H.scale.setScalar(s); H.updateMatrixWorld(true);
-  c = IK.calibrate(rig, T, map, P.rig, { floor, scale: false });
-  back();
-  if (!c.ok) return c.why;
-  change(() => setRec(it.id, { p: np, s, puppet: Object.assign({}, P, { on: true, map: c.map, cal: c.cal, s, floor: 0 }) }));
+  const m = IK.match(rig, T, { floor });
+  L.T = T; L.m = m; L.phase = 'check';
+  L.map = {};
+  if (L.keep) { for (const s of PUP_SLOTS) if (P.map[s] && T[P.map[s]]) L.map[s] = P.map[s]; } else Object.assign(L.map, m.map);
+  pupLook();
+  pupSay(it.id, '', 'muted');
   return '';
 }
+// the matches taken (its card: Take these): each part's offset from its device (calibrate), its place and size, worn by
+// 'any': one change, one Undo step. '' or why not
+function pupTake(it) {
+  const L = PUP.line, P = it.rec.puppet, rig = pupRig(it);
+  if (!L || L.id !== it.id || L.phase !== 'check' || !P) return 'Nothing to take: line up first.';
+  if (!rig || !rig.ok) return rig ? rig.why : 'Its model is not here yet.';
+  pupRest(it); poseRest(it); pupShow(it, L);
+  const c = IK.calibrate(rig, L.T, L.map, 'any', { floor: pupW().p.y, scale: false });
+  pupEnd(it);
+  if (!c.ok) return c.why;
+  setRec(it.id, { p: L.p, s: L.s, puppet: Object.assign({}, P, { on: true, rig: 'any', map: c.map, cal: c.cal, s: L.s, floor: 0 }) });
+  return '';
+}
+// the lines while the matches are shown (editing): from each device to the part it is tied to (green; the part chosen on
+// the card blue), a small cross at each device (amber where it is left out), and a tag on each naming its part. Opaque
+// lines and tags, over everything, as editing draws (v131)
+const PUP_LINE = [0.24, 0.88, 0.56], PUP_PICK = [0.27, 0.85, 1], PUP_OUT = [1, 0.76, 0.29];
+function pupLook() {
+  const L = PUP.line && PUP.line.phase === 'check' ? PUP.line : null;
+  if (!L && !GL.pupLines) return;
+  if (!GL.pupLines) {
+    const g = new THREE.BufferGeometry(), n = 256;
+    g.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(new Float32Array(n * 3), 3));
+    GL.pupLines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true, depthTest: false, depthWrite: false }));
+    GL.pupLines.frustumCulled = false; GL.pupLines.renderOrder = 8; GL.pupLines.visible = false;
+    GL.edit.add(GL.pupLines); GL.pupTags = [];
+  }
+  const pos = GL.pupLines.geometry.attributes.position, col = GL.pupLines.geometry.attributes.color, A = new THREE.Vector3(), Bv = new THREE.Vector3();
+  let n = 0, k = 0;
+  const seg = (a, b, c) => { if (n > pos.count - 2) return; pos.setXYZ(n, a.x, a.y, a.z); col.setXYZ(n++, ...c); pos.setXYZ(n, b.x, b.y, b.z); col.setXYZ(n++, ...c); };
+  const local = (arr, out) => { GL.edit.updateWorldMatrix(true, false); return GL.edit.worldToLocal(out.fromArray(arr)); };
+  if (L) {
+    const slotOf = id => PUP_SLOTS.find(s => L.map[s] === id) || '';
+    for (const id of Object.keys(L.T)) {
+      const s = slotOf(id), c = !s ? PUP_OUT : STU.pupSlot === s ? PUP_PICK : PUP_LINE;
+      local(L.T[id].p, A);
+      for (const ax of [[0.025, 0, 0], [0, 0.025, 0], [0, 0, 0.025]]) seg(Bv.copy(A).add(new THREE.Vector3(...ax)), new THREE.Vector3().copy(A).sub(new THREE.Vector3(...ax)), c);
+      if (s) seg(A, local(L.m.at[s], Bv), c);
+      if (!GL.pupTags[k]) { GL.pupTags[k] = LOOKS.tag(30); GL.edit.add(GL.pupTags[k]); }
+      const t = GL.pupTags[k++];
+      t.userData.set(`${s ? PUP_WORD[s] : 'Left out'} · ${pupSrcWord(it0(L), id)}`, s ? '#3ee08f' : '#ffc24a', 0.06);
+      t.position.copy(A); t.position.y += 0.06; t.visible = true;
+    }
+  }
+  GL.pupN = k;
+  for (; k < (GL.pupTags || []).length; k++) GL.pupTags[k].visible = false;
+  GL.pupLines.geometry.setDrawRange(0, n); pos.needsUpdate = col.needsUpdate = true;
+  GL.pupLines.visible = !!L && editOn();
+}
+const it0 = L => (STU.items.get(L.id) || { rec: {} }).rec.puppet || {};
 
 // ---------------------------------------------------------------- takes --
 function takeStart(it) {
@@ -27477,10 +27746,13 @@ function takeInto(m, take) {
 }
 
 // ------------------------------------------------------------- the card --
-// the default for 'feet': the PC's Index when it is seen with the trackers, else this headset (in a session, in a room)
+// where a headset comes from, by default: the PC's Index when it is seen with the trackers, else this headset (in a
+// session, in a room), else none (trackers only)
 function pupMe() { try { return XR.on && GL.renderer.xr.isPresenting && HOST.collab && HOST.collab.joined ? HOST.collab.id || '' : ''; } catch (e) { return ''; } }
-const pupByDefault = () => ([...TRK.at.values()].some(x => x.k === 'h') ? 'index' : pupMe() || 'index');
-const pupSrcWord = (P, id) => (id === '@head' ? 'the performer\'s headset' : id === '@l' ? 'their left controller' : id === '@r' ? 'their right controller' : trkWord(id));
+const pupByDefault = () => ([...TRK.at.values()].some(x => x.k === 'h') ? 'index' : pupMe());
+const pupSrcWord = (P, id) => (id === '@head' ? 'the performer\'s headset' : id === '@l' ? 'their left hand' : id === '@r' ? 'their right hand' : trkWord(id));
+// a device left out, in words (ik.js's match: beside another on the same part, or too far from every part)
+const pupOutWord = (P, x) => `${pupSrcWord(P, x.id)} (${x.why === 'twice' ? `beside ${pupSrcWord(P, x.by)} at the ${PUP_WORD[x.slot].toLowerCase()}: the nearer is tied` : 'too far from every part'})`;
 // Worn with trackers (an object's card, page and headset, editing on): for a model rigged by Mixamo; others told why not
 function puppetBlocks(it, B, dis, mv) {
   const E = it.E;
@@ -27488,40 +27760,59 @@ function puppetBlocks(it, B, dis, mv) {
   const rig = pupRig(it), P = it.rec.puppet;
   if (!rig) return;
   if (!rig.ok) {
-    B.push({ label: 'Worn with trackers', row: [{ id: 'pwear:full', label: 'Wear it with trackers', act: 'i:pwear', v: 'full', dis: true }] },
+    B.push({ label: 'Worn with trackers', row: [{ id: 'pwear:any', label: 'Wear it with trackers', act: 'i:pwear', v: 'any', dis: true }] },
       { p: rig.why + ' Only a character rigged by Mixamo can be worn with trackers for now.', c: 'faint' });
     return;
   }
   if (!P) {
-    B.push({ label: 'Worn with trackers', row: [{ id: 'pwear:full', label: 'Wear it: whole body', act: 'i:pwear', v: 'full', dis }, { id: 'pwear:feet', label: 'Wear it: feet and headset', act: 'i:pwear', v: 'feet', dis }] },
-      { p: 'A performer moves it live, for everyone here: trackers on the hips, head, wrists and feet (6; up to 11 with the chest, elbows and knees), or a tracker on each foot with a headset and its controllers. Then line it up with the performer.', c: 'faint' });
+    B.push({ label: 'Worn with trackers', row: [{ id: 'pwear:any', label: 'Wear it with trackers', act: 'i:pwear', v: 'any', dis }] },
+      { p: 'A performer moves it live, for everyone here, with any mix of devices: trackers (up to 11: head, chest, hips, hands, elbows, knees, feet), a headset, its controllers or tracked hands. Then line it up with the performer.', c: 'faint' });
     return;
   }
   const ready = pupReady(P), L = PUP.line && PUP.line.id === it.id ? PUP.line : null, T = PUP.take && PUP.take.id === it.id ? PUP.take : null, pn = performance.now();
-  B.push({ label: 'Worn with trackers', row: PUP_RIGS.map(k => ({ id: 'pwear:' + k, label: k === 'full' ? 'Whole body' : 'Feet and headset', act: 'i:pwear', v: k, on: P.rig === k, dis: dis || !!L || !!T }))
-    .concat({ id: 'pwear:none', label: 'Stop wearing', act: 'i:pwear', v: 'none', dis: dis || !!T }) });
-  if (P.rig === 'feet') {
-    const me = pupMe(), other = P.by && P.by !== 'index' && P.by !== me;
-    B.push({ label: 'Head and hands from', row: [{ id: 'pby:index', label: 'The PC\'s Index', act: 'i:pupby', v: 'index', on: P.by === 'index', dis: dis || !!L },
-      { id: 'pby:me', label: 'This headset', act: 'i:pupby', v: me, on: !!me && P.by === me, dis: dis || !!L || !me }].concat(other ? [{ id: 'pby:other', label: 'Another headset', act: 'i:pupby', v: P.by, on: true, dis: true }] : []) });
-    if (!me && P.by !== 'index') B.push({ p: 'This headset: press it in the performer\'s own headset, in the room.', c: 'faint' });
-  }
-  B.push({ kv: [['Lined up', ready ? `yes: ${Object.keys(P.map).length} parts, scale ${P.s}` + (P.s && Math.abs(P.s - it.rec.s) > 1e-9 ? ` (sized since to ${it.rec.s}: line up again)` : '') : 'not yet'],
+  B.push({ label: 'Worn with trackers', row: [{ id: 'pwear:none', label: 'Stop wearing', act: 'i:pwear', v: 'none', dis: dis || !!T }] });
+  // where a headset comes from (the PC's Index, this headset, or none)
+  const me = pupMe(), other = P.by && P.by !== 'index' && P.by !== me;
+  B.push({ label: 'Headset', row: [{ id: 'pby:index', label: 'The PC\'s Index', act: 'i:pupby', v: 'index', on: P.by === 'index', dis: dis || !!L },
+    { id: 'pby:me', label: 'This headset', act: 'i:pupby', v: me, on: !!me && P.by === me, dis: dis || !!L || !me }].concat(other ? [{ id: 'pby:other', label: 'Another headset', act: 'i:pupby', v: P.by, on: true, dis: true }] : [],
+    [{ id: 'pby:none', label: 'None', act: 'i:pupby', v: 'none', on: !P.by, dis: dis || !!L }]) });
+  if (!me && P.by !== 'index') B.push({ p: 'This headset: press it in the performer\'s own headset, in the room. With a headset the character is sized to it and stepped into; with none it comes to the performer.', c: 'faint' });
+  B.push({ kv: [['Lined up', ready ? `yes: ${Object.keys(P.cal).length} parts tied, scale ${P.s}` + (P.rig !== 'any' ? ` (${PUP_RIG_WORD[P.rig]})` : '') + (P.s && Math.abs(P.s - it.rec.s) > 1e-9 ? ` (sized since to ${it.rec.s}: line up again)` : '') : 'not yet'],
     ['Moves', P.on && ready ? 'with the performer (its own animation off)' : 'by its own animation']] });
-  B.push({ label: 'With the performer', row: [{ id: 'pupon:on', label: 'On', act: 'i:pupon', v: 'on', on: P.on && ready, dis: dis || !ready }, { id: 'pupon:off', label: 'Off', act: 'i:pupon', v: 'off', on: !(P.on && ready), dis }] });
-  if (L) B.push({ p: `Stand in a T-pose in front of it, facing its way, arms out to the sides: lining up in ${Math.max(0, Math.ceil((L.at - pn) / 1000))} s.`, c: 'amber' }, { row: [{ id: 'pupcancel', label: 'Cancel', act: 'i:pupcancel' }] });
-  else B.push({ row: [{ id: 'pupline', label: 'Line up with the performer', act: 'i:pupline', primary: !ready, dis: dis || mv || !!T }].concat(P.map ? [{ id: 'pupkeep', label: 'Line up again, these parts', act: 'i:pupkeep', dis: dis || mv || !!T }] : []) },
-    { p: 'A 5 s countdown: the performer stands in a T-pose in front of it, facing its way. Then the trackers find their parts, and the character goes to where the performer stands, sized to them. One Undo step.', c: 'faint' });
+  if (!L) B.push({ label: 'With the performer', row: [{ id: 'pupon:on', label: 'On', act: 'i:pupon', v: 'on', on: P.on && ready, dis: dis || !ready }, { id: 'pupon:off', label: 'Off', act: 'i:pupon', v: 'off', on: !(P.on && ready), dis }] });
+  if (L && L.phase === 'count') {
+    B.push({ p: L.head ? `Step into it: stand where it stands, facing its way, arms out to the sides, as it stands. Lining up in ${Math.max(0, Math.ceil((L.at - pn) / 1000))} s.`
+      : `Stand in a T-pose facing its way, arms out to the sides, as it stands: it comes to you. Lining up in ${Math.max(0, Math.ceil((L.at - pn) / 1000))} s.`, c: 'amber' },
+    { row: [{ id: 'pupcancel', label: 'Cancel', act: 'i:pupcancel' }] });
+  } else if (L) {
+    // the matches, before they are taken: each part and its device (a press: another device for it, or none)
+    const used = new Set(Object.values(L.map)), out = Object.keys(L.T).filter(id => !used.has(id)), ok = L.map.head || L.map.hips;
+    B.push({ p: 'Each device is tied to the part it is nearest to: a line runs from each to its part. Change one if a line looks wrong, then take them. A part with nothing on it is worked out.', c: 'faint' });
+    B.push({ label: 'Tied', list: PUP_SLOTS.map(s => {
+      const id = L.map[s], d = id && L.m.at[s] ? Math.hypot(...L.T[id].p.map((v, k) => v - L.m.at[s][k])) : 0;
+      return { id: 'pslot:' + s, label: PUP_WORD[s], sub: id ? `${pupSrcWord(P, id)} · ${Math.round(d * 100)} cm` : 'worked out', act: 'i:pupslot', v: s, on: STU.pupSlot === s, dis };
+    }) });
+    if (STU.pupSlot) {
+      const s = STU.pupSlot;
+      B.push({ list: Object.keys(L.T).map(id => ({ id: `pfix:${s}:${id}`, label: pupSrcWord(P, id), sub: PUP_SLOTS.find(k => L.map[k] === id) ? PUP_WORD[PUP_SLOTS.find(k => L.map[k] === id)] + ' now' : 'left out now', act: 'i:pupfix', v: s + ':' + id, on: L.map[s] === id, dis }))
+        .concat({ id: `pfix:${s}:`, label: 'Nothing', sub: 'worked out', act: 'i:pupfix', v: s + ':', on: !L.map[s], dis }) },
+      { p: `A device for the ${PUP_WORD[s].toLowerCase()} (one tied elsewhere swaps with it).`, c: 'faint' });
+    }
+    if (out.length) B.push({ p: 'Left out: ' + out.map(id => { const x = (L.m.out || []).find(y => y.id === id); return x ? pupOutWord(P, x) : `${pupSrcWord(P, id)} (changed on this card)`; }).join('; ') + '.', c: 'amber' });
+    if (!ok) B.push({ p: L.m.why || 'Nothing is tied to the head or the hips: one of them must be.', c: 'red' });
+    B.push({ row: [{ id: 'pupok', label: 'Take these', act: 'i:pupok', primary: true, dis: dis || mv || !ok }, { id: 'pupagain', label: 'Line up again', act: 'i:pupagain', dis: dis || mv }, { id: 'pupcancel', label: 'Cancel', act: 'i:pupcancel' }] });
+  } else B.push({ row: [{ id: 'pupline', label: 'Line up with the performer', act: 'i:pupline', primary: !ready, dis: dis || mv || !!T }].concat(P.map ? [{ id: 'pupkeep', label: 'Line up again, these parts', act: 'i:pupkeep', dis: dis || mv || !!T }] : []) },
+    { p: 'A 5 s countdown: the character stands in a T-pose and the performer copies it, facing its way (in a headset, standing in it: it is sized to them first; with none, it comes to them). Then each device is tied to the part it is nearest to, shown before it is taken. One Undo step.', c: 'faint' });
   if (PUP.noteId === it.id && PUP.note) B.push({ p: PUP.note, c: PUP.noteC });
-  if (P.on && ready && it.pupWhy) B.push({ p: it.pupWhy + ' It stands at rest meanwhile.', c: 'amber' });
-  // the parts (a press opens the trackers to choose from: the part is then lined up again, with these parts)
-  if (P.map) {
+  if (P.on && ready && it.pupWhy && !L) B.push({ p: it.pupWhy + ' It stands at rest meanwhile.', c: 'amber' });
+  // the parts (a press opens the devices to choose from: the part is then lined up again, with these parts)
+  if (P.map && !L) {
     B.push({ label: 'Its parts', list: PUP_SLOTS.filter(s => P.map[s]).map(s => {
       const id = P.map[s], seen = PUP_BODY.test(id) ? true : trkSeen(id);
       return { id: 'pslot:' + s, label: PUP_WORD[s], sub: pupSrcWord(P, id) + (seen ? '' : ' · not seen') + (P.cal && P.cal[s] ? '' : ' · not lined up'), act: 'i:pupslot', v: s, on: STU.pupSlot === s, dis: dis || PUP_BODY.test(id) };
     }) });
     if (STU.pupSlot && P.map[STU.pupSlot]) {
-      const s = STU.pupSlot, ks = ['head', 'lhand', 'rhand'].includes(s) && P.rig === 'feet' ? ['h', 'l', 'r'] : ['t'];
+      const s = STU.pupSlot, ks = P.rig === 'any' ? ['t', 'h', 'l', 'r'] : ['head', 'lhand', 'rhand'].includes(s) && P.rig === 'feet' ? ['h', 'l', 'r'] : ['t'];
       const L2 = trkKnown().filter(x => ks.includes(x.k));
       B.push(L2.length ? { list: L2.map(x => ({ id: `pset:${s}:${x.id}`, label: trkWord(x.id), sub: (x.ok ? 'seen' : 'not seen now') + (Object.keys(P.map).find(k => P.map[k] === x.id && k !== s) ? ' · ' + PUP_WORD[Object.keys(P.map).find(k => P.map[k] === x.id)] + ' now' : ''), act: 'i:pupset', v: s + ':' + x.id, on: P.map[s] === x.id, dis })) }
         : { p: 'No other tracker here.', c: 'faint' }, { p: 'Another tracker for this part (two parts swap theirs); then Line up again, these parts.', c: 'faint' });
@@ -27531,25 +27822,27 @@ function puppetBlocks(it, B, dis, mv) {
   if (T && T.phase === 'count') B.push({ p: `Recording a take in ${Math.max(0, Math.ceil((T.at - pn) / 1000))} s.`, c: 'amber' }, { row: [{ id: 'takecancel', label: 'Cancel', act: 'i:takecancel' }] });
   else if (T && T.phase === 'rec') B.push({ p: `Recording a take: ${Math.floor(pupClock() - T.t0)} s of at most ${TAKE_MAX}.`, c: 'amber' }, { row: [{ id: 'takestop', label: 'Stop', act: 'i:takestop', primary: true }, { id: 'takecancel', label: 'Cancel', act: 'i:takecancel' }] });
   else if (T) B.push({ p: `Making ${T.name || 'the take'}: ${CV.note || 'into its GLB...'}`, c: 'muted' });
-  else if (P.on && ready) B.push({ label: 'Takes', row: [{ id: 'take', label: 'Record a take', act: 'i:take', dis: dis || !!CV.busy || !!L }] },
+  else if (P.on && ready && !L) B.push({ label: 'Takes', row: [{ id: 'take', label: 'Record a take', act: 'i:take', dis: dis || !!CV.busy }] },
     { p: `The bones as the performer moves them, 30 times a second, up to ${TAKE_MAX} s after a 3 s countdown, then made into a clip (Take 1, Take 2...) in its GLB` + (canUpload() ? ' (into models/; every object of the file switches to it)' : ' (downloaded: put it in the scene\'s models/ folder)') + '. It plays as any clip, with wearing off.', c: 'faint' });
 }
-// the card's actions (one Undo step each, but for the countdowns, the list of parts and the takes: this device's own)
+// the card's actions (one Undo step each, but for the countdowns, the matches shown, the list of parts and the takes:
+// this device's own)
 Object.assign(ITEM_ACT, {
   pwear: (it, v) => {
     if (it.kind !== 'o') return;
-    if (PUP.line && PUP.line.id === it.id) PUP.line = null;
+    if (PUP.line && PUP.line.id === it.id) pupEnd(it);
     if (v === 'none') { if (it.rec.puppet) setRec(it.id, { puppet: undefined }); return; }
     const P = it.rec.puppet, rig = pupRig(it);
-    if (!PUP_RIGS.includes(v) || (P && P.rig === v) || !rig || !rig.ok) return;
-    setRec(it.id, { puppet: { on: false, rig: v, by: v === 'feet' ? (P && P.by) || pupByDefault() : undefined } });
+    if (v !== 'any' || P || !rig || !rig.ok) return;
+    setRec(it.id, { puppet: { on: false, rig: 'any', by: pupByDefault() || undefined } });
   },
   pupon: (it, v) => { const P = it.rec.puppet, on = v === 'on'; if (P && (!on || pupReady(P)) && P.on !== on) setRec(it.id, { puppet: Object.assign({}, P, { on }) }); },
-  // where the head and hands come from ('feet'): the feet's trackers kept, the rest lined up again
+  // where a headset comes from ('none': trackers only): the trackers' parts kept, the rest lined up again
   pupby: (it, v) => {
-    const P = it.rec.puppet;
-    if (!P || P.rig !== 'feet' || !v || P.by === v) return;
-    setRec(it.id, { puppet: { on: false, rig: P.rig, by: v, map: P.map && P.map.lfoot && P.map.rfoot ? { lfoot: P.map.lfoot, rfoot: P.map.rfoot } : undefined } });
+    const P = it.rec.puppet, by = v === 'none' ? '' : v;
+    if (!P || typeof by !== 'string' || (P.by || '') === by) return;
+    const keep = Object.fromEntries(Object.entries(P.map || {}).filter(([, id]) => !PUP_BODY.test(id) && !['h', 'l', 'r'].includes((TRK.last.get(id) || TRK.at.get(id) || {}).k)));
+    setRec(it.id, { puppet: { on: false, rig: P.rig, by: by || undefined, map: Object.keys(keep).length ? keep : undefined } });
   },
   // another tracker for a part (one that drives another part swaps with it): not lined up until Line up again
   pupset: (it, v) => {
@@ -27561,20 +27854,33 @@ Object.assign(ITEM_ACT, {
     map[s] = id;
     setRec(it.id, { puppet: Object.assign({}, P, { on: false, map, cal: undefined }) });
   },
-  pupslot: (it, s) => { STU.pupSlot = STU.pupSlot === s ? '' : s; },
+  pupslot: (it, s) => { STU.pupSlot = STU.pupSlot === s ? '' : s; pupLook(); },
+  // (the matches shown: another device for a part, or none; one tied elsewhere swaps with it)
+  pupfix: (it, v) => {
+    const L = PUP.line, [s, id] = String(v).split(/:(.*)/s);
+    STU.pupSlot = '';
+    if (!L || L.id !== it.id || L.phase !== 'check' || !PUP_SLOTS.includes(s) || (id && !L.T[id])) { pupLook(); return; }
+    const other = id ? PUP_SLOTS.find(k => L.map[k] === id && k !== s) : '';
+    if (other) { if (L.map[s]) L.map[other] = L.map[s]; else delete L.map[other]; }
+    if (id) L.map[s] = id; else delete L.map[s];
+    pupLook();
+  },
   pupline: it => pupLineStart(it, false),
   pupkeep: it => pupLineStart(it, true),
-  pupcancel: () => { PUP.line = null; },
+  pupagain: it => { const keep = !!(PUP.line && PUP.line.keep); pupEnd(it); pupLineStart(it, keep); },
+  pupok: it => { const why = pupTake(it); pupSay(it.id, why || `Lined up with the performer: ${Object.keys(it.rec.puppet.cal).length} parts tied, scale ${it.rec.s}.`, why ? 'red' : 'green'); },
+  pupcancel: it => { pupEnd(it); },
   take: it => takeStart(it),
   takestop: () => takeStop(true),
   takecancel: () => takeStop(false),
 });
-PANE_ONLY.push('pupslot', 'pupline', 'pupkeep', 'pupcancel', 'take', 'takestop', 'takecancel');
-MOVE_ACTS.push('pupline', 'pupkeep');   // (lining up moves and sizes it: refused while it is locked in place)
+PANE_ONLY.push('pupslot', 'pupfix', 'pupline', 'pupkeep', 'pupagain', 'pupcancel', 'take', 'takestop', 'takecancel');
+MOVE_ACTS.push('pupline', 'pupkeep', 'pupagain', 'pupok');   // (lining up moves and sizes it: refused while it is locked in place)
 // (for tests and the console, STUDIO.puppet)
 function pupState(id) {
-  const it = STU.items.get(id), rig = it && it.kind === 'o' ? pupRig(it) : null, P = it && it.rec.puppet, T = PUP.take;
-  return { rig: rig ? (rig.ok ? 'ok' : rig.why) : null, rec: P || null, ready: pupReady(P), on: !!(it && it.pupOn), why: (it && it.pupWhy) || '', line: PUP.line ? { id: PUP.line.id, left: PUP.line.at - performance.now(), keep: PUP.line.keep } : null,
+  const it = STU.items.get(id), rig = it && it.kind === 'o' ? pupRig(it) : null, P = it && it.rec.puppet, T = PUP.take, L = PUP.line;
+  return { rig: rig ? (rig.ok ? 'ok' : rig.why) : null, rec: P || null, ready: pupReady(P), on: !!(it && it.pupOn), why: (it && it.pupWhy) || '',
+    line: L ? { id: L.id, phase: L.phase, left: L.at - performance.now(), keep: L.keep, head: L.head, p: L.p, s: L.s, map: L.map || null, out: L.m ? L.m.out : null, why: L.m ? L.m.why : '', lines: GL.pupLines && GL.pupLines.visible ? GL.pupLines.geometry.drawRange.count / 2 : 0 } : null,
     take: T ? { id: T.id, phase: T.phase, n: T.samples.length, name: T.name } : null, note: PUP.noteId === id ? PUP.note : '', clip: !!(it && it.action) };
 }
 

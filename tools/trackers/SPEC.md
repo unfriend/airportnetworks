@@ -253,7 +253,19 @@ What the shell does with it:
   each `{ p, q }` or seven numbers, in room coordinates: the shell's lane gives it), or on the performer's own headset
   from its own head and controllers (their rays' poses), which the shell's `body()` should give alike (the turns of a
   presence's hands: untested).
-- *Line up with the performer* (its card, page and headset): the performer stands in a T-pose (Mixamo's rest pose) facing
+- **Any mix, matched by nearness (v201**; the owner, 25 November 2026: attach each device to the bone it is nearest to,
+  any mix of devices, step into the figure). One way to wear it, `rig: 'any'`: whatever devices the performer has (the
+  PC's trackers on any of the 11 parts, a headset, its controllers or tracked hands: the Index by `'index'`, a Quest by
+  its member id, or none) drive the parts they are tied to; every other part is worked out (below). *Line up with the
+  performer*: the character stands in its T-pose (its clip off) and the performer copies it, facing its way. In a headset
+  the character is sized at once so its eyes are as high as the headset, where it stands, and the performer steps into
+  it (like stepping into a suit); with none, after the 5 s countdown it comes to the performer (`fit`: a rough fit, then
+  refined). Then every device is tied to the part it is nearest to (`match`) and shown before it is taken: an opaque line
+  from each device to its part, a tag on each, the list on the card (page and headset), where a part may be given another
+  device or none; *Take these* takes the offsets, its place and size: one change, one Undo step. Records of `'full'` and
+  `'feet'` keep working unchanged; lining one up again makes it `'any'`. No room key or `state()` changed shape (the
+  record's `rig` takes one more value): no `FORMAT` bump.
+- *Line up with the performer* before v201 (records of `'full'` and `'feet'`): the performer stands in a T-pose (Mixamo's rest pose) facing
   the character's way; a 5 s countdown, then the trackers (and in the lighter setups the headset and controllers) are
   given their parts (automatically from the T-pose: highest
   the head, lowest two the feet, the hands furthest out, left and right by the facing, the hips the one nearest the middle
@@ -286,9 +298,27 @@ or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
   `mixamorig1:`, no prefix), in Mixamo's chains, with the rest pose as the bones stand now (call it on the model as loaded;
   `rig.toRest()` puts it back), or a sentence why not: *Not a Mixamo rig: no bone named mixamorig:Spine, ...*, *This
   model has no bones: ...*, *Its bones are not in Mixamo's order: ...*.
-- `assign(rig, targets, setup)`: the parts from a T-pose facing the character's way, by the rule above (`full`, 6 to 11
-  trackers); `feet` the two feet by side; `head` nothing (the caller names the headset and controllers). Too few, or no
-  hand found on both sides, is said in words.
+- `assign(rig, targets, setup)` (before v201, kept; the studio no longer calls it): the parts from a T-pose facing the
+  character's way, by the rule above (`full`, 6 to 11 trackers); `feet` the two feet by side; `head` nothing (the caller
+  names the headset and controllers). Too few, or no hand found on both sides, is said in words.
+- `match(rig, targets, o)` (v201): the performer standing in the character in its T-pose. Each of the 11 parts has a
+  point at rest (the head's at the eyes, where a headset is worn; the elbows and knees at the joint). A device further
+  than `LIMIT` (0.22 of the character's eye height over the floor, about 35 cm for a person) from every part is left out
+  (`'far'`); of two devices nearest the same part and within `TWICE` (0.1, about 16 cm) of each other, only the nearer is
+  tied and the other left out (`'twice'`, said beside which: a controller and a wrist tracker, a headset and a head
+  tracker); the rest are tied all together, one to one, the least total distance (Kuhn and Munkres), a device left out
+  rather than tied further than `LIMIT`. Ids are sorted first, so the order they come in never matters. Refused in words:
+  nothing seen, nothing near, nothing at the head or hips (the map still given, for the card). Returns the parts' points
+  (`at`) for the lines.
+- `fit(rig, targets, o)` (v201): no headset: the character facing its own way, the highest device is tried as its eyes,
+  its chest and its hips (a size each, kept when its eyes would be 1.0 to 2.2 m up); at each size it is moved along the
+  floor (the devices' middle under its hips, then four times by the tied parts' mean miss) and matched; the least cost
+  wins (the distances, `LIMIT` for each device left out, and a nudge towards eyes 1.6 m up: three trackers on the hips and
+  feet fit as hips, not as a small head). Then sized as `calibrate` sizes `'any'` (the hips' tracker as high as its hips,
+  else the head's at its eyes), moved again and matched. Returns `k` (its size, times its size now, about `o.origin`) and
+  `t` (the move). In the test a performer 1.08 times the size, 1.2 m away: every tracker tied, moved within 3 cm, sized
+  within 1 %; arms 30 degrees down, elbows bent and turned 10 degrees: still every tracker tied (the largest distance 32
+  cm).
 - `calibrate(rig, targets, map, setup, o)`: the performer stands in the character in a T-pose (the character's bones
   are read where it stands, so the studio moves it to the performer first, or the performer steps into it). `s`: the
   hips tracker's height over the character's hips (`full`), or the headset's over the character's eyes (its head bone
@@ -298,6 +328,14 @@ or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
   tracker is strapped to). Plain JSON: `map`, `cal` and `s` are the record's, and `floor` (the floor's height then, where
   `head` plants its feet) joins them. The caller scales the character by `s` before solving. Refused in words: a part not
   tracked, a hips tracker not 0.4 to 1.5 m up, a headset not 0.6 to 2.3 m up.
+- `'any'` (v201) in `calibrate` and `solve`: any slots; the head or the hips needed (else said in words). Each part from
+  its device where it has one, else as the lighter setups: the hips under the head (their heading 60 % with the feet when
+  both are tracked, lowered to reach a tracked foot; else following the head), the chest between the hips and the head
+  (or, with no hips and no feet, the 'head' way), the head turned with the chest when untracked, a foot with no tracker
+  stepped (the other planted on its tracker), a hand with nothing on it hanging along its side (below its shoulder by
+  0.95 of the arm's length, 0.07 out and 0.05 forward, the palm turned in, with the chest's heading but not its lean, as
+  `bodies.js` hangs a hand with no controller). Sized by the hips' tracker when tied, else the head's at the eyes. The
+  same devices give `'full'`'s, `'feet'`'s and `'head'`'s pose number for number (tested).
 - `solve(rig, cal, targets, dt, state)`: as "The solver" above. The hips from their tracker, else under the head (their
   height and place so that the head is where its target is, turned with the head, and in `feet` 60 % with the feet,
   lowered when a foot could not be reached); the spine spread evenly from the hips to the chest (its tracker, else half
@@ -321,7 +359,7 @@ or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
 The test rig: `tools/studio/test/scenes/puppet/rig.glb` (`tools/studio/test/make.mjs`, about 60 KB, never Mixamo's files):
 25 bones with Mixamo's names in a T-pose, each bone's frame as Mixamo's (y along the bone) under an Armature scaled 0.01,
 an eight- or twelve-sided tube per bone (1,568 triangles, two materials) and a walk in place, Walk, whose elbows and knees
-bend only about their hinges. `test-ik.mjs` (47 checks since v164, under a second) loads it twice with three.js's GLTFLoader, one
+bend only about their hinges. `test-ik.mjs` (67 checks since v201, under a second) loads it twice with three.js's GLTFLoader, one
 walking as the performer, and fixes trackers (random offsets), a headset and controllers to its bones. As it stands:
 `full` with 6 trackers puts the hands and feet within 0.06 mm of the truth and turns the hips, head, hands and feet within
 0.01 degrees (the arms' and legs' twist is a guess there: up to 12 and 3 degrees); with 11 trackers, the performer away
@@ -333,8 +371,9 @@ lands); standing with a head bob of 2.5 cm over its rest and a sway it takes no 
 v164 stepped 19 times); looking down 1 rad the hips stay within 3.1 cm and the chest tilts 9.5 degrees (before, 15 cm and
 32); at 1.6 m/s the feet glide within 1.5 cm of under the hips; a take replays the solved pose exactly.
 
-The studio's side (the card, the record, wearing it, takes saved as GLB: lane C) is built in v126. Not done yet: a
-character lined up anywhere but where the performer stands (the studio moves it there first: a leftover offset between
+The studio's side (the card, the record, wearing it, takes saved as GLB: lane C) is built in v126, lined up by nearness
+since v201. Not done yet: a character lined up anywhere but where the performer stands (the studio moves it there first,
+or the performer steps into it: a leftover offset between
 the two, a few cm where the trackers' own offsets do not average out, turns with the performer); shoulders that shrug as the arms rise, a spine
 that bends more at its top than its foot, a forearm's twist shared with it (Mixamo's sits on the hand); rigs other than
 Mixamo's, elbows or knees that bend another way, non-uniform scales. *Headset only* (`head`) stays unused (deferred

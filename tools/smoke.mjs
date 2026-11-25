@@ -12595,9 +12595,9 @@ if (runs('studio trackers')) {
       E.openScene('rig', 'pick');
       for (let k = 0; k < 400 && !(E.STU.scene === 'rig' && E.STU.items.get('dan001') && E.STU.items.get('dan001').model); k++) await new Promise(res => setTimeout(res, 50));
       E.select('dan001');
-      const B = E.paneBlocks('item'), row = B.find(b => b.row && b.row.some(t => t.id === 'pwear:full')), why = B.find(b => b.p && /^Not a Mixamo rig: no bone named mixamorig:Spine/.test(b.p));
-      if (!row || !row.row.find(t => t.id === 'pwear:full').dis || !why) o.push('the dancer: ' + JSON.stringify([row, why, E.STUDIO.puppet('dan001')]));
-      E.itemAct('pwear', 'full', 'dan001');
+      const B = E.paneBlocks('item'), row = B.find(b => b.row && b.row.some(t => t.id === 'pwear:any')), why = B.find(b => b.p && /^Not a Mixamo rig: no bone named mixamorig:Spine/.test(b.p));
+      if (!row || !row.row.find(t => t.id === 'pwear:any').dis || !why) o.push('the dancer: ' + JSON.stringify([row, why, E.STUDIO.puppet('dan001')]));
+      E.itemAct('pwear', 'any', 'dan001');
       if (E.STU.items.get('dan001').rec.puppet) o.push('the dancer was worn');
       return o;
     });
@@ -12706,33 +12706,42 @@ if (runs('studio puppet')) {
         if (E.STUDIO.puppet('pup001').rig !== 'ok') o.push('the rig: ' + E.STUDIO.puppet('pup001').rig);
         E.select('pup001');
         let B = E.paneBlocks('item');
-        if (!B.some(b => b.row && b.row.some(t => t.id === 'pwear:full' && !t.dis)) || !B.some(b => b.row && b.row.some(t => t.id === 'pwear:feet'))) o.push('the card offers no Wear it: ' + JSON.stringify(B.filter(b => b.row).map(b => b.row.map(t => t.id))));
+        if (!B.some(b => b.row && b.row.some(t => t.id === 'pwear:any' && !t.dis))) o.push('the card offers no Wear it: ' + JSON.stringify(B.filter(b => b.row).map(b => b.row.map(t => t.id))));
         const u0 = E.UNDO.length;
-        E.itemAct('pwear', 'full', 'pup001');
-        if (JSON.stringify(it.rec.puppet) !== '{"on":false,"rig":"full"}' || E.UNDO.length !== u0 + 1) o.push('Wear it: ' + JSON.stringify(it.rec.puppet));
+        E.itemAct('pwear', 'any', 'pup001');
+        if (JSON.stringify(it.rec.puppet) !== '{"on":false,"rig":"any"}' || E.UNDO.length !== u0 + 1) o.push('Wear it: ' + JSON.stringify(it.rec.puppet));
         // the headset's card: Line up pressed there starts the countdown, Cancel stops it
         E.select('pup001');
         if (!E.press('pupline') || !E.PUP.line || !E.press('pupcancel') || E.PUP.line) o.push('the headset\'s Line up and Cancel: ' + JSON.stringify(E.PUP.line));
         // the countdown, then the lining up
         E.itemAct('pupline', '', 'pup001');
         B = E.paneBlocks('item');
-        const cd = B.find(b => b.p && /T-pose .*lining up in [45] s/.test(b.p));
+        const cd = B.find(b => b.p && /T-pose .*it comes to you\. Lining up in [45] s/.test(b.p));
         if (!E.PUP.line || !cd) o.push('the countdown: ' + JSON.stringify([E.PUP.line, B.filter(b => b.p).map(b => b.p)]));
         const p0 = it.rec.p.slice(), u1 = E.UNDO.length;
         E.PUP.line.at = 0;
         P.frame(0, false);
+        // (v201: the matches shown first, a line from each tracker to its part and the list on the card; then taken)
+        const ln = E.STUDIO.puppet('pup001').line;
+        B = E.paneBlocks('item');
+        if (!ln || ln.phase !== 'check' || ln.lines < 24 || Object.keys(ln.map).length !== 6 || it.rec.puppet.cal || E.UNDO.length !== u1 || !B.some(b => b.list && b.list.some(t => t.id === 'pslot:lhand' && /cm$/.test(t.sub))) || !B.some(b => b.row && b.row.some(t => t.id === 'pupok' && !t.dis))) o.push('the matches shown: ' + JSON.stringify([ln, it.rec.puppet]));
+        // (a part changed on the card and changed back: the lines and the list follow)
+        E.itemAct('pupfix', 'lhand:' + P.ID.rhand, 'pup001');
+        if (E.PUP.line.map.lhand !== P.ID.rhand || E.PUP.line.map.rhand !== P.ID.lhand) o.push('a part changed on the card: ' + JSON.stringify(E.PUP.line.map));
+        E.itemAct('pupfix', 'lhand:' + P.ID.lhand, 'pup001');
+        E.itemAct('pupok', '', 'pup001');
         const pr = it.rec.puppet;
         if (E.PUP.line || !pr || !pr.on || E.UNDO.length !== u1 + 1) o.push('lined up: ' + JSON.stringify([E.STUDIO.puppet('pup001'), E.UNDO.length - u1]));
         else {
           const want = { hips: P.ID.hips, head: P.ID.head, lhand: P.ID.lhand, rhand: P.ID.rhand, lfoot: P.ID.lfoot, rfoot: P.ID.rfoot };
-          if (JSON.stringify(pr.map) !== JSON.stringify(Object.fromEntries(Object.keys(pr.map).map(k => [k, want[k]]))) || Object.keys(pr.map).length !== 6 || Object.keys(pr.cal).length !== 6) o.push('the parts found: ' + JSON.stringify(pr.map));
+          if (pr.rig !== 'any' || JSON.stringify(pr.map) !== JSON.stringify(Object.fromEntries(Object.keys(pr.map).map(k => [k, want[k]]))) || Object.keys(pr.map).length !== 6 || Object.keys(pr.cal).length !== 6) o.push('the parts found: ' + JSON.stringify(pr.map));
           if (Math.hypot(it.rec.p[0] - 0.6, it.rec.p[2] + 1.2) > 0.003 || it.rec.p[1] !== p0[1] || Math.abs(it.rec.s - 1) > 1e-3 || pr.s !== it.rec.s) o.push('moved to the performer and sized: ' + JSON.stringify([it.rec.p, it.rec.s, pr.s]));
           if (!E.paneBlocks('item').some(b => b.list && b.list.some(t => t.id === 'pslot:lhand'))) o.push('the card lists no parts');
         }
         // Undo takes the lining up back (its place too); lined up again
         E.undo();
         if (it.rec.puppet.on || it.rec.puppet.cal || JSON.stringify(it.rec.p) !== JSON.stringify(p0)) o.push('Undo of the lining up: ' + JSON.stringify([it.rec.p, it.rec.puppet]));
-        E.itemAct('pupline', '', 'pup001'); E.PUP.line.at = 0; P.frame(0, false);
+        E.itemAct('pupline', '', 'pup001'); E.PUP.line.at = 0; P.frame(0, false); E.itemAct('pupok', '', 'pup001');
         // its walk: the hands and feet within 5 mm of the truth, its clip off
         let worst = 0, n = 0;
         for (let k = 0; k <= 99; k++) { P.frame(k / 30, true); worst = Math.max(worst, P.err(['lhand', 'rhand', 'lfoot', 'rfoot'])); n++; }
@@ -12770,7 +12779,7 @@ if (runs('studio puppet')) {
         const N = x => { const r = E.norm('o', { file: 'rig.glb', p: [0, 0, 0], puppet: x }); return r ? JSON.stringify(r.puppet) : 'bad'; };
         const cal7 = [0.123456, 0, 0, 0, 0, 0, 1];
         const cases = [
-          [{}, '{"on":false,"rig":"full"}'], [{ on: true, rig: 'feet', by: 'index' }, '{"on":true,"rig":"feet","by":"index"}'], [{ by: '' }, '{"on":false,"rig":"full"}'],
+          [{}, '{"on":false,"rig":"full"}'], [{ on: true, rig: 'feet', by: 'index' }, '{"on":true,"rig":"feet","by":"index"}'], [{ rig: 'any' }, '{"on":false,"rig":"any"}'], [{ by: '' }, '{"on":false,"rig":"full"}'],
           [{ map: { head: 'LHR-1', lhand: '@l', nose: 'LHR-2' }, cal: { head: cal7, lfoot: cal7 }, s: 1.23456, floor: -0.00001 }, '{"on":false,"rig":"full","map":{"head":"LHR-1","lhand":"@l"},"cal":{"head":[0.1235,0,0,0,0,0,1]},"s":1.235,"floor":0}'],
           [{ on: 1 }, 'bad'], [{ rig: 'head' }, 'bad'], [{ by: 'a b' }, 'bad'], [{ map: { head: 'x y' } }, 'bad'], [{ map: { head: '@nose' } }, 'bad'], [{ map: [] }, 'bad'],
           [{ map: { head: 'LHR-1' }, cal: { head: [0, 0, 0, 0, 0, 0, 0] } }, 'bad'], [{ map: { head: 'LHR-1' }, cal: { head: [1, 2, 3] } }, 'bad'], [{ s: 0 }, 'bad'], [{ floor: 'x' }, 'bad'], ['full', 'bad'],
@@ -12857,9 +12866,12 @@ if (runs('studio puppet')) {
         const E = window.__E, P = window.__pp, o = [], it = E.STU.items.get('pup001');
         P.names = ['lfoot', 'rfoot', 'hmd', 'lctl', 'rctl']; P.body = false;
         P.frame(0, false);
-        E.itemAct('pwear', 'feet', 'pup001');
-        if (JSON.stringify(it.rec.puppet) !== '{"on":false,"rig":"feet","by":"index"}') o.push('Wear it, feet: ' + JSON.stringify(it.rec.puppet));
-        E.itemAct('pupline', '', 'pup001'); E.PUP.line.at = 0; P.frame(0, false);
+        E.itemAct('pupby', 'index', 'pup001');
+        if (it.rec.puppet.rig !== 'any' || it.rec.puppet.by !== 'index' || it.rec.puppet.on || it.rec.puppet.cal) o.push('the PC\'s Index as the headset: ' + JSON.stringify(it.rec.puppet));
+        // (a headset: the character sized by it at once, where it stands, for the performer to step into)
+        E.itemAct('pupline', '', 'pup001');
+        if (!E.PUP.line || !E.PUP.line.head || Math.abs(E.PUP.line.s - 1) > 2e-3 || !E.paneBlocks('item').some(b => b.p && /^Step into it/.test(b.p))) o.push('stepped into: ' + JSON.stringify(E.STUDIO.puppet('pup001').line));
+        E.PUP.line.at = 0; P.frame(0, false); E.itemAct('pupok', '', 'pup001');
         const pr = it.rec.puppet;
         if (!pr.on || pr.map.head !== P.ID.hmd || pr.map.lhand !== P.ID.lctl || pr.map.rhand !== P.ID.rctl || pr.map.lfoot !== P.ID.lfoot || pr.map.rfoot !== P.ID.rfoot || Math.abs(it.rec.s - 1) > 2e-3) o.push('lined up, feet: ' + JSON.stringify([pr, it.rec.s, E.PUP.note]));
         const run = what => {
@@ -12873,7 +12885,7 @@ if (runs('studio puppet')) {
         E.itemAct('pupby', 'perf01', 'pup001');
         if (it.rec.puppet.by !== 'perf01' || it.rec.puppet.on || it.rec.puppet.cal) o.push('Head and hands from another headset: ' + JSON.stringify(it.rec.puppet));
         P.body = true; P.frame(0, false);
-        E.itemAct('pupline', '', 'pup001'); E.PUP.line.at = 0; P.frame(0, false);
+        E.itemAct('pupline', '', 'pup001'); E.PUP.line.at = 0; P.frame(0, false); E.itemAct('pupok', '', 'pup001');
         const pm = it.rec.puppet;
         if (!pm.on || pm.map.head !== '@head' || pm.map.lhand !== '@l' || pm.map.rhand !== '@r') o.push('lined up from a headset: ' + JSON.stringify([pm, E.PUP.note]));
         run('a performer\'s own headset');
@@ -13301,7 +13313,7 @@ if (runs('studio guide')) {
     const room = layout.objects.reduce((s, o) => s + (r.tris[o.file] || 0), 0);
     if (room > 60000) r.out.push(`${room} triangles as placed`);
     for (const o of layout.objects) if (o.clip && !(r.clips[o.file] || []).includes(o.clip)) r.out.push(`${o.id}: ${o.file} has no clip ${o.clip}`);
-    for (const id of ['try001', 'try002']) { const o = layout.objects.find(x => x.id === id); if (!o || !o.puppet || o.puppet.on || o.puppet.by) r.out.push(id + ': its wearing is not ready: ' + JSON.stringify(o && o.puppet)); }
+    for (const id of ['try001']) { const o = layout.objects.find(x => x.id === id); if (!o || !o.puppet || o.puppet.on || o.puppet.by || o.puppet.rig !== 'any') r.out.push(id + ': its wearing is not ready: ' + JSON.stringify(o && o.puppet)); }
     console.log(`     (${Object.keys(r.tris).length} models, ${layout.objects.length} objects, ${room.toLocaleString('en-GB')} triangles as placed)`);
     if (r.out.length) errors.push(...r.out.map(b => 'studio guide: ' + b));
   });
