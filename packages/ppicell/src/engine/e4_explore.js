@@ -13,10 +13,11 @@ const TABS = [['scenes', 'Cell'], ['pick', 'Pick']];
 // 2026; EXPLORE_START, as entering explore mode from the story does too)
 const EXPLORE_START = { cell: { show: '1' } };
 // ties: a picked protein's copies joined by fine dots (1, the Pick tab's Copies switch) or not (0)
-const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1, ties: 1 };   // (the scene starts still: the owner)
+// cx: a complex picked (PSIDES.cx's number; -1 none), one pick at a time with pp and pc
+const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1, cx: -1, ties: 1 };   // (the scene starts still: the owner)
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cell_show', 'cell_faces', 'cell_kind', 'cell_pp', 'cell_pc', 'cell_ties']);
+const STEP = new Set(['cell_show', 'cell_faces', 'cell_sides', 'cell_kind', 'cell_pp', 'cell_pc', 'cell_ties', 'cell_cxs', 'cell_cxp', 'cell_cxon']);
 //#use orbit ctlValue ctlOf
 // a view option's camera: the cam view of the same name, or the one it stands for ({ set: { option: view } })
 const CAM_ALIAS = {};
@@ -32,7 +33,7 @@ function exploreTargets(now = performance.now()) {
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
-  if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc, cell_ties: X.ties });
+  if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc, cell_cxp: X.cx, cell_cxs: 0, cell_cxa: 1, cell_ties: X.ties });
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -43,11 +44,12 @@ function ctlSound(k, key, v) {
   if (key === 'view') sfxAct('whoosh', k, null, { dur: 0.7, pitch: 1.1 }); else sfxAct('step', k, null);
 }
 //#use showView flyTo orbitStep flyNear sceneCtl
-// a pick: a protein (pp) or a place (pc), the other let go; the same again lets go (ui: picked here, with a sound)
-function setPick(pp, pc, ui) {
-  if (ui && pp === X.pp && pc === X.pc) pp = pc = -1;
-  X.pp = pp; X.pc = pc;
-  if (ui && (pp >= 0 || pc >= 0)) sfxAct('clink', 'cell', 'centre');
+// a pick: a protein (pp), a place (pc) or a complex (cx), the others let go; the same again lets go (ui: picked here,
+// with a sound)
+function setPick(pp, pc, ui, cx = -1) {
+  if (ui && pp === X.pp && pc === X.pc && cx === X.cx) pp = pc = cx = -1;
+  X.pp = pp; X.pc = pc; X.cx = cx;
+  if (ui && (pp >= 0 || pc >= 0 || cx >= 0)) sfxAct('clink', 'cell', 'centre');
   pushState(); renderAll();
 }
 // the Copies switch: a picked protein's copies joined by fine dots, or not
@@ -62,12 +64,12 @@ function setTies(on, ui) {
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls. The camera is
 // each person's own. v: the shape of this state (FORMAT is the app's: a package that changes its state's shape bumps
 // v, and apply ignores a state of another v, from an older copy on another device).
-const COLLAB_V = 2;   // (2: copies, the Copies switch)
+const COLLAB_V = 3;   // (2: copies, the Copies switch; 3: cx, a complex picked, and the cell's Sides and Complexes controls)
 //#use collabView collabSetView
 function collabState() {
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, p: X.pp, place: X.pc, copies: X.ties };
+  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, p: X.pp, place: X.pc, cx: X.cx, copies: X.ties };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and the
 // camera stays where this person has it
@@ -80,8 +82,8 @@ function collabApply(v) {
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
-  const okP = x => Number.isInteger(x) && x >= -1 && x < PDATA.N, okC = x => Number.isInteger(x) && x >= -1 && x < 13;
-  if (okP(v.p) && okC(v.place) && (v.p !== X.pp || v.place !== X.pc)) { X.pp = v.p; X.pc = v.place; }
+  const okP = x => Number.isInteger(x) && x >= -1 && x < PDATA.N, okC = x => Number.isInteger(x) && x >= -1 && x < 13, okX = x => Number.isInteger(x) && x >= -1 && x < PSIDES.cx.length;
+  if (okP(v.p) && okC(v.place) && okX(v.cx) && (v.p !== X.pp || v.place !== X.pc || v.cx !== X.cx)) { X.pp = v.p; X.pc = v.place; X.cx = v.cx; }
   if ((v.copies === 0 || v.copies === 1) && v.copies !== X.ties) X.ties = v.copies;
   renderAll();
 }
@@ -104,6 +106,7 @@ function buildExplore() {
       clear: () => setPick(-1, -1, false),
       copies: () => setTies(+v, true),
       pickp: () => setPick(+v, -1, true),
+      pickcx: () => setPick(-1, -1, true, +v),
     }[b.dataset.act] || (() => {}))();
   });
   renderAll();
@@ -122,6 +125,10 @@ function renderAll() { renderScenes(); renderPick(); updateExtraLabels(); }
 function pickLine() {
   const f = api('cell').focus && api('cell').focus();
   if (!f) return 'Nothing picked: the background shows the most important links of the kinds on show.';
+  if (f.kind === 'complex') {
+    const [g, a, r, n] = f.t;
+    return `${f.name} (${f.ac}, the Complex Portal): ${many(f.members.length, 'member')}${f.missing ? ` (and ${fmt(f.missing)} not in this interactome)` : ''}, ${fmt(f.placed)} with a place; ${f.where}. Its links inside it: ${fmt(g)} possible, ${fmt(a)} through a gate (amber), ${fmt(r)} impossible (red)${n ? `, ${fmt(n)} not judged` : ''}.`;
+  }
   if (f.kind === 'protein') {
     if (f.none) return `${f.sym} has no place in the Atlas: its ${many(f.links, 'link')}${kindWords()} ${f.links === 1 ? 'is' : 'are'} drawn grey, from its dot outside the cell.`;
     const [g, a, r, n] = f.t, pl = f.places.map(x => `${x.name}${x.main ? ' (main)' : ''}, ${x.face}`);
@@ -130,6 +137,13 @@ function pickLine() {
   // (the cytoskeleton runs through the whole cell; drawn along a few fibres here, so the cell stays readable)
   const cyto = f.place === 11 ? ' In a real cell the cytoskeleton runs everywhere; here its proteins sit along a few fibres, so the cell stays readable.' : '';
   return `${f.name}: ${fmt(f.here)} proteins listed here.${cyto} ${f.shown < f.inner ? `The top ${fmt(f.shown)} of its ${fmt(f.inner)} possible links${kindWords()} inside it, the most kinds of evidence first` : `All ${fmt(f.inner)} possible links${kindWords()} inside it`}.`;
+}
+// a pick's complexes (a protein's) or members (a complex's), as buttons: [[act, number, label]], the best first
+function pickList() {
+  const f = api('cell').focus && api('cell').focus(), c = api('cell').cx;
+  if (f && f.kind === 'protein' && f.cx.length) return { head: `In ${many(f.cx.length, 'complex').replace(/xs$/, 'xes')} (the Complex Portal): pick one`, items: f.cx.map(n => ['pickcx', n, c.name(n)]) };
+  if (f && f.kind === 'complex') return { head: 'Its members: pick one', items: f.members.map(p => ['pickp', p, api('cell').sym(p)]) };
+  return null;
 }
 // the Copies switch, in words (both panes)
 const COPIES_TEXT = 'A protein in several places, or drawn again beside its partners and at gates, has several dots: fine grey dots join them.';
@@ -185,17 +199,29 @@ function renderPick() {
     pane.innerHTML = `<p class="sub">Click a dot (in a headset: point and press) to pick a protein and see all its links, or pick a place. The same again lets go.</p>
       <form class="grp" id="pickFind" autocomplete="off"><label for="pickSym">Protein</label> <input id="pickSym" type="text" placeholder="a symbol, such as TP53" size="16" spellcheck="false"> <span class="sub" id="pickMsg"></span></form>
       <div class="chips" id="pickHits"></div>
+      <form class="grp" id="pickCxFind" autocomplete="off"><label for="pickCx">Complex</label> <input id="pickCx" type="text" placeholder="a name, such as proteasome" size="20" spellcheck="false"></form>
+      <div class="chips" id="pickCxHits"></div>
       <div id="pickBody"></div>`;
     $('#pickFind').addEventListener('submit', ev => { ev.preventDefault(); findProtein($('#pickSym').value); });
     $('#pickSym').addEventListener('input', renderHits);
+    $('#pickCxFind').addEventListener('submit', ev => { ev.preventDefault(); const h = api('cell').cx.search($('#pickCx').value, 1); if (h.length) setPick(-1, -1, true, h[0]); });
+    $('#pickCx').addEventListener('input', renderCxHits);
   }
-  renderHits();
+  renderHits(); renderCxHits();
+  const pl = pickList();
   const names = api('cell').places || [];
   $('#pickBody').innerHTML = `<div class="chips">${names.map((n, k) => chip(`data-act="place" data-v="${k}"`, esc(n), X.pc === k)).join('')}</div>
     <p class="sub">${esc(pickLine())}</p>${kindsLine() ? `<p class="sub">${esc(kindsLine())}</p>` : ''}
-    ${X.pp >= 0 || X.pc >= 0 ? `<div class="chips">${chip('data-act="clear" data-v="1"', 'Clear', false)}</div>` : ''}
+    ${pl ? `<p class="grp-h">${esc(pl.head)}</p><div class="chips">${pl.items.slice(0, 40).map(([a, v, n]) => chip(`data-act="${a}" data-v="${v}"`, esc(n), false)).join('')}</div>` : ''}
+    ${X.pp >= 0 || X.pc >= 0 || X.cx >= 0 ? `<div class="chips">${chip('data-act="clear" data-v="1"', 'Clear', false)}</div>` : ''}
     <p class="grp-h">Copies</p><div class="chips">${[[1, 'On'], [0, 'Off']].map(([v, n]) => chip(`data-act="copies" data-v="${v}"`, n, X.ties === v)).join('')}</div>
     <p class="sub">${esc(COPIES_TEXT)}</p>`;
+}
+// the complexes whose names hold what is typed in the page's second box (the page only)
+function renderCxHits() {
+  const el = $('#pickCxHits'), inp = $('#pickCx');
+  if (!el || !inp) return;
+  el.innerHTML = api('cell').cx.search(inp.value, 10).map(n => chip(`data-act="pickcx" data-v="${n}"`, esc(api('cell').cx.name(n)), X.cx === n)).join('');
 }
 function renderScenes() {
   const pane = $('#pane-scenes');
@@ -216,8 +242,10 @@ function statsLine() {
 function readingLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.L) return '';
-  return s.g ? 'Generous reading: an organelle\'s protein may also sit on its membrane, facing the cytosol; the plasma membrane\'s face outside too, the nuclear envelope\'s the cytosol. The Atlas does not say which.'
-    : 'Strict reading: an organelle\'s protein is inside it; the plasma membrane\'s face the cytosol, the nuclear envelope\'s the nucleoplasm. The Atlas does not say which side a protein is on.';
+  const sides = ['Sides: none, the Atlas\'s places alone (it does not say which side of a membrane a protein is on). ', 'Sides: from UniProt where it names the place. ',
+    'Sides: from UniProt where it names the place, elsewhere from the protein\'s own build (spans, anchors, a signal peptide; no signal taken as the cytosol\'s side, a rule with exceptions). '][s.sd] || '';
+  return sides + (s.g ? `${s.sd ? 'Unknown sides read generously' : 'Generous reading'}: an organelle's protein may also sit on its membrane, facing the cytosol; the plasma membrane's face outside too, the nuclear envelope's the cytosol.`
+    : `${s.sd ? 'Unknown sides read strictly' : 'Strict reading'}: an organelle's protein is inside it; the plasma membrane's face the cytosol, the nuclear envelope's the nucleoplasm.`) + (ctlValue('cell', ctlOf('cell', 'cx')) === '1' ? ' Complexes on: each a ring round its members (a picked protein\'s, or every one).' : '');
 }
 //#use updateExtraLabels
 

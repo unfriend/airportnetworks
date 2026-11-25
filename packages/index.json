@@ -491,7 +491,7 @@
       "kick": "Spatial interactome",
       "col": "#7fe0c4",
       "desc": "An interactome of 13,460 proteins put back into a cell: which of its links can happen where, and why it is so hard to tell.",
-      "len": "Story 12:32 · cell model",
+      "len": "Story 15:07 · cell model",
       "page": "Back into the cell: an interactome in a model cell",
       "brand": "Back into the cell",
       "sub": "an interactome in a model cell",
@@ -503,11 +503,10 @@
       "list": "stories",
       "icon": "spatial.cell",
       "needs": 178,
-      "fp": "908440bb6f67a2bf",
-      "bytes": 14092677,
+      "fp": "89ba78680b45ee2d",
+      "bytes": 8456648,
       "files": {
-        "audio/narration.mp3": "be03f44bdaf75d92",
-        "main.js": "acdddcaf1cfdfbae",
+        "main.js": "0caa129c69090f81",
         "models/actin.mol": "0480e2bdb7510b92",
         "models/b2ar.mol": "797dba67cff0e8c5",
         "models/b2lig.mol": "7a30550ecf5cecd8",
@@ -529,7 +528,7 @@
         "models/tp53.mol": "bc2a746ffaee14c3",
         "models/tub.mol": "fade26a3876b8358",
         "models/ubq.mol": "c08acee7eced7cbc",
-        "story.json": "17a0a1d14f38429b"
+        "story.json": "6e15a43377bff785"
       }
     },
     {

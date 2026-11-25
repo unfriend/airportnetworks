@@ -18,15 +18,21 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
   - the gene numbers to symbols and Ensembl ids: NCBI Gene (public domain).
 - Membrane sides and complexes (derived classes and memberships only, in `src/sets/sides.js`, written by
   `src/data/gen_sides.py` from `src/sets/data.js` and three public files; decoded by `src/sets/psides.js`; the rules and
-  counts are `src/SPEC.md`, "Membrane sides and complexes"):
+  counts are `src/SPEC.md`, "Membrane sides and complexes"). Since v205 the story judges with them (carried sides, the
+  owner's choice: UniProt's where it names the place, elsewhere the protein's own build; the unknown ones strict), shows
+  the complexes (chapter 6, *Machines*, and explore mode) and credits both in its small print:
   - which side of a membrane each protein sits on, and each protein's reviewed accession: UniProtKB/Swiss-Prot release
     2026_04 (its subcellular locations, membrane spans, topological domains, lipidation, signal and transit peptides),
     licensed CC BY 4.0 (rest.uniprot.org/help/license); credit: The UniProt Consortium, UniProt: the Universal Protein
-    Knowledgebase in 2025, Nucleic Acids Research 53, D609 (2025).
+    Knowledgebase in 2025, Nucleic Acids Research 53, D609-D617 (2025), doi:10.1093/nar/gkae1010 (checked against
+    UniProt's own "How to cite us", 25 November 2026).
   - the complexes: the EBI Complex Portal (www.ebi.ac.uk/complexportal), curated human complexes, release 2026-11-20
-    (names, Complex Portal accessions and members). Its licence is to confirm (we believe CC0 or CC BY 4.0; neither
-    the download folder nor the pages we could fetch state it); credit: Meldal et al., Complex Portal 2022: new
-    curation frontiers, Nucleic Acids Research 50, D578 (2022).
+    (names, Complex Portal accessions and members). **Its terms are to confirm before the story moves to `main`** (the
+    owner, 25 November 2026: "we will confirm the terms later"; we believe CC0 or CC BY 4.0, but neither the download
+    folder nor the pages we could fetch state it); credit: B. H. M. Meldal et al., Complex Portal 2022: new curation
+    frontiers, Nucleic Acids Research 50, D578-D586 (2022), doi:10.1093/nar/gkab991 (checked against Europe PMC's
+    record; the Complex Portal's own pages are a script we could not read, so whether it asks for this paper or a
+    newer one is still to check).
   - the gene numbers again from the symbols: NCBI Gene (public domain).
 - The crowd (chapter 2): real proteins each simplified to a few balls, from `src/data/gen_structs.py <folder>` (writes
   `src/sets/structs.js`; the PDB, public domain), drawn as sphere impostors.
@@ -36,11 +42,32 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
   `tools/mol/build.py` from the entries listed in `src/models.json`, into `models/` (one `.mol` file each and
   `index.json`): `~/molenv/bin/python tools/mol/build.py packages/ppicell/src/models.json packages/ppicell/models`
   (it downloads any entry it lacks from files.rcsb.org; `--check`; the setup is `tools/mol/README.md`).
-- Simplifications: vesicles count with the cytosol, the cytoskeleton (with the primary cilium) is in the cytosol, and the
-  mitochondria are taken as their matrix. The Atlas's *Uncertain* locations are kept: only 182 of the 2,958 impossible
-  links (strict reading) have an uncertain end.
+- Simplifications: vesicles count with the cytosol, the cytoskeleton (with the primary cilium) is in the cytosol. The
+  mitochondria are judged in four layers where UniProt tells them apart (outer membrane, the gap, inner membrane,
+  matrix; the gap is a space of its own) and drawn with two skins, the gap between; a mitochondrial protein whose layer
+  is not known is taken to be in the matrix. A complex is drawn as its members gathered on a small disk in a ring, not
+  where each member's own dot is. The Atlas's *Uncertain* locations are kept: only 182 of the 2,958 impossible links
+  (strict reading, without sides) have an uncertain end.
 - Every number the story shows is computed from these as the page runs (`src/sets/pdata.js`, `PDATA`); the judgement
   (possible, through a gate, impossible) is the story's own method, tried out first in `packages/cellstress`.
+
+## The voice (v205: to be made)
+
+The words changed in v205 (sides and complexes: `src/SCRIPT-sides.md`), and the synthetic voice (Kokoro, `tools/voice/`)
+cannot run on the cloud machine, so the story has no recording for now: it plays with subtitles only (the headset's from
+the `data-say` words), on a timeline laid out by `tools/voice/narrate.mjs --dry` from estimated durations (16.2
+characters a second, as the v204 recording read). The v204 recording says the old words, so it is not served: it is
+kept as `src/narration-v204-old.mp3` (not in the package's index; delete it once the new one is made). Where Kokoro is
+set up (`tools/voice/README.md`), serve the folder and run:
+
+```
+node tools/voice/narrate.mjs ppicell --lines    # what will be read (check A T P, E R, N F kappa B, proteasome)
+node tools/voice/narrate.mjs ppicell            # writes audio/narration.mp3, NARRATION_SYNC and NARRATION_ENDS in
+                                                # src/engine/e3_story.js, rebuilds main.js and the index
+node tools/voice/check.mjs ppicell              # the story against its recording
+```
+
+Then `len` in `story.json`, the times in `docs/narration-timings.txt`, `VERSION` in `sw.js` and `node tools/release.mjs`.
 
 ## Building it
 

@@ -61,16 +61,32 @@ the Atlas's reliability. Every number shown is computed from `PDATA` at load tim
 
 | Set | What it is | Built from |
 | --- | --- | --- |
-| `cell` | the cell map's model cell (skins, the 13 places), the dots, the links in their three colours, the pick | `packages/cellstress/src/sets/cell.js`, made to read `PDATA` |
+| `cell` | the cell map's model cell (skins, the 13 places; each mitochondrion two skins since v205), the dots (a membrane protein's on its side: `drawCode`), the links in their three colours, the pick; since v205 the judgement with sides (`cell_sides`: 0 none, 1 named, 2 carried; each reading and sides judged once) and the complexes (`cell_cxs` the story's examples, `cell_cxp` a picked one, `cell_cxon` every one or a picked protein's, `cell_cxa` their fade: one Points and one LineSegments draw for all) | `packages/cellstress/src/sets/cell.js`, made to read `PDATA` and `PSIDES` |
 | `ball` | the interactome as a hairball: the same 2,000 links and their proteins on a sphere layout, morphing into the cell (each dot flies to its place; a protein in several places splits into copies on the way) | new |
 | `models` | helpers, not a set: the protein models (`src/models.json`, built by `tools/mol/build.py` into `models/`, drawn by the engine's `molMesh` and `molInstanced`: `tools/mol/SPEC.md`); `molPrep` (a set's `prep`: true once its models have come; the first call starts fetching all of them), `molCredit`, `molPts`, `molAxis` | new |
 | `crowd` | one dot opening into the crowd it stands for: a 100 nm cube packed about as densely as a real cytoplasm with 3,600 real proteins (ubiquitin, calmodulin, actin, GAPDH, tubulin), each simplified to a few balls (`coarse` in `sets/structs.js`, from `src/data/gen_structs.py`), sizes to scale, none overlapping (packed in slices before the set is built: `SETS.crowd.prep`), jiggling in the shader; every ball a point drawn as a lit sphere with its true depth (one draw, about 42,000 points; the owner, 22 November 2026: the balls look better than simplified surfaces); calmodulin marked | new |
-| `walls` | the spaces lit one by one (the cytosol, the nucleus, the ER's and the Golgi's lumens, the mitochondria, the small organelles, outside), membranes as walls; the receptor across the plasma membrane is the beta-2 adrenergic receptor (PDB 2RH1 as a cartoon, its seven helices as ribbons, the bundle along the membrane's normal from UniProt P07550's membrane spans, coloured by those spans in `models.json`: outside, in the membrane, inside); the pore and the import site schematic | new, over `cell` (`FRAME`), `models` |
+| `walls` | (v205: beside the receptor, the sides a protein can take, `walls_sides`: calmodulin inside, H-Ras on the cytosol's side, a ball on a stalk on the far side, a rod through once, a ball drifting off outside; at the import site the mitochondrion's four layers lit in turn, `walls_lay`) the spaces lit one by one (the cytosol, the nucleus, the ER's and the Golgi's lumens, the mitochondria, the small organelles, outside), membranes as walls; the receptor across the plasma membrane is the beta-2 adrenergic receptor (PDB 2RH1 as a cartoon, its seven helices as ribbons, the bundle along the membrane's normal from UniProt P07550's membrane spans, coloured by those spans in `models.json`: outside, in the membrane, inside); the pore and the import site schematic | new, over `cell` (`FRAME`), `models` |
 | `lens` | the methods as lenses over the cell: in a yeast nucleus H-Ras and Raf's Ras-binding domain (PDB 4G0N, two surfaces cut from the entry in its own coordinates) meeting at their crystal contact (two-hybrid); a broken-open cell, the crowd's real proteins (instanced, LOD 2) in their places' colours falling into a tube onto an antibody (PDB 1IGT, a surface, light and heavy chains in two shades) (purification); a bait carrying the biotin ligase BirA (PDB 1BIA, a surface), a halo of tags on the crowd's real proteins (instanced) round it (proximity labelling) | new, `models` |
 | `sites` | a hub up close (GRB2, PDB 1GRI, its surface): its three binding domains coloured (the one a partner docks at lit, `setHighlight` on its residue range), its partners taking turns at them as their docking stretches (chains of nine amino acids: a phosphotyrosine stretch at the SH2, proline-rich ones at the SH3s), not all 872 at once; and a shuttle: TP53 (1TSR) to and fro, STAT3 (1BG1) switched on by JAK2's kinase (2B7A), through a pore, onto DNA beside p300's acetyltransferase domain (3BIY), all as surfaces (the STAT3 pair and its DNA three models cut from 1BG1's assembly in its own coordinates, so they line up and move apart); the pores and the envelope schematic | new, `models` |
 | `next` | what it would take: the cell refining (a proximity atlas's halos, a cryo-ET slab with its few molecules sharp, a whole-cell volume), ending on the honest cell: dense local networks, thin traffic through gates, a red remainder | new, over `cell` |
 
-## The story (about 540 s)
+## The story (about 540 s; 716 s of story time since v205, about 15 minutes with the voice)
+
+Since v205 (stage B of "Membrane sides and complexes" below) the chapters are: map 0-60, crowd 60-115, walls 115-223,
+back 223-305, judge 305-380, machines 380-442, red 442-581, moments 581-651, next 651-716 (story time); the words are
+`src/SCRIPT-sides.md`'s, in `src/engine/e3_story.js`. The table below is the first plan; what v205 changed:
+
+- 3 *Spaces and walls* (108 s): after the receptor, the sides a protein can take (shown beside it) and how we know
+  (UniProt; a protein's own build; the no-signal rule, said to have exceptions); after the import site the
+  mitochondrion's four layers lit one after another.
+- 4 *Back into the cell* (82 s): a line for the membrane proteins settling on their sides.
+- 5 *Can they meet?* (75 s): the verdicts with carried sides, the unknown ones strict.
+- 6 *Machines* (new, 62 s): the Complex Portal's complexes as rings round their members; inside a space (the
+  mitochondrial ribosome's large subunit), on a face (the COPII coat), through a membrane (the nuclear pore, ATP
+  synthase); the 26S proteasome listed apart (a part in the nucleoplasm, a part in the cytosol, one gate apart); BiP
+  (HSPA5) listed only in the cytosol.
+- 7 *Why red?* (139 s): the sides part in three: without sides (inside only, either side), with sides (the unknown
+  ones strict, generous; the share they settle), the links worse off with sides.
 
 | # | Chapter | s | Sets | What happens |
 | --- | --- | --- | --- | --- |
@@ -94,6 +110,14 @@ rule): numbers stand as tags on the cell, the lenses and the dots they belong to
   their colours, dotted ties between its copies; a place, its links inside it. As cellstress.
 - Address: `#ppicell&explore&show=2&faces=strict&kind=binary&p=TP53` (a protein by symbol), `&place=4`.
 - Shared state `{ v, tab, show, faces, kind, shells, p, place }` (outcomes only).
+- Since v205: *Sides* (carried, the default; named only; none, the old judgement) and *Unknown sides* (strict or
+  generous, the old *Reading*, now for the sides not known); *Complexes* off or on (on: every complex as a ring, or a
+  picked protein's). A protein's pick gives each place's side in words (and how it is known) and lists its complexes
+  to press; a complex's pick (pressed there, or typed on the page in the *Complex* box) draws it, dims the rest and
+  gives its members (to press), its position (inside a space, on a face, through a membrane, listed apart: one gate
+  apart or no way to meet) and its links inside it by verdict. Address `&sides=named`, `&cx=on`,
+  `&complex=CPX-5993`; shared state `{ v: 3, tab, scene, ctl (with sides and cx), p, place, cx, copies }` (FORMAT
+  `networks-57`).
 
 ## Headset
 
@@ -286,3 +310,26 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   story moves to `main`.
 - **A new chapter** *Machines* (complexes) between *Can they meet?* and *Why red?*; the script is the main
   conversation's (25 November 2026) and is in `src/engine/e3_story.js` once stage B is built.
+
+### Stage B, the story (done, v205, 25 November 2026)
+
+- **In the build**: `sides.js` and `psides.js` after `pdata.js`; the story judges with carried sides, the unknown ones
+  strict: 83,847 possible, 14,445 through a gate, 1,187 impossible of 99,479 (generous 85,792 / 12,821 / 866); without
+  sides 81,131 / 15,390 / 2,958 and 88,456 / 11,023 / 0; the sides settle 6,499 of the 8,736 links that hung on the
+  reading (74 %); 300 links fare worse than without sides (170 possible to a gate, 78 possible and 52 gate to
+  impossible). All computed as the page runs.
+- **Complexes** (carried, strict): 1,243 inside a space, 96 on a face, 157 through a membrane, 243 listed apart (231 a
+  gate apart, 12 no way to meet: `PSIDES.cxGate`, counted in `test-sides.mjs`; 200 with a single member the odd one
+  out), 387 with fewer than two placed. The examples hold in the data: the 39S mitochondrial ribosomal subunit (inside,
+  the matrix; the script's "the ribosome of the mitochondria"), the COPII coat (on a face, the cytosol), the nuclear
+  pore and ATP synthase (through a membrane), the 26S proteasome (listed apart, a gate apart: 19 parts listed in the
+  nucleus and the cytosol, 5 only in the nucleus, 5 only in the cytosol), HSPA5 listed only in the cytosol.
+- **Drawn**: a complex's placed members as dots of their own on a small disk where it sits (inside: at its best
+  connected member's dot, in a mitochondrion or small organelle at its middle; on a face or through: on the membrane
+  at a member's own dot, each member off the skin by the side it reaches), one ring round them, its links inside in
+  their verdicts' colours; listed apart, a disk per space (the nucleoplasm and cytosol parts facing each other across
+  the envelope) and an amber (one gate) or red (no way) tie between. The mitochondria's gap is space 9 (judged, with
+  its gates) and drawn between the two skins.
+- **The voice**: not made on the cloud machine (no Kokoro); the v204 recording (old words) is kept unserved as
+  `src/narration-v204-old.mp3`, and the story runs on subtitles with a table laid out by `narrate.mjs --dry` on
+  estimated durations; `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell` where Kokoro is (README.md).

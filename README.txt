@@ -38,7 +38,9 @@ Network stories - installable web app
      Marina Montserrat Díez, Christa Schleper and colleagues  (packages/soil/main.js)
   - Spatial interactome, where proteins meet in a cell  (packages/spatial/main.js)
   - Back into the cell: an interactome of 13,460 proteins put back into a
-     model cell, which of its links can happen where  (packages/ppicell/main.js)
+     model cell, which of its links can happen where, which side of a membrane
+     each protein sits on (UniProt) and its machines (the Complex Portal's
+     complexes)  (packages/ppicell/main.js)
   And an introduction, Your guide: a robot guide shows you how the app works
      in a headset, then a few tasks to practise (packages/tutorial/main.js; the last
      story card on the Stories screen)

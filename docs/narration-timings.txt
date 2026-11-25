@@ -68,6 +68,13 @@ The CDK5 story, The switch that sticks (#cdk5, a story package since v189), has 
 chapters start at 0:00, 1:17, 2:03, 2:32, 3:12, 3:52, 4:35, 5:23, 6:07, 6:57
 and 7:58, ending at 8:27 (the v191 script); its tables are in packages/cdk5/src/engine/e3_story.js (then rebuild).
 
+Back into the cell (#ppicell, a story package) has no recording since v205: its words changed (sides and
+complexes), and the v204 recording (the old words) is kept unserved as packages/ppicell/src/narration-v204-old.mp3.
+It plays with subtitles on a table laid out by tools/voice/narrate.mjs --dry on estimated durations: chapters start
+at 0:00, 1:11, 2:15, 4:26, 5:57, 7:37, 8:47, 11:58 and 13:33, ending at 15:07 (an estimate). Where Kokoro is,
+node tools/voice/narrate.mjs ppicell makes the recording and writes the real tables into
+packages/ppicell/src/engine/e3_story.js (then node tools/voice/check.mjs ppicell); write the new times here.
+
 The network-medicine story (#proteins) has packages/proteins/audio/narration.mp3. Its
 chapters start at 0:00, 0:21, 0:50, 1:21, 1:49, 2:25, 3:20, 3:54, 4:34 and
 5:25, ending at 5:48; its tables are in packages/proteins/main.js.

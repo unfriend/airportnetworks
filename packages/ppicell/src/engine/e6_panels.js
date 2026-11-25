@@ -5,7 +5,7 @@
 const sigMainS = () => '';
 // explore mode in the main panel's signature: everything its panes show (drawn again only when this changes)
 function sigMainX() {
-  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.ties, pickLine(), kindsLine(), SRCH.on, SRCH.q].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.cx, X.ties, pickLine(), kindsLine(), SRCH.on, SRCH.q].join('|');
 }
 // the station's story (slideshow, sound effects, shared rooms) and the panel's title: story.json's
 const XR_HERE = KEY;
@@ -32,14 +32,16 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
     y += 76;
   }
   const sc = SCENES.find(s => s[0] === X.scene);
-  y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 4) + 12;
-  y += textBlock(ctx, statsLine(), x, y, W, 23, 32, VC.ink, 400, 4) + 8;
-  y += textBlock(ctx, readingLine(), x, y, W, 23, 32, VC.muted, 400, 4) + 18;
+  y += textBlock(ctx, sc[2], x, y, W, 25, 35, VC.muted, 400, 3) + 12;
+  y += textBlock(ctx, statsLine(), x, y, W, 23, 32, VC.ink, 400, 3) + 8;
+  y += textBlock(ctx, readingLine(), x, y, W, 23, 32, VC.muted, 400, 2) + 18;
+  // (each control's name beside its buttons, so all seven fit: the panel cannot scroll)
+  const LW = 200;
   for (const c of ctlsOf(X.scene).filter(c => ctlShown(X.scene, c))) {
-    if (y + 110 > bottom) break;
-    ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(c.label, x, y);
-    y += 36;
-    y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlValue(X.scene, c) === v, fn: () => setCtl(X.scene, c.key, v) })), x, y, W, bottom, { px: 24, h: 56 }) + 24;
+    if (y + 60 > bottom) break;
+    ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.textBaseline = 'middle'; ctx.fillText(c.label, x, y + 26); ctx.textBaseline = 'top';
+    y += flow(ctx, P, c.options.map(([v, n]) => ({ id: 'ctl:' + c.key + ':' + v, label: n, on: ctlValue(X.scene, c) === v, fn: () => setCtl(X.scene, c.key, v) })), x + LW, y, W - LW, bottom, { px: 23, h: 52 }) + 14;
+    ctx.textBaseline = 'top';
   }
 }
 
@@ -65,15 +67,23 @@ function drawPickPane(ctx, P, x, y, W, bottom) {
     else y += textBlock(ctx, `No protein in this interactome starts with ${SRCH.q}.`, x, y, W, 23, 32, VC.muted, 400, 1) + 18;
     y += textBlock(ctx, pickLine(), x, y, W, 24, 33, VC.ink, 400, 5) + 12;
     if (kindsLine()) y += textBlock(ctx, kindsLine(), x, y, W, 22, 31, VC.muted, 400, 2) + 18;
-    if ((X.pp >= 0 || X.pc >= 0) && y + 56 < bottom) vButton(ctx, P, 'pick:clear', x, y, 180, 56, 'Clear', () => setPick(-1, -1, false), { px: 22 });
+    if ((X.pp >= 0 || X.pc >= 0 || X.cx >= 0) && y + 56 < bottom) vButton(ctx, P, 'pick:clear', x, y, 180, 56, 'Clear', () => setPick(-1, -1, false), { px: 22 });
     return;
   }
   y += Math.max(56, textBlock(ctx, 'Point at a dot and press to pick a protein and see all its links, or pick a place. The same again lets go.', x + 190, y, W - 190, 23, 31, VC.muted, 400, 3)) + 16;
   const names = api('cell').places || [];
   y += flow(ctx, P, names.map((n, k) => ({ id: 'place:' + k, label: n, on: X.pc === k, fn: () => setPick(-1, k, true) })), x, y, W, bottom, { px: 23, h: 52 }) + 18;
-  y += textBlock(ctx, pickLine(), x, y, W, 24, 33, VC.ink, 400, 7) + 12;
-  if (kindsLine()) y += textBlock(ctx, kindsLine(), x, y, W, 22, 31, VC.muted, 400, 3) + 18;
-  if ((X.pp >= 0 || X.pc >= 0) && y + 56 < bottom) { vButton(ctx, P, 'pick:clear', x, y, 180, 56, 'Clear', () => setPick(-1, -1, false), { px: 22 }); y += 76; }
+  y += textBlock(ctx, pickLine(), x, y, W, 24, 33, VC.ink, 400, 6) + 12;
+  // a protein's complexes, or a complex's members, as buttons (renderPick's chips; two rows at most, before the kinds of
+  // evidence: the panel cannot scroll)
+  const pl = pickList();
+  if (pl && y + 100 < bottom) {
+    ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText(pl.head, x, y);
+    y += 36;
+    y += flow(ctx, P, pl.items.map(([a, v, n]) => ({ id: a + ':' + v, label: n.length > 34 ? n.slice(0, 33) + '…' : n, on: false, fn: () => (a === 'pickcx' ? setPick(-1, -1, true, v) : setPick(v, -1, true)) })), x, y, W, Math.min(bottom, y + 2 * 52 + 8), { px: 22, h: 52 }) + 18;
+  }
+  if (kindsLine() && y + 70 < bottom) y += textBlock(ctx, kindsLine(), x, y, W, 22, 31, VC.muted, 400, 2) + 18;
+  if ((X.pp >= 0 || X.pc >= 0 || X.cx >= 0) && y + 56 < bottom) { vButton(ctx, P, 'pick:clear', x, y, 180, 56, 'Clear', () => setPick(-1, -1, false), { px: 22 }); y += 76; }
   // the Copies switch (renderPick's twin)
   if (y + 110 > bottom) return;
   ctx.font = vfont(23); ctx.fillStyle = VC.muted; ctx.fillText('Copies', x, y);

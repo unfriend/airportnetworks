@@ -873,6 +873,25 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   `HOST.audio.fx` (`sfxCue`, 47 cues; `MANY.tutorial = 70` in `tools/sfx-cues.mjs`), no background.
 - British English. The credits say its moves and words were written by Claude.
 
+## Back into the cell (`packages/ppicell/`, a story package) is built the same way
+
+- Its plan, data, sets and chapters: `packages/ppicell/src/SPEC.md`; its sources and credits: `packages/ppicell/README.md`.
+  Sets in `src/sets/` (`cell`, `ball`, `crowd`, `walls`, `lens`, `sites`, `next`) over `PDATA` (`pdata.js`, the
+  interactome and the Atlas's places) and, since v205, `PSIDES` (`psides.js` over `sides.js`: UniProt's membrane sides
+  and the Complex Portal's complexes, `src/data/gen_sides.py`; `node packages/ppicell/src/data/test-sides.mjs`).
+- The judgement (v205): carried sides (UniProt's where it names the place, else the protein's own build; no signal
+  taken as the cytosol's side, said in the story to be a rule with exceptions), the unknown ones strict; the cell's
+  `cell_sides` (0 none, 1 named, 2 carried) and `cell_faces` (the unknown sides' reading). Every count the story shows
+  comes from that, computed as the page runs; the old judgement without sides stays computable (explore mode's
+  *Sides: None*, the *Why red?* chapter compares).
+- Complexes: chapter 6 *Machines* and explore mode's *Complexes* switch and complex pick (`cell_cxs`, `cell_cxp`,
+  `cell_cxon`, `cell_cxa`): dots of their own in a ring, one Points and one LineSegments draw for all. Never call a
+  complex listed apart wrong: the story says an address is off, not the link.
+- The voice: synthetic (Kokoro). After its words change, `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell`
+  where Kokoro is; until then (v205) it runs on subtitles with a table laid out on estimated durations
+  (`packages/ppicell/README.md`, "The voice").
+- British spelling; "in this map" for counts on the set; the Complex Portal's terms are to confirm before `main`.
+
 ## The design room (`stories/design.js`) is built the same way
 
 `stories/design.js` (the props table) is generated from `tools/design/` (`node tools/design/build.mjs`, `--check` as

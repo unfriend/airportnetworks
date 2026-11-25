@@ -87,6 +87,16 @@ const PSIDES = (() => {
     }
     return { kind: 3, site: -1 };
   };
-  return { S, P, cls, lay, ev, by, acc, B, GATES, MEMS, spaces: S.spaces, classes: S.classes, locMask, masks, judge, known, cx, ofProt, cxPos };
+  // a complex whose members cannot meet (cxPos kind 3), told apart: true when every two of its placed members share a
+  // space or are one gate apart (the proteasome: nucleoplasm and cytosol), false when some two have no way to meet
+  const cxGate = (c, generous, carry) => {
+    const m = masks(generous, carry), placed = c.members.filter(p => P.pl[p]);
+    for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+      const a = m[placed[i]], b = m[placed[j]];
+      if (!(a & b) && !gated(a, b)) return false;
+    }
+    return true;
+  };
+  return { S, P, cls, lay, ev, by, acc, B, GATES, MEMS, SIDES, spaces: S.spaces, classes: S.classes, locMask, masks, judge, known, gated, cx, ofProt, cxPos, cxGate };
 })();
 if (typeof module !== 'undefined') module.exports = PSIDES;

@@ -1,0 +1,21 @@
+{
+  "version": "networks-v205",
+  "date": "2026-11-25",
+  "new": [
+    "Back into the cell: which side of a membrane each protein sits on (UniProt), on the cell and in the verdicts. Red links fall from about 3,000 to about 1,200; the story says what the sides settle and what they make worse.",
+    "A new chapter, Machines: the Complex Portal's complexes as rings round their members, inside a space, on a face, through a membrane, and the proteasome listed in two rooms.",
+    "Its explore mode: Sides (carried, named only, none), Complexes on or off, a complex picked from a protein or by name. The voice is not made yet: subtitles only until it is.",
+    "Still untried from v204 to v200: the tracker guide's mirror robot, the tour's tables and screens, sharp VR text and the smooth turn, a character worn with any mix of devices."
+  ],
+  "test": [
+    "Back into the cell, Walls: do the sides beside the receptor and the mitochondrion's four layers read? Machines: can you find each ring, and the proteasome's two parts across the envelope?",
+    "Explore, in a headset: Sides and Complexes on the Cell tab; pick a protein, press one of its complexes, then one of its members.",
+    "Is the story's pace right with subtitles only (about 15 minutes)?",
+    "v204: the mirror robot. v203: the tour's tables, the screens' bar, the throttles. v202: sharp VR text, smooth turn. v201 and v200: a character worn with a few mixes."
+  ],
+  "untested": [
+    "The new voice: not recorded (needs Kokoro: node tools/voice/narrate.mjs ppicell). The timing is an estimate.",
+    "The rings and the dots on their sides in a headset: their size, the frame rate with every complex on.",
+    "v204's mirror; v203's flicker fix and throttles; v202's sharp text and smooth turn; v201 and v200 with real trackers."
+  ]
+}

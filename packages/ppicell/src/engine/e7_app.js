@@ -107,10 +107,11 @@ function initEnd() {
     if (hp.get('tab') && TABS.some(t => t[0] === hp.get('tab'))) pickTab(hp.get('tab'));
     // &p=<a protein's symbol, any case> or &place=<0 to 12, in the Pick tab's order>: a pick (the protein first), and
     // the Pick tab
-    const pp = hp.has('p') ? api('cell').find(hp.get('p')) : -1, pc = parseInt(hp.get('place'), 10);
+    // (or &complex=<a Complex Portal accession, CPX-873 or 873>)
+    const pp = hp.has('p') ? api('cell').find(hp.get('p')) : -1, pc = parseInt(hp.get('place'), 10), xn = hp.has('complex') ? api('cell').cx.find(hp.get('complex')) : -1;
     if (hp.get('copies') === 'off') setTies(0, false);   // (&copies=off: the Copies switch off)
-    if (pp >= 0) setPick(pp, -1, false); else if (pc >= 0 && pc < 13) setPick(-1, pc, false);
-    if ((pp >= 0 || pc >= 0 && pc < 13) && !hp.get('tab')) pickTab('pick');
+    if (pp >= 0) setPick(pp, -1, false); else if (pc >= 0 && pc < 13) setPick(-1, pc, false); else if (xn >= 0) setPick(-1, -1, false, xn);
+    if ((pp >= 0 || pc >= 0 && pc < 13 || xn >= 0) && !hp.get('tab')) pickTab('pick');
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }
     renderAll();
   }

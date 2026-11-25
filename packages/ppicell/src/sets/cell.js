@@ -133,7 +133,7 @@ void main() {
     g.setIndex(new THREE.BufferAttribute(I, 1));
     return g;
   }
-  const shells = new THREE.Group();
+  const shells = new THREE.Group(), MITO_IN = 0.72;   // (a mitochondrion's inner membrane, as a share of its outer one)
   set.group.add(shells);
   const addMesh = (g, mat, order) => { const o = new THREE.Mesh(g, mat); o.renderOrder = order; shells.add(o); return o; };
   {
@@ -146,10 +146,11 @@ void main() {
     const gq = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), new THREE.Vector3(...CELL.gdir));
     addMesh(mergeCopies(CELL.golgi.r.map((r, k) => ({ geo: new THREE.SphereGeometry(r, 64, 10, 0, Math.PI * 2, 0, CELL.golgi.ang[k]), pos: CELL.nuc.c, quat: gq }))),
       shellMaterial('0.42, 0.44, 1.0', 0.14, 0.45), 4);
-    addMesh(mergeCopies(CELL.mitos.map(o => {
-      const g = new THREE.SphereGeometry(1, 40, 20); g.scale(o.a, o.b, o.b); g.computeVertexNormals();
-      return { geo: g, pos: o.c, quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(...o.axis)), k: o.a };
-    })), shellMaterial('0.8, 0.32, 1.0', 0.08, 0.45, 'mito'), 5);
+    // (each mitochondrion's two membranes: the outer skin and an inner one, MITO_IN of its size, the gap between)
+    addMesh(mergeCopies(CELL.mitos.flatMap(o => [1, MITO_IN].map(f => {
+      const g = new THREE.SphereGeometry(1, 40, 20); g.scale(o.a * f, o.b * f, o.b * f); g.computeVertexNormals();
+      return { geo: g, pos: o.c, quat: new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(...o.axis)), k: o.a * f };
+    }))), shellMaterial('0.8, 0.32, 1.0', 0.08, 0.45, 'mito'), 5);
     const ball = new THREE.SphereGeometry(1, 28, 18);
     const balls = (list, rgb, a0, a1, order) => addMesh(mergeCopies(list.map(o => ({ geo: ball, pos: o.c, scale: new THREE.Vector3(o.r, o.r, o.r) }))), shellMaterial(rgb, a0, a1), order);
     balls(CELL.lysos, '1.0, 0.45, 0.9', 0.14, 0.5, 6);
@@ -183,13 +184,33 @@ void main() {
     [1.0, 0.45, 0.9], [0.2, 0.88, 0.82], [0.78, 0.95, 0.3], [0.6, 0.9, 1.0], [0.75, 0.6, 1.0], [0.9, 0.9, 0.95], [0.45, 0.7, 1.0], [0.5, 0.53, 0.58]];
   const PLACE_NAME = P.places.slice();
   const SPACE_NAME = ['the cytosol', 'the nucleoplasm', 'the ER lumen', 'the Golgi lumen', 'the mitochondrial matrix', 'the lysosome lumen',
-    'the endosome lumen', 'the peroxisome lumen', 'outside the cell'];
+    'the endosome lumen', 'the peroxisome lumen', 'outside the cell', 'the gap between the mitochondrial membranes'];
   const { INNER, OUTER } = P;
   // The Atlas does not say which side of a membrane a protein is on, so the drawing follows the reading (faces): the
   // plasma membrane's and the nuclear envelope's proteins sit in their membrane, facing its inner side (strict) or both
   // sides (generous); an organelle's are inside it (strict) or on its membrane, facing both its inside and the cytosol
   // (generous); the rest are soluble. 0 soluble, 1 in the membrane facing its inner side, 3 facing both.
   const faceOf = (pl, g) => (pl === 9 || pl === 10 ? (g ? 3 : 1) : pl >= 3 && pl <= 8 && g ? 3 : 0);
+  // With sides (PSIDES: UniProt's, named or carried) a membrane protein is drawn where its class says: inside the space
+  // (0), on the membrane's inner face (1), its outer face (2), on the skin itself, through it (3), secreted outside the
+  // cell (6); a mitochondrion's by its layer: 10 + 3 x (0 outer, 1 inner membrane) + (0 through, 1 its outer face, 2 its
+  // inner face), 20 soluble in the gap, 0 the matrix. Unknown ones as the reading. 0, 6 and 20 are soluble (sol).
+  const S = PSIDES;
+  const drawCode = (l, g, sd) => {
+    const pl = lPlace[l], c = S.cls[l];
+    if (pl >= 13 || c === 255) return pl === 9 || pl === 10 ? faceOf(pl, g) : 0;
+    if (!sd || !S.known(l, sd === 2)) return faceOf(pl, g);
+    const y = S.lay[l];
+    if (pl === 5) {
+      if (c === 2) return y === 'o' || y === 'g' ? 20 : 0;
+      if (y === 'o' || y === 'i') return 10 + (y === 'i' ? 3 : 0) + (c === 3 ? 1 : c === 4 ? 2 : 0);
+      return y === 'g' ? 20 : 0;
+    }
+    if (pl === 9) return c === 3 ? 1 : c === 5 || c === 6 ? 3 : c === 4 ? 2 : 6;
+    if (pl === 10) return c === 3 ? (y === 'i' ? 1 : y === 'o' ? 2 : 3) : 3;
+    return c === 3 ? 2 : c === 4 ? 1 : c === 5 || c === 6 ? 3 : 0;
+  };
+  const sol = l => { const f = NET.lFace[l]; return f === 0 || f === 6 || f === 20; };
   const inBall = (r, c, R) => v3.add(c, v3.mul(K.unit(r), R * Math.cbrt(r())));
   const pick = (r, list) => list[Math.floor(r() * list.length)];
   // the organelles that come as many: each one its own space (no link joins two of them); a location is in one of them
@@ -207,17 +228,20 @@ void main() {
       case 5: {
         const m = CELL.mitos[inst], p1 = perp(m.axis), p2 = v3.cross(m.axis, p1);
         // (a soluble one anywhere in the matrix, evenly through the whole organelle as in the nucleus: the owner)
-        if (f === 0) { const u = inBall(r, [0, 0, 0], 1); return [v3.add(m.c, v3.add(v3.mul(m.axis, m.a * 0.85 * u[0]), v3.add(v3.mul(p1, m.b * 0.8 * u[1]), v3.mul(p2, m.b * 0.8 * u[2])))), m.c, m.b * 1.4]; }
-        const u = K.unit(r), q = v3.add(m.c, v3.add(v3.mul(m.axis, m.a * u[0]), v3.add(v3.mul(p1, m.b * u[1]), v3.mul(p2, m.b * u[2]))));
+        // (the matrix inside the inner membrane; the gap between the two; a membrane protein on its skin, off it by its face)
+        if (f === 0) { const u = inBall(r, [0, 0, 0], 1); return [v3.add(m.c, v3.add(v3.mul(m.axis, m.a * 0.62 * u[0]), v3.add(v3.mul(p1, m.b * 0.58 * u[1]), v3.mul(p2, m.b * 0.58 * u[2])))), m.c, m.b * 1.4]; }
+        const k = f >= 10 && f < 20 ? f - 10 : -1, sk = f === 20 ? (1 + MITO_IN) / 2 : k >= 3 ? MITO_IN : 1;
+        const o2 = k < 0 ? off : k % 3 === 1 ? 0.0035 : k % 3 === 2 ? -0.0035 : 0;
+        const u = K.unit(r), q = v3.add(m.c, v3.add(v3.mul(m.axis, sk * m.a * u[0]), v3.add(v3.mul(p1, sk * m.b * u[1]), v3.mul(p2, sk * m.b * u[2]))));
         const nrm = v3.norm(v3.add(v3.mul(m.axis, u[0] / m.a), v3.add(v3.mul(p1, u[1] / m.b), v3.mul(p2, u[2] / m.b))));
-        return [v3.add(q, v3.mul(nrm, off)), m.c, m.b * 1.4];
+        return [v3.add(q, v3.mul(nrm, o2)), m.c, m.b * 1.4];
       }
       case 6: case 7: case 8: {
         const o = MANY[pl][inst];
         return [f === 0 ? inBall(r, o.c, o.r * 0.85) : v3.add(o.c, v3.mul(K.unit(r), o.r + off)), o.c, o.r];
       }
-      case 9: { const d = K.unit(r); return [v3.mul(d, (f === 1 ? 0.972 : f === 2 ? 0.998 : 0.985) / CELL.eScale(d)), [0, 0, 0], 0]; }
-      case 10: { const d = K.unit(r); return [v3.add(N.c, v3.mul(d, N.r * (f === 1 ? 0.985 : 1.015))), N.c, N.r]; }
+      case 9: { const d = K.unit(r); return [v3.mul(d, (f === 1 ? 0.972 : f === 2 ? 0.998 : f === 6 ? 1.03 + 0.05 * r() : 0.985) / CELL.eScale(d)), [0, 0, 0], 0]; }   // (6: secreted, just outside)
+      case 10: { const d = K.unit(r); return [v3.add(N.c, v3.mul(d, N.r * (f === 1 ? 0.985 : f === 3 && NET.sd ? 1.0 : 1.015))), N.c, N.r]; }
       case 11: { const m = pick(r, CELL.mts), k = Math.floor(r() * (m.length - 1)); return [v3.add(v3.lerp(m[k], m[k + 1], r()), v3.mul(K.unit(r), 0.01)), [0, 0, 0], 0]; }
       case 13: { const d = K.unit(r); return [v3.mul(d, (1.12 + 0.25 * Math.cbrt(r())) / CELL.eScale(d)), [0, 0, 0], 0]; }   // (no place: a loose shell outside the cell)
       default: { const d = K.unit(r); return [v3.mul(d, (0.8 + 0.1 * r()) / CELL.eScale(d)), [0, 0, 0], 0]; }
@@ -361,9 +385,12 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   { let o = 0; for (let c = 7; c >= 0; c--) for (let i = 0; i < E; i++) if (nEv[i] === c) ORDER[o++] = i; }
   const BYSYM = new Map();
   P.sym.forEach((s, p) => { const u = s.toUpperCase(); if (!BYSYM.has(u)) BYSYM.set(u, p); });
-  // a pair of places' judgement in each reading (PDATA.judge on one place each): a link's is the best of its proteins'
-  // pairs of places, the same as PDATA.judge on their whole lists, and that pair is where it is drawn
-  const PAIR = [false, true].map(g => { const t = new Int8Array(169); for (let a = 0; a < 13; a++) for (let b = 0; b < 13; b++) t[a * 13 + b] = P.judge(1 << a, 1 << b, g); return t; });
+  // two locations' judgement from their spaces (10 bits: PDATA's nine and the mitochondria's gap): 0 a shared space, 1
+  // one gate apart, 2 neither (each pair of masks worked out once: GJ, -1 not yet). A link's is the best of its proteins'
+  // pairs of locations, the same as PSIDES.judge (and PDATA.judge without sides) on their whole lists, and that pair is
+  // where it is drawn
+  const GJ = new Int8Array(1 << 20).fill(-1);
+  const pairJ = (a, b) => { if (a & b) return 0; const k = a << 10 | b; if (GJ[k] < 0) GJ[k] = S.gated(a, b) ? 1 : 2; return GJ[k]; };
 
   // ------------------------------------------------------------ where a link is drawn (cellstress's method)
   const CLS_COL = [null, [1.0, 0.7, 0.2], [1.0, 0.25, 0.2], PLACE_COL[13]];
@@ -383,11 +410,17 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   set.mats.push(flagGhost);
   // g: the reading (0 strict, 1 generous); L: each link's two locations, its class (0 possible, 1 through a gate, 2
   // impossible, 3 grey) and why grey (1 not a contact, 2 an end without a place)
-  const NET = { g: -1, show: -1, kind: -9, flags: null, extra: null, dots: null, routes: null, fk: '', L: null, lFace: new Uint8Array(NALL), lSp: new Uint16Array(NALL),
+  const NET = { g: -1, sd: -1, show: -1, kind: -9, flags: null, extra: null, dots: null, routes: null, fk: '', L: null, lFace: new Uint8Array(NALL), lSp: new Uint16Array(NALL),
     flagK: 0.6, nMain: 0, nOwn: 0, nOut: 0, drawn: 0, ms: 0, tally: [0, 0, 0], notC: 0, unpl: 0, maxDeg, degP };
-  function judgeAll(g) {
-    const T = PAIR[g], a = new Int32Array(E), b = new Int32Array(E), cls = new Uint8Array(E), why = new Uint8Array(E);
-    for (let l = 0; l < NALL; l++) { NET.lFace[l] = faceOf(lPlace[l], g); NET.lSp[l] = lPlace[l] < 13 ? P.spaces(1 << lPlace[l], g) : 0; }
+  // sd: the sides (0 none: the Atlas's places alone, 1 UniProt's where it names the place, 2 carried too: the story's);
+  // each reading and sides judged once (JC)
+  const JC = {};
+  function judgeAll(g, sd) {
+    const key = g + 2 * sd;
+    if (JC[key]) { Object.assign(NET, JC[key], { g, sd }); return; }
+    const a = new Int32Array(E), b = new Int32Array(E), cls = new Uint8Array(E), why = new Uint8Array(E), lFace = new Uint8Array(NALL), lSp = new Uint16Array(NALL);
+    NET.lFace = lFace; NET.lSp = lSp;
+    for (let l = 0; l < NALL; l++) { lFace[l] = drawCode(l, g, sd); lSp[l] = lPlace[l] >= 13 ? 0 : sd ? S.locMask(l, g === 1, sd === 2) : P.spaces(1 << lPlace[l], g); }
     for (let i = 0; i < E; i++) {
       const u = P.la[i], v = P.lb[i];
       why[i] = !P.contact(i) ? 1 : !P.pl[u] || !P.pl[v] ? 2 : 0;
@@ -395,13 +428,13 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       // (the best pair; among equals one in a single place, the shortest to draw)
       let best = 9, ba = 0, bb = 0;
       for (let x = l0(u); x < l1(u); x++) for (let y = l0(v); y < l1(v); y++) {
-        const c = T[lPlace[x] * 13 + lPlace[y]] * 2 + (lPlace[x] === lPlace[y] ? 0 : 1);
+        const c = pairJ(lSp[x], lSp[y]) * 2 + (lPlace[x] === lPlace[y] ? 0 : 1);
         if (c < best) { best = c; ba = x; bb = y; }
       }
       a[i] = ba; b[i] = bb; cls[i] = why[i] ? 3 : best >> 1;
     }
-    NET.L = { a, b, cls, why };
-    NET.g = g;
+    JC[key] = { L: { a, b, cls, why }, lFace, lSp };
+    Object.assign(NET, JC[key], { g, sd });
   }
   // the dots: one list, the background's first (NET.nMain of them, drawn as NET.dots), then any a pick adds (NET.extra)
   const D = { pos: [], loc: [], cC: [], cR: [], keys: [], key: new Map() };
@@ -446,6 +479,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     let inst = lInst[loc];
     if (MANY[pl]) inst = MANY[pl].reduce((b, o, i) => (v3.len(v3.sub(o.c, tp)) < v3.len(v3.sub(MANY[pl][b].c, tp)) ? i : b), 0);
     const own = dotIn(loc, inst), C = D.cC.slice(3 * own, 3 * own + 3), R = D.cR[own];
+    if (pl === 5 && f >= 10) return own;   // (a layer of a mitochondrion: its own dot in the nearest one)
     const s = f === 1 ? 0.985 : f === 2 ? 1.015 : 1, d = v3.norm(v3.sub(tp, C));
     const j = v3.mul(K.unit(mul(53 * loc + at)), 0.012), d2 = v3.norm(v3.add(d, j));
     const q = pl === 9 ? v3.mul(d2, 0.985 * s / CELL.eScale(d2)) : R > 0 ? v3.add(C, v3.mul(d2, R * s)) : dotPos(own);
@@ -463,11 +497,11 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       if (v3.len(v3.sub(dotPos(da), dotPos(db))) < 0.12) return [da, db];
       // (still far apart: the less connected one gets a dot beside the other, so hubs stay put and partners gather)
       const [hub, free] = degP[lProt[a]] >= degP[lProt[b]] ? [a, b] : [b, a], dh = dotOf(hub);
-      const df = NET.lFace[free] ? dotToward(free, dh) : dotBeside(free, dh);
+      const df = !sol(free) ? dotToward(free, dh) : dotBeside(free, dh);
       return hub === a ? [dh, df] : [df, dh];
     }
     // across two places: the soluble one is free and goes beside the other
-    const fa = NET.lFace[a] === 0, fb = NET.lFace[b] === 0;
+    const fa = sol(a), fb = sol(b);
     if (fa === fb && !fa) {
       // (two in membranes: the ER reaches every other organelle and the plasma membrane, but this model's ER only
       // wraps the nucleus, so its protein is drawn beside the partner; so is a lysosome's beside a mitochondrion's)
@@ -544,16 +578,18 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     return { g, pieces: V / 2 };
   }
   // dots i0 .. i1 as a Points geometry with the cell's ten attributes
-  function dotsGeo(i0, i1) {
-    const ND = i1 - i0, pg = new THREE.BufferGeometry(), f = () => new Float32Array(ND), lmax = Math.log1p(maxDeg);
+  const dotsGeo = (i0, i1) => dotsGeoOf(D.loc.slice(i0, i1), D.pos.slice(3 * i0, 3 * i1), i0);
+  // (any locations at any points: the complexes' own dots too)
+  function dotsGeoOf(locs, pos, i0 = 0) {
+    const ND = locs.length, pg = new THREE.BufferGeometry(), f = () => new Float32Array(ND), lmax = Math.log1p(maxDeg);
     const at = { aIdx: f(), aProt: f(), aRand: f(), aPlace: f(), aDeg: f(), aMulti: f(), aScen: f(), aMode: f(), aFocus: f(), aSize: f() };
     const r = mul(i0 + 11);
     for (let k = 0; k < ND; k++) {
-      const loc = D.loc[i0 + k], p = lProt[loc], dg = degP[p];
+      const loc = locs[k], p = lProt[loc], dg = degP[p];
       at.aIdx[k] = i0 + k; at.aProt[k] = p; at.aRand[k] = r(); at.aPlace[k] = lPlace[loc];
       at.aDeg[k] = Math.log1p(dg) / lmax; at.aMulti[k] = l1(p) - l0(p); at.aSize[k] = 3.0 + 5.0 * Math.sqrt(dg / maxDeg);
     }
-    pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(D.pos.slice(3 * i0, 3 * i1)), 3));
+    pg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
     for (const [k, a] of Object.entries(at)) pg.setAttribute(k, new THREE.BufferAttribute(a, 1));
     return pg;
   }
@@ -584,12 +620,12 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   // with kind k of evidence (-1: any)
   const hasKind = (i, k) => k < 0 || (P.kind[i] >> k & 1) === 1;
   const BUDGET = 2000;
-  function build(show, g, kind) {
+  function build(show, g, kind, sd) {
     const t0 = performance.now();
     NET.dots = drop(NET.dots); NET.dotsZ = drop(NET.dotsZ); NET.flagsG = drop(NET.flagsG); NET.routes = drop(NET.routes); NET.flags = drop(NET.flags); NET.extra = drop(NET.extra);
     if (FO.mesh) FO.mesh = drop(FO.mesh);
     D.pos = []; D.loc = []; D.cC = []; D.cR = []; D.keys = []; D.key = new Map();
-    if (g !== NET.g) judgeAll(g);
+    if (g !== NET.g || sd !== NET.sd) judgeAll(g, sd);
     const L = NET.L, tally = [0, 0, 0], groups = [[], [], [], []];
     let notC = 0, unpl = 0;
     for (let o = 0; o < E; o++) {
@@ -624,6 +660,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       NET.flagsG = new THREE.LineSegments(fg.g, flagGhost); NET.flagsG.renderOrder = 4.8; NET.flagsG.frustumCulled = false; set.group.add(NET.flagsG); }
     Object.assign(NET, { show, kind, nOwn, nOut, tally, notC, unpl, fk: '', bg: list.concat(flagged), drawn: list.length + flagged.length, drawnBy: [tp.reduce((s, x) => s + x, 0), tk[1], tk[2], tk[3]],
       pieces: rg.pieces + (fg ? fg.pieces : 0), ms: Math.round(performance.now() - t0) });
+    CXL.key = '';   // (the complexes' drawing follows the new dots)
     if (set.onBuild) set.onBuild();
   }
 
@@ -643,14 +680,28 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   });
   set.mats.push(focusMat);
   const FO = { mesh: null, info: null };
+  // a location in words: with sides where its class is known (and how we know), else as the reading has it
+  const MEM_NAME = { 3: 'the ER membrane', 4: 'the Golgi membrane', 6: 'the lysosome membrane', 7: 'the endosome membrane', 8: 'the peroxisome membrane', 9: 'the plasma membrane' };
+  const sideText = l => {
+    const pl = lPlace[l], c = S.cls[l], y = S.lay[l];
+    const mem = pl === 5 ? `the ${y === 'i' ? 'inner' : 'outer'} mitochondrial membrane` : pl === 10 ? (y === 'p' ? 'a nuclear pore' : `the ${y === 'i' ? 'inner' : 'outer'} nuclear membrane`) : MEM_NAME[pl];
+    const near = pl === 5 && y === 'i' ? 'the gap\'s' : pl === 10 && y === 'i' ? 'the nucleoplasm\'s' : 'the cytosol\'s';
+    const far = pl === 5 ? (y === 'o' || y === 'g' ? SPACE_NAME[9] : SPACE_NAME[4]) : pl === 10 ? 'between the nuclear membranes' : pl === 9 ? 'outside the cell' : SPACE_NAME[INNER[pl]];
+    const how = S.ev[l] === 'r' ? 'no signal to cross: a textbook rule' : S.by[l] === 't' ? 'UniProt, from its own build' : 'UniProt';
+    const w = c === 2 ? (pl === 10 ? 'between the nuclear membranes' : `in ${far}`) : c === 3 ? `on ${mem}, ${near} side` : c === 4 ? `on ${mem}, its far side (${far})`
+      : c === 5 ? `through ${mem} once` : c === 6 ? `through ${mem} several times` : 'secreted, outside the cell';
+    return `${w} (${how})`;
+  };
   const faceText = loc => {
     const pl = lPlace[loc], f = NET.lFace[loc];
     if (pl === 13) return 'no place in the Atlas';
-    if (!f) return `in ${SPACE_NAME[INNER[pl]]}`;
-    return `in the membrane, facing ${f === 3 ? `${SPACE_NAME[INNER[pl]]} and ${SPACE_NAME[OUTER[pl]]}` : SPACE_NAME[f === 1 ? INNER[pl] : OUTER[pl]]}`;
+    if (NET.sd && S.cls[loc] !== 255 && S.known(loc, NET.sd === 2)) return sideText(loc);
+    const unk = NET.sd && S.cls[loc] !== 255 ? 'side not known, read ' + (NET.g ? 'generously: ' : 'strictly: ') : '';
+    if (!f) return `${unk}in ${SPACE_NAME[INNER[pl]]}`;
+    return `${unk}in the membrane, facing ${f === 3 ? `${SPACE_NAME[INNER[pl]]} and ${SPACE_NAME[OUTER[pl]]}` : SPACE_NAME[f === 1 ? INNER[pl] : OUTER[pl]]}`;
   };
-  function setFocus(pp, pc, tie) {
-    const key = `${NET.g}|${NET.show}|${NET.kind}|${pp}|${pc}|${tie}`;
+  function setFocus(pp, pc, tie, cxp) {
+    const key = `${NET.g}|${NET.sd}|${NET.show}|${NET.kind}|${pp}|${pc}|${tie}|${cxp}`;
     if (key === NET.fk) return;
     NET.fk = key;
     FO.mesh = drop(FO.mesh); NET.extra = drop(NET.extra);
@@ -691,7 +742,8 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       }
       const places = [];
       for (let l = l0(pp); l < l1(pp); l++) places.push({ name: lPlace[l] < 13 ? PLACE_NAME[lPlace[l]] : '', face: faceText(l), main: !!(P.main[pp] >> lPlace[l] & 1) });
-      FO.info = { kind: 'protein', p: pp, sym: P.sym[pp], none, places, copies: cp.length, ties: !!tie, rel: P.rel[pp], all, links: t[0] + t[1] + t[2] + t[3], drawn: links.length, t, ev, partners: partners.size, why: [0, 0] };
+      FO.info = { kind: 'protein', p: pp, sym: P.sym[pp], none, places, copies: cp.length, ties: !!tie, rel: P.rel[pp], all, links: t[0] + t[1] + t[2] + t[3], drawn: links.length, t, ev, partners: partners.size, why: [0, 0],
+        cx: S.ofProt[pp].slice().sort((a, b) => S.cx[b].members.length - S.cx[a].members.length) };
       for (let j = aOff[pp]; j < aOff[pp + 1]; j++) { const i = adj[j]; if (hasKind(i, NET.kind) && L.why[i]) FO.info.why[L.why[i] - 1]++; }
     } else if (pc >= 0 && pc < 13) {
       let here = 0;
@@ -704,7 +756,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
         if (links.length < FOCUS_MAX) links.push(i);
       }
       FO.info = { kind: 'place', place: pc, name: PLACE_NAME[pc], here, inner, shown: links.length };
-    }
+    } else if (cxp >= 0 && cxp < S.cx.length) FO.info = cxInfo(cxp);   // (a complex: drawn by the complexes' layer)
     const geo = links.length || ties.length ? linesGeo(links, ties, true, !!(FO.info && FO.info.kind === 'protein')) : null;   // (adds the dots it needs)
     // the cell's own lights: the pick's dots bright (aFocus, all reached), the protein ringed (uSel), a place alone (uIso)
     const lit = new Set();
@@ -725,7 +777,7 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       for (const d of own) if (d >= NET.nMain) g.attributes.aFocus.array[d - NET.nMain] = 2;
       NET.extra = new THREE.Points(g, nodeMat); NET.extra.renderOrder = 5; NET.extra.frustumCulled = false; set.group.add(NET.extra);
     }
-    const prot = !!(FO.info && FO.info.kind === 'protein'), place = !!(FO.info && FO.info.kind === 'place');
+    const prot = !!(FO.info && (FO.info.kind === 'protein' || FO.info.kind === 'complex')), place = !!(FO.info && FO.info.kind === 'place');
     NU.uFocus.value = prot ? 1 : 0; NU.uPathProg.value = prot ? 10 : 0; NU.uSel.value = prot ? pp : -1; NU.uIso.value = place ? pc : -1;
     RU.uFocus.value = prot ? 1 : 0; RU.uIso.value = place ? pc : -1;
     NET.flagK = prot || place ? 0.15 : 0.6;   // (0.6: dense amber through the nucleus reads without burning)
@@ -736,6 +788,162 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       set.group.add(FO.mesh);
     }
     if (set.onFocus) set.onFocus();
+  }
+  // ------------------------------------------------------------ complexes (PSIDES.cx, the Complex Portal's)
+  // A complex is drawn as its placed members, each a dot of its own, gathered on a small disk where the complex sits and
+  // held in one outline (a ring): inside a space (the disk in it), on a face or through a membrane (the disk on the
+  // membrane at one of its members' own dot, each member off the skin by the side it reaches), or listed apart (a disk
+  // in each space its members are listed in, the biggest first, joined by a tie: amber one gate apart, red no way to
+  // meet). Its links inside it in their verdicts' colours. One Points draw and one LineSegments draw for all drawn.
+  const CX_EX = ['39S mitochondrial large ribosomal subunit', 'COPII vesicle coat complex', 'Nuclear pore complex', 'Mitochondrial proton-transporting ATP synthase complex', '26S proteasome complex']
+    .map(n => S.cx.findIndex(c => c.name === n));
+  const CX_COL = [[0.9, 0.93, 0.98], [0.3, 0.92, 0.6], [1.0, 0.45, 0.88], [1.0, 0.7, 0.2]];   // (inside, on a face, through, apart)
+  const lineMat = new THREE.ShaderMaterial({ uniforms: { uA: set.uA, uK: { value: 1 } }, transparent: true, depthWrite: false,
+    vertexShader: 'attribute vec3 aCol; varying vec3 vC; void main() { vC = aCol; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
+    fragmentShader: 'uniform float uA, uK; varying vec3 vC; void main() { gl_FragColor = vec4(vC, uK * uA); }' });
+  set.mats.push(lineMat);
+  const cxDotU = Object.assign({}, NU, { uAlpha: { value: 1 } });
+  const cxDotMat = new THREE.ShaderMaterial({ uniforms: cxDotU, transparent: true, depthWrite: false, vertexShader: nodeMat.vertexShader, fragmentShader: nodeMat.fragmentShader });
+  cxDotU.uA = set.uA; set.mats.push(cxDotMat);
+  const CXL = { key: '', dots: null, lines: null, at: {} };
+  // a protein's spaces in the judgement on show (its locations' together)
+  const protSp = p => { let m = 0; for (let l = l0(p); l < l1(p); l++) m |= NET.lSp[l]; return m; };
+  // a complex's position in the judgement on show (PSIDES.cxPos; without sides from the Atlas's places alone): kind 0
+  // inside a space, 1 on a face, 2 through a membrane, 3 cannot meet, 4 too few placed; gate: kind 3 a gate apart
+  function cxPosNow(n) {
+    const c = S.cx[n];
+    if (NET.sd) { const r = S.cxPos(c, NET.g === 1, NET.sd === 2); return Object.assign(r, { gate: r.kind === 3 && S.cxGate(c, NET.g === 1, NET.sd === 2) }); }
+    const placed = c.members.filter(p => P.pl[p]);
+    if (placed.length < 2) return { kind: 4, site: -1 };
+    let common = 1023, gate = true;
+    for (const p of placed) common &= protSp(p);
+    if (common) return { kind: 0, site: 31 - Math.clz32(common & -common) };
+    for (const a of placed) for (const b of placed) if (a < b && pairJ(protSp(a), protSp(b)) === 2) gate = false;
+    return { kind: 3, site: -1, gate };
+  }
+  // the membrane a skin location's dot is on: its inner and outer spaces (the side its outward normal points to)
+  const skinSides = l => { const pl = lPlace[l], y = S.lay[l]; return pl === 5 ? (y === 'i' ? [4, 9] : [9, 0]) : pl === 9 ? [0, 8] : pl === 10 ? [1, 0] : [INNER[pl], 0]; };
+  // the outward normal of a skin at point q (place pl)
+  const skinNormal = (pl, q) => {
+    if (pl === 9) return v3.norm([q[0] / CELL.pm[0] ** 2, q[1] / CELL.pm[1] ** 2, q[2] / CELL.pm[2] ** 2]);
+    if (pl === 5) {
+      const m = CELL.mitos.reduce((b, o) => (v3.len(v3.sub(o.c, q)) < v3.len(v3.sub(b.c, q)) ? o : b)), d = v3.sub(q, m.c), x = v3.dot(d, m.axis);
+      return v3.norm(v3.add(v3.mul(m.axis, x / (m.a * m.a)), v3.mul(v3.sub(d, v3.mul(m.axis, x)), 1 / (m.b * m.b))));
+    }
+    if (MANY[pl]) { const o = MANY[pl].reduce((b, o) => (v3.len(v3.sub(o.c, q)) < v3.len(v3.sub(b.c, q)) ? o : b)); return v3.norm(v3.sub(q, o.c)); }
+    return v3.norm(v3.sub(q, CELL.nuc.c));
+  };
+  // the groups a complex is drawn as: [{ space, members, c (centre), u, v (in its disk), ru, rv, n (normal), off (each
+  // member's height off the disk), ring (the outline's height) }]
+  function cxGroups(n) {
+    const c = S.cx[n], pos = cxPosNow(n), placed = c.members.filter(p => P.pl[p]).sort((a, b) => degP[b] - degP[a] || a - b), carry = NET.sd === 2;
+    if (pos.kind === 4) return { pos, groups: [] };
+    const groups = [];
+    if (pos.kind !== 3) groups.push({ space: pos.site < 10 ? pos.site : S.MEMS[pos.site - 10][1], members: placed });
+    else for (let left = placed; left.length;) {
+      const cnt = new Array(10).fill(0);
+      for (const p of left) { const m = protSp(p); for (let k = 0; k < 10; k++) if (m >> k & 1) cnt[k]++; }
+      const best = cnt.indexOf(Math.max(...cnt));
+      groups.push({ space: best, members: left.filter(p => protSp(p) >> best & 1) });
+      left = left.filter(p => !(protSp(p) >> best & 1));
+    }
+    for (const G of groups) {
+      // a member's dot on a membrane that reaches the group's space (spanning: one through it first; on a face: on it)
+      let skin = -1, dot = -1;
+      if (pos.kind === 1 || pos.kind === 2) for (const want of pos.kind === 2 ? [[5, 6], [3, 4]] : [[3, 4], [5, 6]]) {
+        for (const p of G.members) for (let l = l0(p); l < l1(p) && skin < 0; l++) {
+          const two = pos.site >= 10 ? 1 << S.MEMS[pos.site - 10][0] | 1 << S.MEMS[pos.site - 10][1] : 1 << pos.site;
+          if (S.cls[l] !== 255 && NET.sd && S.known(l, carry) && want.includes(S.cls[l]) && NET.lSp[l] & two) skin = l;
+        }
+        if (skin >= 0) break;
+      }
+      if (skin < 0) {   // (inside a space: the best connected member's own dot there, a soluble one first)
+        let bs = -1;
+        for (const p of G.members) for (let l = l0(p); l < l1(p); l++) if (NET.lSp[l] >> G.space & 1) { const sc = (sol(l) ? 1e6 : 0) + degP[p]; if (sc > bs) { bs = sc; dot = l; } }
+      }
+      const k = G.members.length, r = 0.008 + 0.0042 * Math.sqrt(k);
+      const l = skin >= 0 ? skin : dot, pl = lPlace[l], at = dotPos(dotOf(l));
+      let c0 = at, n0 = v3.norm(at.some(x => x) ? at : [0, 0, 1]), u, ru = r, rv = r;
+      if (skin >= 0) n0 = skinNormal(pl, at);
+      else if (pl === 5) {   // (in a mitochondrion: at its middle, the disk along its long axis, kept inside the space)
+        const m = CELL.mitos[lInst[l]], side = v3.norm(v3.sub(c0 = m.c.slice(), [0, 0, 0]));
+        u = m.axis; n0 = v3.norm(v3.sub(side, v3.mul(u, v3.dot(side, u))));
+        ru = Math.min(r * 1.4, m.a * (G.space === 9 ? 0.75 : 0.5)); rv = Math.min(r, m.b * (G.space === 9 ? 0.6 : 0.36));
+        if (G.space === 9) c0 = v3.add(c0, v3.mul(n0, m.b * (1 + MITO_IN) / 2));
+      } else if (MANY[pl]) { const o = MANY[pl][lInst[l]]; c0 = o.c.slice(); ru = rv = Math.min(r, o.r * 0.6); }
+      else if (pl === 1 || pl === 2) {   // (in the nucleus: pulled in so the disk stays inside it)
+        const d = v3.sub(at, CELL.nuc.c), lim = CELL.nuc.r * 0.8 - r;
+        if (v3.len(d) > lim) c0 = v3.add(CELL.nuc.c, v3.mul(v3.norm(d), lim));
+      }
+      if (!u) u = perp(n0);
+      const v = v3.cross(n0, u);
+      // each member's height: on a skin, by the sides it reaches (both: on the skin, through it)
+      const [sIn, sOut] = skin >= 0 ? skinSides(skin) : [0, 0], d = pl === 5 ? 0.0035 : 0.006;
+      G.off = G.members.map(p => { if (skin < 0) return 0; const m = protSp(p), i = m >> sIn & 1, o = m >> sOut & 1; return i && o ? 0 : o ? d : i ? -d : 0; });
+      Object.assign(G, { c: c0, u, v, n: n0, ru, rv, ring: pos.kind === 1 ? G.off.reduce((s, x) => s + x, 0) / k : 0 });
+    }
+    // (listed apart in the nucleoplasm and the cytosol, the commonest case: the two parts face each other across the
+    // nuclear envelope, as a link through a gate is drawn at its gate, so their tie is a short stitch through it)
+    const gn = groups.find(G => G.space === 1), gc = groups.find(G => G.space === 0);
+    if (gn && gc) {
+      const d = v3.norm(v3.sub(gn.c, CELL.nuc.c)), R = CELL.nuc.r;
+      gn.c = v3.add(CELL.nuc.c, v3.mul(d, R - 0.03 - Math.max(gn.ru, gn.rv))); gc.c = v3.add(CELL.nuc.c, v3.mul(d, R + 0.03 + Math.max(gc.ru, gc.rv)));
+      for (const G of [gn, gc]) { G.n = d; G.u = perp(d); G.v = v3.cross(d, G.u); }
+    }
+    return { pos, groups };
+  }
+  // where each member of complex n is drawn (protein -> point) and its groups, worked out once per judgement
+  function cxLayout(n) {
+    const key = `${NET.g}|${NET.sd}|${n}`;
+    if (CXL.at[n] && CXL.at[n].key === key) return CXL.at[n];
+    const { pos, groups } = cxGroups(n), at = new Map(), grp = new Map();
+    for (const [gi, G] of groups.entries()) G.members.forEach((p, i) => {
+      grp.set(p, gi);
+      const rad = Math.sqrt((i + 0.5) / G.members.length), th = i * 2.39996;
+      at.set(p, v3.add(G.c, v3.add(v3.add(v3.mul(G.u, G.ru * rad * Math.cos(th)), v3.mul(G.v, G.rv * rad * Math.sin(th))), v3.mul(G.n, G.off[i]))));
+    });
+    return (CXL.at[n] = { key, pos, groups, at, grp });
+  }
+  // the complexes drawn: list (complex numbers)
+  function cxDraw(list) {
+    const key = `${NET.g}|${NET.sd}|${list.join(',')}`;
+    if (key === CXL.key) return;
+    CXL.key = key;
+    CXL.dots = drop(CXL.dots); CXL.lines = drop(CXL.lines);
+    if (!list.length) return;
+    const locs = [], pos = [], seg = [], col = [], line = (a, b, c) => { seg.push(...a, ...b); col.push(...c, ...c); };
+    for (const n of list) {
+      const { pos: ps, groups, at, grp } = cxLayout(n), mem = new Set(S.cx[n].members);
+      for (const [p, q] of at) { let l = l0(p); for (let x = l0(p); x < l1(p); x++) if (groups.some(G => G.members.includes(p) && NET.lSp[x] >> G.space & 1)) { l = x; break; } locs.push(l); pos.push(...q); }
+      groups.forEach((G, gi) => {
+        const rc = CX_COL[ps.kind] || CX_COL[0], R = 24, pt = a => v3.add(G.c, v3.add(v3.add(v3.mul(G.u, 1.25 * G.ru * Math.cos(a) + 0.003 * Math.cos(a)), v3.mul(G.v, 1.25 * G.rv * Math.sin(a) + 0.003 * Math.sin(a))), v3.mul(G.n, G.ring)));
+        for (let j = 0; j < R; j++) line(pt(2 * Math.PI * j / R), pt(2 * Math.PI * (j + 1) / R), rc);
+        if (gi) line(groups[0].c, G.c, ps.gate ? CLS_COL[1] : CLS_COL[2]);   // (listed apart: a tie to the first, amber or red)
+      });
+      // its links inside it, in their verdicts' colours (listed apart: those inside each part; the tie stands for the rest)
+      for (const p of mem) if (at.has(p)) for (let j = aOff[p]; j < aOff[p + 1]; j++) {
+        const i = adj[j], q = P.la[i] === p ? P.lb[i] : P.la[i];
+        if (q <= p || !mem.has(q) || !at.has(q) || grp.get(p) !== grp.get(q)) continue;
+        line(at.get(p), at.get(q), NET.L.why[i] === 1 ? CLS_COL[3] : linkCol(i));
+      }
+    }
+    const pg = dotsGeoOf(locs, pos);
+    pg.attributes.aFocus.array.fill(1);
+    CXL.dots = new THREE.Points(pg, cxDotMat); CXL.dots.renderOrder = 7.4; CXL.dots.frustumCulled = false;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(seg), 3)); g.setAttribute('aCol', new THREE.BufferAttribute(new Float32Array(col), 3));
+    CXL.lines = new THREE.LineSegments(g, lineMat); CXL.lines.renderOrder = 7.5; CXL.lines.frustumCulled = false;
+    set.group.add(CXL.dots, CXL.lines);
+  }
+  // a complex in words and numbers, for the Pick tab: its members, where it sits, its links and their verdicts
+  const CX_POS = ['inside a space', 'on a face of a membrane', 'through a membrane', 'listed apart', 'fewer than two members with a place'];
+  function cxInfo(n) {
+    const c = S.cx[n], L = cxLayout(n), mem = new Set(c.members), t = [0, 0, 0, 0];
+    for (const p of mem) for (let j = aOff[p]; j < aOff[p + 1]; j++) { const i = adj[j], q = P.la[i] === p ? P.lb[i] : P.la[i]; if (q > p && mem.has(q)) t[NET.L.cls[i]]++; }
+    const where = L.pos.kind === 3 ? `listed apart: ${L.groups.map(G => `${fmt(G.members.length)} in ${SPACE_NAME[G.space]}`).join(', ')} (${L.pos.gate ? 'one gate apart' : 'no way to meet'})`
+      : L.pos.kind === 4 ? CX_POS[4] : L.pos.site >= 10 ? `${CX_POS[L.pos.kind]}, between ${SPACE_NAME[S.MEMS[L.pos.site - 10][0]]} and ${SPACE_NAME[S.MEMS[L.pos.site - 10][1]]}`
+      : `${CX_POS[L.pos.kind]}${L.pos.kind ? ', all its members reaching' : ':'} ${SPACE_NAME[L.pos.site]}`;
+    return { kind: 'complex', n, ac: 'CPX-' + c.ac, name: c.name, members: c.members.slice().sort((a, b) => degP[b] - degP[a]), placed: c.members.filter(p => P.pl[p]).length, missing: c.missing, pos: L.pos.kind, gate: !!L.pos.gate, where, t };
   }
   // the background's dot a ray passes closest to (in the set's own frame), or -1
   const inv = new THREE.Matrix4(), ray = new THREE.Ray(), pq = new THREE.Vector3(), pd = new THREE.Vector3();
@@ -759,11 +967,21 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
   const KIND_NAME = ['Regulatory', 'Binary', 'Literature', 'Metabolic', 'Complexes', 'Kinase', 'Signalling'];
   return Object.assign(set, {
     // cell_ties: a picked protein's copies joined by fine dots (1) or not (0)
-    params: { cell_a: 1, cell_shell: 1, cell_net: 1, cell_amb: 1, cell_red: 1, cell_show: 0, cell_faces: 0, cell_kind: -1, cell_pp: -1, cell_pc: -1, cell_ties: 1 },
+    // cell_sides: 0 none, 1 UniProt's named sides, 2 carried too (the story's); cell_cxs: the story's example complexes
+    // (bits, CX_EX's order), cell_cxp: a complex picked (-1 none), cell_cxon: every complex (or a picked protein's) drawn,
+    // cell_cxa: how strongly the complexes show
+    params: { cell_a: 1, cell_shell: 1, cell_net: 1, cell_amb: 1, cell_red: 1, cell_show: 0, cell_faces: 0, cell_sides: 2, cell_kind: -1, cell_pp: -1, cell_pc: -1, cell_ties: 1,
+      cell_cxs: 0, cell_cxp: -1, cell_cxon: 0, cell_cxa: 1 },
     update(S) {
-      const show = clamp(Math.round(S.cell_show), 0, 3), g = S.cell_faces > 0.5 ? 1 : 0, kind = clamp(Math.round(S.cell_kind), -1, 6);
-      if (show !== NET.show || g !== NET.g || kind !== NET.kind) build(show, g, kind);
-      setFocus(Math.round(S.cell_pp), Math.round(S.cell_pc), S.cell_ties > 0.5 ? 1 : 0);
+      const show = clamp(Math.round(S.cell_show), 0, 3), g = S.cell_faces > 0.5 ? 1 : 0, kind = clamp(Math.round(S.cell_kind), -1, 6), sd = clamp(Math.round(S.cell_sides), 0, 2);
+      if (show !== NET.show || g !== NET.g || kind !== NET.kind || sd !== NET.sd) build(show, g, kind, sd);
+      const pp = Math.round(S.cell_pp), cxp = Math.round(S.cell_cxp), cxs = Math.round(S.cell_cxs);
+      setFocus(pp, Math.round(S.cell_pc), S.cell_ties > 0.5 ? 1 : 0, cxp);
+      // (the complexes drawn: the story's examples, a picked one, and with cell_cxon every one, or a picked protein's)
+      const cl = new Set(CX_EX.filter((n, k) => n >= 0 && cxs >> k & 1));
+      if (cxp >= 0 && cxp < PSIDES.cx.length) cl.add(cxp);
+      if (S.cell_cxon > 0.5) { if (pp >= 0 && pp < NP) PSIDES.ofProt[pp].forEach(n => cl.add(n)); else if (cxp < 0 && Math.round(S.cell_pc) < 0) PSIDES.cx.forEach((c, n) => cl.add(n)); }
+      cxDraw([...cl].sort((a, b) => a - b));
       const sh = clamp(S.cell_shell, 0, 1);
       shells.visible = sh > 0.01;
       for (const m of shellMats) m.uniforms.uK.value = sh;
@@ -772,6 +990,9 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       NU.uAlpha.value = net; RU.uAlpha.value = 0.55 * net; flagMat.uniforms.uK.value = NET.flagK * net;
       flagMat.uniforms.uAmb.value = clamp(S.cell_amb, 0, 1); flagMat.uniforms.uRed.value = clamp(S.cell_red, 0, 1);
       for (const o of [NET.dots, NET.dotsZ, NET.routes, NET.flags, NET.flagsG, NET.extra, FO.mesh]) if (o) o.visible = net > 0.003;
+      const cxa = clamp(S.cell_cxa, 0, 1);
+      lineMat.uniforms.uK.value = cxa; cxDotU.uAlpha.value = cxa;
+      for (const o of [CXL.dots, CXL.lines]) if (o) o.visible = cxa > 0.003;
       // points sized as the cell's: in a headset by distance (XR.pointK 0.0028 of the drawn height, in the set's own units),
       // on a screen a fixed size in pixels that grows a little as the camera comes closer
       const xr = GL.renderer && GL.renderer.xr.isPresenting;
@@ -789,8 +1010,16 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       // where a protein without a place would stand outside, and the background as drawn for show (strict, every kind):
       // its dots (positions, protein, place) and its links (two dots each, a class and a colour)
       CELL, placeCol: PLACE_COL, deg: p => degP[p] || 0, outPos: p => spot(13, 0, mul(31 * uLoc[p] + 1), 0)[0],
+      // the complexes: their names and accessions, a complex by its accession (CPX-873 or 873), up to n whose names hold
+      // q, the story's examples (CX_EX), and where one is drawn now (its groups' middles, in the cell's frame)
+      cx: {
+        n: PSIDES.cx.length, name: n => (PSIDES.cx[n] ? PSIDES.cx[n].name : ''), ac: n => (PSIDES.cx[n] ? 'CPX-' + PSIDES.cx[n].ac : ''), ex: CX_EX,
+        find: s => { const m = /^(?:CPX-)?(\d+)$/i.exec(String(s || '').trim()); return m ? PSIDES.cx.findIndex(c => String(c.ac) === m[1]) : -1; },
+        search: (q, n) => { q = String(q || '').trim().toLowerCase(); const out = []; if (q) for (let k = 0; k < PSIDES.cx.length && out.length < n; k++) if (PSIDES.cx[k].name.toLowerCase().includes(q)) out.push(k); return out; },
+        at: n => cxLayout(n).groups.map(G => G.c.slice()),
+      },
       net(show) {
-        if (NET.show !== show || NET.g !== 0 || NET.kind !== -1) build(show, 0, -1);
+        if (NET.show !== show || NET.g !== 0 || NET.kind !== -1 || NET.sd !== 2) build(show, 0, -1, 2);
         const n = NET.nMain, prot = new Uint16Array(n), place = new Uint8Array(n), bg = NET.bg, ab = new Int32Array(2 * bg.length), cls = new Uint8Array(bg.length), col = new Float32Array(3 * bg.length);
         for (let i = 0; i < n; i++) { prot[i] = lProt[D.loc[i]]; place[i] = lPlace[D.loc[i]]; }
         bg.forEach((k, j) => { const [a, b] = siteOf(k); ab[2 * j] = a; ab[2 * j + 1] = b; cls[j] = NET.L.cls[k]; col.set(linkCol(k), 3 * j); });
@@ -803,13 +1032,16 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
     cam: { default: [20, 14, 3.6, 0, 0, 0], inside: [30, 6, 0.55, 0.15, 0, 0.1] },
     controls: [
       { key: 'show', label: 'Show', options: [['0', 'Possible'], ['1', '+ through gates'], ['2', '+ impossible'], ['3', '+ not judged']] },
-      { key: 'faces', label: 'Reading', options: [['0', 'Strict'], ['1', 'Generous']] },
-      { key: 'kind', label: 'Evidence', options: [['-1', 'All'], ...KIND_NAME.map((n, k) => [String(k), n])] },
+      { key: 'sides', label: 'Sides', options: [['2', 'Carried'], ['1', 'Named only'], ['0', 'None']] },
+      { key: 'faces', label: 'Unknown sides', options: [['0', 'Strict'], ['1', 'Generous']] },
+      { key: 'cx', label: 'Complexes', options: [['0', 'Off'], ['1', 'On']] },
       { key: 'shells', label: 'Organelles', options: [['1', 'On'], ['0', 'Off']] },
+      { key: 'kind', label: 'Evidence', options: [['-1', 'All'], ...KIND_NAME.map((n, k) => [String(k), n])] },
       { key: 'view', label: 'View', options: [['default', 'Outside'], ['inside', 'Inside']] },
     ],
     explore(c) {
-      return { cell_shell: c.shells === '0' ? 0 : 1, cell_show: +c.show || 0, cell_faces: +c.faces || 0, cell_kind: c.kind === undefined ? -1 : +c.kind };
+      return { cell_shell: c.shells === '0' ? 0 : 1, cell_show: +c.show || 0, cell_faces: +c.faces || 0, cell_kind: c.kind === undefined ? -1 : +c.kind,
+        cell_sides: c.sides === undefined ? 2 : +c.sides, cell_cxon: +c.cx || 0 };
     },
   });
 };

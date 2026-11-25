@@ -46,6 +46,14 @@ for (const carry of [false, true]) for (const g of [false, true]) {
   T.cx.forEach((c, q) => { const r = T.cxPos(c, g, carry); kinds[r.kind]++; sites += (q + 1) * (r.site + 2); });
   ok(kinds.join() === C.complexPos[key].join() && sites === C.complexSites[key], `complexes ${key}: inside, on a face, spanning, cannot meet, too few placed ${kinds.join(', ')}`);
 }
+// the complexes whose members cannot meet, told apart: one gate apart, or no way to meet (no count in gen_sides.py: the
+// two must add up to its count; the proteasome is one gate apart)
+for (const carry of [false, true]) {
+  let gate = 0, none = 0;
+  T.cx.forEach(c => { if (T.cxPos(c, false, carry).kind === 3) T.cxGate(c, false, carry) ? gate++ : none++; });
+  const want = C.complexPos[carry ? 'carryStrict' : 'Strict'][3], p26 = T.cx.find(c => c.name === '26S proteasome complex');
+  ok(gate + none === want && p26 && T.cxGate(p26, false, carry), `cannot meet${carry ? ', carried' : ''}: ${gate} a gate apart, ${none} no way to meet (of ${want})`);
+}
 const pairs = new Set();
 for (const c of T.cx) for (const x of c.members) for (const y of c.members) if (x < y) pairs.add(x * 65536 + y);
 const inCx = [];

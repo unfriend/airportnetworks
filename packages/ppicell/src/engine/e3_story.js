@@ -4,31 +4,37 @@
 const CH = [
   { key: 'map', name: 'No place', a: 0, b: 60 },
   { key: 'crowd', name: 'Crowds', a: 60, b: 115 },
-  { key: 'walls', name: 'Walls', a: 115, b: 180 },
-  { key: 'back', name: 'Into the cell', a: 180, b: 255 },
-  { key: 'judge', name: 'Can they meet?', a: 255, b: 325 },
-  { key: 'red', name: 'Why red?', a: 325, b: 440 },
-  { key: 'moments', name: 'Moments', a: 440, b: 510 },
-  { key: 'next', name: 'What next', a: 510, b: 575 },
+  { key: 'walls', name: 'Walls', a: 115, b: 223 },
+  { key: 'back', name: 'Into the cell', a: 223, b: 305 },
+  { key: 'judge', name: 'Can they meet?', a: 305, b: 380 },
+  { key: 'machines', name: 'Machines', a: 380, b: 442 },
+  { key: 'red', name: 'Why red?', a: 442, b: 581 },
+  { key: 'moments', name: 'Moments', a: 581, b: 651 },
+  { key: 'next', name: 'What next', a: 651, b: 716 },
 ];
 // Narration timing: [time in the recording, story time] pairs; the story is stretched or squeezed between them so
 // each cue lands on its sentence. Without a recording (the default: captions only) the story keeps its own clock.
 // With one (audio/narration.mp3 in the package: e7_app.js, narrationFile) put the pairs here, and where each chapter's
 // words end in it as NARRATION_ENDS = { title: 19.5, ... } (the slideshow lets the voice finish there).
+// v205: the words changed (sides and complexes) and the recording is not made yet (the voice needs Kokoro: README.md),
+// so there is none (the v204 one is kept as src/narration-v204-old.mp3, not served) and these tables are laid out by
+// tools/voice/narrate.mjs --dry on estimated durations (16.2 characters a second, as the old recording read), so the
+// subtitles keep the voice's pace; node tools/voice/narrate.mjs ppicell writes both from the real recording.
 const NARRATION_SYNC = [
-  [0, 0], [3.3, 3], [17.69, 10],                      // No place
-  [72.69, 60], [82.59, 69], [98.22, 81], [112.52, 94], [120.76, 101],  // Crowds
-  [136.16, 115], [137.81, 116.5], [160.86, 129], [208.16, 172], [220.1, 179.3],  // Walls
-  [220.87, 180], [222.52, 181.5], [239.58, 196],      // Into the cell
-  [304.48, 255], [306.79, 257.1], [316.83, 258], [361.49, 298.6], [377.35, 305],  // Can they meet?
-  [399.35, 325], [420.25, 344], [442.41, 356], [455.61, 368], [475.8, 380], [489.29, 391],
-  [508.95, 401], [528.75, 419], [549.77, 430],        // Why red?
-  [560.77, 440], [600.37, 476], [615.25, 485], [634.96, 494], [651.46, 502],  // Moments
-  [660.26, 510], [662.57, 512.1], [672.33, 515], [719.63, 558], [734.81, 565], [752.21, 574.3],
-  [752.98, 575],                                      // What next
+  [0, 0], [3.3, 3], [16.07, 10], [50.17, 41], [58.24, 48],  // No place
+  [71.44, 60], [73.09, 61.5], [81.54, 69], [96.77, 81], [111.07, 94], [119.71, 101],  // Crowds
+  [135.11, 115], [136.76, 116.5], [160.39, 129], [241.79, 203], [254.31, 212],  // Walls
+  [266.41, 223], [268.06, 224.5], [285.27, 239],      // Into the cell
+  [357.87, 305], [360.18, 307.1], [375.06, 313], [419.72, 353.6], [435.04, 360],  // Can they meet?
+  [457.04, 380], [496.64, 416], [518.97, 434],        // Machines
+  [527.77, 442], [548.67, 461], [572.86, 473], [586.06, 485], [607.47, 497], [621.59, 508],
+  [641.95, 518], [661.75, 536], [677.6, 548], [694.38, 561], [707.71, 571],  // Why red?
+  [718.71, 581], [758.31, 617], [771.5, 626], [789.76, 635], [804.82, 643],  // Moments
+  [813.62, 651], [815.93, 653.1], [827.17, 656], [874.47, 699], [889.21, 706], [906.97, 715.3],
+  [907.74, 716],                                      // What next
 ];
 // where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
-const NARRATION_ENDS = { map: 69.8, crowd: 125.45, walls: 219.9, back: 291.35, judge: 382.55, red: 556.6, moments: 658.05, next: 752 };
+const NARRATION_ENDS = { map: 69.05, crowd: 124.95, walls: 263.8, back: 345.3, judge: 440.4, machines: 526.45, red: 714.5, moments: 811.2, next: 906.75 };
 //#use storyT narrT T_END
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 // the engine's own params beside the sets' (DEF): none here; GRB2's turns at its domains run at an even pace (evalTrack)
@@ -55,18 +61,46 @@ function storyFacts() {
   // the judgement in both readings (a protein's spaces once each; PDATA.judge only where no space is shared), by kind
   const sp = [new Uint16Array(N), new Uint16Array(N)];
   for (let p = 0; p < N; p++) { sp[0][p] = P.spaces(P.pl[p], false); sp[1][p] = P.spaces(P.pl[p], true); }
-  const T = [[0, 0, 0], [0, 0, 0]], kJ = new Array(7).fill(0), kR = new Array(7).fill(0);
-  let notC = 0, unpl = 0;
+  // and with sides (PSIDES): the story's judgement is carried (UniProt's sides where it names the place, elsewhere the
+  // protein's own build), the unknown ones strict (C) or generous; the old one without sides (T) to compare: how much of
+  // the span between its two readings the sides settle, and how many links fare worse with them (and how many of those
+  // turn red)
+  const T = [[0, 0, 0], [0, 0, 0]], Cs = [[0, 0, 0], [0, 0, 0]], kJ = new Array(7).fill(0), kR = new Array(7).fill(0), SD = PSIDES;
+  let notC = 0, unpl = 0, span = 0, settled = 0, worse = 0, toRed = 0;
   for (let i = 0; i < E; i++) {
     const a = P.la[i], b = P.lb[i];
     if (!P.contact(i)) { notC++; continue; }
     if (!P.pl[a] || !P.pl[b]) { unpl++; continue; }
-    for (let g = 0; g < 2; g++) {
-      const j = sp[g][a] & sp[g][b] ? 0 : P.judge(P.pl[a], P.pl[b], g === 1);
-      T[g][j]++;
-      if (!g) for (let k = 0; k < 7; k++) if (P.kind[i] >> k & 1) { kJ[k]++; if (j === 2) kR[k]++; }
-    }
+    const o = [0, 1].map(g => (sp[g][a] & sp[g][b] ? 0 : P.judge(P.pl[a], P.pl[b], g === 1))), c = [SD.judge(i, false, true), SD.judge(i, true, true)];
+    for (let g = 0; g < 2; g++) { T[g][o[g]]++; Cs[g][c[g]]++; }
+    for (let k = 0; k < 7; k++) if (P.kind[i] >> k & 1) { kJ[k]++; if (c[0] === 2) kR[k]++; }
+    if (o[0] !== o[1]) { span++; if (c[0] === c[1]) settled++; }
+    if (c[0] > o[0]) { worse++; if (c[0] === 2) toRed++; }
   }
+  // the sides themselves (protein-places with a membrane: known from UniProt's naming of the place, or carried from the
+  // protein's own build; the mitochondria's layers told apart), and the complexes' positions
+  let memAll = 0, named = 0, carried = 0, mito = 0;
+  for (let l = 0; l < P.L; l++) {
+    if (SD.cls[l] === 255) continue;
+    memAll++;
+    if (SD.cls[l] >= 2) { if (SD.by[l] === 't') carried++; else { named++; if (P.lPlace[l] === 5) mito++; } }
+  }
+  const cxK = [0, 0, 0, 0, 0];
+  let cxGate = 0, cxOdd = 0;
+  const pm = SD.masks(false, true);
+  for (const c of SD.cx) {
+    const k = SD.cxPos(c, false, true).kind;
+    cxK[k]++;
+    if (k !== 3) continue;
+    if (SD.cxGate(c, false, true)) cxGate++;
+    // (a single member the odd one out: the others share a space without it)
+    const pl = c.members.filter(p => P.pl[p]);
+    if (pl.some(x => pl.reduce((m, p) => (p === x ? m : m & pm[p]), 1023))) cxOdd++;
+  }
+  // the proteasome's parts by the two spaces they are listed in, and BiP (HSPA5), the ER's own chaperone
+  const prot = SD.cx.find(c => c.name === '26S proteasome complex'), pr = { both: 0, cyt: 0, nuc: 0 };
+  if (prot) for (const p of prot.members) { const m = pm[p] & 3; if (m === 3) pr.both++; else if (m === 1) pr.cyt++; else if (m === 2) pr.nuc++; }
+  const bip = cell.find('HSPA5'), bipCyt = bip >= 0 && P.pl[bip] === 1;
   // (regulatory and metabolic evidence alone says nothing of contact: the few contact links that also carry it are left
   // out of the shares by kind)
   const byKind = KN.map((n, k) => ({ n, k, pct: pc1(kR[k], kJ[k]), v: kJ[k] ? kR[k] / kJ[k] : 0 })).filter(o => kJ[o.k] && o.n !== 'regulatory' && o.n !== 'metabolic').sort((x, y) => x.v - y.v);
@@ -79,7 +113,7 @@ function storyFacts() {
       if (P.la[i] !== p && P.lb[i] !== p) continue;
       const q = P.la[i] === p ? P.lb[i] : P.la[i];
       if (q === p || !P.contact(i) || !P.pl[q]) continue;
-      t[P.judge(P.pl[p], P.pl[q], false)]++;
+      t[PSIDES.judge(i, false, true)]++;   // (the story's judgement: carried sides, the unknown ones strict)
       if (P.pl[q] >> 1 & 1) nuc++;
       if (P.pl[q] & 1) cyt++;
     }
@@ -95,7 +129,8 @@ function storyFacts() {
   const litTop = (100 * sum(hubs, litOnly) / sum(hubs, allN)).toFixed(0), litAll = (100 * litOnly.reduce((t, x) => t + x, 0) / allN.reduce((t, x) => t + x, 0)).toFixed(0);
   const kindName = n => ({ signaling: 'signalling' }[n] || n);
   return { N, E, placed, unplaced: N - placed, L: P.L, one, two, more, mean: degSum / N, places: cell.places.length,
-    s: T[0], g: T[1], judged: T[0][0] + T[0][1] + T[0][2], notC, unpl, byKind, kind: n => byKind.find(o => KN[o.k] === n), kindName,
+    s: Cs[0], g: Cs[1], os: T[0], og: T[1], span, settled, worse, toRed, memAll, named, carried, mito, cxN: SD.cx.length, cxK, cxGate, cxOdd, pr, bip, bipCyt,
+    judged: T[0][0] + T[0][1] + T[0][2], notC, unpl, byKind, kind: n => byKind.find(o => KN[o.k] === n), kindName,
     litTop, litAll, GRB2: ex('GRB2'), TP53: ex('TP53'), STAT3: ex('STAT3'), RELA: ex('RELA') };
 }
 
@@ -116,7 +151,7 @@ function buildStory() {
   const start = vals => { for (const n in vals) if (n in DEF) key(n, 0, vals[n]); };
   // a param that picks something (a step: never eased) jumps from one value to the next at time t
   const jump = (n, t, v0, v1) => { key(n, t, v0); key(n, t, v1); };
-  const step = (at, out, col, b, text, say) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''}${say ? ` data-say="${esc(say)}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
+  const step = (at, out, col, b, text, say) => `<li data-at="${at}"${out ? ` data-out="${out}"` : ''}${say !== undefined ? ` data-say="${esc(say)}"` : ''} data-col="${col}" style="border-left-color:${swCol(col)}"><b style="color:${inkCol(col)}">${esc(b)}</b>${text}</li>`;
   // ------------------------------------------------------------ panel copy
   // Each chapter's text: data-at is when a line appears (seconds into the chapter), data-out when it goes. The headset's
   // panel cannot scroll, so no chapter shows more than fits at once: parts that take turns in one place (turns), each
@@ -127,6 +162,10 @@ function buildStory() {
   // round numbers. The panel keeps the key points and the exact numbers (the owner, 23 November 2026).
   const sy = s => ` data-say="${esc(s.replace(/\s+/g, ' ').trim())}"`, mute = ' data-say=""';
   const near = (n, k) => fmt(Math.round(n / k) * k), in100 = (x, n) => Math.round(100 * x / n);
+  // a share in words where it is close to a simple one ('three quarters'), else so many in a hundred
+  const share = x => (Math.abs(x - 0.75) < 0.03 ? 'three quarters' : Math.abs(x - 0.5) < 0.03 ? 'half' : Math.abs(x - 0.25) < 0.03 ? 'a quarter' : Math.abs(x - 2 / 3) < 0.03 ? 'two thirds' : `${Math.round(100 * x)} in a hundred`);
+  const Cap = w => w[0].toUpperCase() + w.slice(1);
+  const [o2, og2] = [F.os[2], F.og[2]], [cxIn, cxFace, cxSpan, cxApart] = F.cxK, setPct = Math.round(100 * F.settled / F.span);
   const html = {
     map: `<h1 data-at="0.6"${mute}>${esc(XR_TITLE)}</h1>
       <p class="lede" data-at="1.6"${mute}>An interactome put back into a cell</p>
@@ -149,27 +188,44 @@ function buildStory() {
         <p data-at="14" data-out="26.5" class="amber"${sy(`Two proteins in different rooms cannot touch, however well they would fit. And every single mitochondrion is a room of its own.`)}>Two proteins can bind only where they share a space. Each mitochondrion, lysosome, endosome and peroxisome is its own.</p>`,
       `<p data-at="27" data-out="44.5"${sy(`Some proteins sit in a wall and reach into both rooms. This receptor crosses the cell's outer membrane. Outside, it catches a signal. Inside, it passes the message on to a partner.`)}>A protein in a membrane can reach into both sides: a receptor meets a signal outside and a partner inside.</p>
         <p data-at="29" data-out="44.5" class="credits">The receptor: the beta-2 adrenergic receptor, its chain as ribbons, with an agonist (BI-167107) in its pocket and the G protein Gs docked inside, their surfaces; ${cite('b2ar')}. Its seven helices cross the membrane.</p>`,
-      `<p data-at="45"${sy(`And there are doors. Biologists call them gates. Nuclear pores let proteins in and out of the nucleus.`)}>Gates are the doors: nuclear pores, and import into the endoplasmic reticulum, the mitochondria and the peroxisomes.</p>
-        <p data-at="57"${sy(`A mitochondrion pulls its proteins in through a narrow channel, unfolded, like thread through the eye of a needle. And small bubbles called vesicles carry cargo between the other rooms.`)}>Into a mitochondrion a protein goes unfolded. Vesicles carry others between the endoplasmic reticulum, the Golgi, endosomes, lysosomes and the outside.</p>
-        <p data-at="58" class="caption"${mute}>Close-ups not to scale.</p>
-        <p data-at="48" class="credits">Crossing the pore: TP53's core domain, PDB ${pdbId('tp53')}; threading into the mitochondrion: frataxin, ${cite('fxn')}, its chain drawn as beads, folding again inside; their surfaces. The pore and the import gates are simple shapes.</p>`)}`,
+      `<p data-at="45" data-out="59.5"${sy(`So a protein has more than an address. It has a side. It can float inside a room. It can cling to a wall from the cytosol's side, or from the far side. Or it can go right through, once, or many times, like our receptor.`)}>A protein in a place with a membrane is inside the space, on the membrane's cytosol side, on its far side, through it once, through it several times, or secreted.</p>
+        <p data-at="47" data-out="59.5" class="credits">Inside: calmodulin, ${cite('cam')}; on the cytosol's side, held by its lipid tail: H-Ras, PDB ${pdbId('ras')}; their surfaces. The others are simple shapes.</p>`,
+      `<p data-at="60" data-out="75.5"${sy(`How do we know? Partly from experiments, and partly from the protein's own build. A greasy stretch marks a crossing. A short tag at the start means: send me inside. No tag means: I stay on the cytosol's side. That last one is a textbook rule, and it has exceptions.`)}>From UniProt where it names the place (${fmt(F.named)} of ${fmt(F.memAll)} membrane places); elsewhere from the protein's own build: membrane spans, lipid anchors, a signal peptide (${fmt(F.carried)} more). No signal peptide is taken as the cytosol's side: a rule with exceptions.</p>
+        <p data-at="61" data-out="75.5" class="credits">Sides: UniProt (CC BY 4.0), each protein's membrane spans, topology, lipid anchors, signal and transit peptides and locations.</p>`,
+      `<p data-at="76" data-out="96.5"${sy(`And there are doors. Biologists call them gates. Nuclear pores let proteins in and out of the nucleus.`)}>Gates are the doors: nuclear pores, and import into the endoplasmic reticulum, the mitochondria and the peroxisomes.</p>
+        <p data-at="88" data-out="96.5"${sy(`A mitochondrion pulls its proteins in through a narrow channel, unfolded, like thread through the eye of a needle. And small bubbles called vesicles carry cargo between the other rooms.`)}>Into a mitochondrion a protein goes unfolded. Vesicles carry others between the endoplasmic reticulum, the Golgi, endosomes, lysosomes and the outside.</p>
+        <p data-at="89" data-out="96.5" class="caption"${mute}>Close-ups not to scale.</p>
+        <p data-at="79" data-out="96.5" class="credits">Crossing the pore: TP53's core domain, PDB ${pdbId('tp53')}; threading into the mitochondrion: frataxin, ${cite('fxn')}, its chain drawn as beads, folding again inside; their surfaces. The pore and the import gates are simple shapes.</p>`,
+      `<p data-at="97"${sy(`A mitochondrion even has two walls. So there are four places to be: the outer wall, the gap, the inner wall, and the innermost room, the matrix.`)}>Mitochondria: outer membrane, the gap between, inner membrane, matrix (told apart for ${fmt(F.mito)} proteins).</p>
+        <p data-at="98" class="caption"${mute}>Close-ups not to scale.</p>`)}`,
     back: `<h2 data-at="0.6"${mute}>Back into the cell</h2>
       ${turns(`<p data-at="1.5" data-out="15.5"${sy(`Now we need an address for every protein. For that we use the Human Protein Atlas, a large public project. Its teams stained human cells for one protein at a time, with an antibody that sticks to it, and photographed under a microscope where the cell lights up.`)}>Each protein goes where the Human Protein Atlas finds it: cells stained with an antibody for one protein at a time, and photographed. ${word(F.places)[0].toUpperCase() + word(F.places).slice(1)} places in this model cell.</p>`,
-      `<p data-at="16" data-out="42.5"${sy(`Now watch every dot fly home. Many proteins live in more than one place. In our picture, such a protein splits into copies on the way, one dot for each address.`)}>In this picture a protein in several places splits into copies: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more.</p>
-        <p data-at="28" data-out="42.5"${sy(`Inside each room, proteins that are linked settle close together, so their lines stay short. And each mitochondrion keeps its links to itself.`)}>Linked proteins gather together. Each mitochondrion keeps its own links.</p>`,
-      `<p data-at="43"${sy(`The lines now take on colours. We will come to what they mean in a moment.`)}>The links take the colour of their verdict.</p>
-        <p data-at="55" class="amber"${sy(`But about ${quarter > 22 && quarter < 28 ? 'a quarter' : `${quarter} in a hundred`} of the proteins have no address at all. The Atlas has no reliable picture of them yet. They wait outside the cell, in grey.`)}>${fmt(F.unplaced)} proteins have no place in the Atlas yet. They wait outside the cell, grey.</p>`)}`,
+      `<p data-at="16" data-out="49.5"${sy(`Now watch every dot fly home. Many proteins live in more than one place. In our picture, such a protein splits into copies on the way, one dot for each address.`)}>In this picture a protein in several places splits into copies: ${fmt(F.one)} proteins have one place, ${fmt(F.two)} two and ${fmt(F.more)} three or more.</p>
+        <p data-at="28" data-out="49.5"${sy(`Inside each room, proteins that are linked settle close together, so their lines stay short. And each mitochondrion keeps its links to itself.`)}>Linked proteins gather together. Each mitochondrion keeps its own links.</p>
+        <p data-at="40" data-out="49.5"${sy(`And a protein that belongs to a wall settles on it: on its own side, or straddling it.`)}>A membrane protein sits on its side of the membrane, or through it.</p>`,
+      `<p data-at="50"${sy(`The lines now take on colours. We will come to what they mean in a moment.`)}>The links take the colour of their verdict.</p>
+        <p data-at="62" class="amber"${sy(`But about ${quarter > 22 && quarter < 28 ? 'a quarter' : `${quarter} in a hundred`} of the proteins have no address at all. The Atlas has no reliable picture of them yet. They wait outside the cell, in grey.`)}>${fmt(F.unplaced)} proteins have no place in the Atlas yet. They wait outside the cell, grey.</p>`)}`,
     judge: `<h2 data-at="0.6"${mute}>Can they meet?</h2>
-      ${turns(`<p data-at="1.5" data-out="42.5"${sy(`Now the test. For every link we ask: can these two proteins actually meet? We take the links where both partners have an address, about ${near(J, 1000)} of them.`)}>The ${fmt(J)} links that suggest contact, between proteins that both have a place, judged strictly:</p>
-        <ul class="steps">${step(3, 42.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %): a shared space`, `${word(Math.round(10 * s0 / J))[0].toUpperCase() + word(Math.round(10 * s0 / J)).slice(1)} in ten pass. Both partners share a room, so nothing stands between them. These keep the colour of their room.`)}
-          ${step(16, 42.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): one known crossing apart`, `About ${in100(s1, J)} in a hundred are one door apart. Say, one partner is in the cytosol and the other in the nucleus, with the pores between them. Those we colour amber.`)}
-          ${step(30, 42.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space, no known crossing`, `And about ${near(s2, 100)} links should be impossible. Their partners share no room, and no door connects them. Those are red.`)}</ul>`,
-      `<p data-at="43"${sy(`Look at one protein, RELA. It is half of a famous alarm switch called N F kappa B. The Atlas photographed resting cells, and in a resting cell RELA sits in the cytosol. But raise the alarm, and it moves into the nucleus to switch genes on.`)}>RELA, half of NF-κB, is listed only in the cytosol: the Atlas photographs resting cells. Signalled, it moves into the nucleus.</p>
-        <p data-at="50" class="amber"${sy(`So its ${fmt(RELA.t[1])} amber links are not mistakes. They are moments nobody photographed.`)}>${fmt(RELA.t[1])} of its links pass a gate: moments the Atlas did not photograph.</p>
-        <p data-at="58" class="caption"${mute}>Counted apart: ${fmt(F.notC)} links that are not contacts and ${fmt(F.unpl)} with an end without a place. About ${about} links are drawn, and the red ones are raised to ${fmt(redDrawn)} so that they show in this picture.</p>`)}`,
+      ${turns(`<p data-at="1.5" data-out="47.5"${sy(`Now the test. For every link we ask: can these two proteins actually meet? We take the links where both partners have an address, about ${near(J, 1000)} of them. Where we know a protein's side, we use it. Where we do not, we assume it is inside.`)}>The ${fmt(J)} links that suggest contact, between proteins that both have a place. Sides where known; otherwise inside (the strict reading):</p>
+        <ul class="steps">${step(8, 47.5, CYAN, `${fmt(s0)} possible`, ` (${pc1(s0, J)} %): a shared space, or a side that faces it`, `${Cap(word(Math.round(10 * s0 / J)))} in ten pass. Both partners share a room, or one reaches into the other's room through a wall. These keep the colour of their room.`)}
+          ${step(21, 47.5, AMBER, `${fmt(s1)} through a gate`, ` (${pc1(s1, J)} %): one known crossing apart`, `About ${in100(s1, J)} in a hundred are one door apart. Say, one partner is in the cytosol and the other in the nucleus, with the pores between them. Those we colour amber.`)}
+          ${step(35, 47.5, RED, `${fmt(s2)} impossible`, ` (${pc1(s2, J)} %): no shared space, no side that faces it, no known crossing`, `And about ${near(s2, 100)} links should be impossible. Their partners share no room, no wall and no door. Those are red.`)}</ul>`,
+      `<p data-at="48"${sy(`Look at one protein, RELA. It is half of a famous alarm switch called N F kappa B. The Atlas photographed resting cells, and in a resting cell RELA sits in the cytosol. But raise the alarm, and it moves into the nucleus to switch genes on.`)}>RELA, half of NF-κB, is listed only in the cytosol: the Atlas photographs resting cells. Signalled, it moves into the nucleus.</p>
+        <p data-at="55" class="amber"${sy(`So its ${fmt(RELA.t[1])} amber links are not mistakes. They are moments nobody photographed.`)}>${fmt(RELA.t[1])} of its links pass a gate: moments the Atlas did not photograph.</p>
+        <p data-at="63" class="caption"${mute}>Counted apart: ${fmt(F.notC)} links that are not contacts and ${fmt(F.unpl)} with an end without a place. About ${about} links are drawn, and the red ones are raised to ${fmt(redDrawn)} so that they show in this picture.</p>`)}`,
+    machines: `<h2 data-at="0.6"${mute}>Machines</h2>
+      ${turns(`<p data-at="1.5" data-out="15.5"${sy(`Some proteins never work alone. They lock together into machines. Biologists call them complexes, and curators have collected about ${near(F.cxN, 1000)} human ones by hand. In our cell, a machine is a group of dots held in one outline.`)}>${fmt(F.cxN)} curated human complexes with at least two proteins in this map (the Complex Portal). Each is its proteins held in one outline.</p>`,
+      `<p data-at="16" data-out="35.5"${sy(`Most sit inside one room, like the ribosome of the mitochondria. Some coat a wall from one side, like the coats that shape vesicles. And some go right through a wall. The pore in the nuclear envelope is one. So is the turbine that makes the cell's fuel, A T P.`)}>Where they sit, sides where known:</p>
+        <ul class="steps">${step(17, 35.5, '#e6edf8', `${fmt(cxIn)} inside a space`, ' (the mitochondrial ribosome\'s large subunit, in the matrix)', '')}
+          ${step(23, 35.5, GREEN, `${fmt(cxFace)} on a face`, ' (the COPII coat, on the cytosol\'s side)', '')}
+          ${step(28, 35.5, MAGENTA, `${fmt(cxSpan)} through a membrane`, ' (the nuclear pore, ATP synthase)', '')}</ul>`,
+      `<p data-at="36" data-out="53.5"${sy(`But look at these. A few hundred machines have their parts listed in different rooms. Take the proteasome, the cell's shredder. ${F.pr.both * 2 > F.pr.both + F.pr.cyt + F.pr.nuc ? 'Most' : 'Many'} of its parts are listed in both the nucleus and the cytosol, but ${word(F.pr.nuc)} only in the nucleus, and ${word(F.pr.cyt)} only in the cytosol. Yet we know it is one machine. So here it is not the link that is wrong. It is an address.`)} class="amber">${fmt(cxApart)} complexes have members listed in different spaces (${fmt(F.cxGate)} only a gate apart, ${fmt(cxApart - F.cxGate)} with no way to meet)${F.cxOdd * 2 > cxApart ? '; in most, a single member is the odd one out' : ''}. A known machine in pieces: a place is off, not the link.</p>
+        <p data-at="37" data-out="53.5" class="credits">The 26S proteasome: ${fmt(F.pr.both)} parts listed in the nucleus and the cytosol, ${fmt(F.pr.nuc)} in the nucleus only, ${fmt(F.pr.cyt)} in the cytosol only.</p>`,
+      `${F.bipCyt ? `<p data-at="54"${sy(`It happens to the best. The Atlas lists BiP, the most famous resident of the E R's inside, only in the cytosol.`)}>HSPA5 (BiP), a chaperone of the ER lumen, is listed only in the cytosol.</p>` : ''}
+        <p data-at="55" class="credits">Complexes: the EBI Complex Portal (curated human complexes); their positions from their members' places and sides, this story's own.</p>`)}`,
     red: `<h2 data-at="0.6"${mute}>Why red?</h2>
       ${turns(`<p data-at="1.5" data-out="13.5"${sy(`So what about the red ones? As drawn, those partners could never meet.`)}>Red links: no shared space, and no gate between.</p>
-        <p data-at="7" data-out="13.5" class="amber"${sy(`So either the link is wrong, or an address is. To see how that can happen, we have to look at how links are found in the first place. There are three main ways.`)}>Either the link is wrong, or a place is missing. Where do links come from?</p>`,
+        <p data-at="7" data-out="13.5" class="amber"${sy(`So either the link is wrong, or an address is. We have just seen addresses go wrong. To see how links can, we have to look at how they are found in the first place. There are three main ways.`)}>Either the link is wrong, or a place is missing. Where do links come from?</p>`,
       `<ul class="steps">${step(19, 42.5, CYAN, 'Two-hybrid', ` Both proteins are made in one yeast cell, each with half of a switch. If they stick, the yeast shows it. It tells you a pair can stick, not whether they meet in our cells.`, `The first is called two-hybrid. You take two human proteins and make them both inside a yeast cell. Each carries half of a switch. If the two stick together, the halves meet, the switch turns on, and the yeast shows it. It is clever, and it can test thousands of pairs. But think about what it tells you: that two proteins can stick. Not that they ever meet in a human cell.`)}</ul>
         <p data-at="31" data-out="42.5" class="amber"${sy(`And indeed, of the links found this way, about ${Math.round(+bin.pct)} in a hundred are red.`)}>Binary links, mostly from such tests: ${bin.pct} % impossible.</p>
         <p data-at="21" data-out="42.5" class="credits">H-Ras and Raf: PDB ${pdbId('ras')}, their surfaces. Not to scale.</p>`,
@@ -180,8 +236,10 @@ function buildStory() {
         <p data-at="68" data-out="83.5" class="credits">The antibody: PDB ${pdbId('igg')}. BirA: PDB ${pdbId('bira')}. Their surfaces; the other proteins simplified. Not to scale.</p>`,
       `<p data-at="84" data-out="93.5"${sy(`So how often a link turns out red depends on how it was found. That is a pattern. It is not proof that the method is to blame.`)}>By kind of evidence: from ${lo.pct} % impossible (${F.kindName(lo.n)}) to ${hi.pct} % (${F.kindName(hi.n)}). A pattern, not proof.</p>
         <p data-at="85" data-out="93.5" class="credits">Of the ${word(F.byKind.length)} kinds of evidence that suggest contact; a link found in several ways counts under each.</p>`,
-      `<p data-at="94" data-out="104.5"${sy(`Part of the problem is the Atlas itself. It tells us that a protein belongs to an organelle, but not on which side of the wall it sits. If we assume every such protein is inside, we get our ${near(s2, 100)} red links. If we allow it to face outwards as well, ${g2 ? `only ${fmt(g2)} are left` : 'every one of them becomes possible'}. The truth lies somewhere in between.`)}>Which side of the membrane? The Atlas does not say. Inside only: ${fmt(s2)} impossible. Either side: ${g2 ? fmt(g2) : 'none'}.</p>`,
-      `<p data-at="105" class="amber"${sy(`And remember the proteins waiting outside. Their links, about ${near(F.unpl, 1000)} of them, we cannot judge at all.`)}>${fmt(F.unplaced)} proteins have no place: their ${fmt(F.unpl)} links cannot be judged.</p>`)}`,
+      `<p data-at="94" data-out="105.5"${sy(`And the sides matter. The Atlas only tells us that a protein belongs to an organelle, not on which side of its wall. Without sides, everything hung on a guess. Assume inside, and about ${near(o2, 1000)} links were red. Allow either side, and ${og2 ? `only about ${near(og2, 100)} were` : 'none were'}.`)}>Without sides: ${fmt(o2)} impossible if inside only, ${og2 ? fmt(og2) : 'none'} if either side.</p>`,
+      `<p data-at="106" data-out="118.5"${sy(`With sides, the guess shrinks. About ${share(F.settled / F.span)} of that doubt is settled. And what is left is firmer. Read the unknown ones strictly, and about ${near(s2, 100)} links are red. Read them generously, and about ${near(g2, 100)} still are.${g2 ? ' No reading makes them go away any more.' : ''}`)}>Sides settle ${setPct} % of the links that hung on the reading. Now: ${fmt(s2)} impossible if the unknown sides are inside, ${g2 ? fmt(g2) : 'none'} if either side.</p>`,
+      `<p data-at="119" data-out="128.5" class="amber"${sy(`And sides cut both ways. About ${near(F.worse, 100)} links are now worse off than before: most of them now need a door, and about ${near(F.toRed, 10)} have turned red. A protein on an organelle's outer face does not share its inside.`)}>${fmt(F.worse)} links are worse off with sides (${fmt(F.toRed)} now impossible): on an organelle's cytosol side is not inside it.</p>`,
+      `<p data-at="129" class="amber"${sy(`And remember the proteins waiting outside. Their links, about ${near(F.unpl, 1000)} of them, we cannot judge at all.`)}>${fmt(F.unplaced)} proteins have no place: their ${fmt(F.unpl)} links cannot be judged.</p>`)}`,
     moments: `<h2 data-at="0.6"${mute}>Not all at once</h2>
       ${turns(`<p data-at="1.5" data-out="35.5"${sy(`Now suppose a link is right, and both partners share a room. Even then, it is not a wire. Take GRB2 again. It has ${fmt(GRB2.deg)} partners, but only three hands: three small domains, each of which holds one partner at a time.`)}>GRB2: ${fmt(GRB2.deg)} links, but three binding domains, an SH2 and two SH3s.</p>
         <p data-at="18" data-out="35.5" class="amber"${sy(`So its partners have to take turns. A link in the map is a moment in time, not a permanent connection.`)}>Partners take turns. A link is a moment in time, not a permanent wire.</p>
@@ -200,7 +258,7 @@ function buildStory() {
       `<p data-at="48" data-out="54.5"${sy(`It would also take fairer maps. Famous proteins collect links, and unstudied ones look lonely. Among the hundred biggest hubs, ${F.litTop} in a hundred links come from papers alone. A map of binding is also a map of our attention.`)}>And fairer maps: among the 100 biggest hubs, ${F.litTop} % of links come from papers alone, against ${F.litAll} % across the map.</p>`,
       `<p data-at="55"${sy(`Until then, this is the honest picture. Dense networks inside each room. Thin traffic through the doors. And a red remainder that nobody can explain yet. Which of those links are mistakes, and which are biology we have not understood? That is still open. Have a look around.`)}>Until then, the honest cell: dense networks inside each space, thin traffic through the gates, and a red remainder still to explain.</p>
         <p data-at="59"><button class="btn primary" id="btnGoExplore" type="button">Explore the cell</button></p>
-        <p class="credits" data-at="60">The interactome of J. Menche and colleagues, Science 347, 1257601 (2015); the places from the Human Protein Atlas (proteinatlas.org). The judgement is this story's own.</p>`)}`,
+        <p class="credits" data-at="60">The interactome of J. Menche and colleagues, Science 347, 1257601 (2015); the places from the Human Protein Atlas (proteinatlas.org). Sides: UniProt (CC BY 4.0). Complexes: the EBI Complex Portal. The judgement is this story's own.</p>`)}`,
   };
 
   const story = $('#story');
@@ -225,6 +283,7 @@ function buildStory() {
   const L = (...a) => lbl.push(a);
   start({ cell_shell: 1, cell_net: 0, cell_amb: 1, cell_red: 1, cell_show: 2, cell_faces: 0, cell_kind: -1, cell_pp: -1, cell_pc: -1,
     ball_move: 0, ball_morph: 0, ball_tint: 0, ball_in: 1, ball_out: 1, ball_hi: -1, ball_hl: 0, ball_sweep: 0, cell_ties: 1, crowd_open: 0, crowd_mark: 0, walls_lit: 0, walls_wall: 0, walls_parts: 0,
+    cell_sides: 2, cell_cxs: 0, cell_cxp: -1, cell_cxon: 0, cell_cxa: 0, walls_sides: 0, walls_lay: 0,
     lens_open: 0, lens_focus: 0, sites_act: 0, sites_cyc: 0, sites_tp: 0, sites_move: 0, next_halo: 0, next_slab: 0, next_vol: 0 });
   let a, b;
   // 1. A map without a place: the hairball alone, framed in the middle; the empty cell comes in beside it only as the
@@ -266,7 +325,8 @@ function buildStory() {
   sfxCue(a + 5, 'whoosh', 'crowd', 'dot', { dur: 2, pitch: 0.9 });
   sfxCue(a + 9, 'patter', 'crowd', 'cube', { dur: 4, gain: 0.3 });
   sfxCue(a + 33, 'ping', 'crowd', 'mark', { gain: 0.4 });
-  // 3. Spaces and walls: the spaces light one by one, the walls glow, then a receptor, a pore and an import site
+  // 3. Spaces and walls: the spaces light one by one, the walls glow, then a receptor, the sides a protein can take
+  // beside it, a pore and an import site, and the mitochondrion's four layers
   a = C.walls.a; b = C.walls.b;
   show('walls', a, a + 2, b - 2, b);
   // (six spaces, one every 3.2 s: the cytosol, the nucleoplasm, the ER's and the Golgi's lumens, the mitochondria, the
@@ -277,57 +337,69 @@ function buildStory() {
   ramp('walls_lit', a + 23, a + 26, SPACES.length, 0);
   ramp('walls_wall', a + 14, a + 18, 0, 1);
   ramp('walls_parts', a + 26, a + 29, 0, 1);
+  ramp('walls_sides', a + 45, a + 48, 0, 1); ramp('walls_sides', a + 75, a + 77, 1, 0);
+  // (the four layers in turn as the voice names them, then out)
+  ramp('walls_lay', a + 97, a + 99, 0, 1); [2, 3, 4].forEach((k, i) => ramp('walls_lay', a + 99.5 + 2 * i, a + 101 + 2 * i, k - 1, k)); ramp('walls_lay', a + 106, a + 107.5, 4, 0);
   ramp('walls_wall', b - 5, b - 2, 1, 0);
   ramp('cell_shell', a + 27, a + 30, 1, 0.35); ramp('cell_shell', b - 3, b, 0.35, 1);   // (the close-ups clear of the organelles' skins)
   cam(a + 1, 'walls', 'default', 30);
   cam(a + 24, 'walls', 'default', 55, 'spin');
   cam(a + 31, 'walls', 'receptor', 0);
   cam(a + 43, 'walls', 'receptor', 25, 'spin');
-  cam(a + 48, 'walls', 'pore', 0);
-  cam(a + 54, 'walls', 'pore', 20, 'spin');
-  cam(a + 58, 'walls', 'import', 0);
-  cam(a + 62, 'walls', 'import', 12, 'spin');   // (held while the protein threads in)
+  cam(a + 47, 'walls', 'sides', 0);
+  cam(a + 74, 'walls', 'sides', 40, 'spin');
+  cam(a + 79, 'walls', 'pore', 0);
+  cam(a + 85, 'walls', 'pore', 20, 'spin');
+  cam(a + 89, 'walls', 'import', 0);
+  cam(a + 106, 'walls', 'import', 24, 'spin');   // (held while the protein threads in and the layers light)
   cam(b, 'walls', 'default', 60);
   SPACES.forEach((k, i) => L('walls', k, `<b>${['The cytosol', 'The nucleoplasm', 'The endoplasmic reticulum and Golgi lumens', 'Mitochondria', 'Lysosomes, endosomes, peroxisomes', 'Outside'][i]}</b>${i === 3 || i === 4 ? ' · each its own space' : ''}`, litAt(i) - 1, litAt(i) + 2.2, 'cyn'));
   L('walls', 'recOut', '<b>Outside</b> · a signal in its pocket', a + 32, a + 44, 'amb');
   L('walls', 'recIn', '<b>Inside</b> · its partner, a G protein', a + 34, a + 44, 'grn');
-  L('walls', 'pore', '<b>A nuclear pore</b> · a gate', a + 49, a + 56, 'amb');
-  L('walls', 'import', '<b>An import site</b> · into a mitochondrion', a + 59, b - 1, 'amb');
+  [['sIn', 'Inside the space', 'calmodulin, in the cytosol', 50], ['sCyto', 'On the cytosol\'s side', 'H-Ras', 51.5], ['sFar', 'On the far side', 'on a lipid anchor', 53],
+    ['sOnce', 'Through once', '', 54.5], ['sMany', 'Through several times', 'the receptor', 56], ['sSec', 'Secreted', 'outside', 57.5]]
+    .forEach(([k, n, r, t], i) => L('walls', k, `<b>${n}</b>${r ? ' · ' + r : ''}`, a + t, a + 75, ['cyn', 'grn', 'amb', 'mag', 'mag', 'cyn'][i]));
+  L('walls', 'pore', '<b>A nuclear pore</b> · a gate', a + 80, a + 87, 'amb');
+  L('walls', 'import', '<b>An import site</b> · into a mitochondrion', a + 90, a + 96.5, 'amb');
+  [['lOuter', 'Outer membrane'], ['lGap', 'The gap'], ['lInner', 'Inner membrane'], ['lMatrix', 'The matrix']].forEach(([k, n], i) => L('walls', k, `<b>${n}</b>`, a + 97.5 + 2 * i, i === 3 ? b - 1 : a + 100 + 2 * i, 'mag'));
   SPACES.forEach((k, i) => sfxCue(litAt(i) - 1, 'ping', 'walls', k, { gain: 0.3, pitch: Math.pow(2, i / 12) }));
   sfxCue(a + 31, 'whoosh', 'walls', 'receptor', { dur: 2 });
-  sfxCue(a + 48, 'whoosh', 'walls', 'pore', { dur: 2 });
-  // 4. Back into the cell: the hairball moves over the cell, every dot flies to its place, the cell's own take over
+  sfxCue(a + 46, 'pick', 'walls', 'sMany', { gain: 0.3 });
+  sfxCue(a + 79, 'whoosh', 'walls', 'pore', { dur: 2 });
+  // 4. Back into the cell: the hairball moves over the cell, every dot flies to its place (a membrane protein to its
+  // side), the cell's own take over
   a = C.back.a; b = C.back.b;
   show('ball', a + 1, a + 3);
   ramp('ball_move', a + 5, a + 13, 0, 1);
-  ramp('ball_morph', a + 15, a + 43, 0, 1);
-  ramp('ball_tint', a + 43, a + 49, 0, 1);
-  ramp('cell_net', a + 51, a + 57, 0, 1);
-  ramp('ball_in', a + 52, a + 58, 1, 0);
+  ramp('ball_morph', a + 15, a + 48, 0, 1);
+  ramp('ball_tint', a + 50, a + 56, 0, 1);
+  ramp('cell_net', a + 58, a + 64, 0, 1);
+  ramp('ball_in', a + 59, a + 65, 1, 0);
   cam(a + 2, 'ball', 'default', 0);
   cam(a + 13, 'ball', 'cell', -10);
-  cam(a + 43, 'ball', 'cell', 50, 'spin');
-  cam(a + 58, 'cell', 'default', 30, null, [0, 6, 1.4]);   // (standing back: the proteins without a place round the cell)
+  cam(a + 50, 'ball', 'cell', 50, 'spin');
+  cam(a + 65, 'cell', 'default', 30, null, [0, 6, 1.4]);   // (standing back: the proteins without a place round the cell)
   cam(b - 1, 'cell', 'default', 70);
-  L('ball', 'outside', `<b>${fmt(F.unplaced)} proteins</b> · no place in the Atlas`, a + 55, b - 1, '');
-  L('cell', CELL_MITO(), '<b>A mitochondrion</b> · its own links', a + 30, a + 42, 'mag');
+  L('ball', 'outside', `<b>${fmt(F.unplaced)} proteins</b> · no place in the Atlas`, a + 62, b - 1, '');
+  L('cell', CELL_MITO(), '<b>A mitochondrion</b> · its own links', a + 30, a + 40, 'mag');
   sfxCue(a + 5, 'whoosh', 'ball', 'ball', { dur: 4, pitch: 0.8 });
   sfxCue(a + 15, 'rush', 'ball', 'ball', { dur: 6, gain: 0.35 });
-  sfxCue(a + 43, 'spark', 'cell', 'centre', { gain: 0.4 });
-  // 5. Can they meet? The verdicts in turn, then RELA's links through the pores
+  sfxCue(a + 50, 'spark', 'cell', 'centre', { gain: 0.4 });
+  // 5. Can they meet? The verdicts in turn (sides where known, the unknown ones strict), then RELA's links through the
+  // pores
   a = C.judge.a; b = C.judge.b;
   ramp('ball_out', a + 1, a + 5, 1, 0);
   ramp('ball_a', a + 5, a + 6, 1, 0);
   // (the cell drew all three since the morph: the amber and the red ones fade out, then come back one kind at a time)
   ramp('cell_amb', a + 1, a + 3, 1, 0); ramp('cell_red', a + 1, a + 3, 1, 0);
-  ramp('cell_amb', a + 16, a + 18, 0, 1);
-  ramp('cell_red', a + 30, a + 32, 0, 1);
+  ramp('cell_amb', a + 21, a + 23, 0, 1);
+  ramp('cell_red', a + 35, a + 37, 0, 1);
   // (red is on show only while the story talks about it: the owner, 23 November 2026; out again for RELA's amber links,
-  // in for 'Why red?', out under the lenses, in for the shares by kind and the two readings, out with the proteins
-  // without a place, in again for the last picture's red remainder)
-  ramp('cell_red', a + 42, a + 44, 1, 0);
+  // in for 'Why red?', out under the lenses, in for the shares by kind and the readings, out with the proteins without a
+  // place, in again for the last picture's red remainder)
+  ramp('cell_red', a + 47, a + 49, 1, 0);
   const rela = RELA.p, relaAt = dotOf(net, rela);
-  jump('cell_pp', a + 43, -1, rela);
+  jump('cell_pp', a + 48, -1, rela);
   jump('cell_pp', b - 1, rela, -1);
   // (RELA's own dot and its links in front, facing you, not behind the nucleus (the owner, 23 November 2026): the view's
   // bearing is RELA's from the nucleus, in the cell's own frame, and it looks between the two; in a headset the same
@@ -335,28 +407,65 @@ function buildStory() {
   const nuc = CELL_NUC(), relaAz = relaAt ? Math.atan2(relaAt[0] - nuc[0], relaAt[2] - nuc[2]) / D2R : 150;
   const relaT = relaAt ? [0, 1, 2].map(i => nuc[i] + 0.3 * (relaAt[i] - nuc[i])) : nuc, relaN = [0, 0, -1.0, relaT[0], relaT[1], relaT[2]];
   cam(a + 2, 'cell', 'default', 70);
-  cam(a + 42, 'cell', 'default', relaAz + 50, 'spin');
-  cam(a + 47, 'cell', 'default', relaAz - 10, null, relaN);
+  cam(a + 47, 'cell', 'default', relaAz + 50, 'spin');
+  cam(a + 52, 'cell', 'default', relaAz - 10, null, relaN);
   cam(b, 'cell', 'default', relaAz + 15, 'spin', relaN);
-  L('cell', 'edge', `<b>Possible</b> · ${fmt(s0)}, read strictly`, a + 4, a + 16, 'cyn');
-  L('cell', 'nucleus', `<b>Through a gate</b> · ${fmt(s1)}, read strictly`, a + 17, a + 30, 'amb');
-  L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 31, a + 42, 'mag');
-  if (relaAt) L('cell', relaAt, `<b>RELA</b> · cytosol only, ${fmt(RELA.t[1])} links through a gate`, a + 45, b - 1, 'amb');
-  sfxCue(a + 3, 'link', 'cell', 'edge', { gain: 0.35 });
-  sfxCue(a + 16, 'link', 'cell', 'nucleus', { gain: 0.35, pitch: 0.9 });
-  sfxCue(a + 30, 'knock', 'cell', 'centre', { gain: 0.35 });
-  sfxCue(a + 43, 'clink', 'cell', 'centre', { gain: 0.4 });
-  // 6. Why red? What red means, on the cell (the others dimmed); the lenses one by one, each explained; the shares; the
-  // faces, strict then generous; the proteins without a place
+  L('cell', 'edge', `<b>Possible</b> · ${fmt(s0)}, sides where known`, a + 9, a + 21, 'cyn');
+  L('cell', 'nucleus', `<b>Through a gate</b> · ${fmt(s1)}`, a + 22, a + 35, 'amb');
+  L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, unknown sides read strictly`, a + 36, a + 47, 'mag');
+  if (relaAt) L('cell', relaAt, `<b>RELA</b> · cytosol only, ${fmt(RELA.t[1])} links through a gate`, a + 50, b - 1, 'amb');
+  sfxCue(a + 8, 'link', 'cell', 'edge', { gain: 0.35 });
+  sfxCue(a + 21, 'link', 'cell', 'nucleus', { gain: 0.35, pitch: 0.9 });
+  sfxCue(a + 35, 'knock', 'cell', 'centre', { gain: 0.35 });
+  sfxCue(a + 48, 'clink', 'cell', 'centre', { gain: 0.4 });
+  // 6. Machines: the complexes as rings round their members, the background dimmed; the examples in turn (inside, on a
+  // face, through a membrane), then the proteasome listed apart, then BiP
+  a = C.machines.a; b = C.machines.b;
+  const CX = cell.cx, ex = CX.ex, cxAt = n => (n >= 0 ? CX.at(n) : []);
+  ramp('cell_net', a + 2, a + 5, 1, 0.25); ramp('cell_net', b - 3, b, 0.25, 1);
+  ramp('cell_shell', a + 2, a + 5, 1, 0.5); ramp('cell_shell', b - 3, b, 0.5, 1);
+  ramp('cell_amb', a + 2, a + 4, 1, 0.15); ramp('cell_amb', b - 3, b, 0.15, 1);
+  ramp('cell_cxa', a + 6, a + 8, 0, 1); ramp('cell_cxa', b - 2.5, b - 0.5, 1, 0);
+  jump('cell_cxs', a + 6, 0, 15); jump('cell_cxs', a + 35.5, 15, 16); jump('cell_cxs', b - 0.3, 16, 0);
+  // (the camera to a point p of the cell, from outside it on p's bearing, d away)
+  const camTo = (t, p, d, turn, ease) => p && cam(t, 'cell', 'default', Math.atan2(p[0], p[2]) / D2R - 20 + (turn || 0), ease, [0, -4, d - 3.6, p[0], p[1], p[2]]);
+  const mid = l => l.length && l.reduce((s, q) => s.map((x, i) => x + q[i] / l.length), [0, 0, 0]);
+  const [rib, cop, npc, atp, psm] = ex.map(cxAt);
+  cam(a + 2, 'cell', 'default', 40);
+  cam(a + 14, 'cell', 'default', 70, 'spin');
+  camTo(a + 17, rib[0], 0.75, 0); camTo(a + 21.5, rib[0], 0.75, 15, 'spin');
+  camTo(a + 23.5, cop[0], 0.8, 0); camTo(a + 27, cop[0], 0.8, 12, 'spin');
+  camTo(a + 28.5, npc[0], 0.9, 0); camTo(a + 31, npc[0], 0.9, 10, 'spin');
+  camTo(a + 32, atp[0], 0.75, 0); camTo(a + 35, atp[0], 0.75, 12, 'spin');
+  camTo(a + 38, mid(psm), 1.1, 0); camTo(a + 52, mid(psm), 1.1, 25, 'spin');
+  const bipAt = F.bipCyt ? dotOf(net, F.bip) : null;
+  if (bipAt) { jump('cell_pp', a + 54, -1, F.bip); jump('cell_pp', b - 1, F.bip, -1); camTo(a + 55, bipAt, 1.4, 0); camTo(b - 1, bipAt, 1.4, 15, 'spin'); }
+  cam(b, 'cell', 'default', 20);
+  if (rib[0]) L('cell', rib[0], '<b>A machine</b> · its proteins in one outline', a + 8, a + 15.5, '');
+  if (rib[0]) L('cell', rib[0], '<b>Mitochondrial ribosome</b> · large subunit, in the matrix', a + 17.5, a + 22.5, 'cyn');
+  if (cop[0]) L('cell', cop[0], '<b>COPII coat</b> · on the cytosol\'s side', a + 24, a + 28, 'grn');
+  if (npc[0]) L('cell', npc[0], '<b>Nuclear pore</b> · through the envelope', a + 29, a + 32, 'mag');
+  if (atp[0]) L('cell', atp[0], '<b>ATP synthase</b> · through the inner membrane', a + 32.5, a + 35.5, 'mag');
+  psm.forEach((q, i) => L('cell', q, i ? `<b>Also listed here</b>` : `<b>26S proteasome</b> · listed in ${word(psm.length)} spaces`, a + 38.5, a + 53, 'amb'));
+  if (bipAt) L('cell', bipAt, '<b>HSPA5 (BiP)</b> · listed only in the cytosol', a + 55.5, b - 1, 'amb');
+  sfxCue(a + 6, 'grow', 'cell', 'centre', { dur: 2, gain: 0.3 });
+  [17, 23.5, 28.5].forEach((d, i) => sfxCue(a + d, 'ping', 'cell', 'centre', { gain: 0.3, pitch: Math.pow(2, i / 12) }));
+  sfxCue(a + 36, 'knock', 'cell', 'centre', { gain: 0.35 });
+  // 7. Why red? What red means, on the cell (the others dimmed); the lenses one by one, each explained; the shares; the
+  // sides: without them (inside only, then either side), with them (the unknown ones strict, then generous), the links
+  // worse off; the proteins without a place
   a = C.red.a; b = C.red.b;
   ramp('cell_amb', a + 1, a + 3, 1, 0.15); ramp('cell_amb', a + 12, a + 14, 0.15, 1);
   ramp('cell_red', a + 0.5, a + 2.5, 0, 1); ramp('cell_red', a + 13, a + 15, 1, 0); ramp('cell_red', a + 84, a + 86, 0, 1);
   show('lens', a + 13, a + 15, a + 84, a + 86);
   ramp('lens_open', a + 14, a + 19, 0, 1);
   ramp('lens_focus', a + 19, a + 21, 0, 1); ramp('lens_focus', a + 43, a + 45, 1, 2); ramp('lens_focus', a + 66, a + 68, 2, 3);
-  jump('cell_faces', a + 97, 0, 1);
-  jump('cell_faces', a + 104, 1, 0);
-  jump('cell_show', a + 104, 2, 3);
+  jump('cell_sides', a + 94, 2, 0);
+  jump('cell_faces', a + 99.5, 0, 1);
+  jump('cell_sides', a + 106, 0, 2); jump('cell_faces', a + 106, 1, 0);
+  jump('cell_faces', a + 112.5, 0, 1);
+  jump('cell_faces', a + 119, 1, 0);
+  jump('cell_show', a + 129, 2, 3);
   jump('cell_show', C.moments.a + 2.5, 3, 2);   // (as the cell fades out, nearly unseen: a hidden set is not updated, so later it would build as it comes back)
   cam(a + 1, 'cell', 'default', relaAz + 20, null, [0, 4, -1.0, nuc[0], nuc[1], nuc[2]]);   // (on from RELA's bearing, no swing)
   cam(a + 12, 'cell', 'default', relaAz + 45, 'spin', [0, 4, -1.0, nuc[0], nuc[1], nuc[2]]);
@@ -368,19 +477,25 @@ function buildStory() {
   cam(a + 68, 'lens', 'prox', 0);
   cam(a + 83, 'lens', 'prox', 6, 'spin');
   cam(a + 86, 'cell', 'default', 20);
-  cam(a + 104, 'cell', 'default', 60, 'spin');
-  cam(b, 'cell', 'default', 85, 'spin', [0, 4, 1.4]);
-  L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}, read strictly`, a + 2, a + 13, 'mag');
+  cam(a + 110, 'cell', 'default', 50, 'spin');
+  cam(a + 129, 'cell', 'default', 75, 'spin');
+  cam(b, 'cell', 'default', 100, 'spin', [0, 4, 1.4]);
+  L('cell', [0.1, -0.6, 0.45], `<b>Impossible</b> · ${fmt(s2)}`, a + 2, a + 13, 'mag');
   L('lens', 'yeastTag', `<b>Binary</b> · ${bin.pct} % impossible, of those with both places known`, a + 31, a + 44, 'cyn');
   L('lens', 'apmsTag', `<b>Complexes</b> · stable machines, gathered by hand · ${cx.pct} % impossible`, a + 55, a + 67, 'amb');
   L('lens', 'proxTag', '<b>Proximity</b> · large maps came after this one', a + 76, a + 86, 'grn');
-  L('cell', [0.1, -0.6, 0.45], `<b>Strict: inside only</b> · ${fmt(s2)} impossible`, a + 94, a + 97, 'mag');
-  L('cell', [0.1, -0.6, 0.45], `<b>Generous: either side</b> · ${fmt(g2)} impossible, too generous to rule any out`, a + 98, a + 104, 'cyn');
-  L('cell', [-0.3, -1.25, 0.3], `<b>${fmt(F.unplaced)} without a place</b> · ${fmt(F.unpl)} links unjudged`, a + 105, b - 1, '');
+  const RL = [0.1, -0.6, 0.45];
+  L('cell', RL, `<b>No sides, inside only</b> · ${fmt(o2)} impossible`, a + 95, a + 99.5, 'mag');
+  L('cell', RL, `<b>No sides, either side</b> · ${og2 ? fmt(og2) : 'none'} impossible`, a + 100, a + 105.5, 'cyn');
+  L('cell', RL, `<b>Sides, the unknown inside</b> · ${fmt(s2)} impossible`, a + 107, a + 112.5, 'mag');
+  L('cell', RL, `<b>Sides, the unknown either side</b> · ${fmt(g2)} impossible`, a + 113, a + 118.5, 'mag');
+  L('cell', RL, `<b>Worse off with sides</b> · ${fmt(F.worse)} links, ${fmt(F.toRed)} now red`, a + 120, a + 128.5, 'amb');
+  L('cell', [-0.3, -1.25, 0.3], `<b>${fmt(F.unplaced)} without a place</b> · ${fmt(F.unpl)} links unjudged`, a + 130, b - 1, '');
   sfxCue(a + 2, 'knock', 'cell', 'centre', { gain: 0.3 });
   [19, 43, 66].forEach(d => sfxCue(a + d, 'pick', 'lens', d === 19 ? 'yeast' : d === 43 ? 'apms' : 'prox', { gain: 0.35 }));
-  sfxCue(a + 97, 'snap', 'cell', 'centre', { gain: 0.35 });
-  // 7. Not all at once: GRB2's domains and partners in turn; TP53 to and fro; STAT3 through a pore
+  sfxCue(a + 99.5, 'snap', 'cell', 'centre', { gain: 0.35 });
+  sfxCue(a + 106, 'snap', 'cell', 'centre', { gain: 0.35, pitch: 1.1 });
+  // 8. Not all at once: GRB2's domains and partners in turn; TP53 to and fro; STAT3 through a pore
   a = C.moments.a; b = C.moments.b;
   ramp('cell_a', a, a + 3, 1, 0); ramp('cell_red', a, a + 2.5, 1, 0);
   show('sites', a + 1, a + 4, b - 2, b);
@@ -403,7 +518,7 @@ function buildStory() {
   L('sites', 'ep300', '<b>EP300</b> · in the nucleus', a + 64, b - 1, 'grn');
   sfxCue(a + 6, 'click', 'sites', 'grb2', { gain: 0.3 });
   sfxCue(a + 54, 'whoosh', 'sites', 'pore', { dur: 2, pitch: 1.1 });
-  // 8. What it would take: proximity maps, a tomogram's slab, a whole-cell volume; then the honest cell
+  // 9. What it would take: proximity maps, a tomogram's slab, a whole-cell volume; then the honest cell
   a = C.next.a; b = C.next.b;
   ramp('cell_a', a, a + 3, 0, 1);
   show('next', a + 2, a + 4, a + 50, a + 52);
