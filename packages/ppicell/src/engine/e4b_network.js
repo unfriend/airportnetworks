@@ -180,6 +180,29 @@ function ownMissing() {
   document.body.appendChild(a); a.click(); a.remove();
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 }
+// Export for wwiznet (SPEC.md, "Export for wwiznet"): the network on show, with the limits and the Cell tab's switches as
+// they are, as a wwiznet dataset (PWIZ, src/sets/pwiz.js) in one ZIP made in this page: a download, nothing sent
+const WIZ = { msg: '', err: '' };
+const WIZ_TEXT = 'Export for wwiznet: the network on show, with these limits and the Cell tab\'s switches, as a dataset for wwiznet, the Menche lab\'s 3D network explorer (every protein in each of its places, at its place in this cell; the links with their verdicts). One ZIP, made in this page and saved by your browser: nothing is sent. Unzip it into the data folder of a wwiznet deployment and add the line its HOW-TO-OPEN.txt gives to data/index.json.';
+const WIZ_XR = 'Export for wwiznet on a laptop: the Network tab there saves the network on show as a dataset for wwiznet.';
+function wizExport() {
+  const d = api('cell').wiz();
+  WIZ.msg = ''; WIZ.err = '';
+  if (!d) { WIZ.err = 'The cell is still being drawn: press again when it is ready.'; renderAll(); return; }
+  try {
+    const name = d.own ? (OWNN.name || 'your network') : '', out = PWIZ.files(d, { edges: d.show >= 3 ? 'all' : 'judged', name });
+    const fs = { [`${out.entry.folder}/HOW-TO-OPEN.txt`]: PWIZ.howTo(out.entry) };
+    for (const [f, t] of Object.entries(out.files)) fs[`${out.entry.folder}/${f}`] = t;
+    const a = document.createElement('a'), file = `${out.entry.folder}-wwiznet.zip`;
+    a.href = URL.createObjectURL(new Blob([PWIZ.zip(fs)], { type: 'application/zip' }));
+    a.download = file;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    const c = out.counts;
+    WIZ.msg = `Saved ${file}: ${fmt(c.nodes)} proteins in their places and ${fmt(c.links)} links (${fmt(c.possible)} possible, ${fmt(c.gate)} through a gate, ${fmt(c.impossible)} impossible).`;
+  } catch (e) { WIZ.err = 'The export failed: ' + (e && e.message || e); }
+  renderAll();
+}
 // what reading found, in words (both panes)
 function reportLines() {
   const r = OWNN.report;
@@ -496,7 +519,10 @@ function renderNet() {
     <p class="sub">${esc(LIM_TEXT)}</p>
     ${jobLine() ? `<p class="sub" style="color:var(--amber)">${esc(jobLine())}</p>` : ''}
     <div class="chips">${chip('data-act="limreset" data-v="1"', 'Reset limits', false)}</div>
-    <div id="netShare">${shareHtml()}</div>`;
+    <div id="netShare">${shareHtml()}</div>
+    <p class="grp-h">Export for wwiznet</p><p class="sub">${esc(WIZ_TEXT)}</p>
+    <div class="chips"><button type="button" data-act="wiz" data-v="1">Export for wwiznet (ZIP)</button></div>
+    ${WIZ.msg ? `<p class="sub">${esc(WIZ.msg)}</p>` : ''}${WIZ.err ? `<p class="sub" style="color:var(--amber)">${esc(WIZ.err)}</p>` : ''}`;
   const r = OWNN.report, lines = reportLines();
   $('#ownBody').innerHTML = `${OWNN.busy ? `<p class="sub" style="color:var(--amber)">${esc(OWNN.busy)}</p>` : ''}${OWNN.err ? `<p class="sub" style="color:var(--amber)">${esc(OWNN.err)}</p>` : ''}
     ${lines.map(t => `<p class="sub">${esc(t)}</p>`).join('')}
@@ -512,7 +538,7 @@ function netAct(b) {
   ({
     lim: () => setLim(b.dataset.k, +v, true), rel: () => toggleRel(+v), pls: () => togglePlace(+v), limreset: () => resetLim(true),
     own: () => (+v === 0 && (X.own === 2 || X.net) && !X.bi ? netBack(true) : setOwn(+v, true)), netb: () => { const f = SHARE_FN.get(v); if (f) f(); }, ownpaste: () => { const t = $('#ownText').value; if (t.trim()) chooseText(t, 'pasted text'); },
-    ownex: () => ownExample(), ownkeep: () => ownKeep(), ownforget: () => ownForget(), ownkept: () => ownLoadKept(), ownmiss: () => ownMissing(),
+    wiz: () => wizExport(), ownex: () => ownExample(), ownkeep: () => ownKeep(), ownforget: () => ownForget(), ownkept: () => ownLoadKept(), ownmiss: () => ownMissing(),
   }[b.dataset.act] || (() => {}))();
 }
 // the headset's twin (drawTabPane): the limits as buttons, what they do, and the network: chosen on a laptop only
@@ -542,5 +568,6 @@ function drawNetPane(ctx, P, x, y, W, bottom) {
   for (const t of shareLines()) if (y + 34 < bottom) y += textBlock(ctx, t, x, y, W, 20, 28, /could not|^Not /.test(t) ? VC.amber || VC.ink : VC.muted, 400, 3) + 6;
   const bs = shareButtons();
   if (bs.length && y + 46 < bottom) y += flow(ctx, P, bs, x, y, W, bottom, { px: 20, h: 44 }) + 8;
-  if (X.own === 1 && inRoom() && y + 34 < bottom) textBlock(ctx, OWN_ROOM, x, y, W, 20, 28, VC.muted, 400, 2);
+  if (X.own === 1 && inRoom() && y + 34 < bottom) y += textBlock(ctx, OWN_ROOM, x, y, W, 20, 28, VC.muted, 400, 2) + 6;
+  if (y + 34 < bottom) textBlock(ctx, WIZ_XR, x, y, W, 20, 28, VC.muted, 400, 2);
 }

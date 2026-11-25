@@ -938,10 +938,20 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       bg.forEach((k, j) => { const [a, b] = siteOf(k); ab[2 * j] = a; ab[2 * j + 1] = b; cls[j] = NET.L.cls[k]; col.set(linkCol(k), 3 * j); });
       return { n, pos: Float32Array.from(D.pos.slice(0, 3 * n)), prot, place, ab, cls, col, tally: NET.tally.slice(), drawnBy: NET.drawnBy.slice() };
     }
+    // the network as drawn, for the export to wwiznet (src/sets/pwiz.js): every location's own dot (the listed ones are
+    // the first NLOC dots, in order; a protein without a place where its dot stands outside the cell), each link's
+    // judgement and two locations, the links drawn, and the colours the cell uses
+    function wizData() {
+      const pos = new Float64Array(3 * NALL);
+      for (let l = 0; l < NALL; l++) pos.set(l < NLOC ? dotPos(l) : spot(13, 0, mul(31 * l + 1), 0)[0], 3 * l);
+      return { P, S, com: grp ? opt.com : null, own: !!opt.own, lim: Object.assign({}, opt.lim), g: NET.g, sd: NET.sd, show: NET.show, kind: NET.kind, top: NET.top,
+        NLOC, NALL, lProt, lPlace, uLoc, pos, L: NET.L, drawn: NET.bg.slice(), degP, cxEx: CX_EX.slice(), placeCol: PLACE_COL, clsCol: CLS_COL, tieCol: TIE_COL,
+        kindNames: P.kindNames || KIND_NAME, placeNames: PLACE_NAME };
+    }
     const copy = c => { if (NET.busy || !NET.dots || !(c >= 0 && c < NET.nMain)) return null; const l = D.loc[c]; return { prot: lProt[l], sym: P.sym[lProt[l]], place: lPlace[l], deg: degP[lProt[l]], face: faceText(l), pos: dotPos(c) }; };
     Object.assign(NET, { P, S, N: NP, E, opt });
     const objs = () => [[...OBJ.map(k => NET[k]), NET.extra, FO.mesh], [CXL.dots, CXL.lines]];
-    return { P, S, NET, NP, BYSYM, degP, uLoc, CX_EX, build, showNet, setFocus, cxDraw, cxLayout, pickCopy: rc => (NET.busy ? -1 : pickCopy(rc)), focus: () => FO.info, netData, copy, spot, objs };
+    return { P, S, NET, NP, BYSYM, degP, uLoc, CX_EX, build, showNet, setFocus, cxDraw, cxLayout, pickCopy: rc => (NET.busy ? -1 : pickCopy(rc)), focus: () => FO.info, netData, wizData, copy, spot, objs };
   }
 
   // ------------------------------------------------------------ which network is drawn, and its limits
@@ -1076,6 +1086,13 @@ void main() { gl_FragColor = vec4(vCol, vA * uA); }`,
       // (the map with every limit at its default: the story's, built and shown at once)
       net(show) { follow(want(Object.assign({}, set.params, { cell_show: show })), false); return cur.netData(show); },
       copy: c => cc().copy(c),
+      // the network on show as the export to wwiznet needs it (cell.wizData; src/sets/pwiz.js), or null while a job is
+      // under way; with params (the cell's, e.g. { cell_sides: 1 }) that network built at once first (the command line's)
+      wiz(params) {
+        if (params) follow(want(Object.assign({}, set.params, params)), false);
+        const C = cc();
+        return JOB || C.NET.busy || !C.NET.L ? null : Object.assign(C.wizData(), { score: !!(C.NET.opt.own && OWN.base && OWN.base.score) });
+      },
       // the Network tab: a network chosen on this page ({ P, S } from PNET.fromRows; null: none), the support steps of the
       // network shown or of the one chosen (own), and whether the map's limits are at their defaults
       own(model) { for (const m of [MODELS, NETS]) for (const k of [...m.keys()]) if (k[0] === 'o') m.delete(k); OWN.base = model || null; OWN.id++; },

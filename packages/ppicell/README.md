@@ -86,6 +86,40 @@ node tools/voice/check.mjs ppicell              # the story against its recordin
 
 Then `len` in `story.json`, the times in `docs/narration-timings.txt`, `VERSION` in `sw.js` and `node tools/release.mjs`.
 
+## Export for wwiznet (v211)
+
+The network on show as a dataset for wwiznet (asdf10k), the Menche lab's 3D network explorer
+(github.com/menchelab/wwiznet_dist): the Network tab's *Export for wwiznet (ZIP)* in the page, or from the command line
+(the mapping, the defaults and why: `src/SPEC.md`, "Export for wwiznet"):
+
+```
+node packages/ppicell/src/export-wwiznet.mjs <deployment>/data/ppicell            # the built-in map as the story shows it
+node packages/ppicell/src/export-wwiznet.mjs <out> --copies main --edges all       # a node per protein, every link
+node packages/ppicell/src/export-wwiznet.mjs <out> --net my-pairs.tsv --sides named --faces generous --links 8000
+node packages/ppicell/src/data/test-wiz.mjs                                         # the files follow wwiznet's guide
+```
+
+Options: `--links 500|1000|2000|4000|8000`, `--support 1..4`, `--rel esau`, `--places 0,1,..,12`, `--group on|off` (the
+address's keys), `--sides carried|named|none`, `--faces strict|generous`, `--show possible|gates|impossible|all` (what
+counts as drawn), `--edges judged|all|drawn`, `--copies all|main`, `--net <pairs file>`, `--key`, `--label`. Then
+`python3 server.py` in the deployment and `/?dataset=ppicell`. The export is the interactome and the Atlas's places in
+another form, so it carries their terms and credit (above; `data_description.txt` and the guide window say them) and
+never goes into this repository.
+
+Gene-set terms with `menchelab/enrichr` (outside the app; it reads `id` as the gene name): take a `--copies main` export
+(ids are the symbols) and run `python3 enrichr.py --input <out>/nodes.tsv --output <out>/nodes.tsv`. For the per-place
+export (ids `TP53@nucleoplasm`), swap the symbols in and back (enrichr keeps the rows' order):
+
+```
+python3 -c "import pandas as p,sys; n=p.read_csv(sys.argv[1],sep='\t',dtype=str,keep_default_na=False); n.assign(id=n['name']).to_csv(sys.argv[2],sep='\t',index=False)" <out>/nodes.tsv genes.tsv
+python3 enrichr.py --input genes.tsv --output genes-annotated.tsv
+python3 -c "import pandas as p,sys; a=p.read_csv(sys.argv[2],sep='\t',dtype=str,keep_default_na=False); a['id']=p.read_csv(sys.argv[1],sep='\t',dtype=str,keep_default_na=False)['id']; a.to_csv(sys.argv[1],sep='\t',index=False)" <out>/nodes.tsv genes-annotated.tsv
+```
+
+The terms come with their own sources' terms (the Enrichr libraries: GO and Reactome CC BY 4.0, HPO's own licence,
+Orphanet CC BY 4.0, KEGG restricts redistribution: as far as we know, not stated in the library files); keep annotated
+files out of this repository.
+
 ## Building it
 
 ```
@@ -100,6 +134,7 @@ node packages/ppicell/src/data/gen_example.mjs                                  
 node packages/ppicell/src/data/test-pnet.mjs                                     # the method in the page: the generator's
                                                                                  # counts, v205's drawing, the communities,
                                                                                  # the limits, reading and mapping a network
+node packages/ppicell/src/data/test-wiz.mjs                                      # the export for wwiznet
 node packages/ppicell/src/build.mjs                                              # writes main.js
 node tools/packages/scan.mjs
 node tools/packages/check.mjs packages/ppicell --load

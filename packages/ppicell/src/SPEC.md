@@ -506,3 +506,98 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
 - **The voice**: not made on the cloud machine (no Kokoro); the v204 recording (old words) is kept unserved as
   `src/narration-v204-old.mp3`, and the story runs on subtitles with a table laid out by `narrate.mjs --dry` on
   estimated durations; `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell` where Kokoro is (README.md).
+
+## Export for wwiznet (v211; the owner's brief, 25 November 2026)
+
+The network on show as a dataset for wwiznet (asdf10k, v0.14.0), the Menche lab's 3D network explorer, following its
+`docs/for_agents/data-folder-setup.md` (quoted below as "the guide"). One module, `src/sets/pwiz.js` (`PWIZ`, no DOM, in
+the page's build), used two ways:
+
+- **In the page**: the Network tab's *Export for wwiznet (ZIP)* (page only; the headset's twin says *Export for wwiznet on a
+  laptop*). It takes the cell as drawn (`api().wiz()`, `wizData` in `makeNet`: every location's own dot, each link's
+  judgement and two locations, the links drawn) with the limits and the Cell tab's switches as they are, and saves one
+  ZIP made in the page (`PWIZ.zip`, stored, 40 lines): `<key>/nodes.tsv`, `edges.tsv`, `config.json`,
+  `custom_windows/index.json`, `custom_windows/cell/window.md`, `data_description.txt` and `HOW-TO-OPEN.txt` (the line
+  to add to `data/index.json`). Nothing is sent. With the Show switch on *+ not judged* the grey links are exported too.
+- **From the command line**: `node packages/ppicell/src/export-wwiznet.mjs <out folder> [--links 500..8000] [--support 1..4]
+  [--rel esau] [--places 0,..,12] [--group on|off] [--sides carried|named|none] [--faces strict|generous]
+  [--show possible|gates|impossible|all] [--edges judged|all|drawn] [--copies all|main] [--net <pairs file>] [--key k]
+  [--label text]` (the address's keys and the Cell tab's switches). It runs the cell set itself in a `vm` context with
+  three.js r128 and the kit (nothing drawn), so the dots stand exactly where the page puts them: the page's ZIP and the
+  command line's folder are the same bytes for the same settings (checked headless: the page explores with Show on
+  *+ through gates*, `--show gates`). It writes `data/index.json` beside the folder when there is none (the guide: "Without
+  it ... the app shows 'No datasets configured'"), with this dataset as the default; else it prints the line to add.
+  The built-in map takes 1.5 s; the same inputs give the same files.
+
+**The mapping** (the guide's suffixes: `_n` number, `_c` category, `_a` comma list, no suffix text; `id` first):
+
+- **Nodes, `--copies all` (the default)**: one node per protein and place (`TP53@nucleoplasm`; place keys `cytosol`,
+  `nucleoplasm`, `nucleolus`, `er`, `golgi`, `mitochondria`, `lysosomes`, `endosomes`, `peroxisomes`, `plasma_membrane`,
+  `nuclear_envelope`, `cytoskeleton`, `vesicles`, `none`), because the layout is the point and a protein in three places
+  is three dots in the cell; the guide allows it ("`name` ... may repeat") and ids stay "stable and readable" with no
+  spaces or commas (subset lists split on spaces, buttons on commas): `Gene 934` is `Gene_934`, HBD and TEC (twice in
+  the map) `HBD`, `HBD_2`. The copies are tied to the protein's main copy by edges of their own kind (`verdict_c` *the
+  same protein*, severity 0, hidden by the default cut-off). `--copies main`: one node per protein at its main place
+  (id the symbol: what `enrichr.py` reads), 9,905 nodes. A protein without a place is a node only when an exported link
+  needs it (`--edges all`), outside the cell as the story draws it.
+- **Node columns**: `name` (symbol), `x y z` the cell (the default layout: the guide, "`default` only when x/y/z are
+  meaningful": here they are the point), in hundredths of the model cell's units (about 200 across: "Positions may use
+  any scale: the app normalises them"); `x_ball y_ball z_ball` the story's hairball (chapter 1's, ball.js's method, from
+  the links drawn; every copy at its protein's spot, so switching layouts in wwiznet splits a protein into its places as
+  the story does); `color` the cell's own place colour ("`color` ... base colour of the node ('original' colouring)");
+  `type_simple_c` (protein, for the tooltips' `typeColumn`, the guide's recommended name), `protein_id_c` (UniProt
+  accession: the guide's "`protein_id_c` = UniProt accession"), `place_c`, `main_place_c` (yes/no), `places_a`,
+  `main_places_a`, `places_n`, `reliability_c` (the Atlas's), `side_c` (UniProt's class at this place, in short words),
+  `side_basis_c` (named / carried), `side_evidence_c`, `membrane_layer_c` (mitochondria and nuclear envelope; not
+  `layer_c`, which the guide uses for a node type), `community_c` (`<place>-<n>`, the story's communities; empty with
+  grouping off), `degree_n` (all the protein's links), `links_here_n` (exported links at this node), `possible_n`,
+  `gate_n`, `impossible_n`, `not_judged_n`, `impossible_share_n`, `complexes_a` and `complex_ids_a` (CPX-n; a comma in a
+  name becomes `;`: "items must not contain commas"), `complex_apart_c` (in a complex whose members cannot meet);
+  for a chosen network `in_map_c` (yes / from the lookup).
+- **Edges**: `source`, `target`, `color` (possible: the two places' colours mixed, as the cell; through a gate amber; impossible
+  red; grey; ties light grey), `verdict_c` (possible, through a gate, impossible, not a contact, an end without a place,
+  the same protein), `severity_n` (0 tie, 1 not judged, 2 possible, 3 gate, 4 impossible: the cut-off's column),
+  `emphasis_n` (0, 0.05, 0.15, 0.6, 1: the opacity's and width's, so the possible ones stay quiet and the amber and red
+  ones are never lost among them), `evidence_a` (the kinds: a list, as the guide's `_a` "pathways, GO terms"), `kinds_n`,
+  `score_n` (a chosen network's score), `in_complex_c`, `drawn_c` and `drawn_n` (among the links the story draws at these
+  limits; `_n` for the cut-off).
+- **Which links**: `--edges judged` (the default): the 99,479 contact links judged, plus 8,030 ties: 107,509 edges on
+  17,935 nodes, 6 a node. The guide gives no headset size; its large-graph line ("> 20 000 nodes or > 100 000 edges:
+  `edgeCutoff` > 0 on an edge score, low `edgeOpacity`, `resolutionScale` 0.75 or `enableDynamicResolution: true`") is
+  followed: cut-off 0.3 on `severity_n` (hides the ties), opacity 0.3 (the guide's 3 to 10 edges a node: 0.2 to 0.4),
+  dynamic resolution on. `--edges all` every link (141,296, grey ones and the 3,555 proteins without a place too);
+  `--edges drawn` only the story's (about 2,000).
+- **Compartments as context**: the guide has no hulls or node groups; the places are the colour, a formula per place
+  (`subsetBuilderLibrary`, `place_c=Golgi`), the guide window's *The places as a network* (the guide's
+  `aggregated-network` window by `place_c`). The membranes themselves cannot be drawn in wwiznet.
+
+**config.json** (the guide's 4.6, then tuned by its visual-tuning loop in headless Chromium): layout `default` (the cell);
+the preset *The cell*: colour `original` (the cell's place colours), size `degree_n` with `log` (a few hubs dominate),
+`nodeSizeScaling` 1.2 and `nodeMinSize` 0.3 (the guide's 2 to 3 for large graphs made the cell one blob in the
+screenshots), edges `original` colours, width and opacity by `emphasis_n` (`edgeAlphaMin` 0.08, max 1), `additive`
+("Keep additive"), cut-off 0.3 on `severity_n`, the selection's edges highlighted and the rest faded to 0.4, bloom on the
+selection. More presets: *Gates and impossible only* (cut-off 0.7), *Impossible only* (0.9), *As the story draws it*
+(cut-off on `drawn_n`), *With the copies tied* (0), *Membrane sides*, *Communities*, *Share impossible* (quantile).
+Formulas: proteins with an impossible link, with a gate, in a complex listed apart, hubs, and one per place. Node lists:
+the story's five example complexes. Tooltips: UniProt by `protein_id_c` then `name`, GeneCards by `name`; the molecule
+window by `protein_id_c`. The guide window (`custom_windows/cell`, opened at the left, in a headset to the right): what
+the verdicts mean and the counts, the two layouts, colour by place / side / community / share impossible, links by
+verdict, the places' network, the five complexes as subset cards, the credits. `data_description.txt` (the guide's 4b,
+for wwiznet's agent): what the network is, how links are judged, the settings, every column, the sources and credit.
+
+**Tried** (a scratch deployment of wwiznet_dist v0.14.0 with `server.py`, Playwright's Chromium): with WebGPU flags
+(SwiftShader, Vulkan) the adapter exists but the device is lost ("Instance dropped in popErrorScope") and nothing is
+drawn; with `--disable-gpu` wwiznet falls back to its WebGL2 backend and draws. The map loads (17,935 nodes, 107,509
+edges, the two layouts detected, the config and its preset applied, no warnings), every setting the config names is
+among `settings.list`'s options, the guide window's buttons and cards work, a complex's ids select (47 of the nuclear
+pore), *Impossible only* shows the red links clearly. **Untested**: a real machine with WebGPU, a Quest (frame rate with
+107,509 edges, the guide window's position in a headset), the formulas with quoted values (`place_c="Plasma membrane"`)
+run in the Subset Query window.
+
+**Enrichr** (`menchelab/enrichr`, outside the app): it reads `id` as the gene name, so take a `--copies main` export (ids are
+the symbols), or for the per-place one the three-line wrapper in the package README (the symbols swapped in as ids and
+back; enrichr keeps the rows' order). Tried on the map (9,905 proteins, the clone's seven libraries): GO Biological
+Process 83.6 %, Cellular Component 70.7 %, Molecular Function 64.7 %, HPO 18.9 %, KEGG 48.5 %, Orphanet 88.6 %, Reactome
+66.0 %; nodes.tsv grows from 2.3 MB to 28 MB (4.4 MB to 52 MB for the per-place file). wwiznet offers the `_a` columns for colour and
+its Enrichment window ranks a selection's terms (eight hand-picked signalling proteins: EGFR and GRB2 pathways first).
+Nothing of it is in the repository.

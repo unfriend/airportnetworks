@@ -904,6 +904,11 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   (`SNET.pend`, what `collabState()` gives) and applied once it shows; a device that cannot have it says why and shows
   the built-in network. `#ppicell&explore&net=<id>` opens one; the headset's tab lists the relay's. Test: `node
   tools/collab.mjs --net`, `node relay/test.mjs --nets`.
+- Export for wwiznet (v211, `src/SPEC.md`, "Export for wwiznet"): `src/sets/pwiz.js` (`PWIZ`, no DOM) writes a wwiznet
+  dataset (nodes.tsv per protein and place, edges.tsv with verdicts, config.json, a guide window) from the cell's
+  `api().wiz()`; the Network tab's *Export for wwiznet (ZIP)* (page only, a ZIP made in the page) and
+  `node packages/ppicell/src/export-wwiznet.mjs <out>` (the cell set run in Node with three.js: the same bytes). Test:
+  `node packages/ppicell/src/data/test-wiz.mjs`.
 - The voice: synthetic (Kokoro). After its words change, `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell`
   where Kokoro is; until then (v205) it runs on subtitles with a table laid out on estimated durations
   (`packages/ppicell/README.md`, "The voice").

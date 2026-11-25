@@ -1,19 +1,18 @@
 {
-  "version": "networks-v210",
+  "version": "networks-v211",
   "date": "2026-11-25",
   "new": [
-    "Back into the cell has its voice again: a new synthetic recording of the v205 words, 15 minutes 8 seconds, with the real timings.",
-    "The tracker guide speaks: a teal pad on the floor at each stand plays the robot's line as you step on it, and pressing a sign plays it again (for you alone).",
-    "Still untried: v209's shared networks, v208's sharing with a room, v207's Network tab, v206 lining up a worn character, v205 sides and complexes, v204 to v200 (mirror robot, tour tables, sharp VR text, any mix of devices)."
+    "Back into the cell's Network tab can save the network on show for wwiznet, the Menche lab's 3D network explorer: Export for wwiznet (ZIP) gives every protein in each of its places at its place in the cell, the links with their verdicts, a ready view and a guide window. Also from the command line (packages/ppicell/README.md).",
+    "Still untried: v210's two voices, v209's shared networks, v208's sharing with a room, v207's Network tab, v206 lining up a worn character, v205 sides and complexes, v204 to v200 (mirror robot, tour tables, sharp VR text, any mix of devices)."
   ],
   "test": [
-    "Play Back into the cell with sound: does each line start with its text and end before the slideshow stop? Say if any word sounds wrong (A T P, Rel A, D N A, proteasome, BiP, JAK2).",
-    "In the tracker guide, in a headset: step on each pad, then press a sign. Is the voice at a good level and near the robot?",
-    "v209 to v200: sharing a network with a room, the Network tab, lining up a worn character, the mirror robot."
+    "On a laptop: Back into the cell, explore, Network tab, Export for wwiznet. Unzip into a wwiznet deployment's data folder, add the line from HOW-TO-OPEN.txt, open /?dataset=ppicell. Does the cell read as a cell? Try the guide window's buttons (Impossible only, the hairball, a complex).",
+    "The same dataset in a headset through wwiznet: is it fluid with about 107,000 edges, and is the guide window placed well?",
+    "v210 to v200: both voices, sharing a network with a room, the Network tab, lining up a worn character, the mirror robot."
   ],
   "untested": [
-    "Both voices are unheard: nobody has listened to either recording (pronunciation, pace, level, pauses); only phonemes and timings were checked by a script.",
-    "The tracker guide's pads and press in a headset (placement, whether the cube fires as you step on, the sound's distance).",
+    "wwiznet drew the export only through its WebGL2 fallback in a headless browser here: never on a real machine with WebGPU, never in a Quest.",
+    "Both v210 voices are unheard (pronunciation, pace, level).",
     "v209 and earlier: sharing on the owner's relays, v207's Network tab in a headset and on a phone, v206 with real trackers, v205's rings, v204 to v200 on devices."
   ]
 }

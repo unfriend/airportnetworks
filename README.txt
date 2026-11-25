@@ -61,7 +61,13 @@ Network stories - installable web app
      cannot choose a file: its Network tab offers the built-in network, one
      kept in its own browser and the networks on the relay
      (#ppicell&explore&net=<id> opens one). Sharing needs a relay that keeps
-     them (v208 or newer, with scenes or --nets).
+     them (v208 or newer, with scenes or --nets). Export for wwiznet (ZIP), on
+     the same tab on a laptop, saves the network on show as a dataset for
+     wwiznet, the Menche lab's 3D network explorer: unzip it into the data
+     folder of a wwiznet deployment, add the line its HOW-TO-OPEN.txt gives to
+     data/index.json, run python3 server.py there and open /?dataset=ppicell.
+     From the command line: node packages/ppicell/src/export-wwiznet.mjs
+     <deployment>/data/ppicell (options in packages/ppicell/README.md).
   And an introduction, Your guide: a robot guide shows you how the app works
      in a headset, then a few tasks to practise (packages/tutorial/main.js; the last
      story card on the Stories screen)
