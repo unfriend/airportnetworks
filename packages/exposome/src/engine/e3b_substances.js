@@ -18,7 +18,7 @@ function trackSubstances(T) {
     pair_genes: 0, pair_share: 0, pair_tie: 0, clot_in: 0, clot_four: 0, clot_gene: 0, clot_label: 0, clot_pulse: 0 });
   // the story's framing of B's views (FIT: the target moved clear of the side panel on a wide screen; on a narrow one it
   // goes back): the pair's left substance otherwise stands behind the panel, the clotting group's four at its edge
-  const cl = [0.06, 0, -0.017];   // (a little to the left of the clotting group as the camera sees it: clot.js's view)
+  const cl = [0.035, 0, -0.01];   // (a little to the left of the clotting group as the camera sees it: clot.js's view)
   Object.assign(FIT, { pair: { default: [0, 0, 0, -0.3, 0, 0] }, clot: { default: [0, 0, 0, ...cl], back: [0, 0, 0, ...cl] } });
   FIT.cloud = Object.assign(FIT.cloud || {}, { g1121: [0, 0, 0, ...cl], default: [0, 0, 0, 0, -0.1, 0], near: [0, 0, 0, 0, -0.08, 0] });
   let a, b;
