@@ -757,13 +757,17 @@ function stickWalk(c, gp, dt) {
     const v = 1.5 * dt * Math.min(1, (m - 0.15) / 0.85) / m, fx = -ay * v, sx = ax * v;   // (forward and to the side)
     XR.walk.x -= _gh.x * fx - _gh.z * sx; XR.walk.z -= _gh.z * fx + _gh.x * sx;
   } else if (hand === 'right' && !shipFlying()) {
-    if (Math.abs(ax) < 0.3) { XR.turnArm = true; return; }
-    if (!XR.turnArm || Math.abs(ax) < 0.7) return;
-    XR.turnArm = false;
-    const th = ax > 0 ? Math.PI / 6 : -Math.PI / 6, h = GL.rig.worldToLocal(_gv.copy(XR.head)), cs = Math.cos(th), sn = Math.sin(th);
+    let th = turnSmooth(ax, dt, -1);   // (v202: the shell's Turn setting, smooth by default)
+    if (th === null) {
+      if (Math.abs(ax) < 0.3) { XR.turnArm = true; return; }
+      if (!XR.turnArm || Math.abs(ax) < 0.7) return;
+      XR.turnArm = false;
+      th = ax > 0 ? Math.PI / 6 : -Math.PI / 6;
+      buzz(c, 0.2, 12);
+    } else { XR.turnArm = false; if (!th) return; }
+    const h = GL.rig.worldToLocal(_gv.copy(XR.head)), cs = Math.cos(th), sn = Math.sin(th);
     const dx = XR.walk.x - h.x, dz = XR.walk.z - h.z;
     XR.walk.x = h.x + cs * dx + sn * dz; XR.walk.z = h.z - sn * dx + cs * dz; XR.walk.yaw += th;
-    buzz(c, 0.2, 12);
   }
 }
 // Moving with the sticks (the shell's HOST.xr.walk, the left stick clicked twice since v132, the same setting as in every story; the owner,
@@ -775,10 +779,21 @@ function stickWalk(c, gp, dt) {
 // rig and its panels stay with you), in a shared room too (the shell's travel stays as it is: HOST.xr.walkSelf), so the
 // panels behave alike in both modes, in a room and out, and the others see you where you really stand: the left stick
 // along the floor where your head faces, 1.5 m/s at full push (a dead zone of 0.2, the rate the push's square past it),
-// the right stick 30 degrees about your head a flick past 0.6, again once it is back under 0.3. Switching either way
+// the right stick about your head, smoothly (v202, the shell's Turn: smooth, the default: up to 90 degrees a second, a
+// dead zone of 0.15, the push's square past it) or 30 degrees a flick past 0.6, again once it is back under 0.3 (Turn:
+// steps; the studio's own walk, stickWalk, follows the same setting). Switching either way
 // keeps where you are (XR.walk stays as it was; Recenter takes it back, as for the studio's own walk). AR: you walk for
 // real, and the studio's sticks steer and scroll (the shell refuses the double click there and says why)
-const MOVE = { dz: 0.2, speed: 1.5, turn: Math.PI / 6, flick: 0.6, back: 0.3 };
+const MOVE = { dz: 0.2, speed: 1.5, turn: Math.PI / 6, flick: 0.6, back: 0.3, tdz: 0.15, rate: Math.PI / 2 };
+// the turn this frame while the shell's Turn setting is smooth (sign: which way a push to the right turns the walk), else
+// null (steps: the flick's own lines)
+function turnSmooth(ax, dt, sign) {
+  if (!(HOST.xr && HOST.xr.turn && HOST.xr.turn() === 'smooth')) return null;
+  const a = Math.abs(ax);
+  if (a <= MOVE.tdz || !dt) return 0;
+  const k = Math.min(1, (a - MOVE.tdz) / (1 - MOVE.tdz));
+  return -sign * Math.sign(ax) * MOVE.rate * k * k * dt;
+}
 const xrSelfMove = () => !!(HOST.xr && HOST.xr.walkSelf && HOST.xr.walkSelf());
 // (a spaceship flying, the shell's ships.js: the right controller is the ship's, so its stick turns nothing here)
 const shipFlying = () => !!(HOST.ships && HOST.ships.flying && HOST.ships.flying());
@@ -802,11 +817,15 @@ function stickMove(c, dt) {
     return true;
   }
   if (hand !== 'right' || shipFlying()) return false;
-  if (Math.abs(ax) < MOVE.back) { c.moveArm = true; return false; }
-  if (!c.moveArm || Math.abs(ax) < MOVE.flick) return false;
-  c.moveArm = false;
+  let th = turnSmooth(ax, dt, -1);
+  if (th === null) {
+    if (Math.abs(ax) < MOVE.back) { c.moveArm = true; return false; }
+    if (!c.moveArm || Math.abs(ax) < MOVE.flick) return false;
+    c.moveArm = false;
+    th = ax > 0 ? MOVE.turn : -MOVE.turn;
+  } else { c.moveArm = false; if (!th) return false; }
   GL.rig.updateMatrixWorld(true);
-  const th = ax > 0 ? MOVE.turn : -MOVE.turn, h = GL.rig.worldToLocal(_gv.copy(XR.head)), cs = Math.cos(th), sn = Math.sin(th);
+  const h = GL.rig.worldToLocal(_gv.copy(XR.head)), cs = Math.cos(th), sn = Math.sin(th);
   const dx = XR.walk.x - h.x, dz = XR.walk.z - h.z;
   XR.walk.x = h.x + cs * dx + sn * dz; XR.walk.z = h.z - sn * dx + cs * dz; XR.walk.yaw += th;
   return true;

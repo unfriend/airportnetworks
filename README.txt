@@ -352,8 +352,8 @@ switch at the foot of the Stories screen (also in More on a phone, and in a
 headset in the menu's Settings tab), or #dev=on in a link. While it is on, a
 box says what is new in this release and what to test: over the Stories screen
 when the app opens, and in a headset at the start of each session (the menu
-opens at it once the welcome has gone). Got it hides it until the next release
-on this device; Later until the app opens again (in a headset, the next
+opens at it once the welcome has gone). Got it (the quiet button on the right) hides it until the next release
+on this device; Later (the main one) until the app opens again (in a headset, the next
 session). What is new, beside the switch and on the headset menu's Debug tab,
 shows it any time. The lists come from whatsnew.json, rewritten at every
 release; while it is fetched, or when it cannot be (and none was before), the
@@ -634,8 +634,9 @@ less work for the headset; #fov=) and Resolution (100 %, the default, 90 % or
 80 %, from the next session; #scale=). Moving
 with the sticks (off by default, this headset's own, never the room's; #walk=on
 in a link): click the left stick twice quickly, or use its row on the Settings tab,
-and in VR the left stick moves you along the floor where you look and a flick of
-the right stick turns you 30 degrees; a controller whose grip is held keeps its
+and in VR the left stick moves you along the floor where you look and the right
+stick turns you, smoothly as you push it (Turn: smooth, the default) or 30
+degrees a flick (Turn: steps; the row under it, #turn=steps in a link); a controller whose grip is held keeps its
 stick for what it carries. Not in AR (there you walk for real) and not in a
 shared room (the others need to see where you really stand): there two clicks
 say so. In the studio the two clicks switch its sticks between its own (walk,

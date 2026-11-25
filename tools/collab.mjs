@@ -435,7 +435,7 @@ browser.newContext = async (o = {}) => {
   const { arc, ask, welcome, studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
   // (and the studio's textures JPEG/PNG at most 2,048 px, as the rounds written before v151 expect: a page makes KTX2 by
   // default, which their plain GLTFLoader cannot read back)
-  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
+  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); localStorage.setItem('xrTurn', 'steps'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
   return ctx;
 };
 const fails = [], errors = [];

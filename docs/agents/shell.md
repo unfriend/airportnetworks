@@ -232,7 +232,8 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   for and why. Ending VR on purpose within 10 s counted too until v176; since then a session the page ends itself (an
   exit button, a story's own `end()`, after the session's first 1.5 s) does not (`watch` wraps the session's `end`),
   while a story that could not start the headset view, ending it at once, still does. Sharp text's `'layers'` is the
-  first thing dropped (below, "Sharp text").
+  first thing dropped (below, "Sharp text"). Every session's request is logged (`xr session`: `mode`, `asked`, `got`
+  (its `enabledFeatures`), `dropped`; v202), so a note says why a session had no layers.
 - Four headset settings, one each for the whole system (the owner's: system-wide, labels on top and cards in 3D by default, name tags with the cards):
   `HOST.xr.labels()`, the scenes' small labels (`'face'`, the default: on top;
   `'fixed'`: in 3D; `'hidden'`), `HOST.xr.cards()`, the larger ones: the
@@ -413,7 +414,9 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       would land on an older one): at once when the menu was drawn again whole (`nv`, the texture's version: a tab, a
       page), else at most every 50 ms for its patches (a button's light as you point, the Debug read-outs; 10 times a
       write's mean time while writes are slow); its hole is the menu's own material, cropped as it is shown. The Story tab's mirrors of the story's panels and the notices over the menu are drawn in the eye buffer, over
-      the hole. Not layers (yet): the Stories screen's cards, the subtitles, the notices, the station cards.
+      the hole. Not layers (yet): the Stories screen's cards, the subtitles, the notices, the station cards. (Those cards'
+      colour bar is clipped to their rounded outline since v202, `drawLandCard` and `shared.js` `drawCard`: square, it
+      poked past the corners, the owner's note of 25 November 2026.)
     - The panel's own material (no new mesh): behind (*layer*, *for text*) it erases the eye buffer where it is, by its
       canvas's alpha (custom blending: zero, one minus source alpha, for colour and alpha; its depth settings as the Cards
       setting has them), so what stands in front of the panel (Cards: in 3D) or is drawn after it (on top: the rays, the
@@ -433,8 +436,15 @@ Read on demand; the rules every agent needs are in AGENTS.md.
       for them and closed by itself within 10 s (or whose page went with it) makes the next ask without them
       (`noLayers`, `HOST.xr.layersDropped()`, the reason on the Settings tab's line, *Dropped: ... Press to try again*), before
       its list gets shorter. A session counts as one with layers when it was granted them (`enabledFeatures`, kept as
-      `X.lay` as it starts). The drop holds for every later session, VR and AR, until that press or a value set by hand
-      asks for them again (`layersAgain()`). `features()`
+      `X.lay` as it starts). Since v202 it takes two such sessions in a row (`layFail`, back to 0 once a session with
+      layers lasts 10 s), it drops them in VR only (AR always asks: the drop held for AR too until v202), and a drop
+      stored before v202 is forgotten once (`lv: 2` in `xrSteps`). Why (the owner's note, 25 November 2026, Quest Browser
+      157, v199 and v200: "In VR the texts are not sharp, neither the panels in the stories nor the menu"; its log
+      *sharp text {"err":"no layers in this session"}* in VR and in AR): a single VR session that closed by itself in
+      its first 10 s, or whose page went with it (a reload), had set `noLayers` for good on that headset, so every later
+      session, VR and AR, asked for no layers. That is the cause the code allows (the only path to a session without
+      `'layers'` while Sharp text is on in Quest Browser); the new `xr session` log line confirms it in the next note. The
+      drop holds until that press or a value set by hand asks for them again (`layersAgain()`). `features()`
       and `line()` (Sound check's *VR asks for*) include `'layers'` when it is asked for.
     - The developer notebook's pictures (`notes.js`, read back from the eye buffer, which has a hole where a layer is):
       `HOST.xr.sharpPause()` draws the panels as ever for 600 ms and says whether the frame just drawn had no hole; the
@@ -514,7 +524,16 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     (`HOST.xr.walkSelf()`: the shell's travel stays as it is, never stepped, so the two never fight); `say(on)` gives
     the double click's notice and `note` the menu row's line in its own words. The left stick moves you along the
     floor where your head faces (1.5 m/s at full push, a dead zone of 0.2, the rate the push's square past it), the
-    right stick turns you 30 degrees about your head on a flick past 0.6 (again once it is back under 0.3). A controller
+    right stick turns you about your head as *Turn* says (v202, the owner, 25 November 2026: "make the left stick
+    continuous instead of like in angles", meaning the turning stick): *smooth* (the default) turns you as long as it is
+    pushed, up to 90 degrees a second at full push (a dead zone of 0.15, the rate the push's square past it, by the
+    frame's time), *steps* 30 degrees on a flick past 0.6 (again once it is back under 0.3), as until v202.
+    `HOST.xr.turn()`, `setTurn('smooth'|'steps')`, `xrTurn` in `localStorage`, `#turn=smooth|steps`; this headset's own,
+    never the room's; on the menu's Settings tab the row's button became half a row, *Stick moving: on/off* (it read
+    *Moving with the sticks: on/off*), with *Turn: smooth / steps* beside it (`turn`; the tab had no room for another
+    row: the smoke test keeps it under 1,900 px) and the line under them saying which (there is no page twin: moving
+    with the sticks is a headset setting), and the notes' context lists it (`settings.turn`, with `sharp`). The studio's own moves (`stickMove`, and its own walk, `stickWalk`) follow the same setting
+    (`turnSmooth`, `tools/studio/engine/e8_xr.js`). A controller
     whose grip is held (`squeezestart` and `squeezeend` on the session, or its button 1) keeps its stick for the story
     (a carried scene's reach) and moves you not at all meanwhile; the free hand's stick still moves you while the other
     hand carries a scene (how that feels, comfort above all, is untested). How: three.js r128 has no
@@ -769,7 +788,10 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   - On a page, while it is on: a card (`#devCard`) over the Stories screen, or over the story a link opened, once a
     page load (`HOST.dev.boot()`, after the first story has started), with the release's number from the file (*What
     is new in v124*), its date and the three lists; *Got it* keeps it away for that version on this device (`devSeen`),
-    *Later* (also Escape and the back button) until the next page load. Never in a headset session: a session that starts
+    *Later* (also Escape and the back button) until the next page load. Since v202 (the owner, 25 November 2026: "later
+    should be the default and got it should be the greyed out button on the right so that it's actually an active step")
+    *Later* is the primary button, first and focused, and *Got it* the quiet one at the row's right (`.quiet`, muted
+    text); the headset's page likewise (*Later* or *Back* primary on the left, *Got it* in muted type on the right). Never in a headset session: a session that starts
     closes it, as Later (`HOST.session`'s setter). *What is new* (the Stories screen's foot, More) opens it any time.
   - In a headset session, while it is on: at the start of every session until Got it for that version, the menu opens
     by itself at *What is new*, a page of the Debug tab in place of its content (`newsPage`, `PNL.page` `'news'`, as the

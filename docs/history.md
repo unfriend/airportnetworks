@@ -136,6 +136,16 @@ file, the detail file says what is current.
   `stories/list.js?v=<its fingerprint>`, stamped by `tools/release.mjs` like the shell's release. Shared sets stay with
   their owners and are read by path (the lean route; a shared library later).
 
+- v202, the owner's headset notes of 25 November 2026 (Quest 3, Quest Browser 157). "In VR the texts are not sharp,
+  neither the panels in the stories nor the menu. We should do the same trick as in AR": the VR ladder's `noLayers`,
+  set by one VR session that closed by itself (or whose page went with it), had held for good and for AR too; now two
+  in a row, VR only, an old drop forgotten once, and every session's request logged (`xr session`). "These corners look
+  a bit glitchy ... change the outline of these cards so that it matches the top bar, or the top bar so that it matches
+  the rounded corner": the headset cards' colour bar clipped to their outline. "Later should be the default and got it
+  should be the greyed out button on the right so that it's actually an active step": What is new's buttons swapped.
+  "Moving with the sticks ... make the left stick continuous instead of like in angles" (the turning stick): *Turn:
+  smooth* (the default, up to 90 degrees a second) or *steps*.
+
 ## Shared rooms and the PC trackers (now docs/agents/shared-rooms.md)
 
 Moved out of AGENTS.md (docs/agents/shared-rooms.md); the facts and the owner's words that explain why rules exist.

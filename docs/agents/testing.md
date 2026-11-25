@@ -227,8 +227,12 @@ across a reload, the left stick clicked twice again turning it off (the right st
 v132), two clicks 0.6 s apart the menu twice; the left stick
 pushed forward for a second moving the head three.js sees 1.5 m where it faces (within 5 cm), the story's own head with
 it, the left controller's ray with it, the anchor not; a push of 0.6 to the right a quarter of the speed to the right;
-the dead zone nothing; a flick of the right stick turning 30 degrees about the head (held, no more), a flick left back;
-forward after a turn where the head now faces; the setting off moving nothing and keeping where you are; in the airports'
+the dead zone nothing; with *Turn: steps* (`setTurn('steps')`) a flick of the right stick turning 30 degrees about the
+head (held, no more), a flick left back;
+forward after a turn where the head now faces; the setting off moving nothing and keeping where you are; *Turn: smooth*
+(v202, the default, `#turn=smooth`): a second at full push 90 degrees about the head, half a push a second the push's
+square past 0.15 of it, the dead zone nothing, the Settings tab's *Turn* row switching it and `xrTurn` (the later steps
+flick with *steps*; `tools/collab.mjs`'s pages store `xrTurn` *steps*, and the studio block's stick check tries both); in the airports'
 explore mode the stick's spin and zoom left alone while it applies and working again when it is off, the grip held on
 the globe (`squeezestart`) its reach still following the stick with no moving, let go the stick moving you again; the
 menu's row on and pressed both ways; in a pretend shared room elsewhere (`HOST.collab.joined`, `code` and `here()`
@@ -1270,7 +1274,8 @@ of sight while the next builds, then its panels); a session started *in front* (
 then waiting); a notebook picture's pause (`sharpPause`: no hole within a few frames, the layers back after), writes
 failing (`__sh.failSub`: the panel back at once, the reason after 90, tried again once they work) and a new base layer
 dropping the layers; the VR ladder dropping `layers` first after a session that went down with its page (`xrSteps`
-seeded), and the Settings tab's row asking for them again; AR (with depth sensing); a binding that refuses quad layers falls back to three.js's own layer with the
+seeded; since v202 one such session only asks once more, two in a row drop them, VR only (AR still asks), and a drop
+stored before v202 is forgotten), and the Settings tab's row asking for them again; AR (with depth sensing); a binding that refuses quad layers falls back to three.js's own layer with the
 reason. Steps wait on frames, not time: in this suite's software drawing a layer's write takes a few hundred ms. Only this block's page (and any page given Quest Browser's user agent, as the 'phone ar' block's Quest
 is) asks for `layers`: every other pretend headset has Sharp text off by default, as a desktop browser does.
 

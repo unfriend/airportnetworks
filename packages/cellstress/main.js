@@ -2957,9 +2957,10 @@ function drawLandHead(ctx, P) {
 }
 function drawLandCard(ctx, P, s) {
   const here = s.key === XR_HERE, id = 'card', hov = P.hover === id;
+  // (v202: the colour bar clipped to the outline, its top corners rounded as the card's: square, it poked past them)
   rr(ctx, 8, 8, P.w - 16, P.h - 16, 22);
   ctx.lineWidth = 4; ctx.strokeStyle = hov ? s.col : here && XR.inStory ? 'rgba(70,217,255,0.6)' : 'rgba(140,170,210,0.3)'; ctx.stroke();
-  ctx.fillStyle = s.col; ctx.fillRect(8, 8, P.w - 16, 10);
+  ctx.save(); ctx.clip(); ctx.fillStyle = s.col; ctx.fillRect(8, 8, P.w - 16, 10); ctx.restore();
   fitTitle(ctx, s.kick.toUpperCase(), 48, 64, P.w - 96, 28, 34, s.col, 700, 22);
   // a long title shrinks a little, else takes two lines and the description moves down (ending above the length)
   const dy = 112 + fitTitle(ctx, s.title, 46, 112, P.w - 94, 72, 78, VC.ink, 700, 58, true) + 32;

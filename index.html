@@ -675,6 +675,8 @@ body.focus:not(.picking) #devCard { top: calc(var(--fc-top) + 10px); max-height:
 #devCard #devBody { max-height: calc(100dvh - 19rem - env(safe-area-inset-top, 0px)); overflow-y: auto; overscroll-behavior: contain; min-height: 3rem; }
 body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-top) - 14rem); }
 #devCard .row { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+/* (v202, the owner: Later the default, Got it greyed on the right, so not seeing it again is a deliberate step) */
+#devCard .row .quiet { margin-left: auto; color: var(--muted); background: transparent; } #devCard .row .quiet:hover { color: var(--ink); }
 #picker .devrow { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 14px; }
 #picker .rep.dev { font-size: 12px; padding: 5px 12px; color: #93a4ba; }
 #hhGo { font-size: 17px; padding: 11px 22px; display: inline-flex; align-items: center; gap: 8px; }
@@ -751,7 +753,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
   <div class="head"><h2 id="devTitle">What is new</h2><span class="date" id="devDate"></span></div>
   <div class="nav" id="devNav"><button class="btn" id="devOlder" type="button">Older</button><button class="btn" id="devNewer" type="button">Newer</button><span class="pos" id="devPos"></span></div>
   <div id="devBody"></div>
-  <div class="row"><button class="btn primary" id="devGot" type="button">Got it</button><button class="btn" id="devLater" type="button">Later</button></div>
+  <div class="row"><button class="btn primary" id="devLater" type="button">Later</button><button class="btn quiet" id="devGot" type="button">Got it</button></div>
   <p class="note" id="devNote"></p>
 </div>
 <div id="picker" hidden role="dialog" aria-labelledby="pickTitle">
@@ -882,7 +884,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 201, id: '4d2c46a03574565a', format: 'networks-56' },
+  shell: { n: 202, id: 'ab0b6cf12ae996e8', format: 'networks-56' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -1551,23 +1553,37 @@ HOST.audio = (function () {
 // (October 2026; AR fine there, VR fine on a Pico). A VR session that closes by itself within 10 s, or whose page goes
 // with it, makes the next one ask for less (kept as `xrSteps` in localStorage; back to the start in another browser
 // version); a session the page ends itself after its first 1.5 s is not counted (v176). Sound check shows what VR asks for. Sharp text's
-// 'layers' (v175) is the first thing dropped: a VR session that
-// asked for it and closed by itself makes the next one ask without it (noLayers), before the list gets shorter; Sharp
-// text set again on the Debug tab tries it again.
+// 'layers' (v175) is the first thing dropped: two VR sessions in a row that were granted it and closed by themselves
+// make the next ones ask without it (noLayers, v202: one was enough until then, and it held for AR too, so a single
+// reload in VR's first 10 s took sharp text from every later session, VR and AR: the owner's note of 25 November
+// 2026), before the list gets shorter; VR only (AR always asks); Sharp text set again on the Settings tab tries it again.
 HOST.xr = (function () {
   const AR = ['local-floor', 'hand-tracking', 'anchors', 'plane-detection', 'mesh-detection', 'shared'];
   const VR = [['local-floor', 'hand-tracking', 'anchors'], ['local-floor', 'hand-tracking'], ['local-floor'], []];
   const KEY = 'xrSteps', ua = navigator.userAgent, SOON = 10000;
-  const fresh = () => ({ ua, vr: 0, open: 0, note: '', lay: 0, noLayers: 0 });
-  let X = fresh(), asked = '', cur = null;
-  try { const v = JSON.parse(localStorage.getItem(KEY) || 'null'); if (v && v.ua === ua) X = Object.assign(fresh(), v); } catch (e) { /* none */ }
+  const fresh = () => ({ ua, vr: 0, open: 0, note: '', lay: 0, noLayers: 0, layFail: 0, lv: 2 });
+  let X = fresh(), asked = '', cur = null, last = null;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(X)); } catch (e) { /* private window */ } };
+  try {
+    const v = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (v && v.ua === ua) {
+      X = Object.assign(fresh(), v);
+      // (v202: a drop of the layers stored before is forgotten once: one close was enough then, and AR lost them too)
+      if (v.lv !== 2) { if (X.noLayers && !X.vr) X.note = ''; X.noLayers = 0; X.layFail = 0; X.lv = 2; save(); }
+    }
+  } catch (e) { /* none */ }
+  const log = (ev, o) => { try { if (HOST.collab && HOST.collab.log) HOST.collab.log(ev, o); } catch (e) { /* no log */ } };
   const down = why => {
-    if (X.lay && !X.noLayers) { X.noLayers = 1; X.lay = 0; X.note = why + '; no layers next time'; X.open = 0; save(); console.warn('VR asks for no layers next time:', why); return; }
+    if (X.lay && !X.noLayers) {   // (the layers first: once more, then not until asked for again)
+      X.layFail = (X.layFail || 0) + 1; X.lay = 0; X.open = 0;
+      if (X.layFail >= 2) { X.noLayers = 1; X.note = why + '; no layers in VR next time'; console.warn('VR asks for no layers next time:', why); }
+      else { X.note = why + '; layers asked for once more'; console.warn('VR asks for layers once more:', why); }
+      save(); return;
+    }
     if (X.vr < VR.length - 1) X.vr++; X.note = why; X.open = 0; save(); console.warn('VR asks for less next time:', why, VR[X.vr]);
   };
   // what a session of this mode asks for: the ladder's (VR) or AR's list, and 'layers' while Sharp text wants them
-  const wanted = mode => { const f = (mode === 'immersive-vr' ? VR[X.vr] : AR).slice(); if (!X.noLayers && HOST.xr.sharpAsk && HOST.xr.sharpAsk()) f.push('layers'); return f; };
+  const wanted = mode => { const vr = mode === 'immersive-vr', f = (vr ? VR[X.vr] : AR).slice(); if (!(vr && X.noLayers) && HOST.xr.sharpAsk && HOST.xr.sharpAsk()) f.push('layers'); return f; };
   // a VR session still young when its page last went without a pagehide: the tab went down with it
   if (X.open) down('the last VR session went down with its page');
   addEventListener('pagehide', () => { if (X.open) { X.open = 0; save(); } });
@@ -1581,7 +1597,7 @@ HOST.xr = (function () {
     let lay = false;
     try { lay = Array.from(s.enabledFeatures || []).includes('layers'); } catch (e) { /* none */ }
     X.open = 1; X.lay = lay ? 1 : 0; save();   // (the layers this VR session was granted: the ladder drops them first)
-    const ok = setTimeout(() => { if (X.open) { X.open = 0; save(); } }, SOON);
+    const ok = setTimeout(() => { if (X.open) { X.open = 0; if (lay) X.layFail = 0; save(); } }, SOON);   // (a session with layers that lasted: the count starts again)
     // (v176: a session the page ends itself after its first 1.5 s, an exit button or a story's own end, is not one that
     // closed by itself: only the others step the ladder down, so leaving VR within 10 s on purpose drops nothing; a story
     // that could not start the headset view ends it at once, and that still counts)
@@ -1966,7 +1982,10 @@ HOST.xr = (function () {
   // (v174: with Sharp text on, the session also asks for WebXR layers, and gets its quad layers ready before a story
   // gives the session to three.js: HOST.xr.sharpPrep, below)
   async function request(mode, extra) {
+    last = null;
     const s = await ask(mode, extra);
+    // (v202: what the session was asked for and what it got, in every note's log: why a session has no layers)
+    try { log('xr session', { mode, asked: last || [], got: Array.from(s.enabledFeatures || []), dropped: mode === 'immersive-vr' && X.noLayers ? X.note : '' }); } catch (e) { /* only told */ }
     if (HOST.xr.sharpPrep) try { await HOST.xr.sharpPrep(s); } catch (e) { console.warn('Sharp text was not prepared:', e); }
     return s;
   }
@@ -1974,12 +1993,12 @@ HOST.xr = (function () {
     const base = wanted(mode);
     let feats = base.concat((extra && extra.features) || []), more = (extra && extra.init) || {};
     asked = mode;
-    if (mode !== 'immersive-ar') return navigator.xr.requestSession(mode, { optionalFeatures: feats });
+    if (mode !== 'immersive-ar') return send(mode, { optionalFeatures: feats });
     const drop = !!(extra && extra.drop), own = e => !!e && /^(NotAllowedError|SecurityError)$/.test(e.name);
     let usage = DEPTH.usage.slice(), formats = DEPTH.formats.slice();
     for (let k = 0; k < 8 && usage.length && formats.length; k++) {
       const init = Object.assign({ optionalFeatures: feats.concat('depth-sensing'), depthSensing: { usagePreference: usage, dataFormatPreference: formats, matchDepthView: true } }, more);
-      try { return await navigator.xr.requestSession(mode, init); } catch (e) {
+      try { return await send(mode, init); } catch (e) {
         const named = v => e && e.name === 'TypeError' && String(e.message || '').includes("'" + v + "'");
         const u = usage.filter(v => !named(v)), f = formats.filter(v => !named(v));
         if (u.length === usage.length && f.length === formats.length) {   // (not about a value)
@@ -1996,15 +2015,16 @@ HOST.xr = (function () {
       }
     }
     asked = mode;
-    return navigator.xr.requestSession(mode, Object.assign({ optionalFeatures: feats }, more || {}));
+    return send(mode, Object.assign({ optionalFeatures: feats }, more || {}));
   }
+  const send = (mode, init) => { last = (init.optionalFeatures || []).slice(); return navigator.xr.requestSession(mode, init); };
   return {
     features(mode) { asked = mode; return wanted(mode); },
     request, watch,
     line: () => 'VR asks for: ' + (wanted('immersive-vr').join(', ') || 'nothing extra') + (X.vr || X.noLayers ? ' (less than at first: ' + X.note + ')' : ''),
     // Sharp text's layers dropped after a VR session that closed by itself (the why), and tried again (setSharp)
     layersDropped: () => (X.noLayers ? X.note : ''),
-    layersAgain() { if (X.noLayers) { X.noLayers = 0; save(); } },
+    layersAgain() { if (X.noLayers || X.layFail) { X.noLayers = 0; X.layFail = 0; save(); } },
     labels: () => look().labels,
     setLabels(m) { if (LABELS.includes(m)) setLook({ labels: m }); },
     cards: () => look().cards,
@@ -2124,7 +2144,9 @@ HOST.xr = (function () {
 // moves, as its own stick walk does, so the others see you where you really stand), so the shell's travel stays as it is
 // meanwhile; say(on) gives the double click's notice and note the menu row's line in the page's words. The left stick
 // moves you along the floor where your head faces (1.5 m/s at full push, a dead zone of 0.2, the rate the push's square
-// past it); the right stick turns you 30 degrees about your head on a flick (again once it is back under 0.3). A
+// past it); the right stick turns you about your head: smoothly (v202, the default: up to 90 degrees a second at full
+// push, a dead zone of 0.15, the rate the push's square past it; Turn: smooth, HOST.xr.turn(), xrTurn in localStorage,
+// this headset's own) or 30 degrees on a flick (Turn: steps, as until v202: again once it is back under 0.3). A
 // controller whose grip is held keeps its stick for the story (a carried scene's reach) and moves you not at all
 // meanwhile. three.js r128 has no setReferenceSpace, so on every frame of the
 // session the shell answers three.js's questions in its reference space from one offset by the travel (getViewerPose,
@@ -2141,10 +2163,11 @@ HOST.xr = (function () {
 // controllers, rays, the menu, the sounds' listener and the subtitles all follow three.js's space; their own stick use
 // (an explore view's spin and zoom) waits while walking() is true (xrWalking, the same line in every story)
 Object.assign(HOST.xr, (function () {
-  const DZ = 0.2, SPEED = 1.5, TURN = Math.PI / 6, FLICK = 0.6, BACK = 0.3;
+  const DZ = 0.2, SPEED = 1.5, TURN = Math.PI / 6, FLICK = 0.6, BACK = 0.3, TDZ = 0.15, RATE = Math.PI / 2, TURNS = ['smooth', 'steps'];
   // (sm: the travel the offset space was made for, which toReal takes back; room: the shared room's code last seen)
   const W = { on: false, sess: null, base: null, space: null, sm: null, dirty: false, was: false, t: 0, M: { x: 0, z: 0, yaw: 0 }, room: '', grips: new Set(), flick: new WeakMap() };
-  try { W.on = localStorage.getItem('xrWalk') === 'on'; } catch (e) { /* storage blocked */ }
+  W.turn = 'smooth';
+  try { W.on = localStorage.getItem('xrWalk') === 'on'; const t = localStorage.getItem('xrTurn'); if (TURNS.includes(t)) W.turn = t; } catch (e) { /* storage blocked */ }
   const HOOKED = new WeakSet(), DRESSED = new WeakSet(), _q = new THREE.Quaternion(), _f = new THREE.Vector3(), _r = new THREE.Quaternion(), _y = new THREE.Vector3(0, 1, 0);
   const ref = () => { try { return HOST.renderer ? HOST.renderer.xr.getReferenceSpace() : null; } catch (e) { return null; } };
   const inRoom = () => !!(HOST.collab && HOST.collab.joined);
@@ -2261,11 +2284,21 @@ Object.assign(HOST.xr, (function () {
       } else if (src.handedness === 'right') {
         // (flying a spaceship, ships.js: the right controller is the ship's, its thumb on A; the left stick still moves you)
         if (HOST.ships && HOST.ships.flying && HOST.ships.flying()) { W.flick.set(src, false); continue; }
-        if (Math.abs(ax) < BACK) { W.flick.set(src, true); continue; }
-        if (Math.abs(ax) < FLICK || W.flick.get(src) !== true) continue;
-        W.flick.set(src, false);
+        let th = 0;
+        if (W.turn === 'smooth') {   // (v202: as long as it is pushed, by the frame's time; a flick needs the stick back at rest after)
+          W.flick.set(src, false);
+          const a = Math.abs(ax);
+          if (a <= TDZ || !dt) continue;
+          const k = Math.min(1, (a - TDZ) / (1 - TDZ));
+          th = -Math.sign(ax) * RATE * k * k * dt;
+        } else {
+          if (Math.abs(ax) < BACK) { W.flick.set(src, true); continue; }
+          if (Math.abs(ax) < FLICK || W.flick.get(src) !== true) continue;
+          W.flick.set(src, false);
+          th = ax > 0 ? -TURN : TURN;
+        }
         // a turn about the head (where three.js has it now), right for a push to the right
-        const th = ax > 0 ? -TURN : TURN, c = Math.cos(th), sn = Math.sin(th), px = M.x - p.x, pz = M.z - p.z;
+        const c = Math.cos(th), sn = Math.sin(th), px = M.x - p.x, pz = M.z - p.z;
         M.x = p.x + px * c + pz * sn; M.z = p.z - px * sn + pz * c; M.yaw += th; W.dirty = true;
       }
     }
@@ -2312,6 +2345,9 @@ Object.assign(HOST.xr, (function () {
     watch(s) { hook(s); return watch0(s); },
     walk: () => W.on,
     setWalk(on) { W.on = !!on; try { localStorage.setItem('xrWalk', W.on ? 'on' : 'off'); } catch (e) { /* storage blocked */ } },
+    // how the right stick turns you (v202): 'smooth' (the default) or 'steps' (30 degrees a flick); this headset's own
+    turn: () => W.turn,
+    setTurn(m) { if (!TURNS.includes(m)) return; W.turn = m; try { localStorage.setItem('xrTurn', m); } catch (e) { /* storage blocked */ } },
     walking, walkWhy: why, walkSelf: self, toReal, travelShift: shift,
     // for tests: where the sticks have moved you ({ x, z, yaw }: three.js's space from the real one), and back to none
     travel: () => Object.assign({ space: !!W.space }, W.M),
@@ -4274,7 +4310,7 @@ HOST.dev = (function () {
       body.appendChild(ul);
     }
     body.scrollTop = 0;
-    el('devNote').textContent = d ? (D.view ? 'An earlier release: Got it is only for the newest. Later: until the app opens again.' : `Got it: not shown again for ${short(d.version)} on this device. Later: until the app opens again.`) : '';
+    el('devNote').textContent = d ? (D.view ? 'An earlier release: Got it is only for the newest. Later: until the app opens again.' : `Later: until the app opens again. Got it: not shown again for ${short(d.version)} on this device.`) : '';
     el('devGot').hidden = !d || !!D.view;   // (Got it only for the newest release, and for one it can name: while the file is fetched, or could not be, Later alone)
     el('devOlder').disabled = !canOlder(); el('devNewer').disabled = !canNewer();
     el('devNav').hidden = P.n < 2 || !D.data;
@@ -4287,7 +4323,7 @@ HOST.dev = (function () {
     D.open = true; D.why = why || 'hand'; c.hidden = false; D.view = ''; D.herr = '';   // (always at the newest as it opens)
     load(why === 'hand');   // (first: a fetch it starts says so on the card, not an older fetch's error)
     render();
-    setTimeout(() => { if (D.open) el(D.data ? 'devGot' : 'devLater').focus({ preventScroll: true }); }, 300);   // (after the Stories screen's own focus)
+    setTimeout(() => { if (D.open) el('devLater').focus({ preventScroll: true }); }, 300);   // (after the Stories screen's own focus; v202: Later, the default)
     return true;
   }
   // as the app opens (boot, once the first story has started): over the Stories screen or the story, once a page load,
@@ -5734,6 +5770,7 @@ HOST.arrange = (function () {
   if (hp.has('sharp')) HOST.xr.setSharp(hp.get('sharp'));   // (Sharp text, v174, on by default v175: layer, text, front or off; this headset's own)
   if (hp.has('sharpsize')) HOST.xr.setSharpSize(hp.get('sharpsize'));   // (its layers' sizes as half extents, or full ones: #sharpsize=full)
   if (hp.has('walk')) HOST.xr.setWalk(hp.get('walk') !== 'off');   // (moving with the sticks in VR: this headset's own)
+  if (hp.has('turn')) HOST.xr.setTurn(hp.get('turn'));   // (v202: smooth or steps)
   if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
   if (hp.has('occlsmooth') && HOST.occlusion && HOST.occlusion.setSmooth) HOST.occlusion.setSmooth(hp.get('occlsmooth') !== 'off');   // (its Smooth edges, v195: likewise)
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');

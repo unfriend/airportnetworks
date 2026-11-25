@@ -1,21 +1,22 @@
 {
-  "version": "networks-v201",
+  "version": "networks-v202",
   "date": "2026-11-25",
   "new": [
-    "A studio character can be worn with any mix of devices: trackers, a headset, its controllers or tracked hands. Each one is tied to the part it is nearest to; every other part is worked out, and a hand with nothing on it hangs at the side.",
-    "Lining up: the character stands in a T-pose and you copy it. In a headset it is sized to you at once and you step into it; with no headset it comes to you after the countdown.",
-    "Before the matches are taken, a line runs from each device to its part, and the card lists them. Change one there if a line looks wrong, then Take these. One Undo step.",
-    "The tracker guide's T-pose stand shows the new way (the character comes to the robot, then a line from each puck to its part), and its end has one robot for any mix."
+    "Sharp text in VR again: one VR session that closed by itself (or a reload in its first seconds) used to switch the sharp panels and menu off for good, in AR too. Now it takes two in a row, only VR, and an old switch-off is forgotten once.",
+    "The cards in a headset: the coloured bar along the top now follows the card's rounded corners (the Stories screen, Experiments and a room's station cards).",
+    "What is new: Later is now the main button; Got it is the quieter one on the right.",
+    "Moving with the sticks: Turn: smooth (the default) turns you as long as you push the right stick, up to about 90 degrees a second. Turn: steps keeps the 30-degree flicks. On the menu's Settings tab, under Moving with the sticks; the studio follows it too.",
+    "From v201 and v200, not yet tried: a studio character worn with any mix of devices, and the tracker guide."
   ],
   "test": [
-    "With the PC's trackers and no headset: select a Mixamo character, Wear it with trackers, Headset: None, Line up with the performer. Does it come to you and size to you? Are the lines and the list right?",
-    "In a headset (Headset: This headset): Line up. Is the character sized to you at once? Step into it; after the countdown, are the headset and controllers tied to the head and hands?",
-    "Try a few mixes: a headset alone, a headset and two foot trackers, three trackers on the hips and feet. Does the body look natural, and do the empty hands hang?",
-    "A character lined up before this release: does it still follow as it did?"
+    "In VR (a story, then the menu): is the text as sharp as in AR? The Settings tab's Sharp text line should say how many layers are shown. If not, take a note: its log now says what the session asked for and got.",
+    "The Stories screen in a headset: are the cards' top corners clean now?",
+    "Turn smoothly with the right stick in a story and in the studio. Is the speed comfortable? Then try Turn: steps.",
+    "v201: wear a studio character with a few mixes (a headset alone, a headset and foot trackers). Do the lines and the list look right, and do empty hands hang?",
+    "v200: Experiments, Tracker guide: walk the stands. Can you read the signs and the pucks' tags?"
   ],
   "untested": [
-    "Everything with real trackers, a real headset and controllers or tracked hands: the matching, the step into the figure, the lines' look and the card in a headset.",
-    "How natural the worked-out parts look on a real character (hanging arms, a head turned with the chest when nothing is on it).",
-    "The tracker guide's new spoken lines are not rendered (no voice on the build machine)."
+    "All of this on a headset: sharp text in VR (only a pretend headset was tried), the smooth turn's comfort and speed, the cards' corners at reading distance.",
+    "v201 and v200 with real trackers, a real headset and controllers; the tracker guide's spoken lines are still not rendered."
   ]
 }

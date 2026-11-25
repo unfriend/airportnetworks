@@ -1692,8 +1692,14 @@ if (runs('studio')) {
       XR.walk.x = XR.walk.z = XR.walk.yaw = 0; XR.head.set(0, 0, 0); XR.headQ.identity(); GL.rig.position.set(0, 0, 0); GL.rig.quaternion.identity();
       ctl(a, [0.2, -0.3, -0.3], 'left', [0, 0, 0, -1]); stickWalk(a, a.src.gamepad, 0.5);
       if (Math.abs(XR.walk.z - 0.75) > 1e-6 || Math.abs(XR.walk.x) > 1e-6) out.push('the left stick did not walk: ' + JSON.stringify(XR.walk));
+      const tu0 = HOST.xr.turn ? HOST.xr.turn() : 'steps'; if (HOST.xr.setTurn) HOST.xr.setTurn('steps');   // (v202: Turn: steps flicks; smooth turns by the time)
       ctl(b, [0.2, -0.3, -0.3], 'right', [0, 0, 1, 0]); stickWalk(b, b.src.gamepad, 0.016); stickWalk(b, b.src.gamepad, 0.016);
       if (Math.abs(XR.walk.yaw - Math.PI / 6) > 1e-6) out.push('the right stick did not turn 30 degrees once a flick: ' + XR.walk.yaw);
+      if (HOST.xr.setTurn) {
+        HOST.xr.setTurn('smooth'); const y0 = XR.walk.yaw, w0 = [XR.walk.x, XR.walk.z]; stickWalk(b, b.src.gamepad, 0.5);
+        if (Math.abs(XR.walk.yaw - y0 - Math.PI / 4) > 1e-6) out.push('Turn: smooth: half a second at full push did not turn 45 degrees: ' + (XR.walk.yaw - y0));
+        XR.walk.yaw = y0; [XR.walk.x, XR.walk.z] = w0; HOST.xr.setTurn(tu0);
+      }
       xrPlace(); if (Math.abs(GL.world.position.z - XR.walk.z) > 1e-9 || GL.rig.position.length() > 0) out.push('the walk moved the rig, not the scene');
       // passthrough: no stick walk (you walk for real)
       XR.clear = false; const wz = XR.walk.z; stickWalk(a, a.src.gamepad, 0.5); XR.clear = true;
@@ -15171,18 +15177,28 @@ if (runs('sharp text')) {
     await end();
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
-  await step('sharp text: a VR session that asked for layers and closed by itself makes the next ask without them first (the ladder keeps its list); the Settings row asks for them again', async () => {
+  await step('sharp text: two VR sessions in a row that asked for layers and closed by themselves make the next ask without them first (v202: one asks once more; AR always asks; a stored drop from before v202 forgotten; the ladder keeps its list); the Settings row asks for them again', async () => {
     const bad = [];
-    await fp.evaluate(() => localStorage.setItem('xrSteps', JSON.stringify({ ua: navigator.userAgent, vr: 0, open: 1, note: '', lay: 1, noLayers: 0 })));
+    const seed = o => fp.evaluate(o => localStorage.setItem('xrSteps', JSON.stringify(Object.assign({ ua: navigator.userAgent, vr: 0, open: 1, note: '', lay: 1, noLayers: 0, layFail: 0, lv: 2 }, o))), o);
+    const look = () => fp.evaluate(() => ({ f: HOST.xr.features('immersive-vr').join(), ar: HOST.xr.features('immersive-ar').includes('layers'), dropped: HOST.xr.sharpState().dropped, fail: JSON.parse(localStorage.getItem('xrSteps') || '{}').layFail }));
+    await seed({});
     await open('airports');
-    let d = await fp.evaluate(() => ({ f: HOST.xr.features('immersive-vr').join(), dropped: HOST.xr.sharpState().dropped, line: HOST.xr.line() }));
-    if (d.f !== 'local-floor,hand-tracking,anchors' || !/went down with its page/.test(d.dropped) || !/less than at first/.test(d.line)) bad.push('dropped: ' + JSON.stringify(d));
+    let d = await look();
+    if (d.f !== 'local-floor,hand-tracking,anchors,layers' || d.dropped || d.fail !== 1) bad.push('one close dropped them: ' + JSON.stringify(d));
+    await seed({ open: 0, noLayers: 1, layFail: 2, lv: undefined, note: 'old' });
+    await open('airports');
+    d = await look();
+    if (d.f !== 'local-floor,hand-tracking,anchors,layers' || d.dropped || d.fail !== 0) bad.push('a drop from before v202 kept: ' + JSON.stringify(d));
+    await seed({ layFail: 1 });
+    await open('airports');
+    d = await fp.evaluate(() => ({ f: HOST.xr.features('immersive-vr').join(), ar: HOST.xr.features('immersive-ar').includes('layers'), dropped: HOST.xr.sharpState().dropped, line: HOST.xr.line() }));
+    if (d.f !== 'local-floor,hand-tracking,anchors' || !d.ar || !/went down with its page/.test(d.dropped) || !/less than at first/.test(d.line)) bad.push('dropped: ' + JSON.stringify(d));
     const m = await fp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('settings'); await new Promise(r => setTimeout(r, 300)); const r = HOST.collab.menuFind('sharp'); if (r && r.fn) r.fn(); HOST.collab.panelOpen(false); return [HOST.xr.sharp(), HOST.xr.features('immersive-vr').join(), HOST.xr.sharpState().dropped]; });
     if (m.join('|') !== 'layer|local-floor,hand-tracking,anchors,layers|') bad.push('asked again: ' + JSON.stringify(m));
     // a session the page ends itself after its first 1.5 s is not one that closed by itself (v176): nothing dropped
     await start();
-    const k = await fp.evaluate(async () => { const t0 = performance.now(); while (performance.now() - t0 < 1800) { window.__fp.step(1); await new Promise(r => setTimeout(r, 10)); } await HOST.session.end(); await window.__fp.runUntil(() => !HOST.session, 2000).catch(() => 0); const x = JSON.parse(localStorage.getItem('xrSteps') || '{}'); return [x.vr, x.noLayers, x.open, HOST.xr.features('immersive-vr').includes('layers')].join(); });
-    if (k !== '0,0,0,true') bad.push('a session ended on purpose (vr, noLayers, open, layers asked): ' + k);
+    const k = await fp.evaluate(async () => { const t0 = performance.now(); while (performance.now() - t0 < 1800) { window.__fp.step(1); await new Promise(r => setTimeout(r, 10)); } await HOST.session.end(); await window.__fp.runUntil(() => !HOST.session, 2000).catch(() => 0); const x = JSON.parse(localStorage.getItem('xrSteps') || '{}'); return [x.vr, x.noLayers, x.open, x.layFail, HOST.xr.features('immersive-vr').includes('layers')].join(); });
+    if (k !== '0,0,0,0,true') bad.push('a session ended on purpose (vr, noLayers, open, layers asked): ' + k);
     await fp.evaluate(() => localStorage.removeItem('xrSteps'));
     if (bad.length) errors.push(...bad.map(b => 'sharp text: ' + b));
   });
@@ -15493,7 +15509,7 @@ if (runs('stick moving')) {
   await step('stick moving: the left stick moves you 1.5 m in a second where your head faces, the controllers with you, an anchor not; a flick of the right stick turns 30 degrees about your head', async () => {
     const bad = [];
     if (!await wp.evaluate(() => HOST.curKey === 'qubits' && !!window.__wtick)) await openW('qubits');
-    await wp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); window.__w.head = { p: [0.3, 1.6, 0.2], yaw: 0.4 }; });
+    await wp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.setTurn('steps'); HOST.xr.walkReset(); window.__w.head = { p: [0.3, 1.6, 0.2], yaw: 0.4 }; });   // (Turn: steps for the flicks; smooth, the default since v202, in the next step)
     await tick(2);
     const s0 = await seen();
     // forward, full push, 60 frames of 1/60 s
@@ -15530,6 +15546,33 @@ if (runs('stick moving')) {
     await stick('L', 0, -1); await tick(20); await stick('L', 0, 0); await stick('R', 0.9, 0); await tick(2); await stick('R', 0, 0); await tick(1);
     const s8 = await seen();
     if (dist(s8.head, s7.head) > 1e-6 || Math.abs(d(s8.yaw, s7.yaw)) > 1e-3 || !s8.travel.space) bad.push('with the setting off: ' + JSON.stringify([s7.head, s8.head, s8.travel]));
+    if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
+  });
+
+  await step('stick moving: Turn: smooth (the default, v202): the right stick turns you about your head as long as it is pushed, 90 degrees a second at full push, the push\'s square past a dead zone of 0.15, by the frame\'s time; the Settings tab\'s Turn row switches it; #turn= and xrTurn', async () => {
+    const bad = [];
+    const def = await wp.evaluate(() => { const v = localStorage.getItem('xrTurn'); localStorage.removeItem('xrTurn'); return v; });
+    await openW('qubits', '&turn=smooth');
+    await wp.evaluate(() => { HOST.xr.setWalk(true); HOST.xr.walkReset(); window.__w.head = { p: [0.3, 1.6, 0.2], yaw: 0.4 }; });
+    await tick(2);
+    const t0 = await seen(), d = (a, b) => ((a - b + 540) % 360) - 180;
+    if (await wp.evaluate(() => HOST.xr.turn()) !== 'smooth' || def !== 'steps') bad.push('not smooth, or the last step\'s steps not stored: ' + JSON.stringify([await wp.evaluate(() => HOST.xr.turn()), def]));
+    // full push right for 60 frames of 1/60 s: 90 degrees right, about the head
+    await stick('R', 1, 0); await tick(60); await stick('R', 0, 0); await tick(1);
+    const t1 = await seen();
+    if (Math.abs(d(t1.yaw, t0.yaw) + 90) > 3 || dist(t1.head, t0.head) > 1e-3) bad.push(`a second at full push: turned ${d(t1.yaw, t0.yaw).toFixed(2)} degrees, moved ${dist(t1.head, t0.head).toFixed(4)} m (not -90 about itself)`);
+    // half a push left for 60 frames: (0.5 - 0.15) / 0.85 squared of 90 degrees, to the left
+    await stick('R', -0.5, 0); await tick(60); await stick('R', 0, 0); await tick(1);
+    const t2 = await seen(), want = ((0.5 - 0.15) / 0.85) ** 2 * 90;
+    if (Math.abs(d(t2.yaw, t1.yaw) - want) > 2) bad.push(`half a push left for a second: ${d(t2.yaw, t1.yaw).toFixed(2)} degrees, not ${want.toFixed(2)}`);
+    // the dead zone: nothing
+    await stick('R', 0.12, 0); await tick(30); await stick('R', 0, 0); await tick(1);
+    const t3 = await seen();
+    if (Math.abs(d(t3.yaw, t2.yaw)) > 1e-3) bad.push('the dead zone turned you ' + d(t3.yaw, t2.yaw));
+    // the Settings tab's row: steps, stored; again: smooth
+    const r = await wp.evaluate(async () => { HOST.collab.panelOpen(true); HOST.collab.menuIdle(1e9); HOST.collab.menuTab('settings'); await new Promise(r => setTimeout(r, 300)); const out = []; for (let i = 0; i < 2; i++) { const b = HOST.collab.menuFind('turn'); out.push(b ? b.label : 'none'); if (b && b.fn) b.fn(); await new Promise(r => setTimeout(r, 100)); out.push(HOST.xr.turn() + '/' + localStorage.getItem('xrTurn')); } HOST.collab.panelOpen(false); return out.join('|'); });
+    if (r !== 'Turn: smooth|steps/steps|Turn: steps|smooth/smooth') bad.push('the Settings tab\'s Turn row: ' + r);
+    await wp.evaluate(() => HOST.xr.setTurn('steps'));   // (the steps below flick)
     if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
   });
 
@@ -18288,7 +18331,7 @@ if (runs('developer mode')) {
     const fs = await import('node:fs'), path = await import('node:path'), os = await import('node:os');
     const here = path.dirname(path.dirname((await import('node:url')).fileURLToPath(import.meta.url))), T = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rel-'));
     try {
-      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'output.js', 'ik.js', 'bodies.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
+      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'output.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
       fs.cpSync(path.join(here, 'stories'), path.join(T, 'stories'), { recursive: true });
       // (the story packages release.mjs reads: their order, index and each story.json, not their files)
       fs.mkdirSync(path.join(T, 'packages'));

@@ -3456,6 +3456,8 @@
     ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r); ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r);
     ctx.closePath();
   }
+  // (v202) how the right stick turns, for the Stick moving row's line
+  const turnSay = () => (!HOST.xr || !HOST.xr.turn ? '' : HOST.xr.turn() === 'steps' ? ', 30 degrees a flick' : ', smoothly as you push');
   function fit(ctx, s, w) { s = String(s); if (ctx.measureText(s).width <= w) return s; while (s.length > 1 && ctx.measureText(s + '…').width > w) s = s.slice(0, -1); return s + '…'; }
   function wrapText(ctx, s, x, y, w, lh, max) {
     const words = String(s).split(/\s+/).filter(Boolean), lines = [];
@@ -4092,7 +4094,7 @@
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, H); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     rr(ctx, 4, 4, W - 8, H - 8, 22); ctx.fillStyle = 'rgba(8,15,28,0.92)'; ctx.fill();
     ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(140,170,210,0.35)'; ctx.stroke();
-    ctx.fillStyle = m.col; ctx.fillRect(4, 4, W - 8, 9);
+    ctx.save(); ctx.clip(); ctx.fillStyle = m.col; ctx.fillRect(4, 4, W - 8, 9); ctx.restore();   // (v202: the bar's corners the card's)
     ctx.font = FONT(24, 700); ctx.fillStyle = m.col; ctx.fillText(fit(ctx, T.kick, W - 64), 32, 60);
     let tp = 54;   // a long title smaller (down to 44 px, on the same baseline: B612's is 0.8 of its size down), else cut short
     for (; ; tp--) { ctx.font = FONT(tp, 700); if (tp <= 44 || ctx.measureText(T.title).width <= W - 64) break; }
@@ -4645,7 +4647,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -5121,10 +5123,16 @@
       // is told the others see it move
       if (HOST.xr.setWalk) {
         const wo = HOST.xr.walk(), wy = HOST.xr.walkWhy(), pg = HOST.cur && HOST.cur.sticks;
-        button(S, 'walk', x, y, w, 60, wo ? 'Moving with the sticks: on' : 'Moving with the sticks: off', wy ? null : () => HOST.xr.setWalk(!wo), { on: wo, px: 23 });
+        // (v202: half a row, Turn beside it: smooth, the default, or 30-degree steps (HOST.xr.turn, this headset's own); the
+        // tab has no room for another row)
+        button(S, 'walk', x, y, HOST.xr.setTurn ? bw : w, 60, HOST.xr.setTurn ? (wo ? 'Stick moving: on' : 'Stick moving: off') : wo ? 'Moving with the sticks: on' : 'Moving with the sticks: off', wy ? null : () => HOST.xr.setWalk(!wo), { on: wo, px: 23 });
+        if (HOST.xr.setTurn) {
+          const tu = HOST.xr.turn() === 'steps' ? 'steps' : 'smooth';
+          button(S, 'turn', x + bw + 16, y, bw, 60, 'Turn: ' + tu, () => HOST.xr.setTurn(tu === 'smooth' ? 'steps' : 'smooth'), { on: tu === 'smooth', tog: null, px: 23 });
+        }
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, wy ? walkWords(wy) : pg && pg.note ? String(pg.note) : walkAway() ? 'Left stick: move. Right stick: turn. You are elsewhere, so it works in this room: the others see you move. Or click the left stick twice. This headset\'s own.' : 'Left stick: move. Right stick: turn. Or click the left stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 3) + 14;
+        y += wrapText(ctx, wy ? walkWords(wy) : pg && pg.note ? String(pg.note) : walkAway() ? 'Left stick: move. Right stick: turn' + turnSay() + '. You are elsewhere, so it works in this room: the others see you move. Or click the left stick twice. This headset\'s own.' : 'Left stick: move. Right stick: turn' + turnSay() + '. Or click the left stick twice. This headset\'s own.', x + 4, y, w - 8, 28, 3) + 14;
       }
       // the spaceship (ships.js; v132): launched or landed, as the right stick clicked twice does; greyed where it cannot
       // fly (no controller in the right hand, a phone, camera mode), saying why
@@ -5908,11 +5916,12 @@
     }
     // (Got it only for the newest release, and one it can name: while the file is fetched, or could not be, or an earlier
     // release is shown, Later or Back alone)
-    if (d && newest) button(S, 'news:got', x, y, bw, 62, 'Got it', () => devClose(true), { primary: true, px: 25 });
-    button(S, 'news:later', d && newest ? x + bw + 16 : x, y, bw, 62, flow ? 'Later' : 'Back', () => devClose(false), { px: 25 });
+    // (v202, the owner: Later (or Back) the default, on the left; Got it the quieter one on the right, greyed)
+    button(S, 'news:later', x, y, bw, 62, flow ? 'Later' : 'Back', () => devClose(false), { primary: true, px: 25 });
+    if (d && newest) button(S, 'news:got', x + bw + 16, y, bw, 62, 'Got it', () => devClose(true), { px: 25, color: MUTED });
     y += 78;
     ctx.font = FONT(20); ctx.fillStyle = MUTED;
-    y += wrapText(ctx, (d && newest ? `Got it: not shown again for ${v} on this headset. ` : d ? 'An earlier release: Got it is only for the newest. ' : '') + (flow ? 'Later: next session. ' : '') + 'Developer mode: Settings.', x, y, w, 27, 3) + 8;
+    y += wrapText(ctx, (flow ? 'Later: next session. ' : '') + (d && newest ? `Got it: not shown again for ${v} on this headset. ` : d ? 'An earlier release: Got it is only for the newest. ' : '') + 'Developer mode: Settings.', x, y, w, 27, 3) + 8;
     return y + 18;
   }
   // the lists scrolled by px (Up and More, the stick): the menu drawn again
