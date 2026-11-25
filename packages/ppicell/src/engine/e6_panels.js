@@ -5,7 +5,8 @@
 const sigMainS = () => '';
 // explore mode in the main panel's signature: everything its panes show (drawn again only when this changes)
 function sigMainX() {
-  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.cx, X.ties, pickLine(), kindsLine(), SRCH.on, SRCH.q].join('|');
+  return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.cx, X.ties, pickLine(), kindsLine(), SRCH.on, SRCH.q,
+    JSON.stringify(X.lim), X.own, netLine(), jobLine(), OWNN.kept, OWNN.model ? OWNN.name : ''].join('|');
 }
 // the station's story (slideshow, sound effects, shared rooms) and the panel's title: story.json's
 const XR_HERE = KEY;
@@ -21,7 +22,7 @@ const FLOW_BOLD = true;
 //#use drawExplorePane
 // explore mode's pane for each tab (drawExplorePane): the headset's twin of each render* in e4_explore.js
 function drawTabPane(ctx, P, x, y, W, bottom) {
-  ({ scenes: drawScenesPane, pick: drawPickPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
+  ({ scenes: drawScenesPane, pick: drawPickPane, net: drawNetPane }[X.tab] || drawScenesPane)(ctx, P, x, y, W, bottom);
 }
 //#use flow head~2 vSlider stats
 // the scenes, and the chosen scene's own controls (renderScenes' twin)

@@ -48,6 +48,19 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
   is not known is taken to be in the matrix. A complex is drawn as its members gathered on a small disk in a ring, not
   where each member's own dot is. The Atlas's *Uncertain* locations are kept: only 182 of the 2,958 impossible links
   (strict reading, without sides) have an uncertain end.
+- Your own network (v207, the *Network* tab in explore mode; `src/SPEC.md`, "Your own network"): the method's limits
+  run live in the page (`src/sets/pnet.js`), and a network chosen on a page (pairs of identifiers, an optional score and
+  kind) is mapped onto the map's proteins and those of the lookup, `data/lookup.json`, which the page fetches only when
+  a network is chosen. The lookup is written by `src/data/gen_lookup.py` from `src/sets/data.js`, `src/sets/sides.js`,
+  gen_sides.py's three files and the Human Protein Atlas's `subcellular_location.tsv.zip`
+  (https://www.proteinatlas.org/download/tsv/subcellular_location.tsv.zip, fetched 25 November 2026: 13,658 genes):
+  derived identifiers and classes only (the map's proteins' NCBI gene numbers and Ensembl ids; the 3,665 genes the
+  Atlas lists outside the map with their symbols, gene numbers, Ensembl ids, reviewed UniProt accessions, places on the
+  13 and reliability, the sides of their membrane places by gen_sides.py's rules, and their Complex Portal complexes;
+  other names that name exactly one protein). This is a second use of the Atlas's data, so its terms (above: **to
+  confirm**) cover the lookup too, with the same credit; UniProt (CC BY 4.0), the Complex Portal (to confirm) and NCBI
+  Gene (public domain) as above. A chosen network never leaves the browser; it is kept (IndexedDB) only when asked.
+  The example, `data/example.txt`, is cut from the map itself by `src/data/gen_example.mjs` (GRB2 and its partners).
 - Every number the story shows is computed from these as the page runs (`src/sets/pdata.js`, `PDATA`); the judgement
   (possible, through a gate, impossible) is the story's own method, tried out first in `packages/cellstress`.
 
@@ -78,6 +91,11 @@ node packages/ppicell/src/data/test-data.mjs                                    
 python3 -I packages/ppicell/src/data/gen_sides.py --fetch <folder>               # downloads UniProt, the Complex Portal, NCBI Gene
 python3 -I packages/ppicell/src/data/gen_sides.py <folder>                       # writes src/sets/sides.js (--check)
 node packages/ppicell/src/data/test-sides.mjs                                    # PSIDES agrees with gen_sides.py
+python3 -I packages/ppicell/src/data/gen_lookup.py <atlas folder> <folder>       # writes data/lookup.json (--check)
+node packages/ppicell/src/data/gen_example.mjs                                   # writes data/example.txt (--check)
+node packages/ppicell/src/data/test-pnet.mjs                                     # the method in the page: the generator's
+                                                                                 # counts, v205's drawing, the communities,
+                                                                                 # the limits, reading and mapping a network
 node packages/ppicell/src/build.mjs                                              # writes main.js
 node tools/packages/scan.mjs
 node tools/packages/check.mjs packages/ppicell --load

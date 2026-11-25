@@ -1,0 +1,20 @@
+{
+  "version": "networks-v207",
+  "date": "2026-11-25",
+  "new": [
+    "Back into the cell, explore mode: a Network tab changes the method's limits live (links drawn, the least support, the Atlas's reliability, the places that count, communities on or off; Reset limits).",
+    "On a laptop: your own network (a file or pasted pairs, or Try an example), mapped onto the cell and judged as the map is; it never leaves the browser and is kept only if you press Keep.",
+    "The limits are shared in a room and in the address; your own network is yours alone (the others keep the built-in one).",
+    "The told story is unchanged: at every limit's default the cell is the same as before.",
+    "Still untried from v206 to v200: lining up a worn character, the cell's sides and complexes, the mirror robot, the tour's tables, sharp VR text, any mix of devices."
+  ],
+  "test": [
+    "Back into the cell in a headset, explore mode, Network tab: change the links drawn (up to 8,000), the least support and the places; does the cell stay smooth while it changes, and how is the frame rate at 8,000 links?",
+    "On a laptop: Try an example, pick GRB2 and a complex in it, Keep on this device, reload, open the kept one; then in a room with a headset: the headset keeps the built-in network.",
+    "v206: lining up a worn character on a platform. v205: the cell's Walls and Machines. v204: the mirror robot. v203: the tour's tables. v202: sharp VR text."
+  ],
+  "untested": [
+    "The Network tab in a headset (its pane, the slices while the cell is rebuilt, the frame rate at 8,000 links) and on a phone; a network of 250,000 pairs on a slow laptop.",
+    "v206's lining up with real trackers; v205's voice (not recorded) and rings in a headset; v204's mirror; v203's throttles; v202's sharp text; v201 and v200 with real trackers."
+  ]
+}

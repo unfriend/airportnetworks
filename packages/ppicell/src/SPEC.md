@@ -108,7 +108,8 @@ rule): numbers stand as tags on the cell, the lenses and the dots they belong to
   generous; kinds of evidence (chips: all, or one kind); organelles on/off; outside/inside.
 - *Pick* tab: a protein (click a dot, point and press; or a search box on the page: its symbol), its places, its links in
   their colours, dotted ties between its copies; a place, its links inside it. As cellstress.
-- Address: `#ppicell&explore&show=2&faces=strict&kind=binary&p=TP53` (a protein by symbol), `&place=4`.
+- Address: `#ppicell&explore&show=2&faces=strict&kind=binary&p=TP53` (a protein by symbol), `&place=4`; since v207 the
+  *Network* tab's limits (`&links=`, `&support=`, `&rel=`, `&places=`, `&group=off`: "Your own network", stage 1).
 - Shared state `{ v, tab, show, faces, kind, shells, p, place }` (outcomes only).
 - Since v205: *Sides* (carried, the default; named only; none, the old judgement) and *Unknown sides* (strict or
   generous, the old *Reading*, now for the sides not known); *Complexes* off or on (on: every complex as a ring, or a
@@ -297,7 +298,106 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   the package ships (human only: the Atlas is human); the data stays in the browser unless shared; (3) live control in a
   room: someone at a laptop changes the limits, headsets see the cell change; a headset takes the network through the
   relay, as studio scenes go.
-- **Status**: not started.
+- **Status**: stages 1 and 2 done (v207, below); stage 3 not started.
+
+### Stage 1, the method in the page (done, v207)
+
+- **What runs in the page** (`src/sets/pnet.js`, `PNET`; the cell set builds a network per model and limits,
+  `makeNet` in `src/sets/cell.js`): the limits (`PNET.limit`: the same proteins in the same order, links with too
+  little support left out, places not counted dropped), the judgement of every link (`PNET.judge`, as before), the
+  links drawn (`PNET.select`: v205's selection, moved out of the set), and the communities (`PNET.communities`:
+  `gen_data.py`'s label propagation ported to the last tie, its LCG's low 31 bits through `Math.imul`). At every limit's
+  default the cell draws the map with the generator's communities, exactly as v205 (the same dots and links, checked
+  headless against v206's page by hash); the page's own communities take over as soon as a limit that changes them
+  moves.
+- **Built in slices**: in explore mode (`cell_live`) every change is a job run 4 ms a frame (`PNET.T`, generators that
+  yield once their slice is spent), what was drawn staying until the new drawing is ready (`NET.busy` meanwhile: no
+  pick reads the dots being made); the story builds at once, as before. A job rebuilding the network on show finishes
+  before the next starts; one making another network is dropped when the wish changes. Up to four networks are kept
+  ready (`NETS`), the story's always.
+- **The limits** (the *Network* tab, page and headset; the twins `renderNet` and `drawNetPane` in
+  `src/engine/e4b_network.js`; `X.lim`, the cell's params `cell_top`, `cell_sup`, `cell_rel`, `cell_pls`, `cell_grp`):
+  links drawn 500, 1,000, 2,000 (the default), 4,000, 8,000; the least support (the map: 1 to 4 kinds of evidence:
+  141,296, 41,395, 10,590 and 412 links; none has more than five); the Atlas's reliability (`data.js` carries one level
+  a protein, for all its places, so a level switched off leaves its proteins without a place: Enhanced 993, Supported
+  3,999, Approved 4,424, Uncertain 489 of the 9,905 placed); the places that count (the 13; a protein in none of those
+  counted has no place); grouping (communities, or off: the dots spread evenly through their places, each small
+  organelle's copy chosen by location). *Reset limits*. The existing switches (Show, Sides, Unknown sides, Complexes,
+  Evidence, Organelles, View) stay on the Cell tab and work with them. The Cell tab's counts follow (computed;
+  *In this map, within the Network tab's limits* said first when a limit is on); the Network tab says the network,
+  its counts and what the limits leave out, and while a job runs what it is doing (with the communities' share done).
+- **Address**: `&links=<500 ... 8000>`, `&support=<1 to 4: kinds of evidence>`, `&rel=<letters e s a u: Enhanced,
+  Supported, Approved, Uncertain>`, `&places=<place numbers, 0 to 12, with commas>`, `&group=off`, `&tab=net`.
+- **Shared state**: `{ v: 4, ..., lim: { top, sup, rel, pls, grp } }` (FORMAT `networks-58`); `apply()` checks each
+  limit as the tab's own buttons do (`setLim`).
+- **Measured** (headless Chromium, SwiftShader at 1280 x 800, so frames take about 250 ms and a job's 4 ms slices land
+  one a frame; the work itself is the CPU's): changing the links drawn, 54 to 78 ms of work for 500 to 8,000 links (130
+  at 16,000, 224 at 32,000); the least support to two kinds (limits, the communities found again, judged and drawn)
+  194 ms; three kinds 121; grouping off 57; the Atlas's levels 59; the places 39; the sides switch (judged again) 87;
+  the communities alone 186 to 290 ms in Node. No frame during a job was slower than the frames before it by more than
+  the noise. Draw calls stay 16 whatever the links drawn (one draw for the pale links, one for the flagged). Frame time
+  with SwiftShader: 250 ms at 2,000 links, 283 at 8,000, 317 at 16,000, 383 at 32,000; so the top is 8,000. A headset's
+  frame rate at 8,000 links is untested.
+- **The test**: `node src/data/test-pnet.mjs` (the generator's counts for every reading and sides, v205's drawing for
+  seven settings by hash, the communities the generator's for all 17,935 locations and the same in two runs and in
+  slices, the limits' counts; and stage 2's reading, mapping and judgement below).
+
+### Stage 2, your own network (done, v207)
+
+- **A page only**: the Network tab's *Your own network* (`OWNN` in `e4b_network.js`): a file (`.tsv`, `.csv`, `.txt`;
+  the box or dropped on it) or pasted text, *Use the text*, *Try an example*. A headset's tab says *Choose a network of
+  your own on a laptop* and offers the built-in network and, if one was kept in its browser, that one.
+- **The format** (`PNET.parse`): one pair a line, two identifiers, then optionally a score (a number) and a kind (a
+  word), separated by tabs, commas, semicolons or spaces; `#` lines are comments; a first line whose score is no number,
+  or that names no protein at all, is a header; each identifier column is told by what most of its values look like
+  (UniProt accessions, with or without an isoform's `-n`; Ensembl gene ids, with or without a version; NCBI gene numbers;
+  else gene symbols, any case), and each value tried as what it looks like; a column after the two is a score where most
+  of it is numbers, else a kind. A pair given twice (either way round) is one link with its best score and its kinds
+  joined; a protein with itself is kept, as the map keeps its own. At most 250,000 pairs and 20 MB (the map is 141,296
+  links; the page's own steps scale with the links, so this keeps a chosen network within about twice the map's work),
+  said in words. Up to seven kinds (more: the six commonest and *other*), offered by the Evidence switch; every link of
+  a chosen network counts as a contact (no regulatory or metabolic kind). Lines with a problem are named by number (one
+  identifier only; a score that is no number: the pair kept without it).
+- **Mapping** (`PNET.tables`, `find`): the map's own symbols and UniProt accessions (`sides.js`), then the lookup,
+  `data/lookup.json` (written by `src/data/gen_lookup.py <atlas folder> <gen_sides.py's folder>`, fetched with
+  `HOST.pkgUrl` only when a network is chosen; 1.1 MB, about 410 KB gzipped): the map's 13,460 proteins' NCBI gene
+  numbers and Ensembl ids (13,215 have one); the 3,665 genes the Atlas lists that are not in the map (of its 13,658;
+  3,577 with a place, 3,508 with a reviewed UniProt entry), each with its symbol, gene number, Ensembl id, accession,
+  places and main places on the 13 (`gen_data.py`'s mapping), reliability, the sides of its membrane places
+  (`gen_sides.py`'s rules, named and carried) and the complexes of `sides.js` it belongs to (235 complexes gain one);
+  and 49,695 other names (NCBI Gene's synonyms, UniProt's gene names) that name exactly one protein and no protein's
+  own symbol. 17,125 proteins can be found in all. Without the lookup (offline before it was ever fetched) only the
+  map's symbols and accessions are tried, and the report says so.
+- **The report**: lines read (comments, a header), the columns as read, pairs kept (and those with a protein not
+  found), proteins found (in the map), not found (listed, and *Download the list* as `not-found.txt` made in the page),
+  with a place, links that can be judged, the Complex Portal's complexes with two members or more in it; the lines with
+  a problem. Errors in words.
+- **The cell's network** (`PNET.fromRows`: a `PDATA.make` and `PSIDES.of` model): proteins of the map keep the map's
+  places, reliability and sides; the lookup's bring theirs; judged with sides and gates as the map, grouped by the
+  page's communities, drawn with every limit, switch and pick; the support steps by score where it has one (any, and
+  its median, upper quarter and top tenth where they leave links out, each with its count), else by kinds; complexes
+  drawn where two members or more are in it. The panes say *Your network: <name>* and *in your network*; *Back to the
+  built-in network*. The story's morph is not needed and not made.
+- **Kept only when asked**: *Keep on this device* puts its name and text into this browser's IndexedDB
+  (`ppicell-own`, guarded: a private window may refuse); *Open the kept one*, *Forget it*. Never sent anywhere: no
+  fetch but the package's own files, nothing in a log, a note's context, the address or `state()` (a developer note
+  recorded on purpose in developer mode takes pictures of the screen, as ever: what is on show is in them).
+- **In a shared room** it is this device's alone: while it shows its own network, `collabState()` gives the built-in
+  network's state as it was (`X.bi`) and `collabApply()` keeps the room's newer state there instead of applying it; going
+  back to the built-in network applies that state (limits, picks, switches). The tab says so. Stage 3 (sharing a
+  network through the relay) is not built.
+- **The example** (`data/example.txt`, `src/data/gen_example.mjs`): GRB2 and its 421 partners with two kinds of
+  evidence or more in the map, and the 1,864 links among them with two or more: symbols in the first column, UniProt
+  accessions in the second, the number of kinds as a score, the first contact kind as a word.
+- **Tests**: `test-pnet.mjs` (the parser: header, comments, separators, duplicates, a self-link, bad lines named, the
+  size limit; the mapping with and without the lookup: a gene number, an Ensembl id with a version, an isoform's
+  accession, a gene outside the map; eight verdicts checked by hand: GRB2-SOS1 possible, CALR-RELA through a gate,
+  APOH-GRB2 impossible, CYCS-SLC25A4 possible, CYCS-RELA and APOH-CALR through a gate, EGFR-GRB2 possible, TP53 with
+  itself possible; the example read whole). The headless run (the scratchpad's `flow.mjs`, not in the repository):
+  limits at two settings, grouping off, Reset, the example chosen and its report, limits on it, a protein and a complex
+  picked in it, the headset's tab drawn, Keep, back to the built-in network with the story's counts, a room's state
+  arriving meanwhile kept and applied on the way back, a reload offering the kept one and opening it, Forget it, an
+  address with limits; no console errors.
 
 ## Sides: the owner's decisions after stage A (25 November 2026)
 

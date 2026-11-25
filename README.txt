@@ -40,7 +40,20 @@ Network stories - installable web app
   - Back into the cell: an interactome of 13,460 proteins put back into a
      model cell, which of its links can happen where, which side of a membrane
      each protein sits on (UniProt) and its machines (the Complex Portal's
-     complexes)  (packages/ppicell/main.js)
+     complexes)  (packages/ppicell/main.js). In its explore mode the Network
+     tab changes the method's limits live (how many links are drawn, the least
+     support a link needs, the Atlas's reliability levels and the places that
+     count, communities on or off; Reset limits), and on a laptop or desktop
+     takes your own network: a .tsv, .csv or .txt file (or pasted text), one
+     pair a line, two identifiers (gene symbols, UniProt accessions, NCBI gene
+     numbers or Ensembl gene ids), then if you like a score and a kind; Try an
+     example loads GRB2's neighbourhood. It reports what was read and what was
+     not found (a list you can download), then draws your network in the cell,
+     judged as the map is. Your network stays in your browser: it is never
+     sent anywhere, and kept only if you press Keep on this device (Forget it
+     removes it). In a shared room it is yours alone; the others keep seeing
+     the built-in network. A headset cannot choose a file: its Network tab
+     offers the built-in network and one kept in its own browser.
   And an introduction, Your guide: a robot guide shows you how the app works
      in a headset, then a few tasks to practise (packages/tutorial/main.js; the last
      story card on the Stories screen)

@@ -1,17 +1,13 @@
 // PDATA: the story's data (PPI_DATA, src/sets/data.js, generated) decoded once, and the method's rules, shared by the
 // sets and checked in Node by src/data/test-data.mjs. The interactome of Menche et al. (2015) and the Human Protein
 // Atlas's locations onto the cell map's 13 places; every number the story shows is computed from these.
+// PDATA.make(R) builds the same shape from any network (the Network tab's limits, a network chosen on the page:
+// src/sets/pnet.js): R = { sym, pl, main, rel, la, lb, kind, com (per location, or null: not grouped yet), kinds,
+// noncontact (the kinds that are not contacts), sup (each link's support), supSteps }.
 const PDATA = (() => {
   const D = typeof PPI_DATA !== 'undefined' ? PPI_DATA : require('./data.js');
   const bytes = s => (typeof atob === 'function' ? Uint8Array.from(atob(s), c => c.charCodeAt(0)) : new Uint8Array(Buffer.from(s, 'base64')));
   const u16 = s => { const b = bytes(s); return new Uint16Array(b.buffer, b.byteOffset, b.length / 2); };
-  const sym = D.sym.split('|'), pl = u16(D.pl), main = u16(D.main), rel = Uint8Array.from(D.rel, c => +c);
-  const lb = bytes(D.links), E = lb.length / 5, la = new Uint16Array(E), lbb = new Uint16Array(E), kind = new Uint8Array(E);
-  for (let i = 0; i < E; i++) { la[i] = lb[5 * i] | lb[5 * i + 1] << 8; lbb[i] = lb[5 * i + 2] | lb[5 * i + 3] << 8; kind[i] = lb[5 * i + 4]; }
-  // locations: one per protein and place it is in (17,935), in protein order then place order, as gen_data.py writes
-  // the communities; lOf[p] is protein p's first, lOf[p + 1] the one after its last
-  const com = u16(D.com), L = com.length, lProt = new Uint16Array(L), lPlace = new Uint8Array(L), lOf = new Uint32Array(sym.length + 1);
-  for (let p = 0, l = 0; p < sym.length; p++) { lOf[p] = l; for (let k = 0; k < 13; k++) if (pl[p] >> k & 1) { lProt[l] = p; lPlace[l++] = k; } lOf[p + 1] = l; }
   // spaces: 0 cytosol, 1 nucleoplasm, 2 ER lumen, 3 Golgi lumen, 4 mitochondrial matrix, 5 lysosome, 6 endosome,
   // 7 peroxisome, 8 outside the cell; each place's inner space and its membrane's other side (-1: no membrane)
   const INNER = [0, 1, 1, 2, 3, 4, 5, 6, 7, 0, 1, 0, 0], OUTER = [-1, -1, -1, 0, 0, 0, 0, 0, 0, 8, 0, -1, -1];
@@ -35,7 +31,26 @@ const PDATA = (() => {
   };
   // kinds: bit i is D.kinds[i]; regulatory (0) and metabolic (3) alone are not contacts
   const NONCONTACT = 1 << 0 | 1 << 3;
-  const contact = i => (kind[i] & ~NONCONTACT) !== 0;
-  return { D, sym, pl, main, rel, E, la, lb: lbb, kind, L, com, lProt, lPlace, lOf, N: sym.length, places: D.places, kinds: D.kinds, INNER, OUTER, GATES, spaces, judge, contact };
+  const make = R => {
+    const sym = R.sym, pl = R.pl, la = R.la, lb = R.lb, kind = R.kind, N = sym.length, E = la.length, nonc = R.noncontact === undefined ? NONCONTACT : R.noncontact;
+    // locations: one per protein and place it is in (17,935 in the map), in protein order then place order, as
+    // gen_data.py writes the communities; lOf[p] is protein p's first, lOf[p + 1] the one after its last
+    let L = 0;
+    for (let p = 0; p < N; p++) for (let m = pl[p] & 8191; m; m &= m - 1) L++;
+    const lProt = new Uint16Array(L), lPlace = new Uint8Array(L), lOf = new Uint32Array(N + 1);
+    for (let p = 0, l = 0; p < N; p++) { lOf[p] = l; for (let k = 0; k < 13; k++) if (pl[p] >> k & 1) { lProt[l] = p; lPlace[l++] = k; } lOf[p + 1] = l; }
+    const contact = i => (kind[i] & ~nonc) !== 0;
+    // a link's support (how many kinds of evidence it has, unless given: a chosen network's scores) and the steps the
+    // Network tab offers for the least support
+    let sup = R.sup;
+    if (!sup) { sup = new Float32Array(E); for (let i = 0; i < E; i++) { let k = kind[i], c = 0; for (; k; k &= k - 1) c++; sup[i] = c; } }
+    const kinds = R.kinds || D.kinds;
+    return { D, sym, pl, main: R.main, rel: R.rel, E, la, lb, kind, L, com: R.com || null, lProt, lPlace, lOf, N, places: D.places, kinds, kindNames: R.kindNames || null,
+      INNER, OUTER, GATES, spaces, judge, contact, NONCONTACT: nonc, sup, supSteps: R.supSteps || null, make };
+  };
+  const sym = D.sym.split('|'), pl = u16(D.pl), main = u16(D.main), rel = Uint8Array.from(D.rel, c => +c);
+  const lbytes = bytes(D.links), E = lbytes.length / 5, la = new Uint16Array(E), lbb = new Uint16Array(E), kind = new Uint8Array(E);
+  for (let i = 0; i < E; i++) { la[i] = lbytes[5 * i] | lbytes[5 * i + 1] << 8; lbb[i] = lbytes[5 * i + 2] | lbytes[5 * i + 3] << 8; kind[i] = lbytes[5 * i + 4]; }
+  return make({ sym, pl, main, rel, la, lb: lbb, kind, com: u16(D.com) });
 })();
 if (typeof module !== 'undefined') module.exports = PDATA;

@@ -6,97 +6,103 @@
 // nuclear envelope o, i, p the pore, g between its membranes); the evidence (e experimental, c curated, p predicted,
 // r our rule: no signal to cross a membrane); and its basis (u UniProt names the place; t only the protein's own
 // topology says it, used only with `carry`). Classes 0 and 1 (and t without carry) keep the two readings of PDATA.
+// PSIDES.of(P, R) builds the same over any PDATA.make network (src/sets/pnet.js): R = { cls (per location, 255 a
+// place without a membrane), lay, ev, by, acc (per protein), cx (complexes over P's proteins) }.
 const PSIDES = (() => {
-  const P = typeof PDATA !== 'undefined' ? PDATA : require('./pdata.js');
+  const P0 = typeof PDATA !== 'undefined' ? PDATA : require('./pdata.js');
   const S = typeof PPI_SIDES !== 'undefined' ? PPI_SIDES : require('./sides.js');
-  const L = P.L, cls = new Uint8Array(L);
-  for (let l = 0; l < L; l++) { const c = S.cls[l]; cls[l] = c === '.' ? 255 : +c; }
-  const lay = S.lay, ev = S.ev, by = S.by, acc = S.acc.split('|');
-  // spaces: PDATA's 0 to 8 and 9 the mitochondria's intermembrane space; two gates more (into and through the gap)
-  const B = (...s) => s.reduce((m, x) => m | 1 << x, 0);
-  const GATES = P.GATES.concat([[0, 9], [9, 4]]);
-  const GATE = new Set(GATES.flatMap(([a, b]) => [a * 10 + b, b * 10 + a]));
-  const gated = (sa, sb) => { for (let a = 0; a < 10; a++) if (sa >> a & 1) for (let b = 0; b < 10; b++) if (sb >> b & 1 && GATE.has(a * 10 + b)) return true; return false; };
-  // the membranes as the two spaces they part (ER, Golgi, outer and inner mitochondrial, lysosome, endosome,
-  // peroxisome, plasma membrane, inner nuclear membrane)
-  const MEMS = [[0, 2], [0, 3], [0, 9], [9, 4], [0, 5], [0, 6], [0, 7], [0, 8], [1, 2]];
-  // the spaces a known class reaches at membrane place k and layer y (gen_sides.py's SPACES)
-  const SIDES = {
-    5: { o: [B(0), B(9)], i: [B(9), B(4)], g: [0, B(9)], m: [0, B(4)] },
-    10: { o: [B(0), B(2)], i: [B(1), B(2)], p: [B(0, 1), B(2)], '-': [B(0, 1), B(2)], g: [0, B(2)] },
-  };
-  const spacesOf = (k, c, y) => {
-    if (c === 7) return B(8);
-    const [near, far] = SIDES[k] ? SIDES[k][y] : [B(0), B(k === 9 ? 8 : P.INNER[k])];
-    return c === 2 || c === 4 ? far : c === 3 ? near : near | far;
-  };
-  const known = (l, carry) => cls[l] >= 2 && cls[l] !== 255 && (carry || by[l] !== 't');
-  // a location's spaces: a space's own; a known side's; else the reading's (strict: the place's own space; generous:
-  // its membrane's other side too)
-  const locMask = (l, generous, carry) => {
-    const k = P.lPlace[l], c = cls[l];
-    if (c === 255) return 1 << P.INNER[k];
-    if (!known(l, carry)) return 1 << P.INNER[k] | (generous && P.OUTER[k] >= 0 ? 1 << P.OUTER[k] : 0);
-    return spacesOf(k, c, lay[l]);
-  };
-  const cache = {};
-  const masks = (generous, carry) => {
-    const key = (generous ? 1 : 0) + (carry ? 2 : 0);
-    if (cache[key]) return cache[key];
-    const m = new Uint16Array(P.N);
-    for (let l = 0; l < L; l++) m[P.lProt[l]] |= locMask(l, generous, carry);
-    return (cache[key] = m);
-  };
-  // a link's judgement with sides: 0 possible, 1 through a gate, 2 impossible, -1 not judged (not a contact, or an end
-  // without a place)
-  const judge = (i, generous, carry) => {
-    const a = P.la[i], b = P.lb[i];
-    if (!P.contact(i) || !P.pl[a] || !P.pl[b]) return -1;
-    const m = masks(generous, carry), sa = m[a], sb = m[b];
-    return sa & sb ? 0 : gated(sa, sb) ? 1 : 2;
-  };
-  // complexes: { ac (CPX-n), name, members (protein numbers), missing (members not in the map) }
-  const cx = S.cx.map(([ac, name, members, missing]) => ({ ac, name, members, missing }));
-  const ofProt = Array.from({ length: P.N }, () => []);
-  cx.forEach((c, n) => c.members.forEach(p => ofProt[p].push(n)));
-  // a complex's position: site a space (0 to 9) all placed members reach, or 10 + i for membrane MEMS[i] when every
-  // member reaches one of its sides and one of them spans it; kind 0 inside a space, 1 on a face, 2 spanning, 3 cannot
-  // meet, 4 fewer than two members with a place (site -1 for these two)
-  const cxPos = (c, generous, carry) => {
-    const placed = c.members.filter(p => P.pl[p]);
-    if (placed.length < 2) return { kind: 4, site: -1 };
-    const m = masks(generous, carry);
-    let common = 1023;
-    for (const p of placed) common &= m[p];
-    if (common) {
-      const site = 31 - Math.clz32(common & -common);
-      let kind = 0;
-      for (const p of placed) {
-        const here = [];
-        for (let l = P.lOf[p]; l < P.lOf[p + 1]; l++) if (locMask(l, generous, carry) >> site & 1) here.push(l);
-        if (here.every(l => known(l, carry) && cls[l] >= 3 && cls[l] <= 6)) kind = Math.max(kind, here.some(l => cls[l] >= 5) ? 2 : 1);
+  const cls0 = new Uint8Array(P0.L);
+  for (let l = 0; l < P0.L; l++) { const c = S.cls[l]; cls0[l] = c === '.' ? 255 : +c; }
+  const cx0 = S.cx.map(([ac, name, members, missing]) => ({ ac, name, members, missing }));
+  const of = (P, R) => {
+    const L = P.L, cls = R.cls, lay = R.lay, ev = R.ev, by = R.by, acc = R.acc;
+    // spaces: PDATA's 0 to 8 and 9 the mitochondria's intermembrane space; two gates more (into and through the gap)
+    const B = (...s) => s.reduce((m, x) => m | 1 << x, 0);
+    const GATES = P.GATES.concat([[0, 9], [9, 4]]);
+    const GATE = new Set(GATES.flatMap(([a, b]) => [a * 10 + b, b * 10 + a]));
+    const gated = (sa, sb) => { for (let a = 0; a < 10; a++) if (sa >> a & 1) for (let b = 0; b < 10; b++) if (sb >> b & 1 && GATE.has(a * 10 + b)) return true; return false; };
+    // the membranes as the two spaces they part (ER, Golgi, outer and inner mitochondrial, lysosome, endosome,
+    // peroxisome, plasma membrane, inner nuclear membrane)
+    const MEMS = [[0, 2], [0, 3], [0, 9], [9, 4], [0, 5], [0, 6], [0, 7], [0, 8], [1, 2]];
+    // the spaces a known class reaches at membrane place k and layer y (gen_sides.py's SPACES)
+    const SIDES = {
+      5: { o: [B(0), B(9)], i: [B(9), B(4)], g: [0, B(9)], m: [0, B(4)] },
+      10: { o: [B(0), B(2)], i: [B(1), B(2)], p: [B(0, 1), B(2)], '-': [B(0, 1), B(2)], g: [0, B(2)] },
+    };
+    const spacesOf = (k, c, y) => {
+      if (c === 7) return B(8);
+      const [near, far] = SIDES[k] ? SIDES[k][y] : [B(0), B(k === 9 ? 8 : P.INNER[k])];
+      return c === 2 || c === 4 ? far : c === 3 ? near : near | far;
+    };
+    const known = (l, carry) => cls[l] >= 2 && cls[l] !== 255 && (carry || by[l] !== 't');
+    // a location's spaces: a space's own; a known side's; else the reading's (strict: the place's own space; generous:
+    // its membrane's other side too)
+    const locMask = (l, generous, carry) => {
+      const k = P.lPlace[l], c = cls[l];
+      if (c === 255) return 1 << P.INNER[k];
+      if (!known(l, carry)) return 1 << P.INNER[k] | (generous && P.OUTER[k] >= 0 ? 1 << P.OUTER[k] : 0);
+      return spacesOf(k, c, lay[l]);
+    };
+    const cache = {};
+    const masks = (generous, carry) => {
+      const key = (generous ? 1 : 0) + (carry ? 2 : 0);
+      if (cache[key]) return cache[key];
+      const m = new Uint16Array(P.N);
+      for (let l = 0; l < L; l++) m[P.lProt[l]] |= locMask(l, generous, carry);
+      return (cache[key] = m);
+    };
+    // a link's judgement with sides: 0 possible, 1 through a gate, 2 impossible, -1 not judged (not a contact, or an end
+    // without a place)
+    const judge = (i, generous, carry) => {
+      const a = P.la[i], b = P.lb[i];
+      if (!P.contact(i) || !P.pl[a] || !P.pl[b]) return -1;
+      const m = masks(generous, carry), sa = m[a], sb = m[b];
+      return sa & sb ? 0 : gated(sa, sb) ? 1 : 2;
+    };
+    // complexes: { ac (CPX-n), name, members (protein numbers), missing (members not in the map) }
+    const cx = R.cx;
+    const ofProt = Array.from({ length: P.N }, () => []);
+    cx.forEach((c, n) => c.members.forEach(p => ofProt[p].push(n)));
+    // a complex's position: site a space (0 to 9) all placed members reach, or 10 + i for membrane MEMS[i] when every
+    // member reaches one of its sides and one of them spans it; kind 0 inside a space, 1 on a face, 2 spanning, 3 cannot
+    // meet, 4 fewer than two members with a place (site -1 for these two)
+    const cxPos = (c, generous, carry) => {
+      const placed = c.members.filter(p => P.pl[p]);
+      if (placed.length < 2) return { kind: 4, site: -1 };
+      const m = masks(generous, carry);
+      let common = 1023;
+      for (const p of placed) common &= m[p];
+      if (common) {
+        const site = 31 - Math.clz32(common & -common);
+        let kind = 0;
+        for (const p of placed) {
+          const here = [];
+          for (let l = P.lOf[p]; l < P.lOf[p + 1]; l++) if (locMask(l, generous, carry) >> site & 1) here.push(l);
+          if (here.every(l => known(l, carry) && cls[l] >= 3 && cls[l] <= 6)) kind = Math.max(kind, here.some(l => cls[l] >= 5) ? 2 : 1);
+        }
+        return { kind, site };
       }
-      return { kind, site };
-    }
-    for (let i = 0; i < MEMS.length; i++) {
-      const two = 1 << MEMS[i][0] | 1 << MEMS[i][1];
-      if (!placed.every(p => m[p] & two)) continue;
-      for (const p of placed) for (let l = P.lOf[p]; l < P.lOf[p + 1]; l++) {
-        if (known(l, carry) && cls[l] >= 5 && cls[l] <= 6 && (locMask(l, generous, carry) & two) === two) return { kind: 2, site: 10 + i };
+      for (let i = 0; i < MEMS.length; i++) {
+        const two = 1 << MEMS[i][0] | 1 << MEMS[i][1];
+        if (!placed.every(p => m[p] & two)) continue;
+        for (const p of placed) for (let l = P.lOf[p]; l < P.lOf[p + 1]; l++) {
+          if (known(l, carry) && cls[l] >= 5 && cls[l] <= 6 && (locMask(l, generous, carry) & two) === two) return { kind: 2, site: 10 + i };
+        }
       }
-    }
-    return { kind: 3, site: -1 };
+      return { kind: 3, site: -1 };
+    };
+    // a complex whose members cannot meet (cxPos kind 3), told apart: true when every two of its placed members share a
+    // space or are one gate apart (the proteasome: nucleoplasm and cytosol), false when some two have no way to meet
+    const cxGate = (c, generous, carry) => {
+      const m = masks(generous, carry), placed = c.members.filter(p => P.pl[p]);
+      for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
+        const a = m[placed[i]], b = m[placed[j]];
+        if (!(a & b) && !gated(a, b)) return false;
+      }
+      return true;
+    };
+    return { S, P, cls, lay, ev, by, acc, B, GATES, MEMS, SIDES, spaces: S.spaces, classes: S.classes, locMask, masks, judge, known, gated, cx, ofProt, cxPos, cxGate, of };
   };
-  // a complex whose members cannot meet (cxPos kind 3), told apart: true when every two of its placed members share a
-  // space or are one gate apart (the proteasome: nucleoplasm and cytosol), false when some two have no way to meet
-  const cxGate = (c, generous, carry) => {
-    const m = masks(generous, carry), placed = c.members.filter(p => P.pl[p]);
-    for (let i = 0; i < placed.length; i++) for (let j = i + 1; j < placed.length; j++) {
-      const a = m[placed[i]], b = m[placed[j]];
-      if (!(a & b) && !gated(a, b)) return false;
-    }
-    return true;
-  };
-  return { S, P, cls, lay, ev, by, acc, B, GATES, MEMS, SIDES, spaces: S.spaces, classes: S.classes, locMask, masks, judge, known, gated, cx, ofProt, cxPos, cxGate };
+  return of(P0, { cls: cls0, lay: S.lay, ev: S.ev, by: S.by, acc: S.acc.split('|'), cx: cx0 });
 })();
 if (typeof module !== 'undefined') module.exports = PSIDES;

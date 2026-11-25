@@ -796,4 +796,5 @@ def report(v):
 EXAMPLES = ['ADRB2', 'EGFR', 'GRB2', 'TP53', 'STAT3', 'RELA', 'KRAS', 'HRAS', 'CD55', 'CD59', 'ALB', 'INS', 'TOMM20', 'TOMM40', 'CYCS',
             'COX4I1', 'SLC25A4', 'HSPD1', 'CS', 'LMNA', 'LMNB1', 'NUP98', 'CALR', 'HSPA5', 'GOLGA2', 'LAMP1', 'RAB5A', 'PEX14', 'CAT', 'KPNB1', 'TRAF6']
 
-main()
+if __name__ == '__main__':   # (imported by gen_lookup.py for its tables and rules)
+    main()

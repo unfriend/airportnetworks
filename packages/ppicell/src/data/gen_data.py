@@ -254,4 +254,5 @@ def main():
               f' 10 to 99: {sum(1 for x in z if 10 <= x < 100)}, 100 or more: {sum(1 for x in z if x >= 100)}, alone: {sum(1 for x in z if x == 1)}')
 
 
-main()
+if __name__ == '__main__':   # (imported by gen_lookup.py for its tables and rules)
+    main()

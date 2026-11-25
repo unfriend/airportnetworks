@@ -6,7 +6,7 @@ const SCENES = [
   ['cell', 'Cell', 'The interactome of Menche and colleagues (2015) in the cell map\'s model cell, each protein where the Human Protein Atlas finds it. A link can happen only where its two proteins share a space.'],
 ];
 const SCENE_SHORT = {};
-const TABS = [['scenes', 'Cell'], ['pick', 'Pick']];
+const TABS = [['scenes', 'Cell'], ['pick', 'Pick'], ['net', 'Network']];
 //#use ctlsOf ctlShown~2
 // pp: the protein picked (PDATA's number; -1 none), pc: the place picked (0 to 12; -1 none): one at a time
 // (the cell opens on the possible links and those through a gate, without the impossible ones: the owner, 22 November
@@ -14,10 +14,14 @@ const TABS = [['scenes', 'Cell'], ['pick', 'Pick']];
 const EXPLORE_START = { cell: { show: '1' } };
 // ties: a picked protein's copies joined by fine dots (1, the Pick tab's Copies switch) or not (0)
 // cx: a complex picked (PSIDES.cx's number; -1 none), one pick at a time with pp and pc
-const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1, cx: -1, ties: 1 };   // (the scene starts still: the owner)
+// lim: the Network tab's limits (e4b_network.js, LIM0), own: your own network on show (1; this device's), bi: meanwhile
+// the built-in network's state, the room's (collabState)
+const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1, cx: -1, ties: 1,
+  lim: { top: 2000, sup: 0, rel: 31, pls: 8191, grp: 1 }, own: 0, bi: null };   // (the scene starts still: the owner)
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set(['cell_show', 'cell_faces', 'cell_sides', 'cell_kind', 'cell_pp', 'cell_pc', 'cell_ties', 'cell_cxs', 'cell_cxp', 'cell_cxon']);
+const STEP = new Set(['cell_show', 'cell_faces', 'cell_sides', 'cell_kind', 'cell_pp', 'cell_pc', 'cell_ties', 'cell_cxs', 'cell_cxp', 'cell_cxon', 'cell_top', 'cell_sup', 'cell_rel', 'cell_pls',
+  'cell_grp', 'cell_own', 'cell_live']);
 //#use orbit ctlValue ctlOf
 // a view option's camera: the cam view of the same name, or the one it stands for ({ set: { option: view } })
 const CAM_ALIAS = {};
@@ -33,7 +37,8 @@ function exploreTargets(now = performance.now()) {
   const c = { t: (now - X.t0) / 1000 };
   for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
-  if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc, cell_cxp: X.cx, cell_cxs: 0, cell_cxa: 1, cell_ties: X.ties });
+  if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc, cell_cxp: X.cx, cell_cxs: 0, cell_cxa: 1, cell_ties: X.ties,
+    cell_top: X.lim.top, cell_sup: X.lim.sup, cell_rel: X.lim.rel, cell_pls: X.lim.pls, cell_grp: X.lim.grp, cell_own: X.own, cell_live: 1 });
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -64,17 +69,21 @@ function setTies(on, ui) {
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls. The camera is
 // each person's own. v: the shape of this state (FORMAT is the app's: a package that changes its state's shape bumps
 // v, and apply ignores a state of another v, from an older copy on another device).
-const COLLAB_V = 3;   // (2: copies, the Copies switch; 3: cx, a complex picked, and the cell's Sides and Complexes controls)
+const COLLAB_V = 4;   // (2: copies, the Copies switch; 3: cx, a complex picked, and the cell's Sides and Complexes controls; 4: lim, the limits)
 //#use collabView collabSetView
+// (while this device shows a network of its own, the built-in network's state stands for it: X.bi, setOwn)
 function collabState() {
+  if (X.bi) return X.bi;
   const ctl = {};
   for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, p: X.pp, place: X.pc, cx: X.cx, copies: X.ties };
+  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, p: X.pp, place: X.pc, cx: X.cx, copies: X.ties, lim: Object.assign({}, X.lim) };
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and the
 // camera stays where this person has it
 function collabApply(v) {
   if (!v || typeof v !== 'object' || v.v !== COLLAB_V) return;
+  // (a device showing its own network keeps the room's state for when it goes back to the built-in one: setOwn)
+  if (X.bi) { X.bi = v; return; }
   if (TABS.some(t => t[0] === v.tab) && v.tab !== X.tab) showTab(v.tab);
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
@@ -83,8 +92,14 @@ function collabApply(v) {
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
   const okP = x => Number.isInteger(x) && x >= -1 && x < PDATA.N, okC = x => Number.isInteger(x) && x >= -1 && x < 13, okX = x => Number.isInteger(x) && x >= -1 && x < PSIDES.cx.length;
-  if (okP(v.p) && okC(v.place) && okX(v.cx) && (v.p !== X.pp || v.place !== X.pc || v.cx !== X.cx)) { X.pp = v.p; X.pc = v.place; X.cx = v.cx; }
+  // (one pick at a time, as setPick: the first set of the protein, the place and the complex)
+  if (okP(v.p) && okC(v.place) && okX(v.cx)) {
+    const [p, pc, cx] = v.p >= 0 ? [v.p, -1, -1] : v.place >= 0 ? [-1, v.place, -1] : [-1, -1, v.cx];
+    if (p !== X.pp || pc !== X.pc || cx !== X.cx) { X.pp = p; X.pc = pc; X.cx = cx; }
+  }
   if ((v.copies === 0 || v.copies === 1) && v.copies !== X.ties) X.ties = v.copies;
+  // the limits: each checked as the Network tab's own buttons check them (setLim), an unknown field ignored
+  if (v.lim && typeof v.lim === 'object') for (const k of Object.keys(LIM0)) if (k in v.lim) setLim(k, v.lim[k], false);
   renderAll();
 }
 
@@ -107,7 +122,7 @@ function buildExplore() {
       copies: () => setTies(+v, true),
       pickp: () => setPick(+v, -1, true),
       pickcx: () => setPick(-1, -1, true, +v),
-    }[b.dataset.act] || (() => {}))();
+    }[b.dataset.act] || (() => netAct(b)))();
   });
   renderAll();
   $('#viewctl').innerHTML = `<div class="grp"><span>Turn</span><div class="seg" data-ctl="turn" role="group" aria-label="Turn">${[['on', 'On'], ['off', 'Off']].map(([v, n]) => `<button type="button" data-v="${v}" aria-pressed="${X.turn === v}">${n}</button>`).join('')}</div></div>`;
@@ -120,7 +135,7 @@ function buildExplore() {
 //#use setTurn showTab
 // a tab picked by hand (a shared room's tab arriving does not come here: its scene comes with it)
 function pickTab(k) { showTab(k); }
-function renderAll() { renderScenes(); renderPick(); updateExtraLabels(); }
+function renderAll() { renderScenes(); renderPick(); renderNet(); updateExtraLabels(); }
 // the pick's own words: what is picked and what it shows (the twin of drawPickPane)
 function pickLine() {
   const f = api('cell').focus && api('cell').focus();
@@ -169,7 +184,7 @@ function searchHits(q, n) {
   const c = api('cell');
   if (!c.sym) return [];
   if (!SRCH.byDeg) {
-    const up = Array.from({ length: PDATA.N }, (_, p) => c.sym(p).toUpperCase().replace(/ /g, ''));   // ('Gene 934' typed GENE934)
+    const up = Array.from({ length: c.n() }, (_, p) => c.sym(p).toUpperCase().replace(/ /g, ''));   // ('Gene 934' typed GENE934)
     SRCH.byDeg = Array.from(up.keys()).filter(p => up[p]).sort((x, y) => c.deg(y) - c.deg(x) || (up[x] < up[y] ? -1 : 1)).map(p => [p, up[p]]);
   }
   q = String(q || '').toUpperCase().replace(/ /g, '');
@@ -236,7 +251,9 @@ function statsLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.L) return '';
   const [g, a, r] = s.tally, j = g + a + r, pct = j ? (100 * r / j).toFixed(1) : '0';
-  return `${fmt(s.nMain)} dots: ${fmt(s.nOwn)} at the places the Atlas lists${s.nOut ? `, ${fmt(s.nOut)} proteins without a place outside the cell` : ''} and ${fmt(s.nMain - s.nOwn - s.nOut)} where they meet others. Of the ${fmt(j + s.notC + s.unpl)} links${kindWords()}, ${fmt(j)} are judged: ${fmt(g)} possible, ${fmt(a)} through a gate and ${fmt(r)} impossible (${pct} %). Counted apart: ${fmt(s.notC)} not contacts (regulatory or metabolic only) and ${fmt(s.unpl)} with an end without a place. These are counts; ${fmt(s.drawn)} links are drawn: a share of each verdict, the most kinds of evidence first, the rarer verdicts raised so they show. Built in ${s.ms} ms.`;
+  // (your own network, or the map within limits: said first; the rest as the map's)
+  const own = !!(s.opt && s.opt.own), pre = own ? 'In your network: ' : s.opt && s.opt.lim && !(s.opt.lim.sup === 0 && s.opt.lim.rel === 31 && s.opt.lim.pls === 8191) ? 'In this map, within the Network tab\'s limits: ' : '';
+  return `${pre}${fmt(s.nMain)} dots: ${fmt(s.nOwn)} at the places the Atlas lists${s.nOut ? `, ${fmt(s.nOut)} proteins without a place outside the cell` : ''} and ${fmt(s.nMain - s.nOwn - s.nOut)} where they meet others. Of the ${fmt(j + s.notC + s.unpl)} links${kindWords()}, ${fmt(j)} are judged: ${fmt(g)} possible, ${fmt(a)} through a gate and ${fmt(r)} impossible (${pct} %). Counted apart: ${own ? '' : `${fmt(s.notC)} not contacts (regulatory or metabolic only) and `}${fmt(s.unpl)} with an end without a place. These are counts; ${fmt(s.drawn)} links are drawn: a share of each verdict, the most kinds of evidence first, the rarer verdicts raised so they show. Built in ${s.ms} ms.`;
 }
 // the reading on show, in words: the twin of statsLine, in both panes
 function readingLine() {

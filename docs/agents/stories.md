@@ -887,6 +887,15 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
 - Complexes: chapter 6 *Machines* and explore mode's *Complexes* switch and complex pick (`cell_cxs`, `cell_cxp`,
   `cell_cxon`, `cell_cxa`): dots of their own in a ring, one Points and one LineSegments draw for all. Never call a
   complex listed apart wrong: the story says an address is off, not the link.
+- The Network tab (v207, explore mode only; `src/SPEC.md`, "Your own network", stages 1 and 2): the method run in the
+  page (`src/sets/pnet.js`, `PNET`: limits, judgement, the links drawn, the communities, reading and mapping a chosen
+  network; `node packages/ppicell/src/data/test-pnet.mjs`), the cell one network per model and limits (`makeNet`),
+  built in 4 ms slices a frame in explore mode (`cell_live`), at once in the story. At every limit's default the
+  picture is v205's (the generator's communities): keep it so, the told story never changes. The limits are shared
+  (`lim` in `collab.state()`, v 4, FORMAT `networks-58`) and in the address (`&links=`, `&support=`, `&rel=`,
+  `&places=`, `&group=off`); a network chosen on a page (`src/engine/e4b_network.js`, `OWNN`) never is: not sent, not
+  in `state()`, kept (IndexedDB) only when asked; its lookup `data/lookup.json` (`src/data/gen_lookup.py`) and example
+  `data/example.txt` (`src/data/gen_example.mjs`) are generated. Every new pane twice (`renderNet`, `drawNetPane`).
 - The voice: synthetic (Kokoro). After its words change, `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell`
   where Kokoro is; until then (v205) it runs on subtitles with a table laid out on estimated durations
   (`packages/ppicell/README.md`, "The voice").
