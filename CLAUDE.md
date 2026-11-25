@@ -23,8 +23,10 @@ session and every agent and workflow it starts avoid them, and every agent promp
   `ln -s /opt/node22/lib/node_modules node_modules` may stay.
 - A background server or test is stopped by letting it end (`timeout <s> ...`), not by killing it afterwards.
 - If a prompt still comes, find which command caused it and add a line here so the next session avoids it too.
-- `node tools/notes/notes.mjs done <id>` (marking a developer note done) is refused by Auto mode as an unwanted
-  action: leave notes for the owner to mark done on the notes page, and say which ones are handled.
+- `node tools/notes/notes.mjs done <id>` (marking a developer note done): the session marks a note done once its
+  change is pushed to `dev`, and says which ones it marked (the owner, 25 November 2026: "change it so you can"; before
+  that Auto mode refused it as an unwanted action when nobody had asked). A note that is only discussed, or whose fix
+  is not pushed, stays new. Sub-agents still leave notes alone: the main conversation marks them.
 
 - A cloud session starts with the checkout brought up to date by `.claude/hooks/session-start.sh` (its line *Checkout
   (session-start hook): ...* comes first). If it says behind, diverged or could not fetch, merge GitHub's branch before
