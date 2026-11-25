@@ -290,6 +290,11 @@ const STORIES = {
     change: "openScene('ntrk2'); selectProt(CDATA.find('NTRK2')); setPath(0)",
     back: "pickTab('diseases'); openScene('disease'); selectProt(-1); setPath(-1); selectTerm(0)",
   },
+  exposome: {
+    // (a substance and a group's tab; then a country on the globe, with no substance)
+    change: "pickTab('substances'); selectSub(XDATA.label.indexOf('Cadmium'), false); setCtl('cloud', 'col', '0')",
+    back: "pickTab('countries'); selectSub(-1, false); openScene('globe'); selectCountry(XDATA.countries.findIndex(c => c.name === 'Italy'), false)",
+  },
   robots: {
     change: "setCtl('robots', 'rule', 'chain'); setCtl('robots', 'robots', '12')", back: "setCtl('robots', 'trails', 'on'); setCtl('robots', 'links', 'on')",
     effect: { quiet: '0', idle: "(window.__c0 = GL.sets.robots.anchors.crumbs().join(), true)", send: 'spillCrumbs()', seen: "GL.sets.robots.anchors.crumbs().join() !== window.__c0" },

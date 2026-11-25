@@ -14,6 +14,7 @@
     "pass",
     "soil",
     "cdk5",
+    "exposome",
     "proteins",
     "spatial",
     "ppicell",
@@ -424,6 +425,40 @@
       }
     },
     {
+      "key": "exposome",
+      "api": 1,
+      "version": "0.1.0",
+      "title": "Invisible threads",
+      "kick": "Chemical exposome",
+      "col": "#f0a35e",
+      "desc": "Nearly ten thousand substances from air, water, food and medicines, tied together by the genes they disturb: what they do in our cells, which diseases sit close by, and what Europe's factories release.",
+      "len": "Story 9:50 · substances, cells and countries",
+      "page": "Invisible threads: the chemicals around us and the diseases they touch",
+      "brand": "Invisible threads",
+      "sub": "the chemicals around us and the diseases they touch",
+      "aria": "Interactive 3D story of the chemical exposome: about ten thousand substances linked by the genes they disturb, their groups, where they hit the cell's network of proteins, the diseases close to them and the substances released in European countries",
+      "thing": "map",
+      "loading": "Tying ten thousand substances",
+      "authors": "Lombardo, Hütter, Unterlass and Menche (the map and its data); the app's authors",
+      "life": false,
+      "list": "experiments",
+      "minis": "minis.js",
+      "icon": "exposome.threads",
+      "needs": 188,
+      "fp": "7c2a9684bb2b73ee",
+      "bytes": 5526728,
+      "files": {
+        "data/diseases.bin": "4d6333403113bf7e",
+        "data/names.json": "9364ba56aee2f3d8",
+        "data/ppi.bin": "ba719a97bd364cc3",
+        "data/targets.bin": "1b31c835fd84f5ac",
+        "icon.png": "49469413291a69d5",
+        "main.js": "1529362888e35f4c",
+        "minis.js": "bb45f996703ed45e",
+        "story.json": "acebd6dd90db3651"
+      }
+    },
+    {
       "key": "proteins",
       "api": 1,
       "version": "1.0.0",
@@ -645,39 +680,6 @@
       "files": {
         "main.js": "798ce12dc658cd09",
         "story.json": "5952270193ab60e7"
-      }
-    },
-    {
-      "key": "exposome",
-      "api": 1,
-      "version": "0.1.0",
-      "title": "Invisible threads",
-      "kick": "Chemical exposome",
-      "col": "#f0a35e",
-      "desc": "Nearly ten thousand substances from air, water, food and medicines, tied together by the genes they disturb: what they do in our cells, which diseases sit close by, and what Europe's releases may mean.",
-      "len": "Story 9:50 · substances, cells and countries",
-      "page": "Invisible threads: the chemicals around us and the diseases they touch",
-      "brand": "Invisible threads",
-      "sub": "the chemicals around us and the diseases they touch",
-      "aria": "Interactive 3D story of the chemical exposome: about ten thousand substances linked by the genes they disturb, their groups, where they hit the cell's network of proteins, the diseases close to them and the substances released in European countries",
-      "thing": "map",
-      "loading": "Tying ten thousand substances",
-      "authors": "Lombardo, Hütter, Unterlass and Menche (the map and its data); the app's authors",
-      "life": false,
-      "list": "hidden",
-      "minis": "minis.js",
-      "icon": "exposome.cloud",
-      "needs": 188,
-      "fp": "8f2f2d782f2e124d",
-      "bytes": 5448457,
-      "files": {
-        "data/diseases.bin": "4d6333403113bf7e",
-        "data/names.json": "9364ba56aee2f3d8",
-        "data/ppi.bin": "ba719a97bd364cc3",
-        "data/targets.bin": "1b31c835fd84f5ac",
-        "main.js": "58f171fc5849fff2",
-        "minis.js": "538d8a3774b4cc7a",
-        "story.json": "7b23d1aba9646306"
       }
     },
     {

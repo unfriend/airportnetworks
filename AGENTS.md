@@ -8,7 +8,7 @@ An installable web app that teaches network science in narrated stories
 (the airports about four minutes, the proteins and the cell map about six, the tour about ten and a half, the muscle
 story about nine, the endotype story about seven and a half, the PET story about six, the microanatomy story about eight,
 the ovary story about eight, the qubits story about nine, the mutation story about eight and a half, the tissue topology
-story about nine, the soil story about eleven, the CDK5 story about eight and a half, the pass story about seven, the flock and the robot gang about two), each
+story about nine, the soil story about eleven, the CDK5 story about eight and a half, the exposome story about ten, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
@@ -28,6 +28,7 @@ Quest Browser, WebXR).
 | Tissue topology | `packages/topo/main.js` | 110 real cells of a healthy liver (the poster's patch) with balls growing round them, the network with triangles, pieces joining and loops opening and closing, and the tower of scales; 123 GTEx liver slides (66 healthy, 57 with cirrhosis, 30.8 million cells found by HistoPLUS), their curves, main shapes, scores, a classifier's wall, its held-out test and its weight for every radius; a new slide's window of 6,716 cells, every cell scored, the two groups and their cell types (Simon Schindler, André Rendeiro and Jörg Menche's poster; every number computed by their package topocyte on their data) |
 | Soil microbes | `packages/soil/main.js` | a cut-away block of soil with a wheat plant, its nitrogen's flows and the microbes' relay; a field trial in Japan (a BNI wheat and its control, three fertiliser regimes, 24 plots, five dates, 119 samples) with each plot's chlorophyll and nitrate and the jars' N2O read off the slides; about 100,000 kinds of soil microbe (a cloud of 20,000) and the co-occurrence network of 1,564 kinds and 22,348 links, its modules and the two wheat lines' networks side by side (the slides and field trial of Marina Montserrat Díez, Christa Schleper and colleagues; the network built for this story) |
 | Brain kinase (on the Experiments set since v189; written by Christiane Hütter on a fork; reworked at v191 after the colleague's scene document) | `packages/cdk5/main.js` | the human interactome (16,376 proteins, 309,355 interactions) in nine arrangements of the Menche lab's two CDK5 VR projects (CDK5_data): a sphere of GO biological processes, CDK5 with p35 and p39, its 205 partners as a star, Reactome's Signalling by NTRK2, Semaphorin interactions and NPAS4's pathway, calpain cutting p35, Reactome's pathway of deregulated CDK5 in Alzheimer's disease models, and the Disease Ontology landscape; PDB structures at the centre (CDK5 with p35's part, calpain, BDNF, NTRK2's domain, SEMA4D and PLXNB1, NPAS4, a Tau filament); explore by protein, pathway and disease term |
+| Invisible threads (the chemical exposome; on the Experiments set) | `packages/exposome/main.js` | 9,887 substances and the genes they disturb (the Comparative Toxicogenomics Database); the authors' network of 9,764 substances tied by shared genes, its communities at three levels; *Back into the cell*'s model cell with the interactome (18,815 proteins), sorted by contacts, where substances hit and their hazard; 6,177 diseases close to them; 32 European countries' industrial releases on the airports story's globe (Lombardo, Hütter, Unterlass and Menche, Nat Commun 2026, their Zenodo deposit) |
 | Networks for everyone (outreach; English and German) | `packages/pass/main.js` | a school of fish (300, a live simulation) all around you, each watching its 7 nearest neighbours; the airports story's globe (3,214 airports, 18,858 routes, taken unchanged) with a seeded S/E/I/R outbreak on its routes; the cell map story's cell (249 proteins in 13 places, taken unchanged), its NF-κB relay and CFTR in the wrong place |
 | Flock | `packages/flock/main.js` | 200 starlings (a live simulation) flying all around you at dusk, each following its seven nearest neighbours |
 | Robot gang | `packages/robots/` (a story package since v185) | 6 to 24 robot vacuums (a live simulation) in a model living room, or in a headset your own room; who follows whom (you, or the one ahead) is the network |
@@ -272,7 +273,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   `packages/nmd/src/sets/motor.js` and `sets/data.js` (endo), `packages/topo/src/sets/look.js` (soil, cdk5) and
   `packages/lbi/src/sets/web.js` (soil), `tools/engine/kit.js` (every built story and the studio), `tools/engine/*.js`
   (the shared engine parts: every built story but the studio), `packages/airports/main.js` and
-  `packages/spatial/main.js` (pass), `tools/design/props.json` or a miniature's name (design).
+  `packages/spatial/main.js` (pass), `packages/airports/main.js` and `packages/ppicell/src/sets/cell.js` (exposome),
+  `tools/design/props.json` or a miniature's name (design).
 - Never edit `tools/studio/vendor/` (three.js r128's own add-ons and meshoptimizer, pasted unchanged).
 - Generated data files (`packages/*/src/sets/data.js`) are never edited by hand; the authors' source files never go into the
   repository, only derived numbers.

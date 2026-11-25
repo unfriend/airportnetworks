@@ -916,26 +916,53 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   (`packages/ppicell/README.md`, "The voice").
 - British spelling; "in this map" for counts on the set; the Complex Portal's terms are to confirm before `main`.
 
-## Invisible threads, the exposome story (`packages/exposome/`, a story package, in the making) is built the same way
+## Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way
 
-`packages/exposome/main.js` ("Invisible threads", the chemical exposome) is built from `packages/exposome/src/` as the
-template's packages are (`node packages/exposome/src/build.mjs`, `--check`; then `node tools/packages/scan.mjs`).
+`packages/exposome/main.js` ("Invisible threads", the chemical exposome; `list: "experiments"`, in `packages/order.json`
+after cdk5, so `tools/engine/all.mjs` builds it and `version.json` lists it) is built from `packages/exposome/src/` as
+the template's packages are (`node packages/exposome/src/build.mjs`, `--check`; then `node tools/packages/scan.mjs`).
 `src/SCRIPT.md` is its script (the main conversation's), `src/SPEC.md` the contract (data, numbers against the paper,
-chapters and scene track, sets and their params, who owns which files, explore mode); `README.md` its sources.
+chapters and scene track, sets and their params, explore mode, headset); `README.md` its sources. Eight chapters, about
+nine minutes and fifty seconds (`NARRATION_SYNC` provisional until the voice is rendered).
 
 - The science and data: Lombardo, Hütter, Unterlass and Menche, Nat Commun 17, 5754 (2026); their deposit (Zenodo
   18793297, CC BY 4.0) stays out of the repository. `python3 -I packages/exposome/src/data/gen_data.py <deposit>
   <cell.json>` (numpy, pandas, openpyxl; pickles through a restricted unpickler) writes derived numbers only:
   `src/sets/data.js` (`EXPO_DATA`, embedded, about 1 MB) and `data/targets.bin`, `ppi.bin`, `diseases.bin`,
   `names.json` (about 3.9 MB, fetched when a set's `prep` or a pane needs them). `src/sets/xdata.js` (`XDATA`) is the
-  only way in; `node packages/exposome/src/test-data.mjs` checks it against the paper's numbers.
+  only way in; `node packages/exposome/src/test-data.mjs` checks it against the paper's numbers. Every number on a
+  panel or a pane comes from it, the printed ones too (`meta.cited`: the correlation, 42 million PubMed records, the
+  E-PRTR years; `meta.dis.zClose`, the authors' z cut; `meta.levels.bigMin`, 50 for a large group; `meta.drawn` and
+  `meta.ppi.drawn`, the links drawn). A rerun may reshuffle `src/data/terms.json`'s member samples: keep the committed one.
+- The sets (`src/sets/`): `cloud` (9,764 substances: a drifting cloud round you, our shelves by chemical family, the
+  authors' layout; 45,000 drawn links; colours by family, `LOOK.family`, ours, or by community, the authors'), `pair`
+  (diethylstilbestrol and zearalenone, their genes and the shared ones, tied: `PAIR_NAMES`, the same two lit at the end
+  of chapter reach, as the data says both touch CASP3), `clot` (the fine group 11_2_1, its four named and SERPINC1),
+  `cell` (*Back into the cell*'s model cell, its proteins where that story puts them, a substance's threads in, CASP3's
+  out), `ppi` (the interactome, in the cell then sorted, our arrangement; the four patterns, hazard flares, a disease
+  drawn together, the steps, a sample of the pairs) and `globe` (the airports story's globe turned to Europe: the
+  countries, their releases, Italy and endrin, the score columns). Tags say what is ours or a sample ("our arrangement",
+  "drawn together here", "A sample", "7,000 threads drawn", from the data). In the story's dive into the clotting group
+  the larger and smaller groups are tagged plainly ("A larger group · 266 substances"); explore names them.
 - The app computes nothing scientific: the communities (Louvain: 125 top, 152 middle, 456 fine, renamed as the authors'
-  notebook does), their colours and the network's 3D layout are the authors'; the shelves by chemistry and the sorted
-  interactome are ours, said so. Plain words for the communities are hand-written in `src/data/labels.json` from
-  `src/data/terms.json` (the enrichment with FDR): label only what the terms support.
-- Reads two other packages' sources, never edits them: `packages/ppicell/src/sets/cell.js` (the model cell: its
-  proteins' places through `src/data/gen_cell.mjs`, and its skins cut at build time) and `packages/airports/main.js`
-  (the globe, cut as the pass story does). Rebuild after either changes.
+  notebook does), their colours and the network's 3D layout are the authors'; the shelves by chemistry, their colours
+  and the sorted interactome are ours, said so. Plain words for the communities are hand-written in
+  `src/data/labels.json` from `src/data/terms.json` (the enrichment with FDR): label only what the terms support; the
+  three named in chapter sort (`SORT_EXAMPLES`: top groups 3, 9, 16) are spoken from them.
+- Reads two other packages' sources at build time, never edits them: `packages/ppicell/src/sets/cell.js` (the model
+  cell: its proteins' places through `src/data/gen_cell.mjs`, and its skins cut by `src/c-cut.mjs`) and
+  `packages/airports/main.js` (the globe, cut as the pass story does). Rebuild after either changes (it is listed with
+  the pass story among the readers in `AGENTS.md`, "Rebuild the dependants"; the relay's `--build` finds the cell from
+  the line naming it in `src/build.mjs`).
+- Headset: not life size; chapters cloud and end stand you inside the cloud (`standB`, by story time), whose points
+  fade within 0.35 m of your head; `cell`, `ppi` and `globe` keep clear (`keepClear`: the engine's `xrCap~2` with the
+  frame's time and its sampling, `xrPrep`, run from `frameFloor` since this story keeps the engine's plain `frame`; the
+  interactome's points move in their shaders, so `ppi` keeps a hidden stand-in of every protein in the cell and sorted
+  for the sampling). Untested on a headset.
+- Explore: Scene, Substances (families as swatches in the shelves' colours), Groups, Diseases, Countries, each pane
+  twice (HTML and the headset's canvas, the notes under every card in both). Address: `&sub=`, `&group=`, `&dis=`
+  (opens the Diseases tab and the interactome), `&country=` (the Countries tab and the globe), `&csub=`. Shared state
+  `{ v: 1, tab, scene, ctl, b: { sub, comm }, c: { dis, country, sub } }`; no effects; `FORMAT` unchanged by adding it.
 - Wording: "disturbs" or "touches" a gene, "close in the map", "more common where", never "causes"; no brand names;
   countries by their rates only; no health advice. British spelling.
 

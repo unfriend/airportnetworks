@@ -200,6 +200,21 @@ project and the notebook that made it (`CDK5_BioStory_NEW.ipynb`), and since v19
 | C10 | The interactome's source | the scene document: "the HIPPIE database to retrieve protein interactions" | small print "Interactions as the authors collected them (HIPPIE)" | open: confirm HIPPIE (and its version) for cartoGRAPHs' `load_graph('human')` |
 | C6 | The over-representation counts | not in the repository: computed for the story (`CDK5_DATA.diseases`), within the proteins with a disease | "more than chance would give", with the numbers, "in this map" | open: the authors' preferred background and test |
 
+## Invisible threads (`exposome`)
+
+Source: Lombardo, Hütter, Unterlass and Menche, *A network-based map of the chemical exposome connects molecular
+interactions to public health*, Nature Communications 17, 5754 (2026), doi 10.1038/s41467-026-72402-y, and their deposit
+(Zenodo record 18793297, concept doi 10.5281/zenodo.10829456); every number from `packages/exposome/src/data/gen_data.py`
+(`packages/exposome/src/SPEC.md`, "Numbers"). Who to ask: the authors (the Menche lab). Contact person: **TO FILL (owner)**.
+
+| # | Item | Where in the source | What the story shows now | Status |
+| --- | --- | --- | --- | --- |
+| X1 | Substance-gene links and genes: the paper says 573,674 and 25,580; the deposit has one fewer of each | `chem_gene_ref_df.tsv` | the deposit's 573,673 and 25,579 | open: which is right? |
+| X2 | The correlation "0.005" between chemical likeness and effect: in the notebook it is shared genes against GO similarity (Exp_fin_3, cell 27); chemistry against shared genes is Pearson 0.04 (Spearman −0.001, cell 31) | the paper's text; the notebook | 0.04 (chemistry against shared genes), "almost unrelated" | open: which comparison did the paper mean? |
+| X3 | Countries where close diseases are more frequent, for water: the paper says 16 of 23; recomputed from Source Data Fig4F (one-sided Mann-Whitney, p < 0.05) it is 15 | Source Data Fig4F | 15 of 23 | open |
+| X4 | Hazard: the paper's 47 % are the substances found in the NORMAN list; 32 % (3,165) have a score | Exp_fin_9, cells 23-24 | 32 % "with a score" (the voice: "about a third") | open: confirm the reading |
+| X5 | "13 broad" communities: the dendrogram has 125 top groups; the deposit's 13 are those that split down to three levels, and the four largest top groups are not among them | `Exp_fin_4_Louvain_Clustering` and the enrichment files | "20 large ones (50 substances or more) hold 96 %" | open: what did "13 broad" mean in the paper? |
+
 ## Pass it on (`pass`)
 
 The lab's own outreach story, so the questions are for the owner and whoever checks it for the institute, not for
