@@ -298,7 +298,9 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   the package ships (human only: the Atlas is human); the data stays in the browser unless shared; (3) live control in a
   room: someone at a laptop changes the limits, headsets see the cell change; a headset takes the network through the
   relay, as studio scenes go.
-- **Status**: stages 1 and 2 done (v207, below); stage 3 not started.
+- **Status**: done: stages 1 and 2 (v207) and 3 (v208), below. Left: trying it on Quests and the owner's relays (each
+  needs v208's relay, `relay/README.md`, "Shared networks"); a headset choosing a file of its own (it opens the kept one
+  and those on the relay); species other than human.
 
 ### Stage 1, the method in the page (done, v207)
 
@@ -384,8 +386,7 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   recorded on purpose in developer mode takes pictures of the screen, as ever: what is on show is in them).
 - **In a shared room** it is this device's alone: while it shows its own network, `collabState()` gives the built-in
   network's state as it was (`X.bi`) and `collabApply()` keeps the room's newer state there instead of applying it; going
-  back to the built-in network applies that state (limits, picks, switches). The tab says so. Stage 3 (sharing a
-  network through the relay) is not built.
+  back to the built-in network applies that state (limits, picks, switches). The tab says so. Sharing it: stage 3.
 - **The example** (`data/example.txt`, `src/data/gen_example.mjs`): GRB2 and its 421 partners with two kinds of
   evidence or more in the map, and the 1,864 links among them with two or more: symbols in the first column, UniProt
   accessions in the second, the number of kinds as a score, the first contact kind as a word.
@@ -398,6 +399,67 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   picked in it, the headset's tab drawn, Keep, back to the built-in network with the story's counts, a room's state
   arriving meanwhile kept and applied on the way back, a reload offering the kept one and opening it, Forget it, an
   address with limits; no console errors.
+
+### Stage 3, the room and the relay (done, v208)
+
+- **Live control in a room** (the built-in network): stage 1's limits were already the station's (`lim`). Checked with two
+  pages at a station (`tools/collab.mjs --net`): the reliability levels, the places, grouping, the Sides switch, a place
+  picked and *Reset limits* on one reach the other's cell and both its panes; while the other builds, its old drawing
+  stays (`NET.busy`); no writes while nobody changes anything. Nothing needed fixing.
+- **Sharing your network** (the Network tab, `SNET` in `src/engine/e4b_network.js`, both panes): while a network of your
+  own is on show and the relay this page knows keeps shared networks (`/api/ping` `nets: true`; `HOST.collab.relayFind`,
+  its password as a header, never in an address; a 401 brings up the shell's password prompts through `relaySaw`):
+  *Share with this room* (in a relay's room) or *Put on the relay* (outside a room), each with its sentence (where it
+  goes: the relay's host; who can read it: everyone at the station, and anyone who can open this relay's rooms or has
+  the link, until it is removed) and the size it may have. Without such a relay the button is absent and a line says
+  why: *Sharing a network needs a relay* (a peer-to-peer or on-device room; no relay known), *... that keeps them* (a
+  relay without scenes or `--nets`, with `--no-nets`, or older than v208), or that it needs its password. *Remove from the
+  relay* while a shared one is on show. Only on the press does anything leave the browser, and only the pairs, scores
+  and kinds as stage 2 read them.
+- **What goes** (`PNET.toDoc`, checked by `PNET.docError` and the relay's `parseNet`): `{ v: 1, name (the file's), prot:
+  [the proteins' symbols, the map's or the lookup's, in the network's order], kinds: [its kinds' words, at most 7], a, b:
+  [each link's proteins as numbers into prot], k: [each link's kind bits], s: [each link's score or null] only when it
+  has scores }`. A symbol the map gives twice (HBD, TEC) is that name's n-th protein by its order. Read back by
+  `PNET.fromDoc` (a generator, the same `build` as `fromRows`): the same network to the last link, its order, kinds,
+  scores, sides and complexes (`test-pnet.mjs`); a name not found leaves its links out and the tab says how many.
+- **The store** (`relay/nets.mjs`; `relay/README.md`, "Shared networks"): a small store of its own beside the scenes'
+  and the notes', not a story's copy (`HOST.arrange`'s scenes are the owner's, want the password and a scene name, and
+  hold an arrangement of a timeline, not data): `.nets/` in the scenes' folder, `<R2_PREFIX>.nets/` in R2, or `--nets
+  <dir>`; off with `--no-nets` and on a public relay without a password (the notes' rule). Kept gzipped (`<id>/net.json.gz`,
+  then `<id>/meta.json`), addressed by an id made from the content (the first 60 bits of the SHA-256 of the network as
+  kept, its fields in a fixed order, in 12 base-32 letters and digits): the same network is the same id and is never
+  written twice, and no other can overwrite it. At most 12 MB as sent and 250,000 links (the page's own limit), 500
+  networks; under `--public` 30 a minute from one address (a burst of 60). `POST /api/nets`, `GET /api/nets` (newest
+  first: name, proteins, links), `GET /api/nets/<id>`, `POST /api/nets/<id>/delete`; never a name or a protein in a log.
+- **The station's state**: `net` (the id; absent for the built-in network) beside `lim`, the switches and the pick: the
+  story's own `v` 5, `FORMAT` `networks-59`. Every device at the station fetches it from the relay (*Fetching...*; the
+  lookup too when it names proteins outside the map), builds it 4 ms at a time between frames (*Building it (n %)*), and
+  shows it; the room's state that came meanwhile (`SNET.pend`) is what `collabState()` gives, so nothing is sent back,
+  and it is applied once the network is on show (picks checked against its proteins and complexes, limits against its
+  steps). Picks, limits and switches then work across devices as on the built-in network. *Back to the built-in
+  network* on any device sets it for all (the station's state: no lock refuses it, as no lock refuses a pick). A device
+  that cannot have it (no relay, a relay without the store, the network removed) says so in words (*This room shows a
+  shared network this device could not have (why): you see the built-in network, and what you change here is not
+  shared*, *Try again*) and keeps the room's state untouched. A device showing a network only its own behaves as stage 2
+  built it.
+- **Opening one**: `#ppicell&explore&net=<id>` (outside a room too: the relay the page knows). The headset's Network
+  tab lists the relay's networks (newest first, by name and size, at most 12) with the built-in one and the kept one;
+  the page's tab lists them too (*Networks on <host>*).
+- **Measured** (headless Chromium, SwiftShader at 1280 x 800, frames about 240 ms, one relay on this machine; from
+  `netOpen` to the network on show, then to the cell's drawing done): the example (1,864 links): 24.7 KB as sent, 7.7 KB
+  kept, 0.5 s and 1.7 s; the built-in map as pairs (141,296 links): 1.88 MB, 0.71 MB kept, 4.2 s and 15 s; 250,000
+  random links with scores: 5.2 MB, 2.2 MB kept, 7.7 s and 18 s. The longest frame meanwhile was 55 ms (the map) and 48
+  ms (250,000) longer than the longest before (reading the JSON and the steps not sliced); the median frame 20 ms
+  longer. Hence the limit: 250,000 links (as stage 2) and 12 MB as sent (room for scores at full precision). On a Quest:
+  untested (the fetch, the build's seconds and its frames, the memory of a large one).
+- **Tests**: `node relay/test.mjs --nets` (the store: off without scenes or `--nets`, `--no-nets`, `--public` without a
+  password; put, the same again, the same in another field order, list, get gzipped or not, twelve bad bodies, a body
+  over 12 MB, no such network, other methods, remove and put again, the password with Bearer and `?token=`, a restart,
+  507 past 500, 429 under `--public`, R2 against the stand-in S3 with the scenes' listing limit); `test-pnet.mjs` (the
+  shared form read back the same for the example, a gene outside the map, the hand-picked pairs, scores, a name not
+  found, bad forms, the map itself); `node tools/collab.mjs --net` (two pages and a late joiner at a station: the
+  built-in network's limits, switch and pick, the example shared and followed, limits and a pick both ways, no echo, the
+  headset's tab drawn, back to the built-in network, the address, Remove; and a relay with `--no-nets`).
 
 ## Sides: the owner's decisions after stage A (25 November 2026)
 

@@ -40,6 +40,7 @@ import { allScenes, sceneDir, sceneFiles, fileOut, summary, layoutAt, readLayout
 import { R2, R2Error, r2Config } from './r2.mjs';
 import { makeTrackers, TRK_PORT, frameOf, toRoom, quatToRoom } from './trackers.mjs';
 import { makeOsc, encode as oscEncode, parseTarget, parseIn, OSC_RATE, OSC_IN_RATE, OSC_MAX_FRAME, OSC_MAX_MSGS, OSC_MAX_TARGETS } from './osc.mjs';
+import { MAX_BODY as NET_BODY, MAX_NETS, NET_ID, parseNet, gzip as netGzip, folderStore as netsFolder, r2Store as netsR2 } from './nets.mjs';
 import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2,
   LOGS_DIR, MAX_LOGS, MAX_LOG_START, MAX_PART, parseLogStart, parseLogPart, logFolderStore, logR2Store } from './notes.mjs';
 
@@ -63,6 +64,9 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   // --notes <dir>: the developer notebook's notes kept in <dir> (else in .notes/ of the scenes' folder, or under .notes/ in R2);
   // --no-notes: none (tools/notes/SPEC.md, "The relay")
   notes: '', 'no-notes': false,
+  // --nets <dir>: the cell story's shared networks kept in <dir> (else in .nets/ of the scenes' folder, or under .nets/ in
+  // R2); --no-nets: none (relay/nets.mjs; relay/README.md, "Shared networks")
+  nets: '', 'no-nets': false,
   // --keep <file>: every room written there (atomically, every 5 s when changed and as the relay stops) and read back as
   // it starts, so a restart (a deploy) no longer empties the rooms; '' none (as ever: rooms in memory only)
   keep: '' };
@@ -121,6 +125,10 @@ const HELP = `usage: node relay/server.mjs [options]
                    inside the --scenes folder (or under .notes/ in the R2 bucket) whenever the relay keeps scenes; run
                    logs (frame times a second, POST /api/logs) beside them, in .notes/.logs/
   --no-notes       no notes at all (every notes endpoint answers 404)
+  --nets <dir>     the cell story's shared networks (protein pairs a page shared, POST /api/nets, listed at GET /api/nets):
+                   kept in <dir>. Without it they are kept in .nets/ inside the --scenes folder (or under .nets/ in the R2
+                   bucket) whenever the relay keeps scenes
+  --no-nets        no shared networks (every /api/nets endpoint answers 404)
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
   --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
                    --logs only with a token, and --scenes, --osc-out and --osc-in only with a password
@@ -182,7 +190,7 @@ if (PUB && !ORIGINS.size) ORIGINS.add(APP_ORIGIN);
 const ORIGIN_RULE = ORIGINS.size > 0;
 const UNLISTED = PUB || OPT.unlisted;
 const orPublic = (v, dflt) => (v >= 0 ? v : PUB ? dflt : 0);
-const LIM = { guesses: orPublic(OPT.guesses, 30), creates: orPublic(OPT.creates, 10), sockets: orPublic(OPT.sockets, 64), notes: PUB ? 30 : 0 };
+const LIM = { guesses: orPublic(OPT.guesses, 30), creates: orPublic(OPT.creates, 10), sockets: orPublic(OPT.sockets, 64), notes: PUB ? 30 : 0, nets: PUB ? 30 : 0 };
 const STORE = orPublic(OPT.store, 64) * (1 << 20);   // bytes; 0: no cap besides each room's own
 // the logs' token: from Coolify's environment (never from the repository); the command line takes one too
 const LOG_TOKEN = String(OPT['log-token'] || process.env.RELAY_LOG_TOKEN || '');
@@ -292,6 +300,18 @@ const NOTES_DIR = (() => {
 const NOTES_WANT = !OPT['no-notes'] && (!!NOTES_DIR || SCENES_ON);
 const NOTES_ON = NOTES_WANT && !(PUB && !TOKEN);
 if (NOTES_WANT && !NOTES_ON) console.log('--public without a password keeps no notes (set COLLAB_TOKEN to turn the developer notebook on)');
+// shared networks (relay/nets.mjs; the cell story's own networks, shared on purpose by a page): as the notes, wherever the
+// relay keeps scenes or with --nets <dir>; never on a public server without a password (anyone could write into it)
+if (OPT['no-nets'] && OPT.nets) { console.log('--nets and --no-nets: one or the other'); process.exit(1); }
+const NETS_DIR = (() => {
+  if (!OPT.nets || OPT['no-nets']) return '';
+  const want = path.resolve(String(OPT.nets));
+  try { fs.mkdirSync(want, { recursive: true }); if (!fs.statSync(want).isDirectory()) throw new Error('not a folder'); } catch { console.log(`--nets: cannot use ${want} as a folder`); process.exit(1); }
+  return fs.realpathSync(want);
+})();
+const NETS_WANT = !OPT['no-nets'] && (!!NETS_DIR || SCENES_ON);
+const NETS_ON = NETS_WANT && !(PUB && !TOKEN);
+if (NETS_WANT && !NETS_ON) console.log('--public without a password keeps no shared networks (set COLLAB_TOKEN to take them)');
 // uploads (the studio's Upload pane, SPEC "The upload page"): one file at most --max-upload MB, counted as it streams in
 if (!(OPT['max-upload'] > 0)) { console.log('--max-upload takes a size in MB, more than 0'); process.exit(1); }
 const MAX_UPLOAD = Math.floor(OPT['max-upload'] * (1 << 20));
@@ -947,7 +967,7 @@ const CLIENTS = new Map(), CLIENT_KEY = crypto.randomBytes(16);
 function clientOf(req) {
   const a = String(addrOf(req) || ''), k = crypto.createHmac('sha256', CLIENT_KEY).update(netName(a) || a).digest('base64url').slice(0, 22);
   let c = CLIENTS.get(k);
-  if (!c) CLIENTS.set(k, c = { socks: 0, at: Date.now(), g: 2 * LIM.guesses, gt: Date.now(), c: 2 * LIM.creates, ct: Date.now(), n: 2 * LIM.notes, nt: Date.now() });
+  if (!c) CLIENTS.set(k, c = { socks: 0, at: Date.now(), g: 2 * LIM.guesses, gt: Date.now(), c: 2 * LIM.creates, ct: Date.now(), n: 2 * LIM.notes, nt: Date.now(), w: 2 * LIM.nets, wt: Date.now() });
   return c;
 }
 // a bucket of 2n that fills again at n a minute: n a minute on end, and a burst of 2n (a relay restarted at an event:
@@ -1071,7 +1091,7 @@ function api(req, res, url) {
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
   // (versions: a room moves on to a newer version of the app, takeOver; reload: POST /api/rooms/<code>/reload, v136)
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true, talk: true });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(NETS_ON ? { nets: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true, talk: true });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -1081,6 +1101,7 @@ function api(req, res, url) {
   if (order) return req.method === 'POST' ? reloadOrder(req, res, order[1].toUpperCase()) : json(res, 405, { error: 'method not allowed' });
   if (p === '/api/log' && req.method === 'POST') return saveLog(req, res, url);
   if (p === '/api/notes' || p.startsWith('/api/notes/')) return notesApi(req, res, url);
+  if (p === '/api/nets' || p.startsWith('/api/nets/')) return netsApi(req, res, url);
   if (p === '/api/logs' || p.startsWith('/api/logs/')) return logsApi(req, res, url);
   if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, url);
   if (TRK && (p === '/api/trackers' || p === '/api/trackers/still')) return trackersApi(req, res, url);
@@ -2625,7 +2646,8 @@ const RX = R2C ? new R2(R2C) : null;
 const okey = (name, rel = '') => R2C.prefix + name + '/' + rel;
 const RC = { all: null, at: 0, gen: 0, job: null, jobGen: -1, warned: false, hist: '' };
 const R2_KEEP = 2000, R2_LIMIT = Math.max(1, +process.env.R2_LIST_LIMIT || 50000), PUT_TTL = 3600;   // (the limit is lowered only by the tests)
-// (the scenes' listing steps over the notes' keys, R2_PREFIX + '.notes/': they never count against its limit)
+// (the scenes' listing steps over the notes' keys, R2_PREFIX + '.notes/', and the shared networks', '.nets/': they never
+// count against its limit)
 const UPR = { running: 0 }, UPR_MAX = 3;   // uploads through the relay at once (R2: each held in a temporary folder)
 const sigR2 = o => `${o.size}:${o.at}:${o.etag}`;
 async function r2All(fresh) {
@@ -2633,7 +2655,7 @@ async function r2All(fresh) {
   if (RC.job && RC.jobGen === RC.gen) return RC.job;   // (one listing at a time, unless a write came since it began)
   const gen = RC.gen, t = Date.now();
   const job = (async () => {
-    const r = await RX.listAll(R2C.prefix, { limit: R2_LIMIT, skip: R2C.prefix + '.notes/' });
+    const r = await RX.listAll(R2C.prefix, { limit: R2_LIMIT, skip: [R2C.prefix + '.nets/', R2C.prefix + '.notes/'] });
     if (r.more && !RC.warned) { RC.warned = true; log(`scenes: the bucket holds more than ${R2_LIMIT} objects${R2C.prefix ? ' under ' + R2C.prefix : ''}: only the first are listed`); }
     const all = scenesOf(r.keys, R2C.prefix, sayBad);
     if (gen === RC.gen) { RC.all = all; RC.at = t; }
@@ -2749,6 +2771,55 @@ async function notesApi(req, res, url) {
     if (!f) return no(404, 'the file is gone');
     return sendBytes(req, res, f.buf, shot ? 'image/jpeg' : meta.type);
   } catch (err) { fail(err); }
+}
+// ---- shared networks (relay/nets.mjs; packages/ppicell/src/SPEC.md, "Stage 3"): POST /api/nets keeps one (201 { id };
+// the same network again: 200 { id, again: true }, never written twice), GET /api/nets lists them (newest first), GET
+// /api/nets/<id> is one (the JSON, gzipped when the asker takes it), POST /api/nets/<id>/delete removes it. GET and POST
+// only (CORS). Never a network's name or a protein in a log line: `net <id> <bytes>` at most.
+const NETS = !NETS_ON ? null : NETS_DIR ? netsFolder(NETS_DIR) : R2C ? netsR2(RX, R2C.prefix + '.nets/') : netsFolder(path.join(SCENES, '.nets'));
+async function netsApi(req, res, url) {
+  const no = (status, error, extra) => answerEarly(req, res, status, { error }, extra);
+  if (!NETS) return no(404, 'this relay keeps no shared networks');
+  const m = /^\/api\/nets(?:\/([^/]+)(?:\/(delete))?)?$/.exec(url.pathname);
+  if (!m) return no(404, 'no such endpoint');
+  const [, id, sub] = m;
+  try {
+    if (!id) {
+      if (req.method === 'GET') return json(res, 200, { nets: await NETS.list(), max: { bytes: NET_BODY, nets: MAX_NETS } }, noStore);
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'GET, POST' });
+      const who = LIM.nets ? clientOf(req) : null;
+      if (who && fill(who, 'w', LIM.nets) < 1) { tally('requests refused: too many shared networks from one address'); return answerEarly(req, res, 429, { error: 'too many networks from your network: wait a minute' }, { 'Retry-After': String(wait(who, 'w', LIM.nets)) }); }
+      const text = await smallBody(req, res, NET_BODY, `a shared network is at most ${NET_BODY >> 20} MB`);
+      if (text === null) return;
+      let b = null;
+      try { b = JSON.parse(text); } catch { /* said below */ }
+      const r = parseNet(b);
+      if (r.error) return json(res, 400, { error: r.error });
+      if (await NETS.meta(r.id)) return json(res, 200, { id: r.id, again: true }, noStore);
+      if (await NETS.count() >= MAX_NETS) return json(res, 507, { error: `at most ${MAX_NETS} shared networks are kept: remove some` });
+      const gz = netGzip(r.canon);
+      r.meta.gz = gz.length;
+      await NETS.put(r.id, r.meta, gz);
+      if (who) who.w = Math.max(0, fill(who, 'w', LIM.nets) - 1);
+      log(`net ${r.id} ${r.canon.length}`);
+      return json(res, 201, { id: r.id }, noStore);
+    }
+    if (!NET_ID.test(id)) return no(404, 'no such network');
+    if (sub === 'delete') {
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'POST' });
+      return (await NETS.del(id)) ? json(res, 200, { ok: true }, noStore) : no(404, 'no such network');
+    }
+    if (req.method !== 'GET' && req.method !== 'HEAD') return no(405, 'method not allowed', { Allow: 'GET' });
+    const gz = await NETS.data(id);
+    if (!gz) return no(404, 'no such network');
+    const takes = /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
+    const body = takes ? gz : zlib.gunzipSync(gz);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Length': body.length, ...(takes ? { 'Content-Encoding': 'gzip' } : {}), Vary: 'Accept-Encoding' });
+    return res.end(req.method === 'HEAD' ? undefined : body);
+  } catch (err) {
+    log('nets: storage error (' + (err instanceof R2Error ? storeSays(err) : err.code || err.message) + ')');
+    if (!res.headersSent) json(res, err instanceof R2Error ? 502 : 500, { error: err instanceof R2Error ? storeSays(err) : 'cannot read or write the shared networks' });
+  }
 }
 // ---- run logs (tools/notes/SPEC.md, "Run logs"; relay/notes.mjs): kept beside the notes (their .logs/), on and off with them.
 // POST /api/logs begins a run (201 { id }; a nonce sent again: 200 { id, again }), POST /api/logs/<id> { seq, rows, end? }
@@ -3187,6 +3258,7 @@ server.listen(OPT.port, OPT.host, () => {
     (SAVE ? `\nUploads (the studio's Upload pane, at /upload): files up to ${+(MAX_UPLOAD / (1 << 20)).toFixed(2)} MB; ` +
       (FFMPEG ? `long sounds made mono MP3 by ffmpeg (${FFMPEG})` : 'no ffmpeg found, so long sounds are kept as they are (install ffmpeg, or --ffmpeg <path>)') : ''))).then(() => (R2C && R2UP.ok ? r2Checks() : null))
     .catch(err => log('scenes: ' + err.message));
+  if (NETS) console.log(`Shared networks (POST /api/nets, the cell story's Network tab) kept ${NETS_DIR ? 'in ' + NETS_DIR : R2C ? 'in the R2 bucket, under ' + R2C.prefix + '.nets/' : 'in ' + path.join(SCENES, '.nets')}`);
   if (NOTES) console.log(`Developer notes (POST /api/notes, the page at /notes/) kept ${NOTES_DIR ? 'in ' + NOTES_DIR : R2C ? 'in the R2 bucket, under ' + R2C.prefix + '.notes/' : 'in ' + path.join(SCENES, '.notes')}`);
   // a public server: what it allows, said once (never the log token)
   if (ORIGIN_RULE) console.log(`Only pages from ${[...ORIGINS].join(', ')} and the relay's own may open a socket or read the API` +

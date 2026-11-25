@@ -1,4 +1,4 @@
-// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps (and the run logs'); --logs: only the run logs' steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --talk: only Talk's steps (v178); --rooms: only the rooms' versions, the
+// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps (and the run logs'); --nets: only the shared networks' steps (v208); --logs: only the run logs' steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --talk: only Talk's steps (v178); --rooms: only the rooms' versions, the
 // reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
@@ -1653,6 +1653,140 @@ else process.exit(0);
       } finally { await S3.close(); }
     });
   } finally { fs.rmSync(T, { recursive: true, force: true }); }
+}
+
+// ---- shared networks (--nets; relay/nets.mjs, packages/ppicell/src/SPEC.md "Stage 3"): the cell story's own networks,
+// shared on purpose, in a folder and in R2 (against the stand-in S3). `node relay/test.mjs --nets` runs only these (seconds)
+async function netsSteps() {
+  const PASS = 'netspass' + crypto.randomBytes(4).toString('hex');
+  const T = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-nets-')), SC = path.join(T, 'scenes'), ND = path.join(T, 'own');
+  fs.mkdirSync(path.join(SC, 'one'), { recursive: true }); fs.writeFileSync(path.join(SC, 'one', 'a.glb'), 'x');
+  const mk = (o = {}) => ({ v: 1, name: 'example.txt (QNAMEQ)', prot: ['GRB2', 'SOS1', 'QPROTQ', 'EGFR'], kinds: ['binary', 'literature'], a: [0, 0, 2], b: [1, 3, 3], k: [1, 3, 2], ...o });
+  const rq = (at, method, p, body, headers = {}) => new Promise(resolve => {
+    const buf = body === undefined ? null : Buffer.isBuffer(body) ? body : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
+    const r = http.request({ host: '127.0.0.1', port: at, method, path: p, headers: { ...(buf ? { 'Content-Length': buf.length } : {}), ...headers } }, res => {
+      const parts = [];
+      res.on('data', c => parts.push(c));
+      res.on('end', () => { const b = Buffer.concat(parts); resolve({ status: res.statusCode, headers: res.headers, buf: b, text: b.toString(), json: () => JSON.parse(b.toString()) }); });
+    });
+    r.on('error', err => resolve({ status: 'cut', err, json: () => ({}) }));
+    if (buf) for (let i = 0; i < buf.length; i += 65536) r.write(buf.subarray(i, i + 65536));
+    r.end();
+  });
+  const tree = d => { try { return fs.readdirSync(d, { recursive: true }).map(String).sort(); } catch { return []; } };
+  const J = { 'Content-Type': 'application/json' };
+  // the same checks against any relay that keeps shared networks: A its port, H the headers for its password
+  async function run(label, A, H, where) {
+    const post = (b, h = H) => rq(A, 'POST', '/api/nets', b, { ...J, ...h });
+    ok((await rq(A, 'GET', '/api/ping', undefined, H)).json().nets === true, label + ': /api/ping says nets: true');
+    const l0 = (await rq(A, 'GET', '/api/nets', undefined, H)).json();
+    ok(Array.isArray(l0.nets) && l0.nets.length === 0 && l0.max.bytes === 12 << 20 && l0.max.nets === 500, label + ': an empty list, with the limits');
+    const p1 = await post(mk()), id1 = p1.json().id;
+    ok(p1.status === 201 && /^[a-z2-7]{12}$/.test(id1), label + ': POST keeps it: 201 and an id of 12 letters and digits (' + id1 + ')');
+    const again = await post(mk());
+    ok(again.status === 200 && again.json().id === id1 && again.json().again === true, label + ': the same network again: the same id, 200 again, not written twice');
+    // (the same content with its fields in another order and an unknown field: the same network, the same id)
+    const reord = await post({ k: [1, 3, 2], extra: 'x', b: [1, 3, 3], a: [0, 0, 2], kinds: ['binary', 'literature'], prot: ['GRB2', 'SOS1', 'QPROTQ', 'EGFR'], name: 'example.txt (QNAMEQ)', v: 1 });
+    ok(reord.json().id === id1, label + ': its fields in another order, an unknown one dropped: the same id');
+    await sleep(5);
+    const p2 = await post(mk({ name: 'scores', s: [0.5, null, 2] })), id2 = p2.json().id;
+    ok(p2.status === 201 && id2 !== id1, label + ': another network (scores): another id');
+    const list = (await rq(A, 'GET', '/api/nets', undefined, H)).json().nets;
+    ok(list.length === 2 && list[0].id === id2 && list[1].id === id1 && list[1].name === 'example.txt (QNAMEQ)' && list[1].n === 4 && list[1].e === 3 && list[0].score === true && list[1].gz > 0 && list[1].bytes > 0,
+      label + ': the list, newest first, by name and size (proteins, links), with the bytes kept');
+    const g = await rq(A, 'GET', '/api/nets/' + id1, undefined, H), gz = await rq(A, 'GET', '/api/nets/' + id1, undefined, { ...H, 'Accept-Encoding': 'gzip' });
+    const d = g.json();
+    ok(g.status === 200 && /json/.test(g.headers['content-type']) && !g.headers['content-encoding'] && d.v === 1 && d.prot.join() === 'GRB2,SOS1,QPROTQ,EGFR' && d.k.join() === '1,3,2' && d.s === undefined && d.extra === undefined,
+      label + ': GET one: the network as kept (no extra field)');
+    ok(gz.headers['content-encoding'] === 'gzip' && JSON.parse(zlib.gunzipSync(gz.buf)).name === d.name && gz.buf.length < g.buf.length + 40, label + ': gzipped for an asker that takes it');
+    ok(where().some(f => f.endsWith('net.json.gz')) && where().some(f => f.endsWith('meta.json')), label + ': kept as <id>/net.json.gz and <id>/meta.json (' + where().join(' ') + ')');
+    const bads = [['{', 'not JSON'], [{ v: 2 }, 'v'], [mk({ name: '' }), 'name'], [mk({ name: 'a\u0007b' }), 'control'], [mk({ prot: [] }), 'prot'], [mk({ kinds: Array(8).fill('x') }), 'kinds'],
+      [mk({ a: [0, 0] }), 'as long'], [mk({ b: [1, 3, 9] }), 'numbers into prot'], [mk({ k: [1, 3, 4] }), 'kind bits'], [mk({ k: [1, 3, 1.5] }), 'kind bits'], [mk({ s: [1, 'x', 2] }), 'score'], [mk({ s: [1, 2] }), 'score']];
+    const answers = [];
+    for (const [b] of bads) answers.push(await post(b));
+    ok(answers.every((r, i) => r.status === 400 && typeof r.json().error === 'string' && (bads[i][1] === 'not JSON' || bads[i][1] === 'v' || r.json().error.includes(bads[i][1]) || bads[i][1] === 'as long' && /all as long/.test(r.json().error))),
+      label + ': a bad body refused 400 in words: ' + answers.map(r => r.status).join(' '));
+    const before = where();
+    const big = await rq(A, 'POST', '/api/nets', Buffer.alloc((12 << 20) + 1024, 97), { ...H, ...J });
+    ok((big.status === 413 || big.status === 'cut') && where().join() === before.join(), label + ': a body over 12 MB: ' + big.status + ', nothing kept');
+    ok((await rq(A, 'GET', '/api/nets/aaaaaaaaaaaa', undefined, H)).status === 404 && (await rq(A, 'GET', '/api/nets/..%2Fx', undefined, H)).status === 404 && (await rq(A, 'GET', '/api/nets/' + id1 + '/x', undefined, H)).status === 404,
+      label + ': no such network, a path out: 404');
+    ok((await rq(A, 'PUT', '/api/nets', '{}', H)).status === 405 && (await rq(A, 'GET', `/api/nets/${id1}/delete`, undefined, H)).status === 405 && (await rq(A, 'POST', `/api/nets/${id1}`, '{}', H)).status === 405, label + ': other methods: 405');
+    const del = await rq(A, 'POST', `/api/nets/${id1}/delete`, undefined, H);
+    ok(del.status === 200 && (await rq(A, 'GET', '/api/nets/' + id1, undefined, H)).status === 404 && (await rq(A, 'GET', '/api/nets', undefined, H)).json().nets.map(x => x.id).join() === id2 &&
+      (await rq(A, 'POST', `/api/nets/${id1}/delete`, undefined, H)).status === 404, label + ': remove: gone from the list and the store; again: 404');
+    ok((await post(mk())).status === 201, label + ': put again after its removal: 201');
+    return [id1, id2];
+  }
+  try {
+    await step('nets: off without scenes or --nets; --no-nets turns them off; --public without a password: off, said at the start', async () => {
+      const O = await start(['--quiet']), N = await start(['--scenes', SC, '--no-nets', '--quiet']);
+      ok((await rq(O.port, 'GET', '/api/ping')).json().nets === undefined && (await rq(O.port, 'GET', '/api/nets')).status === 404 && /keeps no shared networks/.test((await rq(O.port, 'POST', '/api/nets', mk(), J)).json().error), 'a relay without scenes: no nets field, 404 on GET and POST');
+      ok((await rq(N.port, 'GET', '/api/ping')).json().nets === undefined && (await rq(N.port, 'POST', '/api/nets', mk(), J)).status === 404 && !fs.existsSync(path.join(SC, '.nets')), '--no-nets with --scenes: off, nothing made');
+      const PP = await start(['--public', '--nets', ND, '--quiet', '--allow-no-origin']);
+      ok((await rq(PP.port, 'GET', '/api/ping')).json().nets === undefined && (await rq(PP.port, 'POST', '/api/nets', mk(), J)).status === 404 && /--public without a password keeps no shared networks/.test(PP.out), '--public without a password: off, said at the start');
+      O.kill(); N.kill(); PP.kill();
+    });
+    await step('nets: with --scenes <dir> (kept in .nets/): put, the same again, list, get, bad bodies, the size limit, remove; the scenes\' listing never shows .nets', async () => {
+      const S = await start(['--scenes', SC]);
+      for (let i = 0; i < 100 && !/Shared networks .* kept in/.test(S.out); i++) await sleep(30);
+      ok(/Shared networks .* kept in .*\.nets/.test(S.out), 'the start line says where');
+      await run('--scenes', S.port, {}, () => tree(path.join(SC, '.nets')));
+      const sc = await rq(S.port, 'GET', '/api/scenes'), w = await rq(S.port, 'GET', '/api/scenes/.nets');
+      ok(sc.json().scenes.map(x => x.name).join() === 'one' && w.status === 404 && !S.out.includes('QNAMEQ') && !S.out.includes('QPROTQ') && /net [a-z2-7]{12} \d+/.test(S.out), 'the scenes\' listing leaves .nets out; the log has `net <id> <bytes>`, never a name or a protein');
+      S.kill();
+    });
+    await step('nets: --nets <dir> without scenes; the password (401, Bearer, ?token=); survives a restart', async () => {
+      const N = await start(['--nets', ND, '--quiet'], { COLLAB_TOKEN: PASS });
+      const H = { Authorization: 'Bearer ' + PASS };
+      ok((await rq(N.port, 'GET', '/api/nets')).status === 401 && (await rq(N.port, 'POST', '/api/nets', mk(), J)).status === 401 && (await rq(N.port, 'GET', '/api/nets/aaaaaaaaaaaa')).status === 401 && (await rq(N.port, 'POST', '/api/nets', mk(), { ...J, Authorization: 'Bearer wrong' })).status === 401, 'no password or a wrong one: 401 everywhere');
+      const ids = await run('--nets', N.port, H, () => tree(ND));
+      ok((await rq(N.port, 'GET', '/api/nets?token=' + PASS)).json().nets.length === 2 && (await rq(N.port, 'OPTIONS', '/api/nets', undefined, { Origin: 'https://x.github.io', 'Access-Control-Request-Method': 'POST', 'Access-Control-Request-Headers': 'authorization, content-type' })).status === 204, '?token= works; CORS preflight');
+      ok(!N.out.includes(PASS), 'no password in the log');
+      N.kill();
+      const R = await start(['--nets', ND, '--quiet'], { COLLAB_TOKEN: PASS });
+      ok((await rq(R.port, 'GET', '/api/nets', undefined, H)).json().nets.some(x => x.id === ids[1]), 'kept across a restart');
+      R.kill();
+    });
+    await step('nets: 507 past 500, 429 per address only under --public', async () => {
+      const L = path.join(T, 'full');
+      fs.mkdirSync(L);
+      for (let i = 0; i < 500; i++) { const id = i.toString(32).padStart(12, '0').split('').map(c => 'abcdefghijklmnopqrstuvwxyz234567'[parseInt(c, 32)]).join(''); fs.mkdirSync(path.join(L, id)); fs.writeFileSync(path.join(L, id, 'meta.json'), JSON.stringify({ v: 1, id, name: 'n' + i, n: 1, e: 1, kinds: 1, score: false, bytes: 1, gz: 1, at: i })); }
+      const F = await start(['--nets', L, '--quiet']);
+      const n0 = (await rq(F.port, 'GET', '/api/nets')).json().nets.length, r = await rq(F.port, 'POST', '/api/nets', mk(), J);
+      ok(n0 === 500 && r.status === 507 && /500/.test(r.json().error || ''), '500 kept: the next is refused 507 (' + n0 + ', ' + r.status + ')');
+      F.kill();
+      const P = await start(['--public', '--allow-no-origin', '--nets', path.join(T, 'pub'), '--quiet'], { COLLAB_TOKEN: PASS });
+      const H = { Authorization: 'Bearer ' + PASS, ...J };
+      let n201 = 0, n429 = 0, retry = '';
+      for (let i = 0; i < 64; i++) { const x = await rq(P.port, 'POST', '/api/nets', mk({ name: 'n' + i }), H); if (x.status === 201) n201++; else if (x.status === 429) { n429++; retry = x.headers['retry-after']; } }
+      ok(n201 >= 60 && n201 <= 62 && n429 >= 2 && +retry >= 1, '--public: a burst of 60 networks a minute from one address, then 429 with Retry-After (' + n201 + ' kept, ' + n429 + ' refused)');
+      P.kill();
+    });
+    await step('nets: in R2 (--scenes r2: under <prefix>.nets/; the stand-in S3): put, list, get, remove; the scenes\' listing leaves them out, also against its limit', async () => {
+      const { startFake } = await import('./s3fake.mjs');
+      const KEY = 'RELAYTESTKEYID', SECRET = 'relay-test-secret-' + crypto.randomBytes(6).toString('hex');
+      const S3 = await startFake({ bucket: 'scenes', keys: { [KEY]: SECRET } });
+      try {
+        for (const n of ['alpha', 'beta', 'gamma']) S3.put(`studio/${n}/a.glb`, 'x', { type: 'model/gltf-binary' });
+        const RR = await start(['--scenes', 'r2', '--quiet'], { R2_ENDPOINT: S3.url, R2_ACCESS_KEY_ID: KEY, R2_SECRET_ACCESS_KEY: SECRET, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', R2_LIST_LIMIT: '3', R2_ACCOUNT_ID: '', R2_JURISDICTION: '', R2_LINK_TTL: '' });
+        const where = () => S3.keys().filter(k => k.startsWith('studio/.nets/')).map(k => k.slice('studio/.nets/'.length)).sort();
+        await run('R2', RR.port, {}, where);
+        for (let i = 0; i < 6; i++) await rq(RR.port, 'POST', '/api/nets', mk({ name: 'r' + i }), J);
+        await rq(RR.port, 'POST', '/api/notes', { v: 1, at: 1, dur: 1, kind: 'page', audio: null, shots: [] }, J);
+        const sc = (await rq(RR.port, 'GET', '/api/scenes')).json();
+        ok(where().length >= 16 && sc.scenes.map(x => x.name).join() === 'alpha,beta,gamma' && !/holds more than/.test(RR.out) && !RR.out.includes(SECRET) && !RR.out.includes('QNAMEQ'),
+          'networks (and a note) in the bucket, all 3 scenes still listed with a limit of 3; no secret or name in the log (' + sc.scenes.map(x => x.name).join() + ')');
+        RR.kill();
+      } finally { await S3.close(); }
+    });
+  } finally { fs.rmSync(T, { recursive: true, force: true }); }
+}
+
+if (process.argv.includes('--nets')) {   // only the shared networks' steps (v208)
+  try { await netsSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
 }
 
 if (process.argv.includes('--logs')) {   // only the run logs' steps
@@ -4159,6 +4293,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
   await sndSteps();
   await talkSteps();
   await notesSteps();
+  await netsSteps();
   await logsSteps();
   await videoSteps();
 

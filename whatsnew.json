@@ -1,20 +1,20 @@
 {
-  "version": "networks-v207",
+  "version": "networks-v208",
   "date": "2026-11-25",
   "new": [
-    "Back into the cell, explore mode: a Network tab changes the method's limits live (links drawn, the least support, the Atlas's reliability, the places that count, communities on or off; Reset limits).",
-    "On a laptop: your own network (a file or pasted pairs, or Try an example), mapped onto the cell and judged as the map is; it never leaves the browser and is kept only if you press Keep.",
-    "The limits are shared in a room and in the address; your own network is yours alone (the others keep the built-in one).",
-    "The told story is unchanged: at every limit's default the cell is the same as before.",
-    "Still untried from v206 to v200: lining up a worn character, the cell's sides and complexes, the mirror robot, the tour's tables, sharp VR text, any mix of devices."
+    "Back into the cell, Network tab: Share with this room puts your own network on the room's relay; everyone at the station sees it and changes its limits and picks together.",
+    "Outside a room, Put on the relay gives a link (#ppicell&explore&net=...). Remove from the relay takes it off; Back to the built-in network takes everyone back.",
+    "A headset's Network tab lists the networks on the relay by name and size. Nothing leaves a browser unless its owner presses Share.",
+    "A device that cannot fetch the room's network says why and shows the built-in one, without upsetting the room.",
+    "Still untried: v207's Network tab, v206 lining up a worn character, v205 the cell's sides and complexes, v204 to v200 (mirror robot, tour tables, sharp VR text, any mix of devices)."
   ],
   "test": [
-    "Back into the cell in a headset, explore mode, Network tab: change the links drawn (up to 8,000), the least support and the places; does the cell stay smooth while it changes, and how is the frame rate at 8,000 links?",
-    "On a laptop: Try an example, pick GRB2 and a complex in it, Keep on this device, reload, open the kept one; then in a room with a headset: the headset keeps the built-in network.",
-    "v206: lining up a worn character on a platform. v205: the cell's Walls and Machines. v204: the mirror robot. v203: the tour's tables. v202: sharp VR text."
+    "On the test place: a laptop and a headset at a Back into the cell station. On the laptop: Try an example, then Share with this room. Does the headset show it, and follow the laptop's limits?",
+    "In the headset: change a limit and pick a protein; does the laptop follow? Then open the example from the headset's list of networks, and Back to the built-in network.",
+    "v207: the Network tab's limits in a headset (smooth? frame rate at 8,000 links). v206: lining up a worn character. v205: Walls and Machines."
   ],
   "untested": [
-    "The Network tab in a headset (its pane, the slices while the cell is rebuilt, the frame rate at 8,000 links) and on a phone; a network of 250,000 pairs on a slow laptop.",
-    "v206's lining up with real trackers; v205's voice (not recorded) and rings in a headset; v204's mirror; v203's throttles; v202's sharp text; v201 and v200 with real trackers."
+    "Sharing on the owner's relays (they need v208 first), in a real headset: fetching and building a large network (the whole map took 4 s headless), its frame rate and memory.",
+    "v207's Network tab in a headset and on a phone; v206 with real trackers; v205's voice and rings; v204 to v200 on devices."
   ]
 }

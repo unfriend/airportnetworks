@@ -169,7 +169,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `--trackers` (v126) it takes the PC's Vive trackers from `tools/trackers/bridge.py` on UDP 127.0.0.1 and sends them,
   lined up, to the rooms that use them: `trackers.mjs` ("Vive trackers" below). With `--osc-out` and `--osc-in` (v157)
   it sends the output page's OSC on UDP to the targets on its command line and hands OSC coming in to the output pages,
-  and with `--trackers` too it sends the trackers as OSC itself: `osc.mjs` (the OSC 1.0 codec and the UDP sockets).
+  and with `--trackers` too it sends the trackers as OSC itself: `osc.mjs` (the OSC 1.0 codec and the UDP sockets). With
+  scenes (or `--nets <dir>`; v208) it keeps the cell story's shared networks: `nets.mjs` (their checks, the id from their
+  content, the folder's and R2's store; `relay/README.md`, "Shared networks").
 - `tools/trackers/` - the Vive trackers (v126; "Vive trackers" below): `SPEC.md` (the plan and the contracts between the
   lanes), `bridge.py` (SteamVR's poses to the relay on the same PC: Python 3 and pyopenvr, named in its PEP 723 block, so
   `uv run tools/trackers/bridge.py` fetches both, at the versions in `bridge.py.lock`; `--fake` without SteamVR),

@@ -120,5 +120,34 @@ ok(there >= 3 && agree === there, `the map's own links among them (${there}) jud
 // (the example file reads and maps whole)
 const ex = N.fromRows(N.parse(fs.readFileSync(path.join(here, '..', '..', 'data', 'example.txt'), 'utf8')), LK, 'example');
 ok(ex.report.missing.length === 0 && ex.report.pairs > 1000 && same(ex.report.idKinds, ['sym', 'acc']), `the example: ${ex.report.pairs} pairs, ${ex.report.found} proteins, all found; columns read as symbols and UniProt accessions`);
+
+// ---- stage 3: the shared form (PNET.toDoc, docError, fromDoc), as the relay keeps it: the same network back, to the
+// last link, its order, kinds, scores and sides, with and without a protein from the lookup
+const eqModel = (m, n) => m.P.N === n.P.N && m.P.E === n.P.E && same(m.P.sym, n.P.sym) && same(Array.from(m.P.la), Array.from(n.P.la)) && same(Array.from(m.P.lb), Array.from(n.P.lb)) &&
+  same(Array.from(m.P.kind), Array.from(n.P.kind)) && same(Array.from(m.P.sup), Array.from(n.P.sup)) && same(Array.from(m.P.pl), Array.from(n.P.pl)) && same(m.P.supSteps.map(x => x.label), n.P.supSteps.map(x => x.label)) &&
+  same(Array.from(m.S.cls), Array.from(n.S.cls)) && same(m.S.cx.map(c => c.ac + c.members.join()), n.S.cx.map(c => c.ac + c.members.join())) && same(m.P.kindNames, n.P.kindNames);
+for (const [what, m, lk] of [['the example', ex.model, LK], ['the lookup test (a gene outside the map)', withLk.model, LK], ['the hand-picked pairs', H, null]]) {
+  const d = JSON.parse(JSON.stringify(N.toDoc(m, what))), back = N.run(N.fromDoc(d, N.docNeedsLookup(d) ? lk : null));
+  ok(N.docError(d) === '' && back.model && eqModel(m, back.model) && back.report.missing.length === 0, `${what}: shared as ${JSON.stringify(d).length} bytes, read back the same network (${m.P.N} proteins, ${m.P.E} links, kinds, sides, complexes)`);
+}
+{
+  // (scores: a network with a score column; and a name not found leaves its links out, counted)
+  const sc = N.fromRows(N.parse('a\tb\tscore\nTP53\tMDM2\t0.9\nGRB2\tSOS1\t0.123456789\nEGFR\tGRB2\t\nRELA\tNFKB1\t0.5'), null, 'scores').model;
+  const d = JSON.parse(JSON.stringify(N.toDoc(sc, 'scores'))), back = N.run(N.fromDoc(d, null));
+  ok(d.s && d.s.includes(null) && eqModel(sc, back.model), `scores kept to the Float32 (${d.s.join(', ')}), a link without one as null`);
+  const d2 = JSON.parse(JSON.stringify(d)); d2.prot[0] = 'NOTAGENE';
+  const b2 = N.run(N.fromDoc(d2, null));
+  ok(b2.report.missing.join() === 'NOTAGENE' && b2.report.dropped >= 1 && b2.model.P.E === sc.P.E - b2.report.dropped, `a name not found: its ${b2.report.dropped} link(s) left out and said`);
+  const bads = [[{}, 'v'], [Object.assign({}, d, { name: '' }), 'name'], [Object.assign({}, d, { a: d.a.concat(0) }), 'a, b, k'], [Object.assign({}, d, { k: d.k.map(() => 9) }), 'kind bits'],
+    [Object.assign({}, d, { b: d.b.map(() => 99) }), 'not in prot'], [Object.assign({}, d, { s: d.s.map(() => 'x') }), 'score']];
+  ok(bads.every(([x, w]) => N.docError(x).includes(w) || (w === 'v' && N.docError(x))), 'a bad shared network refused in words: ' + bads.map(([x]) => N.docError(x)).join('; '));
+}
+// (the built-in map itself as a shared network: the largest the size limit is set from)
+{
+  const MAPN = { P: R, S: RS, score: false };
+  const d = N.toDoc(MAPN, 'the built-in map'), txt = JSON.stringify(d);
+  let t1 = Date.now(); const back = N.run(N.fromDoc(JSON.parse(txt), null)); t1 = Date.now() - t1;
+  ok(N.docError(d) === '' && back.model.P.E === P.E && back.model.P.N === P.N && back.report.dropped === 0, `the built-in map as a shared network: ${(txt.length / 1e6).toFixed(2)} MB, read back in ${t1} ms with all ${P.E} links`);
+}
 console.log(bad ? `${bad} failed` : 'all ok');
 process.exit(bad ? 1 : 0);

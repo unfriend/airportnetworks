@@ -1261,6 +1261,53 @@ No note's words, name, transcript or picture is ever in a log line: at most `not
 `node relay/test.mjs --notes` (seconds): off without scenes, `--notes`, `--no-notes`, `--public`, the endpoints above against a
 folder, `--notes <dir>` with a password and the R2 backend against the stand-in S3, the limits, and `r2sync` leaving `.notes` alone.
 
+## Shared networks (`--nets`, `--no-nets`, v208)
+
+The cell story (*Back into the cell*, `packages/ppicell/src/SPEC.md`, "Stage 3") lets someone read a list of protein
+pairs of their own on a page and, only when they press *Share with this room* (or *Put on the relay* outside a room),
+put it here so that every device at their station, a headset too, can fetch it and show it. The code is
+`relay/nets.mjs` and `netsApi` in `server.mjs`.
+
+- **What is kept**: the network as the page read and mapped it, nothing else: `{ v: 1, name (the file's), prot: [the
+  proteins' symbols], kinds: [up to 7 words], a, b: [each link's two proteins, numbers into prot], k: [each link's kind
+  bits], s: [each link's score or null] (only with scores) }`, checked field by field (control characters refused in
+  names), kept with its fields in a fixed order and gzipped. Its id is made from that: the first 60 bits of its SHA-256
+  in 12 base-32 letters and digits (`a-z`, `2-7`). The same network sent again gets the same id (200 `again`) and is
+  never written twice; no other network can overwrite it.
+- **Where**: whenever the relay keeps scenes, in `.nets/` of the `--scenes` folder, or under `<R2_PREFIX>.nets/` in the
+  R2 bucket (the scenes' listing steps over it, as over `.notes/`, so it never counts against `R2_LIST_LIMIT`; `r2sync`
+  leaves it alone); `--nets <dir>` keeps them in `<dir>` instead (also without scenes); `--no-nets` turns them off (with
+  `--nets`: refused). On a public server (`--public`) without a password nothing is kept (said at the start). Each
+  network is `<id>/net.json.gz` and `<id>/meta.json` (written last, so a listing never shows half a network).
+- **Limits**: 12 MB as sent (counted as it streams, 413 past it), 250,000 links (the page's own limit), 65,535 proteins,
+  500 networks (507 past it: remove some); under `--public`, 30 a minute from one address (a burst of 60, then 429 with
+  `Retry-After`). Measured: the built-in map as pairs (141,296 links) is 1.9 MB sent and 0.7 MB kept; 250,000 links with
+  scores 5.2 MB and 2.2 MB.
+- **Who can read them**: anyone who can use this relay's API: with a password (`COLLAB_TOKEN`), those who know it; without
+  one, anyone who can reach the relay. The page says so beside the button. *Remove from the relay* (or the endpoint)
+  removes one for good.
+- **Endpoints**, behind the password when there is one, answers `no-store`, `GET` and `POST` only; with the store off
+  every one answers 404 `{ error: 'this relay keeps no shared networks' }`, and `/api/ping` says `nets: true` when it is on.
+
+| request | answer |
+| --- | --- |
+| `POST /api/nets` (the network as JSON) | 201 `{ id }`; 200 `{ id, again: true }` when it is there already; 400 in words for bad JSON or a bad field, 413 past 12 MB, 429 past the per-address limit under `--public`, 507 past 500 networks |
+| `GET /api/nets` | `{ nets: [{ id, name, n, e, kinds, score, bytes, gz, at }], max: { bytes, nets } }`, newest first (`n` proteins, `e` links, `bytes` as kept, `gz` compressed) |
+| `GET /api/nets/<id>` | the network as JSON (`Content-Encoding: gzip` when the asker takes it); 404 for none |
+| `POST /api/nets/<id>/delete` | 200 `{ ok: true }`, and it is gone; 404 for none |
+
+No network's name or protein is ever in a log line: at most `net <id> <bytes>`. Test: `node relay/test.mjs --nets`
+(seconds).
+
+**The owner's relays** need this release before sharing works there: a relay older than v208 answers 404 for
+`/api/nets`, so the page shows no share button and says *Sharing a network needs a relay that keeps them*. Both run
+`--public --scenes r2` with a password ([The test place on Coolify](#the-test-place-on-coolify)), so once they run v208
+they keep shared networks under their own `<R2_PREFIX>.nets/` with no new setting: the test place
+(`stories.lab.lbi-netmed.com`) takes v208 by itself with the push to `dev` (*Auto Deploy*); the main relay
+(`main.lab.lbi-netmed.com`) when `main` moves to v208 (its webhook, else **Deploy** in Coolify). A relay without scenes
+needs `--nets <dir>` (in `RELAY_ARGS`, on a persistent volume) to keep them; a relay with `--public` and no
+`COLLAB_TOKEN` keeps none.
+
 ## HTTP API
 
 All under `/api/`, JSON, `Cache-Control: no-store`, `Access-Control-Allow-Origin: *` (preflights: 204). With an
@@ -1274,7 +1321,7 @@ shared password](#the-shared-password-collab_token)).
 | request | answer |
 | --- | --- |
 | `GET /api/health` | `{ ok: true, protocol, rooms }`: the protocol number (1) and how many rooms (a count); open even with a password (health checks), and nothing more |
-| `GET /api/ping` | `{ now, proto, net, versions: 1, reload: true }`: relay time (ms), protocol number (1), the asker's network id (see [Rooms on this network](#rooms-on-this-network)), and since v136 that a room moves on to a newer version (`versions`) and takes reload orders (`reload`, below); with `--keep` also `keep: true`; with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with the notebook on (`--scenes`, `--notes`) also `notes: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s); with `--osc-out` or `--osc-in` also `osc: { out, in, trk }` (the number of targets, the UDP port or 0, `--trackers` on; never an address) |
+| `GET /api/ping` | `{ now, proto, net, versions: 1, reload: true }`: relay time (ms), protocol number (1), the asker's network id (see [Rooms on this network](#rooms-on-this-network)), and since v136 that a room moves on to a newer version (`versions`) and takes reload orders (`reload`, below); with `--keep` also `keep: true`; with `--watch` also `watch: true`; with `--scenes` also `scenes: true`; with the notebook on (`--scenes`, `--notes`) also `notes: true`; with shared networks on (`--scenes`, `--nets`) also `nets: true`; with `--unlisted` (`--public`) also `unlisted: true` (no list of open rooms here); with `--trackers` also `trackers: true` and `trackersSeen` (how many trackers the bridge has sent in the last 5 s); with `--osc-out` or `--osc-in` also `osc: { out, in, trk }` (the number of targets, the UDP port or 0, `--trackers` on; never an address) |
 | `GET /api/near` | `{ net, rooms: [{ code, name, members, stations, version }] }`: the rooms on the asker's network, those with people first (at most 20): `name` the first member's (by when they came), `members` a count. Never an address; with `--unlisted` no `name` either. A room that has a name (the room key `name`, `{ v, by, at }`, v146: a label for people, the code stays the address) gains `title` (cleaned: control, zero-width and bidi characters out, spaces collapsed, at most 40 characters; absent when the room has none), also with `--unlisted` and `--public`: the label is the room's own, shown on its network, and no member's name. `GET /api/rooms` rows gain `title` likewise. No log line prints a title |
 | `GET /api/watch` | with `--watch`: a stream of Server-Sent Events (see [Hot reload](#hot-reload---watch)); 404 without, 503 at 200 pages |
 | `POST /api/rooms` `{ app, version, code? }` | 201 `{ code }`: a new room, 3 letters A-Z. With `code`, that code if it is free (409 `{ error: 'taken', version }` if not, the room's version since v136): how a client brings back its room after a relay restart. 400 for a body that is not JSON or a bad code, 413 over 16 KB, 503 at 2000 rooms. With `--creates`: 429 (`Retry-After`) past an address's new rooms; a chosen `code` is also a lookup (`--guesses`: 409 counts, 429 past the budget) |
@@ -1284,6 +1331,7 @@ shared password](#the-shared-password-collab_token)).
 | `GET /api/scenes`, `GET /api/scenes/<name>`, `POST /api/scenes/<name>/layout`, `GET /api/scenes/watch` | with `--scenes`: the studio's scenes, see [Your own scenes](#your-own-scenes-the-studio); 404 without |
 | `POST /api/scenes`, `POST /api/scenes/<name>/file`, `POST /api/scenes/<name>/sound`, `POST /api/scenes/<name>/copy` | with `--scenes`: uploads and copies from another scene, see [Uploading](#uploading-the-upload-page) (`GET /upload`, outside `/api/`, sends a browser to the upload page) |
 | `POST /api/scenes/<name>/put`, `POST /api/scenes/<name>/done` | with `--scenes r2`: uploads straight into the bucket, see [Scenes in Cloudflare R2](#scenes-in-cloudflare-r2) (501 with a folder) |
+| `GET /api/nets`, `POST /api/nets`, `GET /api/nets/<id>`, `POST /api/nets/<id>/delete` | the cell story's shared networks (v208): see [Shared networks](#shared-networks---nets---no-nets-v208); 404 when they are off |
 | `GET /api/notes`, `POST /api/notes`, `GET /api/notes/<id>`, `.../audio`, `.../shot/<n>`, `POST /api/notes/<id>`, `POST /api/notes/<id>/delete` | the developer notebook (v142): see [The developer notebook](#the-developer-notebook---notes---no-notes); 404 when it is off |
 | `GET /api/trackers`, `GET /api/trackers/still?id=<serial>&ms=1000` | with `--trackers`: the PC's trackers raw in SteamVR's space, and one lying still, averaged; see [The PC's Vive trackers](#the-pcs-vive-trackers---trackers); 404 without |
 | `POST /api/log` `{ room, id, name, kind, entries }` | with `--logs` (or `--lan`): `entries` (objects, at most 2000) appended as JSON lines to `<logs>/<day>-<room>-<name>-<id>.jsonl`; 200 `{ lines }`, 400 for a bad body, 429 more than once a second per member, 507 over 20 MB a file; 404 without `--logs`. With a log token (`--log-token`, `RELAY_LOG_TOKEN`; `--public` needs one for `--logs`): only with the header `X-Log-Token`, 404 without it (as if logs were off: the page stops sending), 403 for a wrong one. v145: with a password set, a log that brings the password is kept whatever the log token (without it the call is 401 before it gets here) |

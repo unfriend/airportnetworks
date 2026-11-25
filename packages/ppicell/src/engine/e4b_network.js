@@ -2,7 +2,8 @@
 // The Network tab (SPEC.md, "Your own network"): the method's limits, live, and a network of one's own chosen on the
 // page. The limits (X.lim) are the station's, shared in a room (collabState's lim) and in the address (&links=,
 // &support=, &rel=, &places=, &group=off); a network chosen here (OWNN) is this device's alone: read in the page, never
-// sent anywhere, kept only when asked (IndexedDB, this browser).
+// sent anywhere unless its owner presses Share with this room or Put on the relay (SNET, below: stage 3), kept only when
+// asked (IndexedDB, this browser).
 // The limits at their defaults: the picture and the counts are the story's (the generator's communities and layout).
 // top: links drawn at most; sup: the least support (a step of the network's own: PNET.steps); rel: the Atlas's
 // reliability levels counted (bits 1 Uncertain, 2 Approved, 3 Supported, 4 Enhanced; bit 0, none given, always);
@@ -39,14 +40,14 @@ function jobLine() {
 function netLine() {
   const s = GL.sets.cell && GL.sets.cell.stats();
   if (!s || !s.P) return '';
-  const own = !!(s.opt && s.opt.own && OWNN.model), P = s.P, base = own ? OWNN.model.P : PDATA, placed = (() => { let n = 0; for (let p = 0; p < P.N; p++) if (P.pl[p]) n++; return n; })();
-  const who = own ? `Your network${OWNN.name ? `: ${OWNN.name}` : ''}` : 'The built-in interactome (Menche and colleagues, 2015)';
+  const M = ownModel(), own = !!(s.opt && s.opt.own && M), P = s.P, base = own ? M.P : PDATA, placed = (() => { let n = 0; for (let p = 0; p < P.N; p++) if (P.pl[p]) n++; return n; })();
+  const who = own ? ownTitle() : 'The built-in interactome (Menche and colleagues, 2015)';
   const lim = s.opt && s.opt.lim ? s.opt.lim : LIM0;
   const parts = [];
   if (P.E < base.E) parts.push(`${fmt(P.E)} of its ${fmt(base.E)} links have the least support asked for`);
   if ((lim.rel | 1) !== 31) parts.push(`places taken only from the Atlas's ${REL_LEVELS.filter(([b]) => lim.rel >> b & 1).map(([, n]) => n.toLowerCase()).join(', ')} locations`);
   if (lim.pls !== 8191) parts.push(`${fmt(popc(lim.pls))} of the 13 places count`);
-  const where = own ? 'in your network' : 'in this map';
+  const where = own ? (X.own === 2 ? 'in this shared network' : 'in your network') : 'in this map';
   return `${who}: ${fmt(P.N)} proteins, ${fmt(placed)} with a place ${where}, ${fmt(P.E)} links.${parts.length ? ` Limits: ${parts.join('; ')}.` : ' Every limit at its default.'}${s.opt && !s.opt.grp ? ' Communities off: the dots spread evenly through their places.' : ''}`;
 }
 const popc = x => { let c = 0; for (; x; x &= x - 1) c++; return c; };
@@ -59,8 +60,8 @@ const LIM_TEXT = 'Links drawn: how many of the most important are drawn (the cou
 // one kept in this browser (null none, undefined not looked yet); busy: what is being done, in words
 const OWNN = { name: '', text: null, report: null, model: null, kept: undefined, busy: '', err: '', lookup: undefined };
 const OWN_FORMAT = 'One pair a line: two identifiers (gene symbols such as TP53, UniProt accessions such as P04637, NCBI gene numbers or Ensembl gene ids), then if you like a score (a number) and a kind (a word). Tabs, commas or spaces between them; a first line of column names is skipped; lines starting with # are comments. Human proteins only.';
-const OWN_PRIVATE = 'Only the pairs, scores and kinds are read: no other data, and never patient or variant data. Your network stays in this browser: it is not sent anywhere, and it is kept only if you press Keep.';
-const OWN_ROOM = 'In a shared room your network is this device\'s alone: the others keep seeing the built-in network, and what you change here is not shared until you go back to it.';
+const OWN_PRIVATE = 'Only the pairs, scores and kinds are read: no other data, and never patient or variant data. Your network stays in this browser: it is not sent anywhere unless you press Share with this room or Put on the relay, and it is kept only if you press Keep.';
+const OWN_ROOM = 'In a shared room your network is this device\'s alone until you share it: the others keep seeing the room\'s network, and what you change here is not shared until you go back to it.';
 const inRoom = () => { try { return !!(HOST.collab && HOST.collab.code); } catch (e) { return false; } };
 // the lookup (data/lookup.json): fetched once, only when a network is chosen; null when it could not be had
 async function ownLookup() {
@@ -86,18 +87,21 @@ async function chooseText(text, name) {
   OWNN.busy = ''; OWNN.report = report;
   if (!model) { OWNN.err = 'None of these pairs has both its proteins in the map or the lookup.'; renderAll(); return; }
   OWNN.name = name; OWNN.text = text; OWNN.model = model;
-  api('cell').own(model);
   // (another network while one's own is on show: its picks and limits start afresh)
-  if (X.own) { X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0); X.ctl.cell.kind = '-1'; kindOptions(); SRCH.byDeg = null; }
+  if (X.own === 1) { api('cell').own(model); X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0); X.ctl.cell.kind = '-1'; kindOptions(); SRCH.byDeg = null; }
   setOwn(1, true);
 }
-// your network on show (1) or the built-in one (0). The built-in one's state (picks, limits, switches) is kept as the
-// room's while yours is on show (X.bi: collabState gives it, collabApply keeps the room's there) and comes back with it
+// your network on show (1) or the room's (0: the built-in one, or the station's shared one). The room's state (picks,
+// limits, switches, a shared network) is kept while yours is on show (X.bi: collabState gives it, collabApply keeps the
+// room's there) and comes back with it
 function setOwn(on, ui) {
   on = on && OWNN.model ? 1 : 0;
-  if (on === X.own) { renderAll(); return; }
+  if (on === (X.own === 1 ? 1 : 0)) { renderAll(); return; }
   if (on) {
     X.bi = collabState();
+    // (a shared network on show or on its way: dropped here, and back with the room's state)
+    SNET.gen++; SNET.pend = null; X.net = '';
+    api('cell').own(OWNN.model);
     X.own = 1; X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0);
     const kc = ctlOf('cell', 'kind');
     if (kc) X.ctl.cell.kind = '-1';
@@ -112,11 +116,14 @@ function setOwn(on, ui) {
   if (ui) sfxAct('clink', 'cell', 'centre');
   pushState(); renderAll();
 }
+// the network on show other than the built-in one: yours (X.own 1) or the station's shared one (X.own 2), or null
+const ownModel = () => (X.own === 2 ? SNET.model : X.own === 1 ? OWNN.model : null);
+const ownTitle = () => (X.own === 2 ? `The shared network${SNET.name ? `: ${SNET.name}` : ''}` : `Your network${OWNN.name ? `: ${OWNN.name}` : ''}`);
 // the Evidence switch's options: the map's kinds, or your network's words
 function kindOptions() {
   const c = ctlOf('cell', 'kind');
   if (!c) return;
-  const names = X.own && OWNN.model ? OWNN.model.P.kindNames : ['Regulatory', 'Binary', 'Literature', 'Metabolic', 'Complexes', 'Kinase', 'Signalling'];
+  const M = ownModel(), names = M ? M.P.kindNames : ['Regulatory', 'Binary', 'Literature', 'Metabolic', 'Complexes', 'Kinase', 'Signalling'];
   c.options = [['-1', 'All'], ...names.map((n, k) => [String(k), n])];
 }
 // kept in this browser (IndexedDB, guarded: a private window may refuse it); never sent anywhere
@@ -182,11 +189,237 @@ function reportLines() {
   return out;
 }
 
+// ------------------------------------------------------------- shared through the relay (stage 3) --
+// A network of one's own goes to the relay only when its owner presses Share with this room (in a room) or Put on the
+// relay (outside one): its pairs, scores and kinds as read and mapped (PNET.toDoc: the proteins' symbols, the links, the
+// kinds' words, the file's name), kept there under an id made from them (relay/nets.mjs). The station's state then names
+// it (net: the id), every device there fetches it, builds it between frames and shows it; picks, limits and switches work
+// on it across devices as on the built-in one. A device that cannot have it says why and shows the built-in network,
+// keeping the room's state as it came (SNET.pend: collabState gives it, so nothing it does is sent back).
+// X.net: the id the station shows ('' the built-in network); SNET: that network (model, name), the work under way (busy,
+// gen: a newer wish drops an older one), why it could not be had (err), the room's state kept meanwhile (pend), and the
+// relay as this device sees it (relay: base, token, nets: whether it keeps them, why not) and its list of networks
+const NET_ID = /^[a-z2-7]{12}$/;
+const SNET = { id: '', name: '', model: null, busy: '', err: '', pend: null, gen: 0, put: '', putErr: '', link: '',
+  relay: { at: -1e9, busy: null, base: '', token: '', nets: false, why: '', max: 12 << 20 }, list: null, listAt: -1e9, listBusy: null };
+const NET_SAY = {
+  room: 'Sharing a network needs a relay: this room runs peer to peer or on this device alone.',
+  none: 'Sharing a network needs a relay: this page has none (GitHub Pages alone keeps nothing).',
+  off: 'Sharing a network needs a relay that keeps them: this one does not (it keeps no scenes, was started with --no-nets, or is older than v208).',
+  auth: 'This relay needs its password (under Shared) before a network can go on it or come from it.',
+  away: 'The relay did not answer: sharing a network has to wait.',
+};
+// (the same, said of a network this device could not fetch)
+const NET_GET = { room: 'this room runs peer to peer or on this device alone', none: 'no relay is known here', off: 'this relay keeps no shared networks',
+  auth: 'the relay wants its password, under Shared', away: 'the relay did not answer' };
+// the size a shared network may have, in words (measured: SPEC.md, "Stage 3")
+const NET_SIZE = 'Up to 250,000 links (12 MB as sent) can be shared. Each device fetches and builds it: the built-in map\'s size (141,296 links, 1.9 MB) takes a few seconds on a laptop.';
+const relayHost = () => { try { return new URL(SNET.relay.base).host; } catch (e) { return 'the relay'; } };
+// the relay this device would share through (HOST.collab.relayFind: the one it knows or is served by, with its password
+// as a header, never in an address), and whether it keeps shared networks (/api/ping's nets); asked every 30 s at most
+function netRelay(again) {
+  const R = SNET.relay;
+  if (R.busy) return R.busy;
+  if (!again && performance.now() - R.at < 30000) return Promise.resolve(R.nets ? R : null);
+  R.busy = (async () => {
+    if (inRoom() && HOST.collab.via !== 'relay') { Object.assign(R, { base: '', nets: false, why: 'room' }); return null; }
+    let f = null;
+    try { f = HOST.collab && HOST.collab.relayFind ? await HOST.collab.relayFind() : null; } catch (e) { f = null; }
+    if (!f || !f.base) { Object.assign(R, { base: '', nets: false, why: 'none' }); return null; }
+    Object.assign(R, { base: String(f.base).replace(/\/+$/, ''), token: f.token || '' });
+    try {
+      const r = await fetch(R.base + '/api/ping', { cache: 'no-store', headers: R.token ? { Authorization: 'Bearer ' + R.token } : {} });
+      const j = r.ok ? await r.json() : null;
+      Object.assign(R, { nets: !!(j && j.nets), why: r.status === 401 ? 'auth' : j && j.nets ? '' : r.ok ? 'off' : 'away' });
+    } catch (e) { Object.assign(R, { nets: false, why: 'away' }); }
+    return R.nets ? R : null;
+  })().finally(() => { R.at = performance.now(); R.busy = null; if (!LOAD.gone) renderAll(); });
+  return R.busy;
+}
+// a call to that relay: the password as a header, what it answered told to the shell (a 401 brings up its prompts)
+async function netCall(path, o = {}) {
+  const R = SNET.relay, headers = Object.assign({}, o.headers || {});
+  if (R.token) headers.Authorization = 'Bearer ' + R.token;
+  let r;
+  try { r = await fetch(R.base + path, { method: o.method || 'GET', headers, body: o.body, cache: 'no-store' }); } catch (e) { throw new Error('the relay could not be reached'); }
+  let j = null;
+  try { j = await r.json(); } catch (e) { /* not JSON */ }
+  try { if (HOST.collab && HOST.collab.relaySaw) HOST.collab.relaySaw(R.base, r.status, R.token, r.ok ? null : j); } catch (e) { /* an older shell */ }
+  if (!r.ok) throw Object.assign(new Error(r.status === 401 ? 'the relay wants its password (under Shared)' : r.status === 404 && j && /keeps no shared/.test(j.error || '') ? 'this relay keeps no shared networks' : r.status === 404 ? 'it is not on the relay (removed?)' : (j && j.error) || 'HTTP ' + r.status), { status: r.status });
+  return j;
+}
+// the relay's networks (GET /api/nets: name, proteins, links; newest first), asked when a pane shows them, every 30 s
+function netList(again) {
+  if (SNET.listBusy) return SNET.listBusy;
+  if (!again && performance.now() - SNET.listAt < 30000) return Promise.resolve(SNET.list);
+  SNET.listBusy = (async () => {
+    if (!(await netRelay())) { SNET.list = null; return null; }
+    try { const j = await netCall('/api/nets'); SNET.list = Array.isArray(j.nets) ? j.nets.slice(0, 12) : []; if (j.max && j.max.bytes) SNET.relay.max = j.max.bytes; } catch (e) { SNET.list = null; }
+    return SNET.list;
+  })().finally(() => { SNET.listAt = performance.now(); SNET.listBusy = null; if (!LOAD.gone) renderAll(); });
+  return SNET.listBusy;
+}
+// the state as this page has it now (collabState without what stands for the room's)
+function stateNow() {
+  const ctl = {};
+  for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
+  const v = { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, p: X.pp, place: X.pc, cx: X.cx, copies: X.ties, lim: Object.assign({}, X.lim) };
+  if (X.net) v.net = X.net;
+  return v;
+}
+// the station shows shared network id: fetched (unless doc is given), built between frames, then shown with state v (the
+// room's, or this page's) applied; the picture on show stays until then. A device that cannot have it says why in words
+// and shows the built-in network, keeping v as the room's
+function netLoad(id, v, doc) {
+  const g = ++SNET.gen;
+  X.net = id; SNET.pend = v; SNET.err = ''; SNET.listAt = -1e9;
+  if (SNET.model && SNET.id === id) { netShow(); return; }
+  SNET.id = id; SNET.model = null; SNET.name = '';
+  SNET.busy = 'Fetching the shared network from the relay…'; renderAll();
+  (async () => {
+    let d = doc;
+    if (!d) { if (!(await netRelay(true))) throw new Error(NET_GET[SNET.relay.why] || NET_GET.none); d = await netCall('/api/nets/' + id); }
+    if (g !== SNET.gen || LOAD.gone) return;
+    const bad = PNET.docError(d);
+    if (bad) throw new Error('what the relay gave is not a network (' + bad + ')');
+    let LK = null;
+    if (PNET.docNeedsLookup(d)) {
+      SNET.busy = 'Fetching the lookup (its proteins outside the map)…'; renderAll();
+      LK = await ownLookup();
+      if (!LK) throw new Error('it names proteins outside the map, and the lookup (data/lookup.json) could not be fetched');
+    }
+    if (g !== SNET.gen || LOAD.gone) return;
+    // built 4 ms at a time between frames (a headset keeps its frame rate; PNET.fromDoc yields when its slice is spent)
+    const gen = PNET.fromDoc(d, LK);
+    const R = await new Promise((done, fail) => {
+      const tick = () => {
+        if (g !== SNET.gen || LOAD.gone) return done(null);
+        const was = PNET.T.until;
+        PNET.T.until = performance.now() + 4;
+        try { const r = gen.next(); if (r.done) return done(r.value); SNET.busy = `Building it (${Math.round(100 * (r.value || 0))} %)…`; } catch (e) { return fail(e); } finally { PNET.T.until = was; }
+        setTimeout(tick, 0);
+      };
+      tick();
+    });
+    if (!R || g !== SNET.gen || LOAD.gone) return;
+    if (!R.model) throw new Error('none of its proteins could be found');
+    SNET.model = R.model; SNET.name = d.name; SNET.report = R.report;
+    netShow();
+  })().catch(e => {
+    if (g !== SNET.gen || LOAD.gone) return;
+    SNET.busy = ''; SNET.err = String(e && e.message || e);
+    // (the built-in network on show; the room's state kept in SNET.pend for when it can be had, or another comes)
+    if (X.own === 2) { X.own = 0; X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0); kindOptions(); SRCH.byDeg = null; }
+    renderAll();
+  });
+}
+// the shared network built: shown, and the state kept meanwhile applied to it
+function netShow() {
+  SNET.busy = ''; SNET.err = '';
+  api('cell').own(SNET.model);
+  X.own = 2; X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0); X.ctl.cell.kind = '-1';
+  kindOptions(); SRCH.byDeg = null;
+  const v = SNET.pend;
+  SNET.pend = null;
+  if (v) collabApply(v);
+  pushState(); renderAll();
+}
+// back to the built-in network (any device with the right to change the station: it is the station's state)
+function netBack(ui) {
+  SNET.gen++; SNET.pend = null; SNET.busy = ''; SNET.err = '';
+  X.net = '';
+  if (X.own === 2) { X.own = 0; X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0); kindOptions(); SRCH.byDeg = null; }
+  if (ui) sfxAct('clink', 'cell', 'centre');
+  pushState(); renderAll();
+}
+// a network on the relay opened here (the list, the address's &net=): the station's, with the limits and picks afresh
+function netOpen(id, ui) {
+  if (!NET_ID.test(id)) return;
+  // (from your own network: it is left, the station's state taken over by this one)
+  if (X.bi) { X.bi = null; X.own = 0; X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0); kindOptions(); SRCH.byDeg = null; }
+  if (ui) sfxAct('clink', 'cell', 'centre');
+  netLoad(id, Object.assign(stateNow(), { net: id, p: -1, place: -1, cx: -1, lim: Object.assign({}, LIM0) }));
+  pushState();
+}
+// your network put on the relay (in a room: shown at the station for everyone there; outside one: a link to it). Only on
+// this press: the pairs, scores and kinds as read, nothing else
+async function netShare() {
+  if (!OWNN.model || X.own !== 1 || SNET.put) return;
+  SNET.put = 'Putting it on the relay…'; SNET.putErr = ''; renderAll();
+  try {
+    if (!(await netRelay(true))) throw new Error(NET_SAY[SNET.relay.why] || NET_SAY.none);
+    const doc = PNET.toDoc(OWNN.model, OWNN.name), body = JSON.stringify(doc);
+    if (body.length > SNET.relay.max) throw new Error(`it is ${(body.length / 1e6).toFixed(1)} MB as shared, and this relay takes at most ${(SNET.relay.max / (1 << 20)).toFixed(0)} MB`);
+    const j = await netCall('/api/nets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
+    if (!j || !NET_ID.test(j.id)) throw new Error('the relay gave no id');
+    if (LOAD.gone) return;
+    SNET.link = location.href.split('#')[0] + `#${KEY}&explore&tab=net&net=${j.id}`;
+    // (the station now shows it, built again from what the relay keeps, with the limits, picks and switches as they are here)
+    const v = Object.assign(stateNow(), { net: j.id });
+    X.bi = null;
+    netLoad(j.id, v, doc);
+    SNET.listAt = -1e9;
+    sfxAct('clink', 'cell', 'centre');
+  } catch (e) { SNET.putErr = 'Not shared: ' + String(e && e.message || e) + '.'; }
+  SNET.put = ''; pushState(); renderAll();
+}
+// the shared network on show removed from the relay (and the station back to the built-in network)
+async function netRemove() {
+  const id = X.net;
+  if (!id || SNET.put) return;
+  SNET.put = 'Removing it from the relay…'; SNET.putErr = ''; renderAll();
+  try { await netCall(`/api/nets/${id}/delete`, { method: 'POST' }); if (!LOAD.gone && X.net === id) { SNET.link = ''; netBack(true); } }
+  catch (e) { SNET.putErr = 'Not removed: ' + String(e && e.message || e) + '.'; }
+  SNET.put = ''; SNET.listAt = -1e9; renderAll();
+}
+// the shared part's words: what is on show or on its way, what went wrong, and what sharing would do (both panes)
+function shareLines() {
+  const out = [], R = SNET.relay;
+  if (X.net && SNET.busy) out.push(SNET.busy + ' The cell changes when it is ready.');
+  if (X.net && SNET.err) out.push(`${inRoom() ? 'This room shows' : 'This address names'} a shared network this device could not have (${SNET.err}): you see the built-in network${inRoom() ? ', and what you change here is not shared' : ''}.`);
+  if (X.own === 2) out.push(`Shared on ${relayHost()}${SNET.model ? `: ${fmt(SNET.model.P.N)} proteins, ${fmt(SNET.model.P.E)} links` : ''}. ${inRoom() ? 'Everyone at this station sees it; anyone who can open this relay\'s rooms can read it' : 'Anyone who can open this relay\'s rooms, or has the link, can read it'} until it is removed.`);
+  if (SNET.put) out.push(SNET.put);
+  if (SNET.putErr) out.push(SNET.putErr);
+  if (X.own === 1 && OWNN.model) {
+    if (R.nets) out.push(inRoom() ? `Share with this room puts the pairs, scores and kinds of ${OWNN.name || 'your network'} (nothing else) on this room's relay, ${relayHost()}, and shows it at this station: everyone there sees it, and anyone who can open this relay's rooms can read it until it is removed.`
+      : `Put on the relay puts the pairs, scores and kinds of ${OWNN.name || 'your network'} (nothing else) on ${relayHost()}: anyone who can open this relay's rooms, or who has the link, can read it until it is removed.`);
+    if (R.nets) out.push(NET_SIZE);
+    else if (R.why) out.push(NET_SAY[R.why] || NET_SAY.none);
+  }
+  return out;
+}
+// the buttons (both panes): [{ id, label, on, fn }] (the way back is the networks' own row)
+function shareButtons() {
+  const b = [];
+  if (X.own === 1 && OWNN.model && SNET.relay.nets && !SNET.put) b.push({ id: 'net:share', label: inRoom() ? 'Share with this room' : 'Put on the relay', on: false, fn: () => netShare() });
+  if (X.net && !SNET.put && SNET.relay.nets) b.push({ id: 'net:remove', label: 'Remove from the relay', on: false, fn: () => netRemove() });
+  if (X.net && SNET.err) b.push({ id: 'net:retry', label: 'Try again', on: false, fn: () => netLoad(X.net, SNET.pend) });
+  return b;
+}
+// the relay's networks to open (both panes): newest first, by name and size; the one on show marked
+function listButtons() {
+  return (SNET.list || []).map(n => ({ id: 'net:open:' + n.id, label: `${String(n.name).slice(0, 40)} (${fmt(n.n)} proteins, ${fmt(n.e)} links)`, on: X.net === n.id, fn: () => (X.net === n.id ? null : netOpen(n.id, true)) }));
+}
+
 // ------------------------------------------------------------- the panes --
+// the label of the way back from a network not the built-in one
+const backLabel = () => (X.own === 1 && X.bi && X.bi.net ? 'Back to the room\'s shared network' : X.own ? 'Back to the built-in network' : 'The built-in network');
+// the shared part of the page's tab (the twin of drawNetPane's): its words, its buttons, the relay's networks
+const SHARE_FN = new Map();
+function shareHtml() {
+  SHARE_FN.clear();
+  const btn = o => { SHARE_FN.set(o.id, o.fn); return chip(`data-act="netb" data-v="${esc(o.id)}"`, esc(o.label), o.on); };
+  const lines = shareLines(), bs = shareButtons(), ls = listButtons();
+  return `${lines.map(t => `<p class="sub"${/could not|^Not /.test(t) ? ' style="color:var(--amber)"' : ''}>${esc(t)}</p>`).join('')}
+    ${bs.length ? `<div class="chips">${bs.map(btn).join('')}</div>` : ''}
+    ${SNET.link && X.own === 2 && !inRoom() ? `<p class="sub">The link: <a href="${esc(SNET.link)}">${esc(SNET.link)}</a></p>` : ''}
+    ${ls.length ? `<p class="grp-h">Networks on ${esc(relayHost())}</p><div class="chips">${ls.map(btn).join('')}</div>` : ''}`;
+}
 function renderNet() {
   const pane = $('#pane-net');
   if (!pane) return;
   ownKeptName();
+  if (X.tab === 'net') { netRelay(); netList(); }
   if (!$('#netBody')) {
     pane.innerHTML = `<div id="netBody"></div>
       <div id="ownBox"><p class="grp-h">Your own network</p><p class="sub">${esc(OWN_FORMAT)}</p><p class="sub">${esc(OWN_PRIVATE)}</p>
@@ -209,12 +442,13 @@ function renderNet() {
     <p class="grp-h">Grouping</p><div class="chips">${[[1, 'Communities'], [0, 'Off']].map(([v, n]) => chip(`data-act="lim" data-k="grp" data-v="${v}"`, n, L.grp === v)).join('')}</div>
     <p class="sub">${esc(LIM_TEXT)}</p>
     ${jobLine() ? `<p class="sub" style="color:var(--amber)">${esc(jobLine())}</p>` : ''}
-    <div class="chips">${chip('data-act="limreset" data-v="1"', 'Reset limits', false)}</div>`;
+    <div class="chips">${chip('data-act="limreset" data-v="1"', 'Reset limits', false)}</div>
+    <div id="netShare">${shareHtml()}</div>`;
   const r = OWNN.report, lines = reportLines();
   $('#ownBody').innerHTML = `${OWNN.busy ? `<p class="sub" style="color:var(--amber)">${esc(OWNN.busy)}</p>` : ''}${OWNN.err ? `<p class="sub" style="color:var(--amber)">${esc(OWNN.err)}</p>` : ''}
     ${lines.map(t => `<p class="sub">${esc(t)}</p>`).join('')}
     ${r && r.missing.length ? `<p class="sub">Not found: ${esc(r.missing.slice(0, 30).join(', '))}${r.missing.length > 30 ? ` and ${fmt(r.missing.length - 30)} more` : ''}.</p><div class="chips"><button type="button" data-act="ownmiss" data-v="1">Download the list (not-found.txt)</button></div>` : ''}
-    <div class="chips">${OWNN.model ? chip('data-act="own" data-v="1"', `Your network${OWNN.name ? ': ' + esc(OWNN.name) : ''}`, X.own === 1) : ''}${chip('data-act="own" data-v="0"', X.own ? 'Back to the built-in network' : 'The built-in network', X.own === 0)}</div>
+    <div class="chips">${OWNN.model ? chip('data-act="own" data-v="1"', `Your network${OWNN.name ? ': ' + esc(OWNN.name) : ''}`, X.own === 1) : ''}${chip('data-act="own" data-v="0"', backLabel(), X.own === 0)}</div>
     <div class="chips">${OWNN.model && OWNN.kept !== OWNN.name ? '<button type="button" data-act="ownkeep" data-v="1">Keep on this device</button>' : ''}${OWNN.kept ? `${OWNN.kept !== OWNN.name || !OWNN.model ? `<button type="button" data-act="ownkept" data-v="1">Open the kept one: ${esc(OWNN.kept)}</button>` : ''}<button type="button" data-act="ownforget" data-v="1">Forget it</button>` : ''}</div>
     ${OWNN.kept ? `<p class="sub">Kept in this browser: ${esc(OWNN.kept)}.</p>` : ''}
     ${X.own && inRoom() ? `<p class="sub">${esc(OWN_ROOM)}</p>` : ''}`;
@@ -224,7 +458,7 @@ function netAct(b) {
   const v = b.dataset.v;
   ({
     lim: () => setLim(b.dataset.k, +v, true), rel: () => toggleRel(+v), pls: () => togglePlace(+v), limreset: () => resetLim(true),
-    own: () => setOwn(+v, true), ownpaste: () => { const t = $('#ownText').value; if (t.trim()) chooseText(t, 'pasted text'); },
+    own: () => (+v === 0 && (X.own === 2 || X.net) && !X.bi ? netBack(true) : setOwn(+v, true)), netb: () => { const f = SHARE_FN.get(v); if (f) f(); }, ownpaste: () => { const t = $('#ownText').value; if (t.trim()) chooseText(t, 'pasted text'); },
     ownex: () => ownExample(), ownkeep: () => ownKeep(), ownforget: () => ownForget(), ownkept: () => ownLoadKept(), ownmiss: () => ownMissing(),
   }[b.dataset.act] || (() => {}))();
 }
@@ -244,10 +478,16 @@ function drawNetPane(ctx, P, x, y, W, bottom) {
   row('Places', PLACE_SHORT.map((n, k) => ({ id: 'pls:' + k, label: n, on: (L.pls >> k & 1) === 1, fn: () => togglePlace(k) })).concat([{ id: 'pls:all', label: 'All', on: L.pls === 8191, fn: () => setLim('pls', 8191, true) }]));
   row('Grouping', [[1, 'Communities'], [0, 'Off']].map(([v, n]) => ({ id: 'lim:grp:' + v, label: n, on: L.grp === v, fn: () => setLim('grp', v, true) })).concat([{ id: 'lim:reset', label: 'Reset limits', on: false, fn: () => resetLim(true) }]));
   if (jobLine() && y + 34 < bottom) y += textBlock(ctx, jobLine(), x, y, W, 21, 29, VC.amber || VC.ink, 400, 1) + 8;
-  if (y + 40 < bottom) y += textBlock(ctx, 'Choose a network of your own on a laptop: a headset cannot sensibly pick a file.', x, y, W, 21, 29, VC.muted, 400, 2) + 8;
-  const nets = [{ id: 'own:0', label: X.own ? 'Back to the built-in network' : 'The built-in network', on: X.own === 0, fn: () => setOwn(0, true) }];
-  if (OWNN.model) nets.push({ id: 'own:1', label: `Your network${OWNN.name ? ': ' + OWNN.name : ''}`, on: X.own === 1, fn: () => setOwn(1, true) });
+  if (X.tab === 'net') { netRelay(); netList(); }
+  if (y + 40 < bottom) y += textBlock(ctx, 'Choose a network of your own on a laptop: a headset cannot sensibly pick a file. Or open one put on the relay:', x, y, W, 21, 29, VC.muted, 400, 2) + 8;
+  const own = v => () => (v === 0 && (X.own === 2 || X.net) && !X.bi ? netBack(true) : setOwn(v, true));
+  const nets = [{ id: 'own:0', label: backLabel(), on: X.own === 0 && !X.net, fn: own(0) }];
+  if (OWNN.model) nets.push({ id: 'own:1', label: `Your network${OWNN.name ? ': ' + OWNN.name : ''}`, on: X.own === 1, fn: own(1) });
   else if (OWNN.kept) nets.push({ id: 'own:kept', label: `Kept here: ${OWNN.kept}`, on: false, fn: () => ownLoadKept() });
-  if (y + 46 < bottom) y += flow(ctx, P, nets, x, y, W, bottom, { px: 21, h: 46 }) + 8;
-  if (X.own && inRoom() && y + 34 < bottom) textBlock(ctx, OWN_ROOM, x, y, W, 20, 28, VC.muted, 400, 2);
+  const more = listButtons().filter(b => !nets.some(n => n.id === b.id));
+  if (y + 46 < bottom) y += flow(ctx, P, nets.concat(more), x, y, W, bottom, { px: 20, h: 44 }) + 8;
+  for (const t of shareLines()) if (y + 34 < bottom) y += textBlock(ctx, t, x, y, W, 20, 28, /could not|^Not /.test(t) ? VC.amber || VC.ink : VC.muted, 400, 3) + 6;
+  const bs = shareButtons();
+  if (bs.length && y + 46 < bottom) y += flow(ctx, P, bs, x, y, W, bottom, { px: 20, h: 44 }) + 8;
+  if (X.own === 1 && inRoom() && y + 34 < bottom) textBlock(ctx, OWN_ROOM, x, y, W, 20, 28, VC.muted, 400, 2);
 }

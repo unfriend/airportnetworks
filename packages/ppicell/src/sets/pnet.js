@@ -320,7 +320,7 @@ const PNET = (() => {
   }
   // the rows mapped and made into a network: { model: { P, S } (null when nothing is left), report }
   function fromRows(R, LK, name) {
-    const T2 = tables(LK), N0 = P0.N, ref = new Map(), miss = new Map();
+    const T2 = tables(LK), ref = new Map(), miss = new Map();
     const look = s => { if (ref.has(s)) return ref.get(s); const r = find(T2, s); ref.set(s, r === undefined ? -1 : r); if (r === undefined) miss.set(s, (miss.get(s) || 0) + 1); return r === undefined ? -1 : r; };
     // the kinds: every word, or with more than seven the six commonest and 'other' (a bit each)
     const freq = new Map();
@@ -340,33 +340,42 @@ const PNET = (() => {
       const key = x < y ? x * 1048576 + y : y * 1048576 + x, o = pairs.get(key);
       if (o) { o.k |= bit; if (!(o.s >= sc)) o.s = Number.isNaN(sc) ? o.s : sc; } else pairs.set(key, { a: Math.min(x, y), b: Math.max(x, y), k: bit, s: sc });
     }
-    const prots = [...new Set([...pairs.values()].flatMap(q => [q.a, q.b]))].sort((x, y) => x - y), at = new Map(prots.map((r, i) => [r, i]));
-    const N = prots.length, E = pairs.size;
     const report = { name, read: R.read, comments: R.comments, header, errors: R.errors, idKinds: R.idKinds, hasScore: R.hasScore, hasKind: R.hasKind, kinds: kindNames,
-      pairs: E, dropped, found: N, inMap: prots.filter(r => r < N0).length, missing: [...miss.keys()], placed: 0, judged: 0, lookup: !!LK };
-    if (!E) return { model: null, report };
+      pairs: pairs.size, dropped, found: 0, inMap: 0, missing: [...miss.keys()], placed: 0, judged: 0, lookup: !!LK };
+    if (!pairs.size) return { model: null, report };
+    return { model: run(build([...pairs.values()], kindNames, R.hasScore, LK, report)), report };
+  }
+  // links ({ a, b: the map's protein numbers, N + the lookup's; k: kind bits; s: score, NaN none }, in order) made into
+  // a network: { P, S, score } (a generator: it yields between its steps, so a shared network is built between frames)
+  function* build(links, kindNames, hasScore, LK, report) {
+    const N0 = P0.N;
+    const prots = [...new Set(links.flatMap(q => [q.a, q.b]))].sort((x, y) => x - y), at = new Map(prots.map((r, i) => [r, i]));
+    const N = prots.length, E = links.length;
+    report.found = N; report.inMap = prots.filter(r => r < N0).length;
     const sym = [], pl = new Uint16Array(N), main = new Uint16Array(N), rel = new Uint8Array(N);
     prots.forEach((r, i) => {
       if (r < N0) { sym.push(P0.sym[r]); pl[i] = P0.pl[r]; main[i] = P0.main[r]; rel[i] = P0.rel[r]; }
       else { const j = r - N0; sym.push(LK.x.sym[j]); pl[i] = LK.x.pl[j]; main[i] = LK.x.main[j]; rel[i] = LK.x.rel[j]; }
     });
     const la = new Uint16Array(E), lb = new Uint16Array(E), kind = new Uint8Array(E), sup = new Float32Array(E);
-    let e = 0;
-    for (const q of pairs.values()) { la[e] = at.get(q.a); lb[e] = at.get(q.b); kind[e] = q.k; sup[e] = R.hasScore ? (Number.isNaN(q.s) ? -Infinity : q.s) : pop(q.k); e++; }
+    for (let e = 0; e < E; e++) { const q = links[e]; la[e] = at.get(q.a); lb[e] = at.get(q.b); kind[e] = q.k; sup[e] = hasScore ? (Number.isNaN(q.s) ? -Infinity : q.s) : pop(q.k); }
+    if (late()) yield 0.3;
     // the least support: by score where there is one (any, then its median, upper quarter and top tenth), else by kinds
     let supSteps;
-    if (R.hasScore) {
+    if (hasScore) {
       const s = Float32Array.from(sup).filter(Number.isFinite).sort(), q = f => s[Math.min(s.length - 1, Math.floor(f * s.length))];
       // (each step that leaves something out, with how many links it keeps)
       supSteps = [{ v: -Infinity, label: 'Any score' }];
       const keep = v => { let n = 0; for (let i = 0; i < E; i++) if (sup[i] >= v) n++; return n; };
       if (s.length) for (const f of [0.5, 0.75, 0.9]) { const v = q(f), n = keep(v); if (n < E && !supSteps.some(x => x.v === v)) supSteps.push({ v, label: `≥ ${+v.toPrecision(3)} (${n.toLocaleString('en-US')} links)` }); }
     } else {
-      const top = Math.max(1, ...Array.from(sup));
+      let top = 1;
+      for (let i = 0; i < E; i++) if (sup[i] > top) top = sup[i];   // (a loop: a quarter of a million arguments would overflow the stack)
       supSteps = [1, 2, 3, 4].filter(v => v <= top).map(v => ({ v, label: v === 1 ? 'Any (1 kind)' : `${v} kinds` }));
     }
     const KN = kindNames.map(w => w.charAt(0).toUpperCase() + w.slice(1));
     const P = P0.make({ sym, pl, main, rel, la, lb, kind, sup, supSteps, kinds: kindNames, kindNames: KN, noncontact: 0, com: null });
+    if (late()) yield 0.5;
     // each location's side: the map's (PSIDES) for its proteins, the lookup's for the rest
     const cls = new Uint8Array(P.L), lay = [], ev = [], by = [], acc = [];
     for (let l = 0; l < P.L; l++) {
@@ -381,6 +390,7 @@ const PNET = (() => {
       }
     }
     prots.forEach(r => acc.push(r < N0 ? S0.acc[r] : LK.x.acc[r - N0]));
+    if (late()) yield 0.7;
     // the Complex Portal's complexes with two members or more in this network
     const cxm = new Map();
     S0.cx.forEach((c, n) => { for (const r of c.members) if (at.has(r)) (cxm.get(n) || cxm.set(n, []).get(n)).push(at.get(r)); });
@@ -395,8 +405,68 @@ const PNET = (() => {
     for (let p = 0; p < N; p++) if (pl[p]) report.placed++;
     for (let i = 0; i < E; i++) if (pl[la[i]] && pl[lb[i]]) report.judged++;
     report.complexes = cx.length;
-    return { model: { P, S }, report };
+    return { P, S, score: !!hasScore };
   }
+
+  // ---------------------------------------------------------------- a network shared through the relay
+  // (stage 3, SPEC.md) The shared form: what was read, mapped and joined, nothing else: { v: 1, name (the file's), prot:
+  // [the proteins' symbols, the map's or the lookup's, in the network's order], kinds: [its kinds' words, at most 7],
+  // a, b: [each link's two proteins, numbers into prot], k: [each link's kind bits, 1 to 127], s: [each link's score or
+  // null] only when it has scores }. The relay keeps it as sent, checked (relay/nets.mjs), under an id made from it.
+  const DOC_MAX_PROT = 65535, DOC_MAX_NAME = 120;
+  const f32 = v => +Math.fround(v).toPrecision(9);   // (a Float32 written so it reads back the same)
+  function toDoc(model, name) {
+    const P = model.P, E = P.E, doc = { v: 1, name: String(name || 'a network').slice(0, DOC_MAX_NAME), prot: Array.from(P.sym), kinds: Array.from(P.kinds),
+      a: Array.from(P.la), b: Array.from(P.lb), k: Array.from(P.kind) };
+    if (model.score) { const s = new Array(E); for (let i = 0; i < E; i++) s[i] = Number.isFinite(P.sup[i]) ? f32(P.sup[i]) : null; doc.s = s; }
+    return doc;
+  }
+  // a shared network's shape checked as the relay checks it: '' when it is one, else why not (in words)
+  function docError(d) {
+    if (!d || typeof d !== 'object' || Array.isArray(d) || d.v !== 1) return 'not a shared network (v 1)';
+    if (typeof d.name !== 'string' || !d.name || d.name.length > DOC_MAX_NAME) return 'name: 1 to 120 characters';
+    if (!Array.isArray(d.prot) || !d.prot.length || d.prot.length > DOC_MAX_PROT || d.prot.some(x => typeof x !== 'string' || !x || x.length > 40)) return 'prot: 1 to 65,535 names';
+    if (!Array.isArray(d.kinds) || !d.kinds.length || d.kinds.length > MAX_KINDS || d.kinds.some(x => typeof x !== 'string' || !x || x.length > 24)) return 'kinds: 1 to 7 words';
+    const E = Array.isArray(d.a) ? d.a.length : -1, N = d.prot.length, KM = (1 << d.kinds.length) - 1;
+    if (E < 1 || E > MAX_LINES || !Array.isArray(d.b) || d.b.length !== E || !Array.isArray(d.k) || d.k.length !== E) return `a, b, k: 1 to ${MAX_LINES} links each`;
+    for (let i = 0; i < E; i++) {
+      const a = d.a[i], b = d.b[i], k = d.k[i];
+      if (!Number.isInteger(a) || !Number.isInteger(b) || a < 0 || b < 0 || a >= N || b >= N) return `link ${i}: a protein not in prot`;
+      if (!Number.isInteger(k) || k < 1 || k > KM) return `link ${i}: kind bits`;
+    }
+    if (d.s !== undefined && (!Array.isArray(d.s) || d.s.length !== E || d.s.some(x => x !== null && (typeof x !== 'number' || !Number.isFinite(x))))) return 's: a score (or null) a link';
+    return '';
+  }
+  // a shared network made into the cell's: its proteins found again by their symbols (the map's, then the lookup's:
+  // LK null when it is not needed or could not be had; a name not found leaves its links out, counted; one given twice
+  // is the map's protein of that name given twice, by its order), its links in
+  // their order. A generator, as build: { model, report }
+  function* fromDoc(d, LK) {
+    // (a symbol the map gives twice, HBD and TEC: its n-th time in prot is the map's n-th protein of that name)
+    const by = new Map(), put = (s, r) => (by.get(s) || by.set(s, []).get(s)).push(r), seenN = new Map();
+    P0.sym.forEach((s, p) => put(s, p));
+    if (LK) LK.x.sym.forEach((s, j) => put(s, P0.N + j));
+    const ref = d.prot.map(s => { const n = seenN.get(s) || 0, l = by.get(s); seenN.set(s, n + 1); return l && n < l.length ? l[n] : -1; });
+    const missing = d.prot.filter((s, i) => ref[i] < 0);
+    const links = [], seen = new Set();
+    let dropped = 0;
+    for (let i = 0; i < d.a.length; i++) {
+      const x = ref[d.a[i]], y = ref[d.b[i]];
+      if (x < 0 || y < 0) { dropped++; continue; }
+      const key = x < y ? x * 1048576 + y : y * 1048576 + x;
+      if (seen.has(key)) { dropped++; continue; }
+      seen.add(key);
+      links.push({ a: Math.min(x, y), b: Math.max(x, y), k: d.k[i], s: d.s ? (d.s[i] === null ? NaN : d.s[i]) : NaN });
+      if ((i & 16383) === 16383 && late()) yield 0.1 * i / d.a.length;
+    }
+    const kindNames = d.kinds.slice(), report = { name: d.name, shared: true, pairs: links.length, dropped, found: 0, inMap: 0, missing, placed: 0, judged: 0, lookup: !!LK,
+      read: 0, comments: 0, header: 0, errors: [], idKinds: [], hasScore: !!d.s, hasKind: !(kindNames.length === 1 && kindNames[0] === 'listed'), kinds: kindNames };
+    if (!links.length) return { model: null, report };
+    const model = yield* build(links, kindNames, !!d.s, LK, report);
+    return { model, report };
+  }
+  // whether a shared network names proteins outside the map (then the lookup is needed)
+  const docNeedsLookup = d => { const m = new Set(P0.sym); return d.prot.some(s => !m.has(s)); };
   // the lookup's locations' first index per gene (its genes in order, each its places in order)
   function lookupIndex(LK) {
     const n = LK.x.sym.length, of = new Uint32Array(n + 1);
@@ -405,6 +475,6 @@ const PNET = (() => {
     return LK;
   }
   return { T, late, run, REL, LIM0, isDefault, steps, limit, limitGen, communities, locs, pairJ, judge, order, share, shareKinds, KIND_MIN, select,
-    MAX_LINES, MAX_BYTES, ID_NAME, idKind, parse, tables, find, decodeLookup: J => lookupIndex(decodeLookup(J)), fromRows };
+    MAX_LINES, MAX_BYTES, ID_NAME, idKind, parse, tables, find, decodeLookup: J => lookupIndex(decodeLookup(J)), fromRows, build, toDoc, docError, fromDoc, docNeedsLookup };
 })();
 if (typeof module !== 'undefined') module.exports = PNET;

@@ -6,7 +6,7 @@ const sigMainS = () => '';
 // explore mode in the main panel's signature: everything its panes show (drawn again only when this changes)
 function sigMainX() {
   return ['x', audioLabel(), xrSig(), X.tab, X.scene, JSON.stringify(X.ctl), statsLine(), readingLine(), X.pp, X.pc, X.cx, X.ties, pickLine(), kindsLine(), SRCH.on, SRCH.q,
-    JSON.stringify(X.lim), X.own, netLine(), jobLine(), OWNN.kept, OWNN.model ? OWNN.name : ''].join('|');
+    JSON.stringify(X.lim), X.own, netLine(), jobLine(), OWNN.kept, OWNN.model ? OWNN.name : '', X.net, shareLines().join(), shareButtons().map(b => b.id).join(), listButtons().map(b => b.id + b.on).join()].join('|');
 }
 // the station's story (slideshow, sound effects, shared rooms) and the panel's title: story.json's
 const XR_HERE = KEY;

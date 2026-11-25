@@ -896,6 +896,14 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   `&places=`, `&group=off`); a network chosen on a page (`src/engine/e4b_network.js`, `OWNN`) never is: not sent, not
   in `state()`, kept (IndexedDB) only when asked; its lookup `data/lookup.json` (`src/data/gen_lookup.py`) and example
   `data/example.txt` (`src/data/gen_example.mjs`) are generated. Every new pane twice (`renderNet`, `drawNetPane`).
+- Shared networks (v208, `src/SPEC.md`, "Stage 3"; `SNET` in `src/engine/e4b_network.js`): a network of one's own goes
+  to the relay only on *Share with this room* / *Put on the relay* (each with its sentence; absent, with a line why, without
+  a relay that keeps them), as `PNET.toDoc`'s form (symbols, links, kinds, scores, the file's name: nothing else), kept by
+  `relay/nets.mjs` under an id from its content. The station's state names it (`net`, v 5, FORMAT `networks-59`); every
+  device fetches it and builds it between frames (`PNET.fromDoc`, `netLoad`), the room's state kept meanwhile
+  (`SNET.pend`, what `collabState()` gives) and applied once it shows; a device that cannot have it says why and shows
+  the built-in network. `#ppicell&explore&net=<id>` opens one; the headset's tab lists the relay's. Test: `node
+  tools/collab.mjs --net`, `node relay/test.mjs --nets`.
 - The voice: synthetic (Kokoro). After its words change, `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell`
   where Kokoro is; until then (v205) it runs on subtitles with a table laid out on estimated durations
   (`packages/ppicell/README.md`, "The voice").

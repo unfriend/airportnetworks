@@ -201,18 +201,23 @@ export class R2 {
     };
   }
   // every object under a prefix, at most limit of them: { keys, more } (more: the bucket held more than that)
-  // (skip: a key prefix to step over, such as the notes' subtree: the listing goes on after it, so what is in it never counts
-  // against the limit; keys are in order, so it ends at the prefix with its last character one higher)
+  // (skip: a key prefix to step over, or a list of them, such as the notes' and the shared networks' subtrees: the listing
+  // goes on after each, so what is in them never counts against the limit; keys are in order, so one ends at the prefix
+  // with its last character one higher)
   async listAll(prefix, { limit = 50000, skip = '' } = {}) {
-    const keys = [], past = skip ? skip.slice(0, -1) + String.fromCharCode(skip.charCodeAt(skip.length - 1) + 1) : '';
-    let token = '', after = '', skipping = skip;
+    const skips = [].concat(skip || []).filter(Boolean).sort(), past = s => s.slice(0, -1) + String.fromCharCode(s.charCodeAt(s.length - 1) + 1);
+    const keys = [];
+    let token = '', after = '', i = 0;
+    while (i < skips.length && skips[i] < prefix) i++;
     do {
       const r = await this.list(prefix, { token, after });
       after = '';
       token = r.next;
-      if (skipping && r.keys.some(o => o.key >= skipping)) {   // (this page reaches it: keep what is before, go on after it)
-        keys.push(...r.keys.filter(o => o.key < skipping));
-        skipping = ''; token = ''; after = past;
+      const s = skips[i];
+      if (s && r.keys.some(o => o.key >= s)) {   // (this page reaches it: keep what is before, go on after it)
+        keys.push(...r.keys.filter(o => o.key < s));
+        i++; token = ''; after = past(s);
+        while (i < skips.length && skips[i] < after) i++;   // (a skip inside the one just stepped over)
       } else keys.push(...r.keys);
     } while ((token || after) && keys.length < limit);
     return { keys: keys.slice(0, limit), more: !!token || keys.length > limit };

@@ -115,13 +115,15 @@ function initEnd() {
     if (hp.get('copies') === 'off') setTies(0, false);   // (&copies=off: the Copies switch off)
     // the Network tab's limits (e4b_network.js): &links=<links drawn: 500 ... 8000>, &support=<kinds of evidence a link
     // needs: 1 to 4>, &rel=<the Atlas's reliability levels counted: letters e s a u>, &places=<place numbers counted,
-    // 0 to 12, with commas>, &group=off; &net=example (the page: the example network, as Try an example)
+    // 0 to 12, with commas>, &group=off; &net=example (the page: the example network, as Try an example), &net=<id> (a
+    // network on the relay the page knows: SNET, stage 3)
     if (hp.has('links')) setLim('top', parseInt(hp.get('links'), 10), false);
     if (hp.has('support')) setLim('sup', parseInt(hp.get('support'), 10) - 1, false);
     if (hp.has('rel')) { const q = hp.get('rel').toLowerCase(); setLim('rel', 1 | [['e', 4], ['s', 3], ['a', 2], ['u', 1]].reduce((m, [c, b]) => (q.includes(c) ? m | 1 << b : m), 0), false); }
     if (hp.has('places')) setLim('pls', hp.get('places').split(',').map(x => parseInt(x, 10)).filter(k => k >= 0 && k < 13).reduce((m, k) => m | 1 << k, 0), false);
     if (hp.get('group') === 'off') setLim('grp', 0, false);
     if (hp.get('net') === 'example' && !GL.renderer.xr.isPresenting) ownExample();
+    else if (NET_ID.test(hp.get('net') || '')) netOpen(hp.get('net'), false);   // (&net=<id>: a network put on the relay this page knows)
     if (pp >= 0) setPick(pp, -1, false); else if (pc >= 0 && pc < 13) setPick(-1, pc, false); else if (xn >= 0) setPick(-1, -1, false, xn);
     if ((pp >= 0 || pc >= 0 && pc < 13 || xn >= 0) && !hp.get('tab')) pickTab('pick');
     if (hp.has('now')) { Object.assign(XS, exploreTargets()); orbit.cur = orbit.to || orbit.cur; orbit.to = null; }

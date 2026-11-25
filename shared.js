@@ -26,7 +26,7 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-58';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-59';   // the shared state's format (keys, the stories' state()): bump when it changes shape
   // networks-54 (v170): a station's key st.<id>.arr (the copy of its story it runs: an arrangement on the relay,
   // tools/engine/SPEC.md); an older device would play the story as its own
   // networks-48 (v153): the room's key pcam (the desktop preview camera's place) and a camera's presence pc
@@ -39,6 +39,8 @@
   // (tools/output/SPEC.md, "v158")
   // networks-53 (v164): a studio object's anim may be 'move' (As it moves: its clip follows the distance it covers) with
   // an optional idle (the clip it stands with) and strideK; an older device would refuse the record (bad) or drop them
+  // networks-59 (v208): the cell story's (ppicell) collab.state() gains net (the id of a network shared through the
+  // relay, absent for the built-in one), its own v 5; an older device would ignore it and draw the built-in map.
   // networks-58 (v207): the cell story's (ppicell) collab.state() gains lim (the Network tab's limits: links drawn,
   // least support, the Atlas's reliability levels, the places counted, grouping), its own v 4; an older device would
   // ignore it and draw the map without limits.

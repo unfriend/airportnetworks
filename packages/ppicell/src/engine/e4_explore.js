@@ -14,10 +14,11 @@ const TABS = [['scenes', 'Cell'], ['pick', 'Pick'], ['net', 'Network']];
 const EXPLORE_START = { cell: { show: '1' } };
 // ties: a picked protein's copies joined by fine dots (1, the Pick tab's Copies switch) or not (0)
 // cx: a complex picked (PSIDES.cx's number; -1 none), one pick at a time with pp and pc
-// lim: the Network tab's limits (e4b_network.js, LIM0), own: your own network on show (1; this device's), bi: meanwhile
-// the built-in network's state, the room's (collabState)
+// lim: the Network tab's limits (e4b_network.js, LIM0), own: your own network on show (1; this device's) or the station's
+// shared one (2), bi: while yours is on show, the room's state (collabState); net: the station's shared network (its id on
+// the relay, '' the built-in network: e4b_network.js, SNET)
 const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: { cell: Object.assign({}, EXPLORE_START.cell) }, t0: 0, turn: 'off', pp: -1, pc: -1, cx: -1, ties: 1,
-  lim: { top: 2000, sup: 0, rel: 31, pls: 8191, grp: 1 }, own: 0, bi: null };   // (the scene starts still: the owner)
+  lim: { top: 2000, sup: 0, rel: 31, pls: 8191, grp: 1 }, own: 0, bi: null, net: '' };   // (the scene starts still: the owner)
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
 const STEP = new Set(['cell_show', 'cell_faces', 'cell_sides', 'cell_kind', 'cell_pp', 'cell_pc', 'cell_ties', 'cell_cxs', 'cell_cxp', 'cell_cxon', 'cell_top', 'cell_sup', 'cell_rel', 'cell_pls',
@@ -38,7 +39,7 @@ function exploreTargets(now = performance.now()) {
   for (const ct of s.controls || []) c[ct.key] = ctlValue(k, ct);
   if (s.explore) Object.assign(tg, s.explore(c));
   if (k === 'cell') Object.assign(tg, { cell_pp: X.pp, cell_pc: X.pc, cell_cxp: X.cx, cell_cxs: 0, cell_cxa: 1, cell_ties: X.ties,
-    cell_top: X.lim.top, cell_sup: X.lim.sup, cell_rel: X.lim.rel, cell_pls: X.lim.pls, cell_grp: X.lim.grp, cell_own: X.own, cell_live: 1 });
+    cell_top: X.lim.top, cell_sup: X.lim.sup, cell_rel: X.lim.rel, cell_pls: X.lim.pls, cell_grp: X.lim.grp, cell_own: X.own ? 1 : 0, cell_live: 1 });
   const out = {};
   for (const n in DEF) out[n] = n in tg ? tg[n] : n.endsWith('_a') ? 0 : XS[n];
   return out;
@@ -69,21 +70,29 @@ function setTies(on, ui) {
 // What everyone at a station sees alike in explore mode: the tab, the scene and every scene's controls. The camera is
 // each person's own. v: the shape of this state (FORMAT is the app's: a package that changes its state's shape bumps
 // v, and apply ignores a state of another v, from an older copy on another device).
-const COLLAB_V = 4;   // (2: copies, the Copies switch; 3: cx, a complex picked, and the cell's Sides and Complexes controls; 4: lim, the limits)
+const COLLAB_V = 5;   // (2: copies, the Copies switch; 3: cx, a complex picked, and the cell's Sides and Complexes controls; 4: lim, the limits; 5: net, a shared network)
 //#use collabView collabSetView
-// (while this device shows a network of its own, the built-in network's state stands for it: X.bi, setOwn)
+// (while this device shows a network of its own, the room's state stands for it: X.bi, setOwn; while the station's shared
+// network is on its way, or could not be had here, the room's state as it came: SNET.pend, netLoad)
 function collabState() {
   if (X.bi) return X.bi;
-  const ctl = {};
-  for (const [k] of SCENES) ctl[k] = Object.fromEntries(ctlsOf(k).map(c => [c.key, ctlValue(k, c)]));
-  return { v: COLLAB_V, tab: X.tab, scene: X.scene, ctl, p: X.pp, place: X.pc, cx: X.cx, copies: X.ties, lim: Object.assign({}, X.lim) };
+  if (X.net && SNET.pend) return SNET.pend;
+  return stateNow();
 }
 // show another person's state with the story's own setters (so both panels follow); every field is checked, and the
 // camera stays where this person has it
 function collabApply(v) {
   if (!v || typeof v !== 'object' || v.v !== COLLAB_V) return;
-  // (a device showing its own network keeps the room's state for when it goes back to the built-in one: setOwn)
+  // (a device showing its own network keeps the room's state for when it goes back to the room's: setOwn)
   if (X.bi) { X.bi = v; return; }
+  // the network: a shared one (net, its id on the relay) fetched and built first, the rest applied once it is on show;
+  // none, the built-in one
+  const net = typeof v.net === 'string' && NET_ID.test(v.net) ? v.net : '';
+  if (net && (net !== X.net || SNET.pend || !SNET.model || SNET.id !== net)) {
+    if (net === X.net && SNET.pend && (SNET.busy || SNET.err)) { SNET.pend = v; renderAll(); return; }   // (on its way, or not to be had: kept)
+    netLoad(net, v); return;
+  }
+  if (!net && X.net) netBack(false);
   if (TABS.some(t => t[0] === v.tab) && v.tab !== X.tab) showTab(v.tab);
   if (SCENES.some(s => s[0] === v.scene) && v.scene !== X.scene) openScene(v.scene);
   for (const [k] of SCENES) for (const c of ctlsOf(k)) {
@@ -91,7 +100,8 @@ function collabApply(v) {
     if (!c.options.some(o => o[0] === x) || ctlValue(k, c) === x) continue;
     if (k === X.scene) setCtl(k, c.key, x); else (X.ctl[k] = X.ctl[k] || {})[c.key] = x;
   }
-  const okP = x => Number.isInteger(x) && x >= -1 && x < PDATA.N, okC = x => Number.isInteger(x) && x >= -1 && x < 13, okX = x => Number.isInteger(x) && x >= -1 && x < PSIDES.cx.length;
+  const M = ownModel(), NP = M ? M.P.N : PDATA.N, NX = M ? M.S.cx.length : PSIDES.cx.length;
+  const okP = x => Number.isInteger(x) && x >= -1 && x < NP, okC = x => Number.isInteger(x) && x >= -1 && x < 13, okX = x => Number.isInteger(x) && x >= -1 && x < NX;
   // (one pick at a time, as setPick: the first set of the protein, the place and the complex)
   if (okP(v.p) && okC(v.place) && okX(v.cx)) {
     const [p, pc, cx] = v.p >= 0 ? [v.p, -1, -1] : v.place >= 0 ? [-1, v.place, -1] : [-1, -1, v.cx];

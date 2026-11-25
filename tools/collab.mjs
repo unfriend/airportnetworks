@@ -94,6 +94,10 @@
 // editor, a chapter's length changed in it reaches the story, Save writes layout.json { studio: 1, story }, a reload
 // with &arr= reads it back, a missing copy says Copy not found; two pages following a station: the copy opened there
 // (st.<id>.arr) is played on both and never in collab.state(), a save there reaches the other, Own story ends it for both.
+// --net only the cell story's room and shared networks (netRound, v208, not in the main run: relays of its own with
+// --scenes and --no-nets; packages/ppicell/src/SPEC.md "Stage 3"): limits, a switch and picks between two pages, a network
+// of one's own shared with the room and followed, a late joiner, back to the built-in network, the address, Remove, and a
+// relay that keeps none (docs/agents/testing.md, "collab.mjs --net").
 // A story without arrange yet gets a stand-in made from its own CH, NARRATION_SYNC and TR (the test's, never the app's);
 // --behave only the studio's behaviours shared (behaveRound, also in the main run after the studio's scenes as circles: a
 // relay of its own with --scenes on the test scene alone; two pretend headsets at a studio circle and a page following it:
@@ -413,6 +417,7 @@ const AREAS_ONLY = argv.includes('--areas');   // (only areas, more tape crosses
 const TRACKERS_ONLY = argv.includes('--trackers');   // (only the PC's Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge)
 const OUTPUT_ONLY = argv.includes('--output');   // (only the output page, MIDI and OSC, end to end: outputRound, a relay of its own with --osc-out, --osc-in, --trackers and --scenes, the fake bridge)
 const TALK_ONLY = argv.includes('--talk');   // (only Talk end to end: talkRound, a room of its own; not in the main run)
+const NET_ONLY = argv.includes('--net');   // (only the cell story's shared networks: netRound, relays of its own with --scenes and --no-nets; not in the main run)
 const ALL_T = STORIES[PICK_STORY];   // (the All stories round's story: kept, as --quick drops it from STORIES)
 if (argv.includes('--quick')) for (const k of Object.keys(STORIES).slice(0, -1)) delete STORIES[k];
 const relayPort = argv.includes('--port') ? +argv[argv.indexOf('--port') + 1] : 0;
@@ -4120,6 +4125,192 @@ async function arrRound() {
   } finally {
     for (const p of pages) await p.context().close().catch(() => {});
     await relayOff(R);
+  }
+}
+
+// ---- the cell story's shared networks (v208; packages/ppicell/src/SPEC.md, "Stage 3"): a relay with --scenes (it keeps
+// shared networks), two pages at a ppicell station. A chooses the example network and shares it with the room; B shows the
+// same network (the same counts); A's limits and pick reach B, B's limit reaches A; a late joiner C gets the network; B
+// goes back to the built-in network for everyone. Then a relay with --no-nets: a room whose state names a network no
+// device there can have stays whole, each on the built-in network with the sentence; the share button is absent with
+// its line. (--shots <dir>: pictures of the panes and the headset's Network tab drawn as in a headset)
+async function netRound(dir) {
+  const KEY = 'ppicell', tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-net-')), pages = [];
+  const R = await relayOn(['--static', '.', '--scenes', tmp, '--quiet'], {}, 8880);
+  let R2 = null;
+  if (dir) fs.mkdirSync(dir, { recursive: true });
+  const nopen = async (b, hash, tag) => {
+    const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+    const p = await ctx.newPage();
+    p.on('pageerror', e => errors.push('net round: ' + (e.stack || e.message)));
+    p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('net round ' + tag + ': ' + m.text()); });
+    await p.goto(b + 'index.html' + hash, { timeout: 90000 });
+    pages.push(p);
+    return p;
+  };
+  // (a click by the page's own hand: a joined page's Shared dialog may cover the pane)
+  const tap = (p, sel) => p.evaluate(q => { const e = document.querySelector(q); if (!e) throw new Error('no ' + q); e.click(); }, sel);
+  const built = p => until(p, k => typeof HOST !== 'undefined' && HOST.curKey === k && !!HOST.cur && HOST.cur.peek('LOAD.done'), KEY, 240000);
+  // (settled: nothing being fetched or built, and the cell drawing the network on show)
+  const idle = async p => { await sleep(500); return until(p, () => HOST.cur.peek("!GL.sets.cell.job() && !SNET.busy && !!GL.sets.cell.stats().opt.own === X.own > 0"), null, 240000); };
+  const cellOf = p => peek(p, '(() => { const s = GL.sets.cell.stats(); return { N: s.P.N, E: s.P.E, tally: s.tally, own: X.own, net: X.net, lim: X.lim, pp: X.pp, name: SNET.name, err: SNET.err }; })()');
+  // (a picture of the page with the Shared dialog closed and, given sel, that part of the pane scrolled into view)
+  const shot = async (p, name, sel) => {
+    if (!dir) return;
+    await p.evaluate(q => { const c = document.querySelector('#shared:not([hidden]) [data-sh="close"]'); if (c) c.click(); const e = q && document.querySelector(q); if (e) e.scrollIntoView({ block: 'center' }); }, sel || '');
+    await sleep(300);
+    await p.screenshot({ path: path.join(dir, name + '.png') });
+  };
+  const headsetShot = async (p, name) => {
+    if (!dir) return;
+    const png = await peek(p, "(() => { applyTheme(); const P = makePanel(1024, 1200, 0.7, drawMain, sigMain); P.ctx.fillStyle = '#0c1722'; P.ctx.fillRect(0, 0, 1024, 1200); drawMain(P.ctx, P); return P.cv.toDataURL('image/png'); })()");
+    fs.writeFileSync(path.join(dir, name + '.png'), Buffer.from(png.split(',')[1], 'base64'));
+  };
+  const room = async b => {
+    const A = await nopen(b, '', 'A');
+    await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+    await until(A, () => HOST.collab.status === 'open', null, 20000);
+    const rc = await A.evaluate(() => HOST.collab.code), sid = await A.evaluate(k => HOST.collab.add(k, { x: 0, z: -2, yaw: 0 }), KEY);
+    return { A, rc, sid };
+  };
+  const join = async (b, rc, sid, tag) => {
+    const P = await nopen(b, '#s=' + rc, tag);
+    await until(P, i => typeof HOST !== 'undefined' && HOST.collab && HOST.collab.status === 'open' && !!HOST.collab.station(i), sid, 30000);
+    await P.evaluate(i => HOST.collab.follow(i), sid);
+    await built(P);
+    return P;
+  };
+  try {
+    const b = `http://127.0.0.1:${R.port}/`, { A, rc, sid } = await room(b);
+    await A.evaluate(i => HOST.collab.follow(i), sid);
+    await built(A);
+    const B = await join(b, rc, sid, 'B');
+    await peek(A, "(APP.enterExplore(), pickTab('net'), 1)");
+    const both = (await Promise.all([A, B].map(p => until(p, () => HOST.cur.peek("APP.mode === 'explore' && X.tab === 'net'"), null, 20000)))).every(Boolean);
+    await idle(A); await idle(B);
+    // the built-in network first (stage 1's limits in a room): A's limits, grouping and a switch reach B's cell and both
+    // of B's panes; the old drawing stays on B while its new one is built; B's pick reaches A; nothing echoes
+    await tap(A, '[data-act="rel"][data-v="1"]'); await tap(A, '[data-act="pls"][data-v="0"]'); await tap(A, '[data-act="lim"][data-k="grp"][data-v="0"]');
+    await peek(A, "(sceneCtl('cell', 'sides', '0'), 1)");
+    const was = await peek(B, 'GL.sets.cell.stats().E');
+    let kept = null;
+    for (let i = 0; i < 400 && kept === null; i++) { const j = await peek(B, '[!!GL.sets.cell.job(), GL.sets.cell.stats().E, X.lim.grp]'); if (j[0] && j[2] === 0) kept = j[1]; else await sleep(20); }
+    const bLim = await until(B, () => HOST.cur.peek("X.lim.rel === 29 && X.lim.pls === 8190 && X.lim.grp === 0 && ctlValue('cell', ctlOf('cell', 'sides')) === '0'"), null, 30000);
+    await idle(B);
+    const twins = await B.evaluate(() => ['[data-act="rel"][data-v="1"][aria-pressed="false"]', '[data-act="pls"][data-v="0"][aria-pressed="false"]', '[data-act="lim"][data-k="grp"][data-v="0"][aria-pressed="true"]'].every(q => !!document.querySelector(q)));
+    const [ga, gb] = [await cellOf(A), await cellOf(B)];
+    check('net: on the built-in network A\'s reliability, places, grouping and Sides reach B (its HTML pane\'s buttons too), the old drawing kept while the new one is built, both drawing the same',
+      bLim && twins && kept === was && JSON.stringify(ga.tally) === JSON.stringify(gb.tally), JSON.stringify({ bLim, twins, kept, was, ga: ga.tally, gb: gb.tally }));
+    await peek(B, '(setPick(-1, 9, true), 1)');
+    const aPlace = await until(A, () => HOST.cur.peek('X.pc === 9'), null, 20000);
+    const s0 = (await roomInfo2(b, rc)).seq;
+    await sleep(2500);
+    const s1 = (await roomInfo2(b, rc)).seq;
+    await tap(B, '[data-act="limreset"]'); await peek(B, "(sceneCtl('cell', 'sides', '2'), setPick(-1, -1, false), 1)");
+    const reset = await until(A, () => HOST.cur.peek("X.lim.rel === 31 && X.lim.grp === 1 && X.pc === -1 && ctlValue('cell', ctlOf('cell', 'sides')) === '2'"), null, 20000);
+    check('net: B\'s pick (a place) and Reset limits reach A; no writes meanwhile (no echo)', aPlace && reset && s1 - s0 <= 1, JSON.stringify({ aPlace, reset, s0, s1 }));
+    await idle(A); await idle(B);
+    // A chooses the example: its own, not shared (the room keeps the built-in network)
+    await tap(A, '[data-act="ownex"]');
+    const chose = await until(A, () => HOST.cur.peek('X.own === 1 && !!OWNN.model'), null, 60000);
+    await idle(A);
+    const shareBtn = await until(A, () => !!document.querySelector('[data-act="netb"][data-v="net:share"]'), null, 20000);
+    const words = await A.evaluate(() => document.getElementById('netShare').textContent);
+    const bBefore = await cellOf(B);
+    check('net: A\'s own network is its own until shared (B keeps the built-in one); Share with this room offered with where it goes and who can read it',
+      both && chose && shareBtn && /Share with this room puts the pairs, scores and kinds/.test(words) && /anyone who can open this relay's rooms can read it/.test(words) && bBefore.own === 0 && bBefore.E === 141296, JSON.stringify({ both, chose, shareBtn, words: words.slice(0, 300), bBefore }));
+    await shot(A, '01-share-button-and-sentence', '#netShare');
+    // A shares it: kept on the relay, the station's state names it, B fetches, builds and shows the same network
+    await tap(A, '[data-act="netb"][data-v="net:share"]');
+    const aOn = await until(A, () => HOST.cur.peek('X.own === 2 && !!X.net && !SNET.busy'), null, 60000);
+    await idle(A);
+    const id = await peek(A, 'X.net'), onRelay = fs.existsSync(path.join(tmp, '.nets', id, 'net.json.gz'));
+    const bOn = await until(B, i => HOST.cur.peek('X.own === 2 && X.net') === i, id, 120000);
+    await idle(B);
+    const [ca, cb] = [await cellOf(A), await cellOf(B)], key = (await roomInfo2(b, rc)).keys;
+    const st = Object.entries(key).find(([k]) => k === 'st.' + sid + '.state');
+    check('net: Share with this room puts it on the relay (.nets/<id>/) and names it in the station\'s state; B shows the same network, the same counts',
+      aOn && onRelay && bOn && ca.N === cb.N && ca.E === cb.E && JSON.stringify(ca.tally) === JSON.stringify(cb.tally) && ca.N === 422 && ca.E === 1864 && cb.name === ca.name,
+      JSON.stringify({ aOn, onRelay, bOn, ca, cb, st: st && JSON.stringify(st[1]).slice(0, 200) }));
+    await shot(A, '02-A-shared-network');
+    await shot(B, '03-B-same-shared-network', '#netShare');
+    // A's limit and pick reach B; B's limit reaches A
+    await tap(A, '[data-act="lim"][data-k="top"][data-v="500"]');
+    await peek(A, "(setPick(api('cell').find('GRB2'), -1, true), 1)");
+    const ap = await peek(A, 'X.pp');
+    const bFollows = await until(B, pp => HOST.cur.peek('X.lim.top === 500 && X.pp') === pp, ap, 30000);
+    await idle(B);
+    const bsym = await peek(B, 'api(\'cell\').sym(X.pp)');
+    await tap(B, '[data-act="lim"][data-k="sup"][data-v="1"]');
+    const aFollows = await until(A, () => HOST.cur.peek('X.lim.sup === 1'), null, 30000);
+    await idle(A); await idle(B);
+    const [la, lb] = [await cellOf(A), await cellOf(B)];
+    check('net: A\'s limit and pick (GRB2) reach B on the shared network; B\'s least support reaches A; both draw the same',
+      bFollows && bsym === 'GRB2' && aFollows && la.E === lb.E && la.E < 1864 && JSON.stringify(la.tally) === JSON.stringify(lb.tally) && la.lim.top === 500 && lb.lim.sup === 1, JSON.stringify({ bFollows, bsym, aFollows, la, lb }));
+    await shot(A, '04-B-limit-followed-by-A');
+    // no echo: the station's state stops changing
+    const seq0 = (await roomInfo2(b, rc)).seq;
+    await sleep(3000);
+    const seq1 = (await roomInfo2(b, rc)).seq;
+    check('net: no writes while nobody changes anything (no echo between the two)', seq1 - seq0 <= 2, JSON.stringify({ seq0, seq1 }));
+    // the headset's Network tab: the relay's networks by name and size, with the built-in one
+    await B.evaluate(() => HOST.cur.peek('netList(true)'));
+    await until(B, () => HOST.cur.peek('!!SNET.list && SNET.list.length > 0'), null, 10000);
+    await headsetShot(B, '05-headset-network-tab');
+    const hs = await peek(B, 'listButtons().map(x => x.label)');
+    check('net: the headset\'s Network tab lists the relay\'s networks by name and size (' + hs.join('; ') + ')', hs.length >= 1 && /\(422 proteins, 1,864 links\)/.test(hs[0]), JSON.stringify(hs));
+    // a late joiner gets the network
+    const C = await join(b, rc, sid, 'C');
+    const cOn = await until(C, i => HOST.cur.peek('X.own === 2 && X.net') === i && !HOST.cur.peek('SNET.busy'), id, 120000);
+    await idle(C);
+    const cc = await cellOf(C);
+    check('net: a late joiner fetches and shows the shared network with the room\'s limits and pick', cOn && cc.E === la.E && cc.lim.sup === 1 && cc.pp === ap, JSON.stringify({ cOn, cc }));
+    // back to the built-in network, from B, for everyone
+    await tap(B, '[data-act="own"][data-v="0"]');
+    const back = (await Promise.all([A, B, C].map(p => until(p, () => HOST.cur.peek('X.own === 0 && !X.net'), null, 60000)))).every(Boolean);
+    for (const p of [A, B, C]) await idle(p);
+    const bk = await Promise.all([A, B, C].map(cellOf));
+    check('net: Back to the built-in network on B takes every device there back (the map\'s 141,296 links)', back && bk.every(c => c.E === 141296 && c.own === 0), JSON.stringify(bk.map(c => [c.own, c.net, c.E])));
+    // the address opens it outside a room
+    const D = await nopen(b, `#${KEY}&explore&tab=net&net=${id}`, 'D');
+    await built(D);
+    const dOn = await until(D, i => HOST.cur.peek('X.own === 2 && X.net') === i, id, 120000);
+    await idle(D);
+    check('net: #ppicell&explore&net=<id> opens a network on the relay outside a room', dOn && (await cellOf(D)).N === 422, JSON.stringify(await cellOf(D)));
+    // Remove from the relay (outside the room: D)
+    await idle(D);
+    await tap(D, '[data-act="netb"][data-v="net:remove"]');
+    const gone = await until(D, () => HOST.cur.peek('X.own === 0 && !X.net'), null, 30000);
+    check('net: Remove from the relay deletes it there and goes back to the built-in network', gone && !fs.existsSync(path.join(tmp, '.nets', id)), JSON.stringify({ gone }));
+    for (const p of pages.splice(0)) await p.context().close().catch(() => {});
+
+    // a relay without shared networks: the button absent and its line; a room naming one stays whole, on the built-in one
+    R2 = await relayOn(['--static', '.', '--scenes', tmp, '--no-nets', '--quiet'], {}, 8900);
+    const b2 = `http://127.0.0.1:${R2.port}/`, Q = await room(b2);
+    await Q.A.evaluate(i => HOST.collab.follow(i), Q.sid);
+    await built(Q.A);
+    const E2 = await join(b2, Q.rc, Q.sid, 'E');
+    await peek(Q.A, "(APP.enterExplore(), pickTab('net'), 1)");
+    await until(E2, () => HOST.cur.peek("APP.mode === 'explore'"), null, 20000);
+    await tap(Q.A, '[data-act="ownex"]');
+    await until(Q.A, () => HOST.cur.peek('X.own === 1 && SNET.relay.why === "off"'), null, 60000);
+    await idle(Q.A);
+    const offWords = await Q.A.evaluate(() => document.getElementById('netShare').textContent), noBtn = await Q.A.evaluate(() => !document.querySelector('[data-v="net:share"]'));
+    check('net: a relay that keeps no shared networks: no share button, and the line why', noBtn && /Sharing a network needs a relay that keeps them/.test(offWords), offWords);
+    await shot(Q.A, '06-no-relay-line', '#netShare');
+    await tap(Q.A, '[data-act="own"][data-v="0"]');
+    await idle(Q.A);
+    await peek(Q.A, `(netOpen('${id}', true), 1)`);
+    const failA = await until(Q.A, () => !!HOST.cur.peek('SNET.err'), null, 30000), failE = await until(E2, () => !!HOST.cur.peek('SNET.err'), null, 60000);
+    const qa = await cellOf(Q.A), qe = await cellOf(E2), qk = JSON.stringify((await roomInfo2(b2, Q.rc)).keys);
+    const eWords = await E2.evaluate(() => document.getElementById('netShare').textContent);
+    check('net: a room whose state names a network the relay cannot give: each device says so and shows the built-in network; the room keeps the state',
+      failA && failE && qa.own === 0 && qe.own === 0 && qe.E === 141296 && /could not have \(this relay keeps no shared networks\)/.test(eWords) && qk.includes(id), JSON.stringify({ failA, failE, qa, qe, eWords }));
+    await shot(E2, '07-cannot-have-it', '#netShare');
+  } finally {
+    for (const p of pages) await p.context().close().catch(() => {});
+    await relayOff(R); await relayOff(R2);
+    fs.rmSync(tmp, { recursive: true, force: true });
   }
 }
 
@@ -8591,6 +8782,7 @@ try {
   if (ASK_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await askRound(shots); break main; }
   if (SCENES_ONLY) { await scenesRound(); break main; }
   if (ARR_ONLY) { await arrRound(); break main; }
+  if (NET_ONLY) { await netRound(shots); break main; }
   if (HOME_ONLY) { await homeRound(); break main; }
   if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await menusRound(shots); break main; }
   if (BEHAVE_ONLY) { await behaveRound(); break main; }
@@ -10979,8 +11171,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
+  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await p2p();
+  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

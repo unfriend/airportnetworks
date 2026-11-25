@@ -49,11 +49,19 @@ Network stories - installable web app
      numbers or Ensembl gene ids), then if you like a score and a kind; Try an
      example loads GRB2's neighbourhood. It reports what was read and what was
      not found (a list you can download), then draws your network in the cell,
-     judged as the map is. Your network stays in your browser: it is never
-     sent anywhere, and kept only if you press Keep on this device (Forget it
-     removes it). In a shared room it is yours alone; the others keep seeing
-     the built-in network. A headset cannot choose a file: its Network tab
-     offers the built-in network and one kept in its own browser.
+     judged as the map is. Your network stays in your browser: it is sent
+     nowhere unless you press Share with this room (in a shared room) or Put
+     on the relay (outside one), which put its pairs, scores and kinds on the
+     relay for everyone at your station, and anyone who can open that relay's
+     rooms, to see until you press Remove from the relay. It is kept only if
+     you press Keep on this device (Forget it removes it). Not shared, in a
+     room it is yours alone; the others keep seeing the room's network. Shared,
+     everyone at the station sees it and changes its limits and picks
+     together; Back to the built-in network takes everyone back. A headset
+     cannot choose a file: its Network tab offers the built-in network, one
+     kept in its own browser and the networks on the relay
+     (#ppicell&explore&net=<id> opens one). Sharing needs a relay that keeps
+     them (v208 or newer, with scenes or --nets).
   And an introduction, Your guide: a robot guide shows you how the app works
      in a headset, then a few tasks to practise (packages/tutorial/main.js; the last
      story card on the Stories screen)

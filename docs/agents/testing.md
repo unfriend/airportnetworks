@@ -1485,6 +1485,15 @@ read back with its seq, version and keys, another relay's write taken, expired r
 kept aside as `.bad`, nothing without it; and the order needing the password); no browser, seconds; `node tools/peer.mjs` links two pages of
 the test page `p2p/` through it) and
 
+`node relay/test.mjs --nets` (v208, also in the full run; `relay/nets.mjs`): the cell story's shared networks: off
+without scenes or `--nets`, with `--no-nets` (nothing made) and under `--public` without a password (said at the start);
+with `--scenes` (in `.nets/`, the scenes' listing leaving it out, the log naming no network or protein), `--nets <dir>`
+with a password (401 without, Bearer and `?token=`, kept across a restart) and in R2 against the stand-in S3 (the scenes'
+listing limit of 3 still listing all 3 scenes): put (201, a 12-letter id), the same again (200 `again`, the same id; the
+same in another field order too), another, the list newest first with sizes, get (gzipped when asked), twelve bad bodies
+(400 in words), over 12 MB (413, nothing kept), no such network and a path out (404), other methods (405), remove and put
+again; 507 past 500, 429 under `--public` after a burst of 60.
+
 `node relay/test.mjs --osc` (also in the full run; `relay/osc.mjs`, `tools/output/SPEC.md` Wire 3): the OSC codec (round
 trips of every type, padding at every length mod 4, a bundle in a bundle and the depth limit, bad packets refused, int64
 and float64 normalised, `checkMsg`, the flags' words); a relay without the flags doing nothing of OSC; with `--osc-out`
@@ -1861,6 +1870,22 @@ station: the copy opened there is `st.<id>.arr` `{ v, story, by, at }` and both 
 save there reaches the other page, *Own story* ends it on both. A story whose engine has no `arrange` yet gets a stand-in
 made from its own `CH`, `NARRATION_SYNC` and `TR` (`ARR_STANDIN`, the test's only); one that has it is wrapped to count
 the calls.
+
+### collab.mjs --net
+
+`--net` (v208, not in the main run; `netRound`, a few minutes) runs only the cell story's room behaviour and shared
+networks (`packages/ppicell/src/SPEC.md`, "Stage 3"): a relay of its own with `--scenes` on a temporary folder, two pages
+following a ppicell station in explore mode on the Network tab. On the built-in network A's reliability, places,
+grouping and the Sides switch reach B (its HTML buttons too; B's old drawing kept while its new one is built), B's place
+pick and *Reset limits* reach A, no writes meanwhile; A chooses the example (its own: B keeps the built-in network) and
+*Share with this room* is offered with its sentence; pressed, the network is in `.nets/<id>/` and the station's state
+names it; B shows the same network with the same counts; A's links drawn and GRB2 picked reach B, B's least support
+reaches A, no writes while nobody changes anything; the headset's Network tab drawn as in a headset lists the relay's
+network by name and size; a late joiner C gets it with the room's limits and pick; *Back to the built-in network* on B
+takes all three back; `#ppicell&explore&net=<id>` opens it outside a room and *Remove from the relay* deletes it. Then a
+relay with `--no-nets`: no share button and its line, and a room whose state names a network nobody there can have: each
+device says why and shows the built-in network, the room keeping its state. With `--shots <dir>`: seven pictures (the
+pane's sentence, both pages, a limit followed, the headset's tab, the no-relay line, the could-not-have line).
 
 ### collab.mjs --standby
 

@@ -59,7 +59,11 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
   13 and reliability, the sides of their membrane places by gen_sides.py's rules, and their Complex Portal complexes;
   other names that name exactly one protein). This is a second use of the Atlas's data, so its terms (above: **to
   confirm**) cover the lookup too, with the same credit; UniProt (CC BY 4.0), the Complex Portal (to confirm) and NCBI
-  Gene (public domain) as above. A chosen network never leaves the browser; it is kept (IndexedDB) only when asked.
+  Gene (public domain) as above. A chosen network never leaves the browser unless its owner presses *Share with this
+  room* or *Put on the relay* (v208, `src/SPEC.md`, "Stage 3"): then its pairs, scores and kinds as read (the proteins'
+  symbols, the links, the kinds' words, the file's name) are kept on that relay (`relay/nets.mjs`) under an id made from
+  them, readable by anyone who can open that relay's rooms, until removed; a station's state names it (`net`) and every
+  device there fetches and builds it. It is kept in the browser (IndexedDB) only when asked.
   The example, `data/example.txt`, is cut from the map itself by `src/data/gen_example.mjs` (GRB2 and its partners).
 - Every number the story shows is computed from these as the page runs (`src/sets/pdata.js`, `PDATA`); the judgement
   (possible, through a gate, impossible) is the story's own method, tried out first in `packages/cellstress`.

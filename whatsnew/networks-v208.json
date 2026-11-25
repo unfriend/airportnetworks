@@ -1,0 +1,20 @@
+{
+  "version": "networks-v208",
+  "date": "2026-11-25",
+  "new": [
+    "Back into the cell, Network tab: Share with this room puts your own network on the room's relay; everyone at the station sees it and changes its limits and picks together.",
+    "Outside a room, Put on the relay gives a link (#ppicell&explore&net=...). Remove from the relay takes it off; Back to the built-in network takes everyone back.",
+    "A headset's Network tab lists the networks on the relay by name and size. Nothing leaves a browser unless its owner presses Share.",
+    "A device that cannot fetch the room's network says why and shows the built-in one, without upsetting the room.",
+    "Still untried: v207's Network tab, v206 lining up a worn character, v205 the cell's sides and complexes, v204 to v200 (mirror robot, tour tables, sharp VR text, any mix of devices)."
+  ],
+  "test": [
+    "On the test place: a laptop and a headset at a Back into the cell station. On the laptop: Try an example, then Share with this room. Does the headset show it, and follow the laptop's limits?",
+    "In the headset: change a limit and pick a protein; does the laptop follow? Then open the example from the headset's list of networks, and Back to the built-in network.",
+    "v207: the Network tab's limits in a headset (smooth? frame rate at 8,000 links). v206: lining up a worn character. v205: Walls and Machines."
+  ],
+  "untested": [
+    "Sharing on the owner's relays (they need v208 first), in a real headset: fetching and building a large network (the whole map took 4 s headless), its frame rate and memory.",
+    "v207's Network tab in a headset and on a phone; v206 with real trackers; v205's voice and rings; v204 to v200 on devices."
+  ]
+}
