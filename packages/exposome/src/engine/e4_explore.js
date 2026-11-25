@@ -9,7 +9,7 @@ const TABS = [['scenes', 'Scene'], ['substances', 'Substances'], ['groups', 'Gro
 const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on' };
 //#use XS
 // params that pick something by number jump to their new value instead of easing through the ones in between
-const STEP = new Set();
+const STEP = new Set([...(typeof STEP_B !== 'undefined' ? STEP_B : []), ...(typeof STEP_C !== 'undefined' ? STEP_C : [])]);   // (each builder's)
 //#use orbit ctlValue ctlOf
 // a view option's camera: the cam view of the same name, or the one it stands for ({ set: { option: view } })
 const CAM_ALIAS = {};
