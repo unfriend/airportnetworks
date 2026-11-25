@@ -157,5 +157,38 @@ for (const [what, m, lk] of [['the example', ex.model, LK], ['the lookup test (a
   let t1 = Date.now(); const back = N.run(N.fromDoc(JSON.parse(txt), null)); t1 = Date.now() - t1;
   ok(N.docError(d) === '' && back.model.P.E === P.E && back.model.P.N === P.N && back.report.dropped === 0, `the built-in map as a shared network: ${(txt.length / 1e6).toFixed(2)} MB, read back in ${t1} ms with all ${P.E} links`);
 }
+
+// ---- a wwiznet dataset (PNET.wizKind, wizRead): edges.tsv alone and with nodes.tsv, columns read and the rest skipped,
+// a bad header, and the round trip through the export (src/export-wwiznet.mjs: the made-up network of wiz-fixture.mjs)
+{
+  const pairsOf = m => { const P = m.P, o = []; for (let i = 0; i < P.E; i++) o.push([P.sym[P.la[i]], P.sym[P.lb[i]]].sort().join('-')); return o.sort().join(); };
+  const verdicts = m => { const c = [0, 0, 0]; for (let i = 0; i < m.P.E; i++) { const j = m.S.judge(i, false, true); if (j >= 0) c[j]++; } return c.join('/'); };
+  const read = (e, n, ch) => { const W = N.wizRead(e, n, ch, LK); return W.error ? W : Object.assign(W, N.fromRows(N.parse(W.text), LK, 'wiz')); };
+  const E1 = 'source\ttarget\tscore_n\tedge_type_c\tcolor\nTP53\tMDM2\t0.9\tbinary\t#ff0000\nGRB2\tSOS1\t0.5\tbinary\t\nP04637\t7157\t0.2\tself\t\n';
+  ok(N.wizKind(E1) === 'edges' && N.wizKind('id\tname\nx\ty\n') === 'nodes' && N.wizKind('source\ttarget\tscore\nTP53\tMDM2\t1\n') === 'pairs' && N.wizKind('TP53\tMDM2\n') === 'pairs',
+    'wwiznet\'s files told by their headers (source, target and suffixed columns; id first); a pairs file with a plain header stays the pairs format');
+  const a = read(E1, null);
+  ok(a.model && a.report.pairs === 3 && a.info.score === 'score_n' && a.info.kind === 'edge_type_c' && a.report.kinds.includes('binary') && a.info.ignored === 1, `edges.tsv alone: 3 links, the score score_n and the kind edge_type_c taken, color skipped`);
+  const NODES = 'id\tname\tn_snv\tvariant_types_a\tdiseases_a\tdegree_n\tx\tSECRETLABEL_c\nn1\tTP53\t17\tmissense,frameshift\tLi-Fraumeni syndrome\t3\t0.1\tPATIENT-0042\nn2\tMDM2\t4\tmissense\tSarcoma\t1\t0.2\tPATIENT-0043\nn3\tGRB2\t0\t\t\t1\t0.3\tPATIENT-0044\n';
+  const E2 = 'source\ttarget\tweight\nn1\tn2\t2\nn3\tn1\t1\n';
+  const b = read(E2, NODES), kept = b.text, shared = JSON.stringify(N.toDoc(b.model, 'wiz'));
+  ok(b.model && b.report.pairs === 2 && b.info.nameCol === 'name' && b.info.score === 'weight', 'with nodes.tsv: ids n1, n2, n3 named by its name column (chosen by what most of its values are), the score weight');
+  ok(!/Li-Fraumeni|Sarcoma|missense|frameshift|PATIENT|17\b/.test(kept + shared), 'the node table\'s variant, disease and label columns are in neither the kept text nor the shared form');
+  const c = read(E2, NODES, { name: 'SECRETLABEL_c' });
+  ok(!c.model && c.info.nameCol === 'SECRETLABEL_c', 'another column picked by hand: read (here it names no protein, so no network)');
+  ok(/no source and target/.test(N.wizRead('from\tto\nTP53\tMDM2\n', null, {}, LK).error || '') && /first column is not id/.test(N.wizRead(E2, 'name\tid\nTP53\tn1\n', {}, LK).error || ''), 'a bad header refused in words (no source and target; nodes.tsv without id first)');
+  const longE = 'source\ttarget\tscore_n\n' + 'TP53\tMDM2\t' + '1'.repeat(5000) + '\nGRB2\tSOS1\t1\n', t0 = Date.now(), d = N.wizRead(longE, null, {}, LK);
+  ok(d.info.errors.length === 1 && d.info.errors[0][0] === 2 && Date.now() - t0 < 1000, 'an over-long line refused by its number, at once');
+  // the round trip: exported, then read back as a wwiznet dataset (ids such as TP53@nucleoplasm, the ties left out)
+  const { loadCell, exportWith } = await import('../export-wwiznet.mjs'), { FIXTURE } = await import('./wiz-fixture.mjs');
+  const fx = path.join(fs.mkdtempSync(path.join((await import('os')).tmpdir(), 'ppicell-wiz-')), 'fixture.tsv');
+  fs.writeFileSync(fx, FIXTURE);
+  const orig = N.fromRows(N.parse(FIXTURE), LK, 'fixture').model, res = exportWith(loadCell(), { net: fx });
+  for (const [what, n] of [['with nodes.tsv', res.files['nodes.tsv']], ['edges.tsv alone', null]]) {
+    const r = read(res.files['edges.tsv'], n);
+    ok(r.model && pairsOf(r.model) === pairsOf(orig) && verdicts(r.model) === verdicts(orig) && r.info.ties === res.counts.ties,
+      `the round trip, ${what}: the same ${orig.P.E} pairs and verdicts (${verdicts(orig)}), the ${res.counts.ties} ties left out`);
+  }
+}
 console.log(bad ? `${bad} failed` : 'all ok');
 process.exit(bad ? 1 : 0);

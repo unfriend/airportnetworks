@@ -13,7 +13,10 @@
 //   --show possible|gates|impossible|all  what counts as drawn (default impossible: the three verdicts)
 //   --edges judged|all|drawn          the links written (default judged: every contact link judged)
 //   --copies all|main                 a node per protein and place (default) or per protein at its main place
-//   --net <pairs file>                a network of your own (the Network tab's format), mapped with data/lookup.json
+//   --net <file or folder>            a network of your own, mapped with data/lookup.json: the Network tab's pairs format,
+//                                     or a wwiznet dataset (its edges.tsv, or its folder: edges.tsv and nodes.tsv)
+//   --nodes <nodes.tsv>               with --net <edges.tsv>: its nodes
+//   --name-col, --score-col, --kind-col <column>  a wwiznet dataset's columns ('' none; default: as the page picks)
 //   --key <key> --label <text>        the dataset's key (folder name) and label
 // Writes <out folder>/nodes.tsv, edges.tsv, config.json, custom_windows/, data_description.txt; and data/index.json
 // beside it when the out folder's parent has none (wwiznet needs one: data-folder-setup.md, section 1), else prints the
@@ -38,7 +41,7 @@ export function loadCell() {
   return { api: set.api(), params: set.params, PNET: g('PNET'), PWIZ: g('PWIZ'), PDATA: g('PDATA') };
 }
 
-const ARGS = { links: 1, support: 1, rel: 1, places: 1, group: 1, sides: 1, faces: 1, show: 1, edges: 1, copies: 1, net: 1, key: 1, label: 1 };
+const ARGS = { nodes: 1, 'name-col': 1, 'score-col': 1, 'kind-col': 1, links: 1, support: 1, rel: 1, places: 1, group: 1, sides: 1, faces: 1, show: 1, edges: 1, copies: 1, net: 1, key: 1, label: 1 };
 export function parseArgs(argv) {
   const o = { out: null };
   for (let i = 0; i < argv.length; i++) {
@@ -58,10 +61,22 @@ export function exportWith(C, o) {
   const pick = (k, map) => { if (o[k] === undefined) return undefined; if (!(o[k] in map)) throw new Error(`--${k}: one of ${Object.keys(map).join(', ')}`); return map[o[k]]; };
   let name = '';
   if (o.net) {
-    const text = fs.readFileSync(o.net, 'utf8'), R = C.PNET.parse(text);
-    if (R.error) throw new Error(R.error);
     const LK = C.PNET.decodeLookup(JSON.parse(fs.readFileSync(path.join(here, '..', 'data', 'lookup.json'), 'utf8')));
-    name = path.basename(o.net);
+    const dirIn = fs.statSync(o.net).isDirectory(), at = f => path.join(o.net, f);
+    let text = dirIn ? null : fs.readFileSync(o.net, 'utf8');
+    // (a wwiznet dataset: read as the Network tab reads it, PNET.wizRead, into the pairs format)
+    if (dirIn || C.PNET.wizKind(text) === 'edges') {
+      const edges = dirIn ? fs.readFileSync(at('edges.tsv'), 'utf8') : text, nf = dirIn ? (fs.existsSync(at('nodes.tsv')) ? at('nodes.tsv') : null) : o.nodes || null;
+      const ch = {};
+      for (const k of ['name', 'score', 'kind']) if (o[k + '-col'] !== undefined) ch[k] = o[k + '-col'];
+      const W = C.PNET.wizRead(edges, nf ? fs.readFileSync(nf, 'utf8') : null, ch, LK);
+      if (W.error) throw new Error(W.error);
+      text = W.text;
+      console.log(`a wwiznet dataset: ${W.info.edges} edges (${W.info.ties} ties left out), ${W.info.nodes} nodes; named by ${W.info.nameCol}, score ${W.info.score || 'none'}, kind ${W.info.kind || 'none'}; ${W.info.ignored} other columns skipped`);
+    }
+    const R = C.PNET.parse(text);
+    if (R.error) throw new Error(R.error);
+    name = path.basename(path.resolve(o.net));
     const M = C.PNET.fromRows(R, LK, name);
     if (!M.model) throw new Error('No pair of the file names two proteins found.');
     C.api.own(M.model); p.cell_own = 1;

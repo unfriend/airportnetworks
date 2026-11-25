@@ -68,6 +68,10 @@ Network stories - installable web app
      data/index.json, run python3 server.py there and open /?dataset=ppicell.
      From the command line: node packages/ppicell/src/export-wwiznet.mjs
      <deployment>/data/ppicell (options in packages/ppicell/README.md).
+     The same tab also opens a wwiznet dataset as your own network: choose or
+     drop its edges.tsv (and its nodes.tsv, or the whole folder). Only the
+     edges' two ends, one score and one kind column and the column naming the
+     proteins are read; every other column is skipped and never kept or sent.
   And an introduction, Your guide: a robot guide shows you how the app works
      in a headset, then a few tasks to practise (packages/tutorial/main.js; the last
      story card on the Stories screen)

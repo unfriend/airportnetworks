@@ -717,7 +717,10 @@ const PNET = (() => {
     }
     if (!rows.length) return { error: errors.length ? `No pair read: line ${errors[0][0]}, ${errors[0][1]}.` : 'No pair read: one pair a line, two identifiers.' };
     // the columns after the two: a score where most are numbers, else a kind (the first row left out: it may be a header)
-    const extra = Math.max(0, ...rows.map(r => r[3].length)), body = rows.length > 1 ? rows.slice(1) : rows;
+    // (a loop: a quarter of a million arguments would overflow the stack)
+    let extra = 0;
+    for (const r of rows) if (r[3].length > extra) extra = r[3].length;
+    const body = rows.length > 1 ? rows.slice(1) : rows;
     const isNum = c => { let y = 0, n = 0; for (const r of body) if (r[3][c] !== undefined) { n++; if (RE.num.test(r[3][c])) y++; } return n && y > 0.5 * n; };
     let scoreCol = -1, kindCol = -1;
     for (let c = 0; c < Math.min(extra, 4); c++) { if (scoreCol < 0 && isNum(c)) scoreCol = c; else if (kindCol < 0 && !isNum(c)) kindCol = c; }
@@ -757,6 +760,114 @@ const PNET = (() => {
     if (k === 'gid') { const g = T2.gid.get(s); if (g !== undefined) return g; }
     const u = s.toUpperCase();
     return T2.sym.has(u) ? T2.sym.get(u) : T2.syn.get(u);
+  }
+  // ---------------------------------------------------------------- a wwiznet dataset (SPEC.md, "wwiznet's files")
+  // wwiznet's docs/for_agents/data-folder-setup.md: edges.tsv (tab-separated, a header with source and target, every
+  // other column named by its kind: _n and _norm numbers, _c a category, _a a comma list, _kv key:value pairs, weight and
+  // color plain) and nodes.tsv (id or _id first). Read ONLY what the method needs: each edge's two ends, one score column
+  // and one kind column; from nodes.tsv the id and the one column naming the protein. Every other column (a node table
+  // can carry variants and diseases) is skipped as it is split, never kept: the result is the pairs format's own text
+  // (the two names, a kind, a score), so Keep and Share hold nothing else. Lines split on tabs only (linear); a line
+  // or a field read that is too long is refused by its number before any pattern runs on it.
+  const MAX_NODE_BYTES = 64e6, MAX_NODE_LINE = 200000, MAX_COLS = 8;
+  // (the exporter's own edge columns: not scores or kinds of a link; its ties between a protein's copies are no links)
+  const WIZ_OWN = new Set(['verdict_c', 'severity_n', 'emphasis_n', 'kinds_n', 'in_complex_c', 'drawn_c', 'drawn_n']);
+  const firstLine = t => { let i = 0; for (;;) { const j = t.indexOf('\n', i), l = (j < 0 ? t.slice(i) : t.slice(i, j)).replace(/\r$/, ''); if (l.trim() || j < 0) return l.replace(/^﻿/, ''); i = j + 1; } };
+  const suffixed = c => /_(n|norm|c|a|kv)$/.test(c) || c === 'weight' || c === 'color';
+  // what a file is, by its header: 'edges' (source and target, every other column by the guide's suffixes), 'nodes' (id
+  // or _id first, tab-separated), 'config' (a wwiznet config.json), else 'pairs' (the pairs format, read as before)
+  function wizKind(text) {
+    if (typeof text !== 'string') return 'pairs';
+    const h = firstLine(text.slice(0, MAX_NODE_LINE));
+    if (h.includes('\t')) {
+      const c = h.split('\t').map(x => x.trim());
+      if (c.includes('source') && c.includes('target') && c.every(x => x === 'source' || x === 'target' || suffixed(x))) return 'edges';
+      if ((c[0] === 'id' || c[0] === '_id') && c.length > 1) return 'nodes';
+    }
+    if (/^\s*\{/.test(h) && /"exportType"\s*:\s*"asdf10k-local-storage"/.test(text.slice(0, 4000))) return 'config';
+    return 'pairs';
+  }
+  // edges (and nodes, or null) read into the pairs format's text: { text, info } or { error }. ch: the columns chosen
+  // ({ name, score, kind }: a header's name, '' none; undefined: the default); LK the decoded lookup (or null), to tell
+  // which node column names proteins
+  function wizRead(edges, nodes, ch = {}, LK = null) {
+    if (typeof edges !== 'string') return { error: 'No edges.tsv to read.' };
+    if (edges.length > MAX_BYTES) return { error: `edges.tsv is ${(edges.length / 1e6).toFixed(1)} MB: this page takes at most ${MAX_BYTES / 1e6} MB.` };
+    if (nodes && nodes.length > MAX_NODE_BYTES) return { error: `nodes.tsv is ${(nodes.length / 1e6).toFixed(1)} MB: this page takes at most ${MAX_NODE_BYTES / 1e6} MB.` };
+    const lines = edges.replace(/^﻿/, '').split('\n'), errors = [];
+    let h0 = 0;
+    while (h0 < lines.length && !lines[h0].trim()) h0++;
+    if (h0 >= lines.length || lines[h0].length > MAX_LINE) return { error: 'edges.tsv: no header line (source, target, ...).' };
+    const head = lines[h0].replace(/\r$/, '').split('\t').map(x => x.trim()), si = head.indexOf('source'), ti = head.indexOf('target');
+    if (si < 0 || ti < 0) return { error: 'edges.tsv: its header has no source and target columns (wwiznet\'s data-folder guide).' };
+    const mine = head.includes('verdict_c') && head.includes('severity_n'), vi = head.indexOf('verdict_c');
+    const own = c => mine && WIZ_OWN.has(c);
+    const scores = head.filter(c => (/_(n|norm)$/.test(c) || c === 'weight') && !own(c)).slice(0, MAX_COLS);
+    const kinds = head.filter(c => /_(c|a)$/.test(c) && !/_kv$/.test(c) && !own(c)).slice(0, MAX_COLS);
+    const pickCol = (v, list, pref) => (v !== undefined ? (list.includes(v) ? v : '') : pref.find(c => list.includes(c)) || '');
+    const score = pickCol(ch.score, scores, ['score_n', 'weight'].concat(scores.slice(0, 1))), kind = pickCol(ch.kind, kinds, ['evidence_a', 'edge_type_c', 'type_c', 'kind_c']);
+    const sI = score ? head.indexOf(score) : -1, kI = kind ? head.indexOf(kind) : -1, list = /_a$/.test(kind);
+    const rows = [];
+    let ties = 0, read = 0;
+    for (let n = h0 + 1; n < lines.length; n++) {
+      const t = lines[n].replace(/\r$/, '');
+      if (!t.trim()) continue;
+      if (++read > MAX_LINES) return { error: `edges.tsv has more than ${MAX_LINES.toLocaleString('en-GB')} edges: this page takes at most that many.` };
+      if (t.length > MAX_LINE) { errors.push([n + 1, `${t.length.toLocaleString('en-GB')} characters long (an edge takes at most ${MAX_LINE.toLocaleString('en-GB')})`]); continue; }
+      const f = t.split('\t');
+      if (mine && f[vi] === 'the same protein') { ties++; continue; }
+      const a = (f[si] || '').trim(), b = (f[ti] || '').trim();
+      if (!a || !b) { errors.push([n + 1, 'no source or no target']); continue; }
+      if (a.length > MAX_ID || b.length > MAX_ID) { errors.push([n + 1, `an id longer than ${MAX_ID} characters`]); continue; }
+      let s = sI >= 0 ? (f[sI] || '').trim() : '', k = kI >= 0 ? (f[kI] || '').trim() : '';
+      if (s.length > MAX_FIELD || k.length > MAX_FIELD) { errors.push([n + 1, `a score or kind longer than ${MAX_FIELD} characters`]); continue; }
+      if (s && !RE.num.test(s)) { errors.push([n + 1, `the score ${JSON.stringify(s.slice(0, 20))} is not a number (the edge is kept without it)`]); s = ''; }
+      rows.push([a, b, s, k]);
+    }
+    // the nodes: each id's protein, by the id itself (an exported id TP53@nucleoplasm is TP53) or by the one column
+    // that names it (the one most of whose values name a protein, unless chosen)
+    const base = s => s.split('@')[0];
+    const T2 = tables(LK), finds = s => find(T2, s) !== undefined;
+    let names = null, nameCol = 'id', nameCols = ['id'], nNodes = 0, nodeCols = 0;
+    if (nodes) {
+      const L = nodes.replace(/^﻿/, '').split('\n');
+      let j = 0;
+      while (j < L.length && !L[j].trim()) j++;
+      const nh = j < L.length && L[j].length <= MAX_NODE_LINE ? L[j].replace(/\r$/, '').split('\t').map(x => x.trim()) : [];
+      if (nh[0] !== 'id' && nh[0] !== '_id') return { error: 'nodes.tsv: its first column is not id (wwiznet\'s data-folder guide).' };
+      nodeCols = nh.length;
+      // (the columns that may name a protein: plain text ones and categories, those named like a name first)
+      const like = c => /^(name|symbol|gene|gene_?name|gene_?symbol|protein|protein_id_c|uniprot|uniprot_c|entrez|ensembl)/i.test(c);
+      const cand = nh.slice(1).filter(c => !/_(n|norm|a|kv)$/.test(c) && !/^[xyz](_|$)/.test(c) && c !== 'color');
+      nameCols = ['id'].concat(cand.filter(like), cand.filter(c => !like(c))).slice(0, MAX_COLS);
+      const at = nameCols.map(c => (c === 'id' ? 0 : nh.indexOf(c))), vals = nameCols.map(() => []), ids = [];
+      for (let n = j + 1; n < L.length; n++) {
+        const t = L[n];
+        if (!t.trim()) continue;
+        if (t.length > MAX_NODE_LINE) { errors.push([`nodes.tsv ${n + 1}`, `${t.length.toLocaleString('en-GB')} characters long (a node takes at most ${MAX_NODE_LINE.toLocaleString('en-GB')})`]); continue; }
+        const f = t.replace(/\r$/, '').split('\t'), id = (f[0] || '').trim();
+        if (!id || id.length > MAX_ID) { errors.push([`nodes.tsv ${n + 1}`, id ? `an id longer than ${MAX_ID} characters` : 'no id']); continue; }
+        ids.push(id);
+        at.forEach((c, q) => { const v = (f[c] || '').trim(); vals[q].push(q === 0 ? base(v) : v.length <= MAX_ID ? v : ''); });
+      }
+      nNodes = ids.length;
+      const rate = q => { let y = 0; for (const v of vals[q]) if (v && finds(v)) y++; return y; };
+      const qc = ch.name !== undefined && nameCols.includes(ch.name) ? nameCols.indexOf(ch.name) : nameCols.map((c, q) => [q, rate(q)]).reduce((x, y) => (y[1] > x[1] ? y : x))[0];
+      nameCol = nameCols[qc];
+      names = new Map();
+      ids.forEach((id, i) => { if (vals[qc][i]) names.set(id, vals[qc][i]); });
+    }
+    const nameOf = id => (names && names.has(id) ? names.get(id) : base(id));
+    // the pairs format's text: a comment, then each edge (one line for each of a list's kinds: joined again when read)
+    const out = [`# a wwiznet dataset: the ends ${nodes ? `named by nodes.tsv's ${nameCol}` : 'by their ids'}${kind ? `, the kind ${kind}` : ''}${score ? `, the score ${score}` : ''}`];
+    for (const [a, b, s, k] of rows) {
+      const A = nameOf(a), B = nameOf(b), tail = s ? '\t' + s : '';
+      if (!kind) out.push(`${A}\t${B}${tail}`);
+      else for (const w of (list ? k.split(',') : [k]).map(x => x.trim().replace(/\s+/g, ' ').slice(0, 24)).map(x => (RE.num.test(x) ? 'kind ' + x : x))) out.push(`${A}\t${B}\t${w || 'unnamed'}${tail}`);
+    }
+    const used = 2 + (score ? 1 : 0) + (kind ? 1 : 0);
+    return { text: out.join('\n') + '\n', info: { edges: read, ties, nodes: nNodes, hasNodes: !!nodes, nameCol, nameCols, score, scores, kind, kinds, errors,
+      ignored: head.length - used + (nodes ? nodeCols - (nameCol === 'id' ? 1 : 2) : 0) } };
   }
   // the lookup (data/lookup.json, gen_lookup.py) decoded: the map's proteins' gene numbers and Ensembl ids, and the
   // Atlas's genes outside the map with their places, reliability, sides and complexes
@@ -924,7 +1035,7 @@ const PNET = (() => {
     return LK;
   }
   return { T, late, run, REL, LIM0, isDefault, steps, limit, limitGen, communities, locs, pairJ, judge, order, share, shareKinds, KIND_MIN, select,
-    MAX_LINES, MAX_BYTES, MAX_LINE, MAX_ID, ID_NAME, idKind, parse, tables, find, decodeLookup: J => lookupIndex(decodeLookup(J)), fromRows, build, toDoc, docError, fromDoc, docNeedsLookup };
+    MAX_LINES, MAX_BYTES, MAX_LINE, MAX_ID, MAX_NODE_BYTES, ID_NAME, idKind, parse, wizKind, wizRead, tables, find, decodeLookup: J => lookupIndex(decodeLookup(J)), fromRows, build, toDoc, docError, fromDoc, docNeedsLookup };
 })();
 
 // PWIZ: the network on show as a dataset for wwiznet (asdf10k), the Menche lab's 3D network explorer (SPEC.md, "Export
@@ -5355,9 +5466,10 @@ const LIM_TEXT = 'Links drawn: how many of the most important are drawn (the cou
 // OWNN: the network chosen on this page (this device's alone). text: what was read (kept only in memory, and in this
 // browser if Keep is pressed); report: what reading it found; model: its { P, S } (PNET.fromRows); kept: the name of the
 // one kept in this browser (null none, undefined not looked yet); busy: what is being done, in words
-const OWNN = { name: '', text: null, report: null, model: null, kept: undefined, busy: '', err: '', lookup: undefined, gen: 0 };
-const OWN_FORMAT = 'One pair a line: two identifiers (gene symbols such as TP53, UniProt accessions such as P04637, NCBI gene numbers or Ensembl gene ids), then if you like a score (a number) and a kind (a word). Tabs, commas or spaces between them; a first line of column names is skipped; lines starting with # are comments. Human proteins only.';
+const OWNN = { name: '', text: null, report: null, model: null, kept: undefined, busy: '', err: '', lookup: undefined, gen: 0, wiz: null, wizInfo: null };
+const OWN_FORMAT = 'One pair a line: two identifiers (gene symbols such as TP53, UniProt accessions such as P04637, NCBI gene numbers or Ensembl gene ids), then if you like a score (a number) and a kind (a word). Tabs, commas or spaces between them; a first line of column names is skipped; lines starting with # are comments. Human proteins only. Or a wwiznet dataset: its edges.tsv, with its nodes.tsv if you like (choose or drop both together, or drop its folder).';
 const OWN_PRIVATE = 'Only the pairs, scores and kinds are read: no other data, and never patient or variant data. Your network stays in this browser: it is not sent anywhere unless you press Share with this room or Put on the relay, and it is kept only if you press Keep.';
+const OWN_WIZ = 'From a wwiznet dataset only each edge\'s two ends, one score column and one kind column are read, and from nodes.tsv only the id and the one column naming the protein: every other column (variants, diseases, anything) is skipped as it is read, and never kept, shown, stored or sent.';
 const OWN_ROOM = 'In a shared room your network is this device\'s alone until you share it: the others keep seeing the room\'s network, and what you change here is not shared until you go back to it.';
 const inRoom = () => { try { return !!(HOST.collab && HOST.collab.code); } catch (e) { return false; } };
 // the lookup (data/lookup.json): fetched once, only when a network is chosen; null when it could not be had
@@ -5372,9 +5484,11 @@ async function ownLookup() {
 }
 // a network's text read, mapped and shown (name: its file's name)
 // (gen: a file chosen while another is still being read wins; the older one's late result is dropped)
-async function chooseText(text, name) {
+// (wiz: a wwiznet dataset's columns as read, PNET.wizRead's info; the text is then the pairs it made)
+async function chooseText(text, name, wiz) {
   if (LOAD.gone) return;
   const g = ++OWNN.gen;
+  if (!wiz) OWNN.wiz = null;
   OWNN.busy = 'Reading…'; OWNN.err = ''; renderAll();
   await new Promise(r => setTimeout(r, 30));   // (the words above shown before the work)
   if (g !== OWNN.gen || LOAD.gone) return;
@@ -5384,12 +5498,54 @@ async function chooseText(text, name) {
   const LK = await ownLookup();
   if (g !== OWNN.gen || LOAD.gone) return;
   const { model, report } = PNET.fromRows(R, LK, name);
-  OWNN.busy = ''; OWNN.report = report;
+  OWNN.busy = ''; OWNN.report = report; OWNN.wizInfo = wiz || null;
   if (!model) { OWNN.err = 'None of these pairs has both its proteins in the map or the lookup.'; renderAll(); return; }
   OWNN.name = name; OWNN.text = text; OWNN.model = model;
   // (another network while one's own is on show: its picks and limits start afresh)
   if (X.own === 1) { api('cell').own(model); X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0); X.ctl.cell.kind = '-1'; kindOptions(); SRCH.byDeg = null; }
   setOwn(1, true);
+}
+// files chosen or dropped together: a wwiznet dataset (an edges.tsv, a nodes.tsv beside it; a config.json is not
+// needed) told by its headers (PNET.wizKind), else the first file in the pairs format. The dataset's two texts stay in
+// memory only while it is the one chosen (a column picked again reads them again); only the pairs made from them are
+// kept or shared
+async function chooseFiles(list, folder) {
+  const fs = [...list].filter(f => f && typeof f.text === 'function');
+  if (!fs.length) return;
+  for (const f of fs) if (f.size > PNET.MAX_NODE_BYTES) { OWNN.err = `${f.name} is ${(f.size / 1e6).toFixed(1)} MB: this page takes at most ${PNET.MAX_NODE_BYTES / 1e6} MB.`; renderAll(); return; }
+  const got = await Promise.all(fs.map(async f => ({ f, t: await f.text() })));
+  const byKind = k => got.find(x => PNET.wizKind(x.t) === k);
+  const e = byKind('edges'), n = byKind('nodes');
+  if (!e) {
+    const p = got.find(x => PNET.wizKind(x.t) === 'pairs');
+    if (!p) { OWNN.err = n ? 'A nodes.tsv alone is no network: choose its edges.tsv with it.' : 'No network in these files.'; renderAll(); return; }
+    if (p.f.size > PNET.MAX_BYTES) { OWNN.err = `The file is ${(p.f.size / 1e6).toFixed(1)} MB: this page takes at most ${PNET.MAX_BYTES / 1e6} MB.`; renderAll(); return; }
+    return chooseText(p.t, p.f.name);
+  }
+  OWNN.wiz = { edges: e.t, nodes: n ? n.t : null, name: folder || (n ? `${e.f.name} and ${n.f.name}` : e.f.name), ch: {} };
+  return chooseWiz();
+}
+async function chooseWiz() {
+  const W0 = OWNN.wiz;
+  if (!W0) return;
+  OWNN.busy = 'Reading the wwiznet dataset…'; OWNN.err = ''; renderAll();
+  const LK = await ownLookup();
+  if (OWNN.wiz !== W0 || LOAD.gone) return;
+  const W = PNET.wizRead(W0.edges, W0.nodes, W0.ch, LK);
+  if (W.error) { OWNN.busy = ''; OWNN.err = W.error; OWNN.wiz = null; renderAll(); return; }
+  await chooseText(W.text, W0.name, W.info);
+}
+// a column of the wwiznet dataset picked again (k: name, score or kind)
+function wizPick(k, v) { if (!OWNN.wiz) return; OWNN.wiz.ch = Object.assign({}, OWNN.wiz.ch, { [k]: v }); chooseWiz(); }
+// a dropped folder's files (where the browser gives one: webkitGetAsEntry), else the dropped files
+async function dropped(dt) {
+  const it = dt.items && dt.items[0] && dt.items[0].webkitGetAsEntry ? dt.items[0].webkitGetAsEntry() : null;
+  if (it && it.isDirectory) {
+    const ents = await new Promise(ok => it.createReader().readEntries(ok, () => ok([])));
+    const files = await Promise.all(ents.filter(x => x.isFile && /\.(tsv|json)$/i.test(x.name)).map(x => new Promise(ok => x.file(ok, () => ok(null)))));
+    return chooseFiles(files.filter(Boolean), it.name);
+  }
+  return chooseFiles(dt.files);
 }
 // your network on show (1) or the room's (0: the built-in one, or the station's shared one). The room's state (picks,
 // limits, switches, a shared network) is kept while yours is on show (X.bi: collabState gives it, collabApply keeps the
@@ -5507,6 +5663,9 @@ function reportLines() {
   const ids = r.idKinds.map((k, i) => `column ${i + 1} ${PNET.ID_NAME[k]}`).join(', ');
   const out = [`${r.name}: ${fmt(r.read)} lines read${r.comments ? ` (and ${fmt(r.comments)} comments)` : ''}${r.header ? `, line ${r.header} taken as column names` : ''}; ${ids}${r.hasScore ? ', a score' : ''}${r.hasKind ? `, kinds (${r.kinds.join(', ')})` : ''}.`,
     `${fmt(r.pairs)} pairs kept (${fmt(r.dropped)} with a protein not found; pairs given twice joined). ${fmt(r.found)} proteins found (${fmt(r.inMap)} in the map), ${fmt(r.missing.length)} not found; ${fmt(r.placed)} with a place; ${fmt(r.judged)} links can be judged; ${fmt(r.complexes || 0)} of the Complex Portal's complexes have two members or more in it.`];
+  const w = OWNN.wizInfo;
+  if (w) out.unshift(`A wwiznet dataset: ${fmt(w.edges)} edges${w.ties ? ` (${fmt(w.ties)} ties between a protein's copies left out: no links)` : ''}${w.hasNodes ? `, ${fmt(w.nodes)} nodes` : ''}. The proteins named by ${w.hasNodes ? `nodes.tsv's ${w.nameCol === 'id' ? 'ids' : w.nameCol}` : 'the edges\' ids'}; score: ${w.score || 'none'}; kind: ${w.kind || 'none'}. ${fmt(w.ignored)} other columns skipped, never kept or sent.`);
+  if (w && w.errors.length) out.push(`${fmt(w.errors.length)} ${w.errors.length === 1 ? 'line' : 'lines'} of the dataset with a problem: ${w.errors.slice(0, 3).map(([n, x]) => `line ${n}, ${x}`).join('; ')}${w.errors.length > 3 ? '…' : ''}.`);
   if (!r.lookup) out.push('The lookup could not be loaded: only the map\'s own symbols and UniProt accessions were tried.');
   if (r.errors.length) out.push(`${fmt(r.errors.length)} ${r.errors.length === 1 ? 'line' : 'lines'} with a problem: ${r.errors.slice(0, 3).map(([n, w]) => `line ${n}, ${w}`).join('; ')}${r.errors.length > 3 ? '…' : ''}.`);
   return out;
@@ -5795,16 +5954,16 @@ function renderNet() {
   if (X.tab === 'net') { netRelay(); netList(); }
   if (!$('#netBody')) {
     pane.innerHTML = `<div id="netBody"></div>
-      <div id="ownBox"><p class="grp-h">Your own network</p><p class="sub">${esc(OWN_FORMAT)}</p><p class="sub">${esc(OWN_PRIVATE)}</p>
-      <label id="ownDrop" style="display:block;border:2px dashed var(--line, #567);border-radius:8px;padding:12px;margin:8px 0;cursor:pointer">Drop a file here (.tsv, .csv, .txt) or <input id="ownFile" type="file" accept=".tsv,.csv,.txt,text/plain,text/tab-separated-values,text/csv"></label>
+      <div id="ownBox"><p class="grp-h">Your own network</p><p class="sub">${esc(OWN_FORMAT)}</p><p class="sub">${esc(OWN_PRIVATE)}</p><p class="sub">${esc(OWN_WIZ)}</p>
+      <label id="ownDrop" style="display:block;border:2px dashed var(--line, #567);border-radius:8px;padding:12px;margin:8px 0;cursor:pointer">Drop a file here (.tsv, .csv, .txt), or a wwiznet dataset's files or folder, or <input id="ownFile" type="file" multiple accept=".tsv,.csv,.txt,.json,text/plain,text/tab-separated-values,text/csv"></label>
       <textarea id="ownText" rows="4" style="width:100%;box-sizing:border-box" placeholder="or paste pairs here, one a line: TP53 MDM2" spellcheck="false"></textarea>
       <div class="chips"><button type="button" data-act="ownpaste" data-v="1">Use the text</button><button type="button" data-act="ownex" data-v="1">Try an example</button></div>
       <div id="ownBody"></div></div>`;
-    const drop = $('#ownDrop'), file = f => { if (!f) return; if (f.size > PNET.MAX_BYTES) { OWNN.err = `The file is ${(f.size / 1e6).toFixed(1)} MB: this page takes at most ${PNET.MAX_BYTES / 1e6} MB.`; renderAll(); return; } f.text().then(t => chooseText(t, f.name)); };
-    $('#ownFile').addEventListener('change', ev => file(ev.target.files[0]));
+    const drop = $('#ownDrop');
+    $('#ownFile').addEventListener('change', ev => chooseFiles(ev.target.files));
     drop.addEventListener('dragover', ev => { ev.preventDefault(); drop.style.borderColor = 'var(--cyan)'; });
     drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
-    drop.addEventListener('drop', ev => { ev.preventDefault(); drop.style.borderColor = ''; file(ev.dataTransfer.files[0]); });
+    drop.addEventListener('drop', ev => { ev.preventDefault(); drop.style.borderColor = ''; dropped(ev.dataTransfer); });
   }
   const st = api('cell').steps(X.own), tops = api('cell').tops, L = X.lim;
   $('#netBody').innerHTML = `<p class="sub">${esc(netLine())}</p>
@@ -5823,11 +5982,17 @@ function renderNet() {
   const r = OWNN.report, lines = reportLines();
   $('#ownBody').innerHTML = `${OWNN.busy ? `<p class="sub" style="color:var(--amber)">${esc(OWNN.busy)}</p>` : ''}${OWNN.err ? `<p class="sub" style="color:var(--amber)">${esc(OWNN.err)}</p>` : ''}
     ${lines.map(t => `<p class="sub">${esc(t)}</p>`).join('')}
+    ${OWNN.wiz && OWNN.wizInfo ? wizChips(OWNN.wizInfo) : ''}
     ${r && r.missing.length ? `<p class="sub">Not found: ${esc(r.missing.slice(0, 30).join(', '))}${r.missing.length > 30 ? ` and ${fmt(r.missing.length - 30)} more` : ''}.</p><div class="chips"><button type="button" data-act="ownmiss" data-v="1">Download the list (not-found.txt)</button></div>` : ''}
     <div class="chips">${OWNN.model ? chip('data-act="own" data-v="1"', `Your network${OWNN.name ? ': ' + esc(OWNN.name) : ''}`, X.own === 1) : ''}${chip('data-act="own" data-v="0"', backLabel(), X.own === 0)}</div>
     <div class="chips">${OWNN.model && OWNN.kept !== OWNN.name ? '<button type="button" data-act="ownkeep" data-v="1">Keep on this device</button>' : ''}${OWNN.kept ? `${OWNN.kept !== OWNN.name || !OWNN.model ? `<button type="button" data-act="ownkept" data-v="1">Open the kept one: ${esc(OWNN.kept)}</button>` : ''}<button type="button" data-act="ownforget" data-v="1">Forget it</button>` : ''}</div>
     ${OWNN.kept ? `<p class="sub">Kept in this browser: ${esc(OWNN.kept)}.</p>` : ''}
     ${X.own && inRoom() ? `<p class="sub">${esc(OWN_ROOM)}</p>` : ''}`;
+}
+// a wwiznet dataset's columns, to pick another: the one naming the proteins (with nodes.tsv), the score, the kind
+function wizChips(w) {
+  const row = (k, label, list, on, none) => `<p class="grp-h">${label}</p><div class="chips">${(none ? [''] : []).concat(list).map(c => chip(`data-act="wizcol" data-k="${k}" data-v="${esc(c)}"`, esc(c || 'none'), c === on)).join('')}</div>`;
+  return (w.hasNodes ? row('name', 'The proteins named by', w.nameCols, w.nameCol, false) : '') + row('score', 'Score', w.scores, w.score, true) + row('kind', 'Kind', w.kinds, w.kind, true);
 }
 // the Network tab's buttons (buildExplore's click handler: data-act)
 function netAct(b) {
@@ -5835,7 +6000,7 @@ function netAct(b) {
   ({
     lim: () => setLim(b.dataset.k, +v, true), rel: () => toggleRel(+v), pls: () => togglePlace(+v), limreset: () => resetLim(true),
     own: () => (+v === 0 && (X.own === 2 || X.net) && !X.bi ? netBack(true) : setOwn(+v, true)), netb: () => { const f = SHARE_FN.get(v); if (f) f(); }, ownpaste: () => { const t = $('#ownText').value; if (t.trim()) chooseText(t, 'pasted text'); },
-    wiz: () => wizExport(), ownex: () => ownExample(), ownkeep: () => ownKeep(), ownforget: () => ownForget(), ownkept: () => ownLoadKept(), ownmiss: () => ownMissing(),
+    wiz: () => wizExport(), wizcol: () => wizPick(b.dataset.k, v), ownex: () => ownExample(), ownkeep: () => ownKeep(), ownforget: () => ownForget(), ownkept: () => ownLoadKept(), ownmiss: () => ownMissing(),
   }[b.dataset.act] || (() => {}))();
 }
 // the headset's twin (drawTabPane): the limits as buttons, what they do, and the network: chosen on a laptop only

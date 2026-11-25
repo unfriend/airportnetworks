@@ -908,7 +908,9 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   dataset (nodes.tsv per protein and place, edges.tsv with verdicts, config.json, a guide window) from the cell's
   `api().wiz()`; the Network tab's *Export for wwiznet (ZIP)* (page only, a ZIP made in the page) and
   `node packages/ppicell/src/export-wwiznet.mjs <out>` (the cell set run in Node with three.js: the same bytes). Test:
-  `node packages/ppicell/src/data/test-wiz.mjs`.
+  `node packages/ppicell/src/data/test-wiz.mjs`. The chooser and `--net` also take a wwiznet dataset (edges.tsv, with
+  nodes.tsv if given; `PNET.wizKind`, `wizRead`): only the ends, one score, one kind and the column naming the
+  protein are read, the rest skipped and never kept or sent; an exported dataset opens again as the same network.
 - The voice: synthetic (Kokoro). After its words change, `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell`
   where Kokoro is; until then (v205) it runs on subtitles with a table laid out on estimated durations
   (`packages/ppicell/README.md`, "The voice").

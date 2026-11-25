@@ -601,3 +601,38 @@ Process 83.6 %, Cellular Component 70.7 %, Molecular Function 64.7 %, HPO 18.9 %
 66.0 %; nodes.tsv grows from 2.3 MB to 28 MB (4.4 MB to 52 MB for the per-place file). wwiznet offers the `_a` columns for colour and
 its Enrichment window ranks a selection's terms (eight hand-picked signalling proteins: EGFR and GRB2 pathways first).
 Nothing of it is in the repository.
+
+### wwiznet's files as your own network (v211; the owner, 25 November 2026: "can we set our network import so that we directly accept the same files as wwiznet?")
+
+- **What is taken**: the Network tab's chooser (several files at once, or a dropped folder where the browser gives one:
+  `webkitGetAsEntry`) and the command line's `--net` (a file, or a dataset's folder; `--nodes`, `--name-col`,
+  `--score-col`, `--kind-col`) also take a wwiznet dataset: `edges.tsv` alone, or with `nodes.tsv`. A `config.json` may
+  come along and is not needed (the guide gives a dataset's label only in `data/index.json`, so the name is the folder's
+  or the files'). Told by the headers (`PNET.wizKind`), not the file names: edges have `source` and `target` and every
+  other column named by the guide's suffixes (`_n`, `_norm`, `_c`, `_a`, `_kv`, `weight`, `color`); nodes have `id` or
+  `_id` first. A pairs file with a plain header (`source target score`) stays the pairs format, read as before.
+- **What is read** (`PNET.wizRead`): each edge's two ends; one score column (the `_n`/`_norm` ones and `weight`: `score_n`,
+  then `weight`, then the first by default) and one kind column (the `_c` and `_a` ones: `evidence_a`, `edge_type_c`,
+  `type_c`, `kind_c` by default, else none; an `_a` list gives each item as a kind); from `nodes.tsv` the id and the one
+  column naming the protein: the id itself (`TP53@nucleoplasm` is TP53) or the plain or `_c` column (at most eight
+  offered, those named like a name first) most of whose values name a protein in the map or the lookup. The report says
+  which columns were taken and how many skipped; chips let the person pick another of each. **Every other column is
+  skipped as the line is split and never kept, shown, logged, stored with Keep or sent with Share**: the result is the
+  pairs format's own text (the two names, a kind, a score; `# a wwiznet dataset ...` first), which then goes through
+  `PNET.parse` and `fromRows` as any pasted text; Keep stores that text, Share sends `toDoc`'s form as before. The two
+  raw files stay in the page's memory only while the dataset is the one chosen (to pick another column). The tab's
+  privacy line says so (`OWN_WIZ`).
+- **The exporter's own**: an edges.tsv with `verdict_c` and `severity_n` is the exporter's: its ties (*the same protein*)
+  are left out and its own columns (`severity_n`, `emphasis_n`, `kinds_n`, `verdict_c`, `in_complex_c`, `drawn_c`,
+  `drawn_n`) are never offered as a score or kind. A dataset exported here opens again as the same network (the map:
+  99,479 pairs and 83,847 / 14,445 / 1,187 again).
+- **Limits**: the pairs format's (an edge line at most 4,000 characters, an id 64, a score or kind 100, 250,000 edges,
+  edges.tsv 20 MB), refused by line number before any pattern runs; `nodes.tsv` up to 64 MB with lines up to 200,000
+  characters (enrichr's annotated tables are long), only the fields read checked. Lines are split on tabs (linear). On
+  the way `PNET.parse` lost a `Math.max(...rows)` that overflowed the stack past about 125,000 lines (within its own
+  250,000 limit).
+- **Tests** (`test-pnet.mjs`): the headers told apart, edges alone, edges with nodes named by their `name` column, a node
+  table with variant, disease and label columns that appear in neither the kept text nor the shared form, a column
+  picked by hand, two bad headers, an over-long line, and the round trip of `src/data/wiz-fixture.mjs` through the
+  export (with and without nodes.tsv: the same pairs and verdicts, the ties left out). Headless: the page took the
+  fixture's three files at once, named the proteins by the ids, then by `protein_id_c` when picked; no console errors.

@@ -58,9 +58,10 @@ const LIM_TEXT = 'Links drawn: how many of the most important are drawn (the cou
 // OWNN: the network chosen on this page (this device's alone). text: what was read (kept only in memory, and in this
 // browser if Keep is pressed); report: what reading it found; model: its { P, S } (PNET.fromRows); kept: the name of the
 // one kept in this browser (null none, undefined not looked yet); busy: what is being done, in words
-const OWNN = { name: '', text: null, report: null, model: null, kept: undefined, busy: '', err: '', lookup: undefined, gen: 0 };
-const OWN_FORMAT = 'One pair a line: two identifiers (gene symbols such as TP53, UniProt accessions such as P04637, NCBI gene numbers or Ensembl gene ids), then if you like a score (a number) and a kind (a word). Tabs, commas or spaces between them; a first line of column names is skipped; lines starting with # are comments. Human proteins only.';
+const OWNN = { name: '', text: null, report: null, model: null, kept: undefined, busy: '', err: '', lookup: undefined, gen: 0, wiz: null, wizInfo: null };
+const OWN_FORMAT = 'One pair a line: two identifiers (gene symbols such as TP53, UniProt accessions such as P04637, NCBI gene numbers or Ensembl gene ids), then if you like a score (a number) and a kind (a word). Tabs, commas or spaces between them; a first line of column names is skipped; lines starting with # are comments. Human proteins only. Or a wwiznet dataset: its edges.tsv, with its nodes.tsv if you like (choose or drop both together, or drop its folder).';
 const OWN_PRIVATE = 'Only the pairs, scores and kinds are read: no other data, and never patient or variant data. Your network stays in this browser: it is not sent anywhere unless you press Share with this room or Put on the relay, and it is kept only if you press Keep.';
+const OWN_WIZ = 'From a wwiznet dataset only each edge\'s two ends, one score column and one kind column are read, and from nodes.tsv only the id and the one column naming the protein: every other column (variants, diseases, anything) is skipped as it is read, and never kept, shown, stored or sent.';
 const OWN_ROOM = 'In a shared room your network is this device\'s alone until you share it: the others keep seeing the room\'s network, and what you change here is not shared until you go back to it.';
 const inRoom = () => { try { return !!(HOST.collab && HOST.collab.code); } catch (e) { return false; } };
 // the lookup (data/lookup.json): fetched once, only when a network is chosen; null when it could not be had
@@ -75,9 +76,11 @@ async function ownLookup() {
 }
 // a network's text read, mapped and shown (name: its file's name)
 // (gen: a file chosen while another is still being read wins; the older one's late result is dropped)
-async function chooseText(text, name) {
+// (wiz: a wwiznet dataset's columns as read, PNET.wizRead's info; the text is then the pairs it made)
+async function chooseText(text, name, wiz) {
   if (LOAD.gone) return;
   const g = ++OWNN.gen;
+  if (!wiz) OWNN.wiz = null;
   OWNN.busy = 'Reading…'; OWNN.err = ''; renderAll();
   await new Promise(r => setTimeout(r, 30));   // (the words above shown before the work)
   if (g !== OWNN.gen || LOAD.gone) return;
@@ -87,12 +90,54 @@ async function chooseText(text, name) {
   const LK = await ownLookup();
   if (g !== OWNN.gen || LOAD.gone) return;
   const { model, report } = PNET.fromRows(R, LK, name);
-  OWNN.busy = ''; OWNN.report = report;
+  OWNN.busy = ''; OWNN.report = report; OWNN.wizInfo = wiz || null;
   if (!model) { OWNN.err = 'None of these pairs has both its proteins in the map or the lookup.'; renderAll(); return; }
   OWNN.name = name; OWNN.text = text; OWNN.model = model;
   // (another network while one's own is on show: its picks and limits start afresh)
   if (X.own === 1) { api('cell').own(model); X.pp = X.pc = X.cx = -1; X.lim = Object.assign({}, LIM0); X.ctl.cell.kind = '-1'; kindOptions(); SRCH.byDeg = null; }
   setOwn(1, true);
+}
+// files chosen or dropped together: a wwiznet dataset (an edges.tsv, a nodes.tsv beside it; a config.json is not
+// needed) told by its headers (PNET.wizKind), else the first file in the pairs format. The dataset's two texts stay in
+// memory only while it is the one chosen (a column picked again reads them again); only the pairs made from them are
+// kept or shared
+async function chooseFiles(list, folder) {
+  const fs = [...list].filter(f => f && typeof f.text === 'function');
+  if (!fs.length) return;
+  for (const f of fs) if (f.size > PNET.MAX_NODE_BYTES) { OWNN.err = `${f.name} is ${(f.size / 1e6).toFixed(1)} MB: this page takes at most ${PNET.MAX_NODE_BYTES / 1e6} MB.`; renderAll(); return; }
+  const got = await Promise.all(fs.map(async f => ({ f, t: await f.text() })));
+  const byKind = k => got.find(x => PNET.wizKind(x.t) === k);
+  const e = byKind('edges'), n = byKind('nodes');
+  if (!e) {
+    const p = got.find(x => PNET.wizKind(x.t) === 'pairs');
+    if (!p) { OWNN.err = n ? 'A nodes.tsv alone is no network: choose its edges.tsv with it.' : 'No network in these files.'; renderAll(); return; }
+    if (p.f.size > PNET.MAX_BYTES) { OWNN.err = `The file is ${(p.f.size / 1e6).toFixed(1)} MB: this page takes at most ${PNET.MAX_BYTES / 1e6} MB.`; renderAll(); return; }
+    return chooseText(p.t, p.f.name);
+  }
+  OWNN.wiz = { edges: e.t, nodes: n ? n.t : null, name: folder || (n ? `${e.f.name} and ${n.f.name}` : e.f.name), ch: {} };
+  return chooseWiz();
+}
+async function chooseWiz() {
+  const W0 = OWNN.wiz;
+  if (!W0) return;
+  OWNN.busy = 'Reading the wwiznet dataset…'; OWNN.err = ''; renderAll();
+  const LK = await ownLookup();
+  if (OWNN.wiz !== W0 || LOAD.gone) return;
+  const W = PNET.wizRead(W0.edges, W0.nodes, W0.ch, LK);
+  if (W.error) { OWNN.busy = ''; OWNN.err = W.error; OWNN.wiz = null; renderAll(); return; }
+  await chooseText(W.text, W0.name, W.info);
+}
+// a column of the wwiznet dataset picked again (k: name, score or kind)
+function wizPick(k, v) { if (!OWNN.wiz) return; OWNN.wiz.ch = Object.assign({}, OWNN.wiz.ch, { [k]: v }); chooseWiz(); }
+// a dropped folder's files (where the browser gives one: webkitGetAsEntry), else the dropped files
+async function dropped(dt) {
+  const it = dt.items && dt.items[0] && dt.items[0].webkitGetAsEntry ? dt.items[0].webkitGetAsEntry() : null;
+  if (it && it.isDirectory) {
+    const ents = await new Promise(ok => it.createReader().readEntries(ok, () => ok([])));
+    const files = await Promise.all(ents.filter(x => x.isFile && /\.(tsv|json)$/i.test(x.name)).map(x => new Promise(ok => x.file(ok, () => ok(null)))));
+    return chooseFiles(files.filter(Boolean), it.name);
+  }
+  return chooseFiles(dt.files);
 }
 // your network on show (1) or the room's (0: the built-in one, or the station's shared one). The room's state (picks,
 // limits, switches, a shared network) is kept while yours is on show (X.bi: collabState gives it, collabApply keeps the
@@ -210,6 +255,9 @@ function reportLines() {
   const ids = r.idKinds.map((k, i) => `column ${i + 1} ${PNET.ID_NAME[k]}`).join(', ');
   const out = [`${r.name}: ${fmt(r.read)} lines read${r.comments ? ` (and ${fmt(r.comments)} comments)` : ''}${r.header ? `, line ${r.header} taken as column names` : ''}; ${ids}${r.hasScore ? ', a score' : ''}${r.hasKind ? `, kinds (${r.kinds.join(', ')})` : ''}.`,
     `${fmt(r.pairs)} pairs kept (${fmt(r.dropped)} with a protein not found; pairs given twice joined). ${fmt(r.found)} proteins found (${fmt(r.inMap)} in the map), ${fmt(r.missing.length)} not found; ${fmt(r.placed)} with a place; ${fmt(r.judged)} links can be judged; ${fmt(r.complexes || 0)} of the Complex Portal's complexes have two members or more in it.`];
+  const w = OWNN.wizInfo;
+  if (w) out.unshift(`A wwiznet dataset: ${fmt(w.edges)} edges${w.ties ? ` (${fmt(w.ties)} ties between a protein's copies left out: no links)` : ''}${w.hasNodes ? `, ${fmt(w.nodes)} nodes` : ''}. The proteins named by ${w.hasNodes ? `nodes.tsv's ${w.nameCol === 'id' ? 'ids' : w.nameCol}` : 'the edges\' ids'}; score: ${w.score || 'none'}; kind: ${w.kind || 'none'}. ${fmt(w.ignored)} other columns skipped, never kept or sent.`);
+  if (w && w.errors.length) out.push(`${fmt(w.errors.length)} ${w.errors.length === 1 ? 'line' : 'lines'} of the dataset with a problem: ${w.errors.slice(0, 3).map(([n, x]) => `line ${n}, ${x}`).join('; ')}${w.errors.length > 3 ? '…' : ''}.`);
   if (!r.lookup) out.push('The lookup could not be loaded: only the map\'s own symbols and UniProt accessions were tried.');
   if (r.errors.length) out.push(`${fmt(r.errors.length)} ${r.errors.length === 1 ? 'line' : 'lines'} with a problem: ${r.errors.slice(0, 3).map(([n, w]) => `line ${n}, ${w}`).join('; ')}${r.errors.length > 3 ? '…' : ''}.`);
   return out;
@@ -498,16 +546,16 @@ function renderNet() {
   if (X.tab === 'net') { netRelay(); netList(); }
   if (!$('#netBody')) {
     pane.innerHTML = `<div id="netBody"></div>
-      <div id="ownBox"><p class="grp-h">Your own network</p><p class="sub">${esc(OWN_FORMAT)}</p><p class="sub">${esc(OWN_PRIVATE)}</p>
-      <label id="ownDrop" style="display:block;border:2px dashed var(--line, #567);border-radius:8px;padding:12px;margin:8px 0;cursor:pointer">Drop a file here (.tsv, .csv, .txt) or <input id="ownFile" type="file" accept=".tsv,.csv,.txt,text/plain,text/tab-separated-values,text/csv"></label>
+      <div id="ownBox"><p class="grp-h">Your own network</p><p class="sub">${esc(OWN_FORMAT)}</p><p class="sub">${esc(OWN_PRIVATE)}</p><p class="sub">${esc(OWN_WIZ)}</p>
+      <label id="ownDrop" style="display:block;border:2px dashed var(--line, #567);border-radius:8px;padding:12px;margin:8px 0;cursor:pointer">Drop a file here (.tsv, .csv, .txt), or a wwiznet dataset's files or folder, or <input id="ownFile" type="file" multiple accept=".tsv,.csv,.txt,.json,text/plain,text/tab-separated-values,text/csv"></label>
       <textarea id="ownText" rows="4" style="width:100%;box-sizing:border-box" placeholder="or paste pairs here, one a line: TP53 MDM2" spellcheck="false"></textarea>
       <div class="chips"><button type="button" data-act="ownpaste" data-v="1">Use the text</button><button type="button" data-act="ownex" data-v="1">Try an example</button></div>
       <div id="ownBody"></div></div>`;
-    const drop = $('#ownDrop'), file = f => { if (!f) return; if (f.size > PNET.MAX_BYTES) { OWNN.err = `The file is ${(f.size / 1e6).toFixed(1)} MB: this page takes at most ${PNET.MAX_BYTES / 1e6} MB.`; renderAll(); return; } f.text().then(t => chooseText(t, f.name)); };
-    $('#ownFile').addEventListener('change', ev => file(ev.target.files[0]));
+    const drop = $('#ownDrop');
+    $('#ownFile').addEventListener('change', ev => chooseFiles(ev.target.files));
     drop.addEventListener('dragover', ev => { ev.preventDefault(); drop.style.borderColor = 'var(--cyan)'; });
     drop.addEventListener('dragleave', () => { drop.style.borderColor = ''; });
-    drop.addEventListener('drop', ev => { ev.preventDefault(); drop.style.borderColor = ''; file(ev.dataTransfer.files[0]); });
+    drop.addEventListener('drop', ev => { ev.preventDefault(); drop.style.borderColor = ''; dropped(ev.dataTransfer); });
   }
   const st = api('cell').steps(X.own), tops = api('cell').tops, L = X.lim;
   $('#netBody').innerHTML = `<p class="sub">${esc(netLine())}</p>
@@ -526,11 +574,17 @@ function renderNet() {
   const r = OWNN.report, lines = reportLines();
   $('#ownBody').innerHTML = `${OWNN.busy ? `<p class="sub" style="color:var(--amber)">${esc(OWNN.busy)}</p>` : ''}${OWNN.err ? `<p class="sub" style="color:var(--amber)">${esc(OWNN.err)}</p>` : ''}
     ${lines.map(t => `<p class="sub">${esc(t)}</p>`).join('')}
+    ${OWNN.wiz && OWNN.wizInfo ? wizChips(OWNN.wizInfo) : ''}
     ${r && r.missing.length ? `<p class="sub">Not found: ${esc(r.missing.slice(0, 30).join(', '))}${r.missing.length > 30 ? ` and ${fmt(r.missing.length - 30)} more` : ''}.</p><div class="chips"><button type="button" data-act="ownmiss" data-v="1">Download the list (not-found.txt)</button></div>` : ''}
     <div class="chips">${OWNN.model ? chip('data-act="own" data-v="1"', `Your network${OWNN.name ? ': ' + esc(OWNN.name) : ''}`, X.own === 1) : ''}${chip('data-act="own" data-v="0"', backLabel(), X.own === 0)}</div>
     <div class="chips">${OWNN.model && OWNN.kept !== OWNN.name ? '<button type="button" data-act="ownkeep" data-v="1">Keep on this device</button>' : ''}${OWNN.kept ? `${OWNN.kept !== OWNN.name || !OWNN.model ? `<button type="button" data-act="ownkept" data-v="1">Open the kept one: ${esc(OWNN.kept)}</button>` : ''}<button type="button" data-act="ownforget" data-v="1">Forget it</button>` : ''}</div>
     ${OWNN.kept ? `<p class="sub">Kept in this browser: ${esc(OWNN.kept)}.</p>` : ''}
     ${X.own && inRoom() ? `<p class="sub">${esc(OWN_ROOM)}</p>` : ''}`;
+}
+// a wwiznet dataset's columns, to pick another: the one naming the proteins (with nodes.tsv), the score, the kind
+function wizChips(w) {
+  const row = (k, label, list, on, none) => `<p class="grp-h">${label}</p><div class="chips">${(none ? [''] : []).concat(list).map(c => chip(`data-act="wizcol" data-k="${k}" data-v="${esc(c)}"`, esc(c || 'none'), c === on)).join('')}</div>`;
+  return (w.hasNodes ? row('name', 'The proteins named by', w.nameCols, w.nameCol, false) : '') + row('score', 'Score', w.scores, w.score, true) + row('kind', 'Kind', w.kinds, w.kind, true);
 }
 // the Network tab's buttons (buildExplore's click handler: data-act)
 function netAct(b) {
@@ -538,7 +592,7 @@ function netAct(b) {
   ({
     lim: () => setLim(b.dataset.k, +v, true), rel: () => toggleRel(+v), pls: () => togglePlace(+v), limreset: () => resetLim(true),
     own: () => (+v === 0 && (X.own === 2 || X.net) && !X.bi ? netBack(true) : setOwn(+v, true)), netb: () => { const f = SHARE_FN.get(v); if (f) f(); }, ownpaste: () => { const t = $('#ownText').value; if (t.trim()) chooseText(t, 'pasted text'); },
-    wiz: () => wizExport(), ownex: () => ownExample(), ownkeep: () => ownKeep(), ownforget: () => ownForget(), ownkept: () => ownLoadKept(), ownmiss: () => ownMissing(),
+    wiz: () => wizExport(), wizcol: () => wizPick(b.dataset.k, v), ownex: () => ownExample(), ownkeep: () => ownKeep(), ownforget: () => ownForget(), ownkept: () => ownLoadKept(), ownmiss: () => ownMissing(),
   }[b.dataset.act] || (() => {}))();
 }
 // the headset's twin (drawTabPane): the limits as buttons, what they do, and the network: chosen on a laptop only

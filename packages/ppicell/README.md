@@ -106,6 +106,12 @@ counts as drawn), `--edges judged|all|drawn`, `--copies all|main`, `--net <pairs
 another form, so it carries their terms and credit (above; `data_description.txt` and the guide window say them) and
 never goes into this repository.
 
+The other way round, a wwiznet dataset opens as a network of your own: on the Network tab choose or drop its
+`edges.tsv` (with its `nodes.tsv`, or its folder), or `--net <folder or edges.tsv>` here. Only each edge's two ends,
+one score column, one kind column and the node column naming the protein are read; every other column (wwiznet node
+tables can carry variants and diseases) is skipped and never kept, shown or sent (`src/SPEC.md`, "wwiznet's files as
+your own network").
+
 Gene-set terms with `menchelab/enrichr` (outside the app; it reads `id` as the gene name): take a `--copies main` export
 (ids are the symbols) and run `python3 enrichr.py --input <out>/nodes.tsv --output <out>/nodes.tsv`. For the per-place
 export (ids `TP53@nucleoplasm`), swap the symbols in and back (enrichr keeps the rows' order):

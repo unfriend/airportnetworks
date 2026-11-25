@@ -2,11 +2,12 @@
   "version": "networks-v211",
   "date": "2026-11-25",
   "new": [
-    "Back into the cell's Network tab can save the network on show for wwiznet, the Menche lab's 3D network explorer: Export for wwiznet (ZIP) gives every protein in each of its places at its place in the cell, the links with their verdicts, a ready view and a guide window. Also from the command line (packages/ppicell/README.md).",
+    "Back into the cell's Network tab can save the network on show for wwiznet, the Menche lab's 3D network explorer: Export for wwiznet (ZIP) gives every protein in each of its places at its place in the cell, the links with their verdicts, a ready view and a guide window. Also from the command line (packages/ppicell/README.md). The same tab opens a wwiznet dataset (its edges.tsv, with its nodes.tsv or its folder) as your own network, reading only the links, a score, a kind and the protein names.",
     "Still untried: v210's two voices, v209's shared networks, v208's sharing with a room, v207's Network tab, v206 lining up a worn character, v205 sides and complexes, v204 to v200 (mirror robot, tour tables, sharp VR text, any mix of devices)."
   ],
   "test": [
     "On a laptop: Back into the cell, explore, Network tab, Export for wwiznet. Unzip into a wwiznet deployment's data folder, add the line from HOW-TO-OPEN.txt, open /?dataset=ppicell. Does the cell read as a cell? Try the guide window's buttons (Impossible only, the hairball, a complex).",
+    "Drop a wwiznet dataset's folder (or its edges.tsv and nodes.tsv together) on the Network tab: does it name the proteins by the right column, and can you pick another?",
     "The same dataset in a headset through wwiznet: is it fluid with about 107,000 edges, and is the guide window placed well?",
     "v210 to v200: both voices, sharing a network with a room, the Network tab, lining up a worn character, the mirror robot."
   ],
