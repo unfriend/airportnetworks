@@ -274,3 +274,15 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   room: someone at a laptop changes the limits, headsets see the cell change; a headset takes the network through the
   relay, as studio scenes go.
 - **Status**: not started.
+
+## Sides: the owner's decisions after stage A (25 November 2026)
+
+- **Carried, not named** (the owner: "I would say carried"): the told story judges with a side wherever the protein's own
+  build gives one (UniProt's location where it names the Atlas's place; elsewhere its spans, anchors and signal
+  peptide, and no signal peptide taken as the cytosol's side). The story says once that this last rule is a textbook
+  rule with exceptions. *Named only* stays as a switch in explore mode, and so does the old judgement without sides.
+- **The Complex Portal's terms**: not confirmed yet; "we will confirm the terms later" (the owner). Its memberships stay
+  in the generated `src/sets/sides.js` on `dev` with credit in the panel and the README; to be confirmed before the
+  story moves to `main`.
+- **A new chapter** *Machines* (complexes) between *Can they meet?* and *Why red?*; the script is the main
+  conversation's (25 November 2026) and is in `src/engine/e3_story.js` once stage B is built.
