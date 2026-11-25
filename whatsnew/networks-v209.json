@@ -1,0 +1,20 @@
+{
+  "version": "networks-v209",
+  "date": "2026-11-25",
+  "new": [
+    "Back into the cell, after a review of v208: Remove from the relay shows only in the browser that put the network there, says it goes for everyone who uses it, and asks once.",
+    "Calls to the relay give up when it does not answer (The relay did not answer, with Try again) instead of waiting for ever.",
+    "A file with a very long line or field is refused at once (it could freeze the page); choosing a second file while the first is read keeps the second.",
+    "The relay: a refused share counts against the per-address limit, and the shared networks have a size cap (512 MB unless --nets-max says).",
+    "Still untried: v208's sharing with a room, v207's Network tab, v206 lining up a worn character, v205 sides and complexes, v204 to v200 (mirror robot, tour tables, sharp VR text, any mix of devices)."
+  ],
+  "test": [
+    "On the test place: a laptop and a headset at a Back into the cell station. On the laptop: Try an example, then Share with this room. Does the headset show it, and follow the laptop's limits?",
+    "On the laptop: Remove from the relay asks first, then takes everyone back; the headset shows no Remove button.",
+    "v207: the Network tab's limits in a headset (smooth? frame rate at 8,000 links). v206: lining up a worn character. v205: Walls and Machines."
+  ],
+  "untested": [
+    "Sharing on the owner's relays (they need v209 first), in a real headset: fetching and building a large network, its frame rate and memory; the time-outs on a slow headset connection.",
+    "v207's Network tab in a headset and on a phone; v206 with real trackers; v205's voice and rings; v204 to v200 on devices."
+  ]
+}

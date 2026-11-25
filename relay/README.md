@@ -1280,19 +1280,25 @@ put it here so that every device at their station, a headset too, can fetch it a
   `--nets`: refused). On a public server (`--public`) without a password nothing is kept (said at the start). Each
   network is `<id>/net.json.gz` and `<id>/meta.json` (written last, so a listing never shows half a network).
 - **Limits**: 12 MB as sent (counted as it streams, 413 past it), 250,000 links (the page's own limit), 65,535 proteins,
-  500 networks (507 past it: remove some); under `--public`, 30 a minute from one address (a burst of 60, then 429 with
-  `Retry-After`). Measured: the built-in map as pairs (141,296 links) is 1.9 MB sent and 0.7 MB kept; 250,000 links with
+  500 networks and 512 MB kept all together, compressed (`--nets-max <MB>` sets another size; 507 past either: remove
+  some); one network is put at a time, so a burst cannot pass the caps. Under `--public`, 30 a minute from one address (a
+  burst of 60, then 429 with `Retry-After`), counted before the body is read, so refused and failed tries count too; only
+  a network already kept (`again`, nothing written) gives its turn back. Measured: the built-in map as pairs (141,296 links) is 1.9 MB sent and 0.7 MB kept; 250,000 links with
   scores 5.2 MB and 2.2 MB.
 - **Who can read them**: anyone who can use this relay's API: with a password (`COLLAB_TOKEN`), those who know it; without
-  one, anyone who can reach the relay. The page says so beside the button. *Remove from the relay* (or the endpoint)
-  removes one for good.
+  one, anyone who can reach the relay. The page says so beside the button.
+- **Who can remove them**: the rule is the notes': anyone who may write to this relay (its password, when it has one)
+  can remove any network with the endpoint, for everyone who uses it, other rooms too. The page offers *Remove from the
+  relay* only in the browser that put that network there (it remembers the ids per relay, in `localStorage`; an id is
+  not secret), says that it goes for everyone, and asks once. A removal takes `meta.json` away first (R2) or moves the
+  folder aside whole first (a folder), so a failure half way never leaves a network listed that cannot be fetched.
 - **Endpoints**, behind the password when there is one, answers `no-store`, `GET` and `POST` only; with the store off
   every one answers 404 `{ error: 'this relay keeps no shared networks' }`, and `/api/ping` says `nets: true` when it is on.
 
 | request | answer |
 | --- | --- |
-| `POST /api/nets` (the network as JSON) | 201 `{ id }`; 200 `{ id, again: true }` when it is there already; 400 in words for bad JSON or a bad field, 413 past 12 MB, 429 past the per-address limit under `--public`, 507 past 500 networks |
-| `GET /api/nets` | `{ nets: [{ id, name, n, e, kinds, score, bytes, gz, at }], max: { bytes, nets } }`, newest first (`n` proteins, `e` links, `bytes` as kept, `gz` compressed) |
+| `POST /api/nets` (the network as JSON) | 201 `{ id }`; 200 `{ id, again: true }` when it is there already; 400 in words for bad JSON or a bad field, 413 past 12 MB, 429 past the per-address limit under `--public`, 507 past 500 networks or a full store (`--nets-max`) |
+| `GET /api/nets` | `{ nets: [{ id, name, n, e, kinds, score, bytes, gz, at }], max: { bytes, nets, store } }`, newest first (`n` proteins, `e` links, `bytes` as kept, `gz` compressed) |
 | `GET /api/nets/<id>` | the network as JSON (`Content-Encoding: gzip` when the asker takes it); 404 for none |
 | `POST /api/nets/<id>/delete` | 200 `{ ok: true }`, and it is gone; 404 for none |
 

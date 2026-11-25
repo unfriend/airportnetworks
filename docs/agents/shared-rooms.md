@@ -2150,7 +2150,12 @@ password as a header (the relay `HOST.collab.relayFind` gives; never in an addre
 it, `collab.state()` meanwhile giving the room's state as it came, so nothing is sent back. A device that cannot have it
 (a peer-to-peer or on-device room, a relay without the store, a network removed) says why and shows the built-in
 network without touching the room's state. R2's scenes' listing steps over `.nets/` as over `.notes/` (`R2.listAll`'s
-`skip` takes a list), and `tools/studio/r2sync.mjs` leaves it alone.
+`skip` takes a list), and `tools/studio/r2sync.mjs` leaves it alone. Since v209 (after a review): *Remove from the relay*
+only in the browser that put the network there (its ids per relay origin in `localStorage` `ppicellNetsPut`), asked once
+(it goes for everyone who uses it, other rooms too); every call to the relay gives up after its time (`netFetch`: 10 s
+for the ping, 20 s and more for a large body, at most 3 minutes; *The relay did not answer*, *Try again*); the relay
+takes a share's rate token before reading the body (given back only for `again`), puts one at a time, and caps the
+store's total (`--nets-max`, 512 MB).
 
 Rules that matter most (from `docs/multiplayer.md`):
 

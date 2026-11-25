@@ -1492,7 +1492,9 @@ with a password (401 without, Bearer and `?token=`, kept across a restart) and i
 listing limit of 3 still listing all 3 scenes): put (201, a 12-letter id), the same again (200 `again`, the same id; the
 same in another field order too), another, the list newest first with sizes, get (gzipped when asked), twelve bad bodies
 (400 in words), over 12 MB (413, nothing kept), no such network and a path out (404), other methods (405), remove and put
-again; 507 past 500, 429 under `--public` after a burst of 60.
+again; 507 past 500, 429 under `--public` after a burst of 60; (v209) the same network 70 times never limited, bad
+bodies using the rate up (then 429), and a burst of 20 against `--nets-max 0.002` (about 2 kB) kept under the cap with
+507 *full* for the rest, nothing left half written or half removed.
 
 `node relay/test.mjs --osc` (also in the full run; `relay/osc.mjs`, `tools/output/SPEC.md` Wire 3): the OSC codec (round
 trips of every type, padding at every length mod 4, a bundle in a bundle and the depth limit, bad packets refused, int64
@@ -1882,7 +1884,9 @@ pick and *Reset limits* reach A, no writes meanwhile; A chooses the example (its
 names it; B shows the same network with the same counts; A's links drawn and GRB2 picked reach B, B's least support
 reaches A, no writes while nobody changes anything; the headset's Network tab drawn as in a headset lists the relay's
 network by name and size; a late joiner C gets it with the room's limits and pick; *Back to the built-in network* on B
-takes all three back; `#ppicell&explore&net=<id>` opens it outside a room and *Remove from the relay* deletes it. Then a
+takes all three back; `#ppicell&explore&net=<id>` opens it outside a room (D, another browser); a relay that takes the
+call and never answers makes `netFetch` give up in words with no timer left (v209); D has no *Remove from the relay*,
+and a second tab of A's browser has it, asks once (for everyone who uses it) and then deletes it. Then a
 relay with `--no-nets`: no share button and its line, and a room whose state names a network nobody there can have: each
 device says why and shows the built-in network, the room keeping its state. With `--shots <dir>`: seven pictures (the
 pane's sentence, both pages, a limit followed, the headset's tab, the no-relay line, the could-not-have line).

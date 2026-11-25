@@ -158,7 +158,7 @@ return {
   peek: src => eval(src),
   dispose() {
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
-    LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
+    LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t); netStop();
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

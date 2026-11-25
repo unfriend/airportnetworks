@@ -4277,11 +4277,32 @@ async function netRound(dir) {
     const dOn = await until(D, i => HOST.cur.peek('X.own === 2 && X.net') === i, id, 120000);
     await idle(D);
     check('net: #ppicell&explore&net=<id> opens a network on the relay outside a room', dOn && (await cellOf(D)).N === 422, JSON.stringify(await cellOf(D)));
-    // Remove from the relay (outside the room: D)
+    // Remove from the relay (v209): offered only in the browser that put it there (A's), asked once first; D and B (other
+    // browsers) have no such button
     await idle(D);
-    await tap(D, '[data-act="netb"][data-v="net:remove"]');
-    const gone = await until(D, () => HOST.cur.peek('X.own === 0 && !X.net'), null, 30000);
-    check('net: Remove from the relay deletes it there and goes back to the built-in network', gone && !fs.existsSync(path.join(tmp, '.nets', id)), JSON.stringify({ gone }));
+    await until(D, () => HOST.cur.peek('SNET.relay.nets'), null, 20000);
+    { // (v209) a relay that takes the call and never answers: the page's fetch gives up in its time, in words, its timer cleared
+      const socks = [], mute = http.createServer(() => {}); mute.on('connection', c => socks.push(c));
+      await new Promise(r => mute.listen(0, '127.0.0.1', r));
+      const t0 = Date.now(), said = await D.evaluate(u => HOST.cur.peek(`netFetch(${JSON.stringify(u)}, {}, 800, true).then(() => 'answered', e => e.message)`), `http://127.0.0.1:${mute.address().port}/api/ping`);
+      const left = await peek(D, 'NET_TIMERS.size');
+      socks.forEach(c => c.destroy()); mute.close();
+      check('net: a relay that never answers: the fetch gives up after its time and says so; no timer left', said === 'the relay did not answer' && Date.now() - t0 < 5000 && left === 0, JSON.stringify({ said, ms: Date.now() - t0, left }));
+    }
+    const dNoRemove = await D.evaluate(() => !document.querySelector('[data-v="net:remove"]')) && !(await peek(D, "shareButtons().some(x => x.id === 'net:remove')"));
+    // (A, still at the station, opens it again from the relay's list: the station shows it to B and C too)
+    await peek(A, `(netOpen(${JSON.stringify(id)}, true), 1)`);
+    const aAgain = await until(A, i => HOST.cur.peek('X.own === 2 && X.net') === i && !HOST.cur.peek('SNET.busy'), id, 120000);
+    await idle(A);
+    const bNoRemove = await until(B, i => HOST.cur.peek('X.net') === i && HOST.cur.peek('SNET.relay.nets'), id, 60000) && !(await peek(B, "shareButtons().some(x => /^net:remove/.test(x.id))"));
+    const hasRemove = await until(A, () => !!document.querySelector('[data-act="netb"][data-v="net:remove"]'), null, 20000);
+    await tap(A, '[data-act="netb"][data-v="net:remove"]');
+    const asked = await until(A, () => !!document.querySelector('[data-v="net:remove:yes"]') && /everyone who uses it/.test(document.getElementById('netShare').textContent), null, 10000);
+    const stillThere = fs.existsSync(path.join(tmp, '.nets', id));
+    await tap(A, '[data-act="netb"][data-v="net:remove:yes"]');
+    const gone = await until(A, () => HOST.cur.peek('X.own === 0 && !X.net'), null, 30000);
+    check('net: Remove from the relay only in the browser that put it (A, at the station; not D\'s or B\'s), asked once (for everyone who uses it), then deleted there and back to the built-in network',
+      aAgain && dNoRemove && bNoRemove && hasRemove && asked && stillThere && gone && !fs.existsSync(path.join(tmp, '.nets', id)), JSON.stringify({ aAgain, dNoRemove, bNoRemove, hasRemove, asked, stillThere, gone }));
     for (const p of pages.splice(0)) await p.context().close().catch(() => {});
 
     // a relay without shared networks: the button absent and its line; a room naming one stays whole, on the built-in one

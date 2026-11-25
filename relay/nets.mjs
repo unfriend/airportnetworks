@@ -3,7 +3,8 @@
 // its proteins' symbols, its kinds' words, its links (two protein numbers, kind bits, a score or null) and the file's
 // name; nothing else. Kept compressed under an id made from its content (the same network is the same id; nothing is
 // ever overwritten by another), in a folder or in an R2 bucket by the same rules: <id>/net.json.gz, then <id>/meta.json
-// (written last: a network is listed only once it is whole). Node's own modules only. This file never logs, and its
+// (written last: a network is listed only once it is whole; removed first: never listed once it cannot be fetched). Node's
+// own modules only. This file never logs, and its
 // callers log at most `net <id> <bytes>`: never a name or a protein.
 import fs from 'node:fs';
 import path from 'node:path';
@@ -76,9 +77,12 @@ export function folderStore(root) {
       } catch (err) { await fs.promises.rm(tmp, { recursive: true, force: true }); if (err.code === 'ENOTEMPTY' || err.code === 'EEXIST') return; throw err; }
     },
     async data(id) { try { return await fs.promises.readFile(path.join(dirOf(id), DATA)); } catch { return null; } },
+    // (moved aside whole first, then emptied: a failure half way never leaves it listed without its data)
     async del(id) {
       if (!(await fs.promises.stat(dirOf(id)).catch(() => null))) return false;
-      await fs.promises.rm(dirOf(id), { recursive: true, force: true });
+      const gone = path.join(root, '.del-' + crypto.randomBytes(6).toString('hex'));
+      try { await fs.promises.rename(dirOf(id), gone); } catch (err) { if (err.code === 'ENOENT') return false; throw err; }
+      await fs.promises.rm(gone, { recursive: true, force: true });
       return true;
     },
   };
@@ -126,11 +130,14 @@ export function r2Store(RX, prefix) {
       await RX.put(key(id, META), Buffer.from(JSON.stringify(m)), { type: 'application/json' });
     },
     async data(id) { return RX.get(key(id, DATA)); },
+    // (meta.json first: once it is gone the network is no longer listed, whatever happens to the rest)
     async del(id) {
       const r = await RX.listAll(key(id, ''));
       if (!r.keys.length) return false;
-      await RX.delMany(r.keys.map(o => o.key));
       cache.delete(id);
+      if (r.keys.some(o => o.key === key(id, META))) await RX.del(key(id, META));
+      const rest = r.keys.map(o => o.key).filter(k => k !== key(id, META));
+      if (rest.length) await RX.delMany(rest);
       return true;
     },
   };

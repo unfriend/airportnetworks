@@ -86,6 +86,14 @@ ok(e !== undefined && M.sup[e] === Math.fround(0.9) && M.kind[e] === 3 && same(M
 ok([...Array(M.E).keys()].some(i => M.la[i] === tp && M.lb[i] === tp), 'the self-link of TP53 kept');
 const big = N.parse(Array.from({ length: N.MAX_LINES + 1 }, () => 'A\tB').join('\n'));
 ok(/at most/.test(big.error || ''), `more than ${N.MAX_LINES} pairs refused in words: "${(big.error || '').slice(0, 60)}…"`);
+{ // a hostile file: one long field (once a quadratic pattern: 80,000 digits took 10 s) refused by its length, in milliseconds
+  const long = '1'.repeat(1e6), cases = [`TP53\tMDM2\t${long}`, `TP53\tMDM2\t${'1'.repeat(3000)}x`, `${'A'.repeat(3000)}\tMDM2`, `TP53\tMDM2\t0.5\nTP53\tGRB2\t${'9'.repeat(N.MAX_LINE - 20)}.`];
+  let t = Date.now(); const rs = cases.map(c => N.parse(c)); t = Date.now() - t;
+  ok(t < 200 && rs[0].error && /characters long/.test(rs[0].error) && /longer than/.test(rs[1].error) && /identifier longer/.test(rs[2].error) && rs[3].rows.length === 1 && rs[3].errors[0][0] === 2,
+    `over-long lines and fields refused by number, in ${t} ms: "${rs[0].error.slice(0, 70)}…"`);
+  let u = Date.now(); for (let i = 0; i < 50; i++) N.parse(`TP53\tMDM2\t${'1'.repeat(90)}x`); u = Date.now() - u;
+  ok(u < 100, `the number pattern is linear: 50 near-numbers of 90 digits in ${u} ms`);
+}
 ok(N.parse('TP53,MDM2\nGRB2,SOS1').rows.length === 2 && N.parse('TP53 MDM2\nGRB2  SOS1').rows.length === 2, 'commas and spaces separate as tabs do');
 
 // ---- with the lookup (data/lookup.json, gen_lookup.py)

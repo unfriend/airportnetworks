@@ -242,10 +242,12 @@ const PNET = (() => {
   // any order after the two; separated by tabs, commas, semicolons or spaces; '#' starts a comment line; a first line
   // that names no protein is a header. A self-link is kept, as the map keeps its own; a pair given twice is one link
   // (its best score, its kinds joined). Nothing but the pairs, scores and kinds is read.
-  const MAX_LINES = 250000, MAX_BYTES = 20e6, MAX_KINDS = 7;
+  // (a line, an identifier and a score or kind longer than these is a bad line, refused before any pattern runs on it:
+  // a hostile file's one long field never meets a regular expression)
+  const MAX_LINES = 250000, MAX_BYTES = 20e6, MAX_KINDS = 7, MAX_LINE = 4000, MAX_ID = 64, MAX_FIELD = 100;
   const RE = {
     acc: /^([OPQ][0-9][A-Z0-9]{3}[0-9]|[A-NR-Z][0-9](?:[A-Z][A-Z0-9]{2}[0-9]){1,2})(?:-\d+)?$/,
-    ens: /^ENSG\d{11}(?:\.\d+)?$/i, gid: /^\d{1,9}$/, num: /^[-+]?(\d+\.?\d*|\.\d+)(e[-+]?\d+)?$/i,
+    ens: /^ENSG\d{11}(?:\.\d+)?$/i, gid: /^\d{1,9}$/, num: /^[-+]?(\d+(\.\d*)?|\.\d+)(e[-+]?\d+)?$/i,
   };
   const ID_NAME = { sym: 'gene symbols', acc: 'UniProt accessions', gid: 'NCBI gene numbers', ens: 'Ensembl gene ids' };
   const idKind = s => (RE.ens.test(s) ? 'ens' : RE.acc.test(s) ? 'acc' : RE.gid.test(s) ? 'gid' : 'sym');
@@ -261,12 +263,15 @@ const PNET = (() => {
       if (t[0] === '#') { comments++; continue; }
       read++;
       if (read > MAX_LINES) return { error: `More than ${MAX_LINES.toLocaleString('en-GB')} pairs: this page takes at most that many (more would not stay fluent).` };
+      if (t.length > MAX_LINE) { errors.push([n + 1, `${t.length.toLocaleString('en-GB')} characters long (a line takes at most ${MAX_LINE.toLocaleString('en-GB')})`]); continue; }
       if (!sep) sep = t.includes('\t') ? '\t' : t.includes(',') ? ',' : t.includes(';') ? ';' : /\s+/;
-      const f = t.split(sep).map(x => x.trim().replace(/^"(.*)"$/, '$1').trim());
+      const f = t.split(sep).map(x => { x = x.trim(); return (x.length > 1 && x[0] === '"' && x[x.length - 1] === '"' ? x.slice(1, -1) : x).trim(); });
       if (f.length < 2 || !f[0] || !f[1]) { errors.push([n + 1, 'only one identifier']); continue; }
+      if (f[0].length > MAX_ID || f[1].length > MAX_ID) { errors.push([n + 1, `an identifier longer than ${MAX_ID} characters`]); continue; }
+      if (f.slice(2).some(x => x.length > MAX_FIELD)) { errors.push([n + 1, `a score or kind longer than ${MAX_FIELD} characters`]); continue; }
       rows.push([n + 1, f[0], f[1], f.slice(2).filter(x => x !== '')]);
     }
-    if (!rows.length) return { error: errors.length ? `No pair read: line ${errors[0][0]} has ${errors[0][1]}.` : 'No pair read: one pair a line, two identifiers.' };
+    if (!rows.length) return { error: errors.length ? `No pair read: line ${errors[0][0]}, ${errors[0][1]}.` : 'No pair read: one pair a line, two identifiers.' };
     // the columns after the two: a score where most are numbers, else a kind (the first row left out: it may be a header)
     const extra = Math.max(0, ...rows.map(r => r[3].length)), body = rows.length > 1 ? rows.slice(1) : rows;
     const isNum = c => { let y = 0, n = 0; for (const r of body) if (r[3][c] !== undefined) { n++; if (RE.num.test(r[3][c])) y++; } return n && y > 0.5 * n; };
@@ -475,6 +480,6 @@ const PNET = (() => {
     return LK;
   }
   return { T, late, run, REL, LIM0, isDefault, steps, limit, limitGen, communities, locs, pairJ, judge, order, share, shareKinds, KIND_MIN, select,
-    MAX_LINES, MAX_BYTES, ID_NAME, idKind, parse, tables, find, decodeLookup: J => lookupIndex(decodeLookup(J)), fromRows, build, toDoc, docError, fromDoc, docNeedsLookup };
+    MAX_LINES, MAX_BYTES, MAX_LINE, MAX_ID, ID_NAME, idKind, parse, tables, find, decodeLookup: J => lookupIndex(decodeLookup(J)), fromRows, build, toDoc, docError, fromDoc, docNeedsLookup };
 })();
 if (typeof module !== 'undefined') module.exports = PNET;

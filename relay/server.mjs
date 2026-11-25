@@ -67,6 +67,9 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   // --nets <dir>: the cell story's shared networks kept in <dir> (else in .nets/ of the scenes' folder, or under .nets/ in
   // R2); --no-nets: none (relay/nets.mjs; relay/README.md, "Shared networks")
   nets: '', 'no-nets': false,
+  // --nets-max <MB>: the shared networks' store holds at most this much, compressed, all together (a full store refuses a
+  // new one as the 500-network cap does)
+  'nets-max': 512,
   // --keep <file>: every room written there (atomically, every 5 s when changed and as the relay stops) and read back as
   // it starts, so a restart (a deploy) no longer empties the rooms; '' none (as ever: rooms in memory only)
   keep: '' };
@@ -129,6 +132,7 @@ const HELP = `usage: node relay/server.mjs [options]
                    kept in <dir>. Without it they are kept in .nets/ inside the --scenes folder (or under .nets/ in the R2
                    bucket) whenever the relay keeps scenes
   --no-nets        no shared networks (every /api/nets endpoint answers 404)
+  --nets-max <MB>  the shared networks kept, all together and compressed, at most this big (512); at most 500 of them
 On a public server (each is off unless given, and --public turns on all of them with the defaults in brackets):
   --public         --origin ${APP_ORIGIN}, --unlisted, --guesses 30, --creates 10, --sockets 64, --store 64,
                    --logs only with a token, and --scenes, --osc-out and --osc-in only with a password
@@ -315,6 +319,8 @@ if (NETS_WANT && !NETS_ON) console.log('--public without a password keeps no sha
 // uploads (the studio's Upload pane, SPEC "The upload page"): one file at most --max-upload MB, counted as it streams in
 if (!(OPT['max-upload'] > 0)) { console.log('--max-upload takes a size in MB, more than 0'); process.exit(1); }
 const MAX_UPLOAD = Math.floor(OPT['max-upload'] * (1 << 20));
+if (!(OPT['nets-max'] > 0)) { console.log('--nets-max takes a size in MB, more than 0'); process.exit(1); }
+const NETS_MAX = Math.floor(OPT['nets-max'] * (1 << 20));
 // /upload sends people to the studio's Upload pane: the relay's own app (--static), else the app's public address
 const APP_URL = (() => {
   const v = String(OPT.app || '').trim();
@@ -2777,6 +2783,8 @@ async function notesApi(req, res, url) {
 // /api/nets/<id> is one (the JSON, gzipped when the asker takes it), POST /api/nets/<id>/delete removes it. GET and POST
 // only (CORS). Never a network's name or a protein in a log line: `net <id> <bytes>` at most.
 const NETS = !NETS_ON ? null : NETS_DIR ? netsFolder(NETS_DIR) : R2C ? netsR2(RX, R2C.prefix + '.nets/') : netsFolder(path.join(SCENES, '.nets'));
+let NETS_Q = Promise.resolve();
+const netsOne = f => { const p = NETS_Q.then(f); NETS_Q = p.catch(() => {}); return p; };
 async function netsApi(req, res, url) {
   const no = (status, error, extra) => answerEarly(req, res, status, { error }, extra);
   if (!NETS) return no(404, 'this relay keeps no shared networks');
@@ -2785,29 +2793,40 @@ async function netsApi(req, res, url) {
   const [, id, sub] = m;
   try {
     if (!id) {
-      if (req.method === 'GET') return json(res, 200, { nets: await NETS.list(), max: { bytes: NET_BODY, nets: MAX_NETS } }, noStore);
+      if (req.method === 'GET') return json(res, 200, { nets: await NETS.list(), max: { bytes: NET_BODY, nets: MAX_NETS, store: NETS_MAX } }, noStore);
       if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'GET, POST' });
+      // (the token taken before the body is read, so a refused or failed try counts too; given back only for a network
+      // already kept, which writes nothing)
       const who = LIM.nets ? clientOf(req) : null;
       if (who && fill(who, 'w', LIM.nets) < 1) { tally('requests refused: too many shared networks from one address'); return answerEarly(req, res, 429, { error: 'too many networks from your network: wait a minute' }, { 'Retry-After': String(wait(who, 'w', LIM.nets)) }); }
+      if (who) who.w = Math.max(0, fill(who, 'w', LIM.nets) - 1);
       const text = await smallBody(req, res, NET_BODY, `a shared network is at most ${NET_BODY >> 20} MB`);
       if (text === null) return;
       let b = null;
       try { b = JSON.parse(text); } catch { /* said below */ }
       const r = parseNet(b);
       if (r.error) return json(res, 400, { error: r.error });
-      if (await NETS.meta(r.id)) return json(res, 200, { id: r.id, again: true }, noStore);
-      if (await NETS.count() >= MAX_NETS) return json(res, 507, { error: `at most ${MAX_NETS} shared networks are kept: remove some` });
       const gz = netGzip(r.canon);
       r.meta.gz = gz.length;
-      await NETS.put(r.id, r.meta, gz);
-      if (who) who.w = Math.max(0, fill(who, 'w', LIM.nets) - 1);
+      // (one put at a time: the caps are checked and the network written in one turn, so a burst cannot pass them)
+      const out = await netsOne(async () => {
+        if (await NETS.meta(r.id)) return 'again';
+        const all = await NETS.list();
+        if (all.length >= MAX_NETS) return { error: `at most ${MAX_NETS} shared networks are kept: remove some` };
+        const used = all.reduce((t, m) => t + (m.gz || 0), 0);
+        if (used + gz.length > NETS_MAX) return { error: `this relay keeps at most ${Math.round(NETS_MAX / (1 << 20))} MB of shared networks and is full: remove some` };
+        await NETS.put(r.id, r.meta, gz);
+        return 'new';
+      });
+      if (out === 'again') { if (who) who.w = Math.min(2 * LIM.nets, fill(who, 'w', LIM.nets) + 1); return json(res, 200, { id: r.id, again: true }, noStore); }
+      if (out.error) return json(res, 507, { error: out.error });
       log(`net ${r.id} ${r.canon.length}`);
       return json(res, 201, { id: r.id }, noStore);
     }
     if (!NET_ID.test(id)) return no(404, 'no such network');
     if (sub === 'delete') {
       if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'POST' });
-      return (await NETS.del(id)) ? json(res, 200, { ok: true }, noStore) : no(404, 'no such network');
+      return (await netsOne(() => NETS.del(id))) ? json(res, 200, { ok: true }, noStore) : no(404, 'no such network');
     }
     if (req.method !== 'GET' && req.method !== 'HEAD') return no(405, 'method not allowed', { Allow: 'GET' });
     const gz = await NETS.data(id);

@@ -1763,6 +1763,28 @@ async function netsSteps() {
       ok(n201 >= 60 && n201 <= 62 && n429 >= 2 && +retry >= 1, '--public: a burst of 60 networks a minute from one address, then 429 with Retry-After (' + n201 + ' kept, ' + n429 + ' refused)');
       P.kill();
     });
+    await step('nets (v209): a refused try counts against the rate, the same network again does not; the store\'s byte cap holds against a burst', async () => {
+      const P = await start(['--public', '--allow-no-origin', '--nets', path.join(T, 'pub2'), '--quiet'], { COLLAB_TOKEN: PASS });
+      const H = { Authorization: 'Bearer ' + PASS, ...J };
+      let same = 0;
+      for (let i = 0; i < 70; i++) { const x = await rq(P.port, 'POST', '/api/nets', mk(), H); if (x.status === 200 || x.status === 201) same++; }
+      let bad = 0;
+      for (let i = 0; i < 64; i++) { const x = await rq(P.port, 'POST', '/api/nets', '{', H); if (x.status === 400) bad++; }
+      const after = await rq(P.port, 'POST', '/api/nets', mk({ name: 'after' }), H);
+      ok(same === 70 && bad >= 58 && bad <= 61 && after.status === 429, `the same network 70 times: all answered (${same}); bad bodies use the rate up (${bad} answered 400), then a good one: ${after.status}`);
+      P.kill();
+      const C = path.join(T, 'cap'), F = await start(['--nets', C, '--nets-max', '0.002', '--quiet']);   // about 2 kB
+      const one = (await rq(F.port, 'POST', '/api/nets', mk({ name: 'size' }), J)).json().id, gz = (await rq(F.port, 'GET', '/api/nets', undefined, {})).json().nets[0].gz;
+      const burst = await Promise.all(Array.from({ length: 20 }, (_, i) => rq(F.port, 'POST', '/api/nets', mk({ name: 'burst ' + i }), J)));
+      const list = (await rq(F.port, 'GET', '/api/nets')).json(), used = list.nets.reduce((t, m) => t + m.gz, 0);
+      const full = burst.filter(x => x.status === 507);
+      ok(one && used <= list.max.store && list.max.store === Math.floor(0.002 * (1 << 20)) && full.length >= 1 && /full/.test(full[0].json().error || '') && burst.filter(x => x.status === 201).length + 1 === list.nets.length,
+        `--nets-max: a burst of 20 against a ${list.max.store}-byte store: ${list.nets.length} kept (${used} bytes, each about ${gz}), ${full.length} refused 507 "${(full[0] && full[0].json().error || '').slice(0, 60)}"`);
+      ok(!tree(C).some(f => /^\.(tmp|del)-/.test(f)), 'no half-written or half-removed folder left');
+      await rq(F.port, 'POST', `/api/nets/${one}/delete`, undefined, J);
+      ok((await rq(F.port, 'POST', '/api/nets', mk({ name: 'room again' }), J)).status === 201 && !tree(C).some(f => /^\.(tmp|del)-/.test(f)), 'one removed: room for another; the removal left nothing aside');
+      F.kill();
+    });
     await step('nets: in R2 (--scenes r2: under <prefix>.nets/; the stand-in S3): put, list, get, remove; the scenes\' listing leaves them out, also against its limit', async () => {
       const { startFake } = await import('./s3fake.mjs');
       const KEY = 'RELAYTESTKEYID', SECRET = 'relay-test-secret-' + crypto.randomBytes(6).toString('hex');

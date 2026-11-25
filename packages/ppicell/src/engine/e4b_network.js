@@ -58,7 +58,7 @@ const LIM_TEXT = 'Links drawn: how many of the most important are drawn (the cou
 // OWNN: the network chosen on this page (this device's alone). text: what was read (kept only in memory, and in this
 // browser if Keep is pressed); report: what reading it found; model: its { P, S } (PNET.fromRows); kept: the name of the
 // one kept in this browser (null none, undefined not looked yet); busy: what is being done, in words
-const OWNN = { name: '', text: null, report: null, model: null, kept: undefined, busy: '', err: '', lookup: undefined };
+const OWNN = { name: '', text: null, report: null, model: null, kept: undefined, busy: '', err: '', lookup: undefined, gen: 0 };
 const OWN_FORMAT = 'One pair a line: two identifiers (gene symbols such as TP53, UniProt accessions such as P04637, NCBI gene numbers or Ensembl gene ids), then if you like a score (a number) and a kind (a word). Tabs, commas or spaces between them; a first line of column names is skipped; lines starting with # are comments. Human proteins only.';
 const OWN_PRIVATE = 'Only the pairs, scores and kinds are read: no other data, and never patient or variant data. Your network stays in this browser: it is not sent anywhere unless you press Share with this room or Put on the relay, and it is kept only if you press Keep.';
 const OWN_ROOM = 'In a shared room your network is this device\'s alone until you share it: the others keep seeing the room\'s network, and what you change here is not shared until you go back to it.';
@@ -74,15 +74,18 @@ async function ownLookup() {
   return OWNN.lookup;
 }
 // a network's text read, mapped and shown (name: its file's name)
+// (gen: a file chosen while another is still being read wins; the older one's late result is dropped)
 async function chooseText(text, name) {
   if (LOAD.gone) return;
+  const g = ++OWNN.gen;
   OWNN.busy = 'Reading…'; OWNN.err = ''; renderAll();
   await new Promise(r => setTimeout(r, 30));   // (the words above shown before the work)
+  if (g !== OWNN.gen || LOAD.gone) return;
   const R = PNET.parse(text);
   if (R.error) { OWNN.busy = ''; OWNN.err = R.error; renderAll(); return; }
   OWNN.busy = 'Mapping the proteins…'; renderAll();
   const LK = await ownLookup();
-  if (LOAD.gone) return;
+  if (g !== OWNN.gen || LOAD.gone) return;
   const { model, report } = PNET.fromRows(R, LK, name);
   OWNN.busy = ''; OWNN.report = report;
   if (!model) { OWNN.err = 'None of these pairs has both its proteins in the map or the lookup.'; renderAll(); return; }
@@ -200,7 +203,7 @@ function reportLines() {
 // gen: a newer wish drops an older one), why it could not be had (err), the room's state kept meanwhile (pend), and the
 // relay as this device sees it (relay: base, token, nets: whether it keeps them, why not) and its list of networks
 const NET_ID = /^[a-z2-7]{12}$/;
-const SNET = { id: '', name: '', model: null, busy: '', err: '', pend: null, gen: 0, put: '', putErr: '', link: '',
+const SNET = { id: '', name: '', model: null, busy: '', err: '', pend: null, gen: 0, put: '', putErr: '', link: '', ask: '', retry: null,
   relay: { at: -1e9, busy: null, base: '', token: '', nets: false, why: '', max: 12 << 20 }, list: null, listAt: -1e9, listBusy: null };
 const NET_SAY = {
   room: 'Sharing a network needs a relay: this room runs peer to peer or on this device alone.',
@@ -214,6 +217,42 @@ const NET_GET = { room: 'this room runs peer to peer or on this device alone', n
   auth: 'the relay wants its password, under Shared', away: 'the relay did not answer' };
 // the size a shared network may have, in words (measured: SPEC.md, "Stage 3")
 const NET_SIZE = 'Up to 250,000 links (12 MB as sent) can be shared. Each device fetches and builds it: the built-in map\'s size (141,296 links, 1.9 MB) takes a few seconds on a laptop.';
+// a fetch that gives up after ms (an AbortController and a timer: a relay that takes the call and never answers must not
+// leave the panes busy for ever); the timer runs until the body is read (body: true) and dispose() clears every one
+const NET_TIMERS = new Set(), NET_SLOW = 'the relay did not answer';
+async function netFetch(url, opts, ms, body) {
+  const ac = typeof AbortController === 'function' ? new AbortController() : null;
+  let t = 0;
+  const gone = new Promise((ok, no) => { t = setTimeout(() => { NET_TIMERS.delete(t); try { if (ac) ac.abort(); } catch (e) { /* none */ } no(new Error(NET_SLOW)); }, ms); NET_TIMERS.add(t); });
+  gone.catch(() => {});
+  try {
+    const r = await Promise.race([fetch(url, Object.assign({}, opts, ac ? { signal: ac.signal } : {})), gone]);
+    if (!body) return { r };
+    let j = null;
+    try { j = await Promise.race([r.json(), gone]); } catch (e) { if (e && e.message === NET_SLOW) throw e; }
+    return { r, j };
+  } catch (e) { throw new Error(e && e.message === NET_SLOW || (e && e.name === 'AbortError') ? NET_SLOW : 'the relay could not be reached'); }
+  finally { clearTimeout(t); NET_TIMERS.delete(t); }
+}
+// p, or null after ms (the shell's relayFind may ask a relay itself)
+function netWithin(p, ms) {
+  let t = 0;
+  return Promise.race([p, new Promise(ok => { t = setTimeout(() => { NET_TIMERS.delete(t); ok(null); }, ms); NET_TIMERS.add(t); })]).finally(() => { clearTimeout(t); NET_TIMERS.delete(t); });
+}
+function netStop() { for (const t of NET_TIMERS) clearTimeout(t); NET_TIMERS.clear(); }
+// the networks this browser put on a relay (per relay origin, in localStorage, guarded; an id is not private): only they
+// get *Remove from the relay* here
+const NET_MINE = 'ppicellNetsPut';
+function netMine(base, id, add) {
+  let all = {};
+  try { all = JSON.parse(localStorage.getItem(NET_MINE) || '{}') || {}; } catch (e) { all = {}; }
+  let o = ''; try { o = new URL(base).origin; } catch (e) { return false; }
+  const ids = Array.isArray(all[o]) ? all[o].filter(x => NET_ID.test(x)) : [];
+  if (add === undefined) return ids.includes(id);
+  all[o] = (add ? ids.filter(x => x !== id).concat(id) : ids.filter(x => x !== id)).slice(-100);
+  try { localStorage.setItem(NET_MINE, JSON.stringify(all)); } catch (e) { /* a private window */ }
+  return add;
+}
 const relayHost = () => { try { return new URL(SNET.relay.base).host; } catch (e) { return 'the relay'; } };
 // the relay this device would share through (HOST.collab.relayFind: the one it knows or is served by, with its password
 // as a header, never in an address), and whether it keeps shared networks (/api/ping's nets); asked every 30 s at most
@@ -224,26 +263,24 @@ function netRelay(again) {
   R.busy = (async () => {
     if (inRoom() && HOST.collab.via !== 'relay') { Object.assign(R, { base: '', nets: false, why: 'room' }); return null; }
     let f = null;
-    try { f = HOST.collab && HOST.collab.relayFind ? await HOST.collab.relayFind() : null; } catch (e) { f = null; }
+    try { f = HOST.collab && HOST.collab.relayFind ? await netWithin(HOST.collab.relayFind(), 15000) : null; } catch (e) { f = null; }
     if (!f || !f.base) { Object.assign(R, { base: '', nets: false, why: 'none' }); return null; }
     Object.assign(R, { base: String(f.base).replace(/\/+$/, ''), token: f.token || '' });
     try {
-      const r = await fetch(R.base + '/api/ping', { cache: 'no-store', headers: R.token ? { Authorization: 'Bearer ' + R.token } : {} });
-      const j = r.ok ? await r.json() : null;
-      Object.assign(R, { nets: !!(j && j.nets), why: r.status === 401 ? 'auth' : j && j.nets ? '' : r.ok ? 'off' : 'away' });
+      const { r, j } = await netFetch(R.base + '/api/ping', { cache: 'no-store', headers: R.token ? { Authorization: 'Bearer ' + R.token } : {} }, 10000, true);
+      Object.assign(R, { nets: !!(r.ok && j && j.nets), why: r.status === 401 ? 'auth' : r.ok && j && j.nets ? '' : r.ok ? 'off' : 'away' });
     } catch (e) { Object.assign(R, { nets: false, why: 'away' }); }
     return R.nets ? R : null;
   })().finally(() => { R.at = performance.now(); R.busy = null; if (!LOAD.gone) renderAll(); });
   return R.busy;
 }
-// a call to that relay: the password as a header, what it answered told to the shell (a 401 brings up its prompts)
+// a call to that relay: the password as a header, what it answered told to the shell (a 401 brings up its prompts); given
+// up after 20 s, longer for a large body (a second for every 100 kB more, sending or fetching: o.big), at most 3 minutes
 async function netCall(path, o = {}) {
   const R = SNET.relay, headers = Object.assign({}, o.headers || {});
   if (R.token) headers.Authorization = 'Bearer ' + R.token;
-  let r;
-  try { r = await fetch(R.base + path, { method: o.method || 'GET', headers, body: o.body, cache: 'no-store' }); } catch (e) { throw new Error('the relay could not be reached'); }
-  let j = null;
-  try { j = await r.json(); } catch (e) { /* not JSON */ }
+  const ms = Math.min(180000, 20000 + Math.max(o.body ? o.body.length : 0, o.big || 0) / 100);
+  const { r, j } = await netFetch(R.base + path, { method: o.method || 'GET', headers, body: o.body, cache: 'no-store' }, ms, true);
   try { if (HOST.collab && HOST.collab.relaySaw) HOST.collab.relaySaw(R.base, r.status, R.token, r.ok ? null : j); } catch (e) { /* an older shell */ }
   if (!r.ok) throw Object.assign(new Error(r.status === 401 ? 'the relay wants its password (under Shared)' : r.status === 404 && j && /keeps no shared/.test(j.error || '') ? 'this relay keeps no shared networks' : r.status === 404 ? 'it is not on the relay (removed?)' : (j && j.error) || 'HTTP ' + r.status), { status: r.status });
   return j;
@@ -278,7 +315,7 @@ function netLoad(id, v, doc) {
   SNET.busy = 'Fetching the shared network from the relay…'; renderAll();
   (async () => {
     let d = doc;
-    if (!d) { if (!(await netRelay(true))) throw new Error(NET_GET[SNET.relay.why] || NET_GET.none); d = await netCall('/api/nets/' + id); }
+    if (!d) { if (!(await netRelay(true))) throw new Error(NET_GET[SNET.relay.why] || NET_GET.none); d = await netCall('/api/nets/' + id, { big: SNET.relay.max }); }
     if (g !== SNET.gen || LOAD.gone) return;
     const bad = PNET.docError(d);
     if (bad) throw new Error('what the relay gave is not a network (' + bad + ')');
@@ -345,7 +382,7 @@ function netOpen(id, ui) {
 // this press: the pairs, scores and kinds as read, nothing else
 async function netShare() {
   if (!OWNN.model || X.own !== 1 || SNET.put) return;
-  SNET.put = 'Putting it on the relay…'; SNET.putErr = ''; renderAll();
+  SNET.put = 'Putting it on the relay…'; SNET.putErr = ''; SNET.retry = null; SNET.ask = ''; renderAll();
   try {
     if (!(await netRelay(true))) throw new Error(NET_SAY[SNET.relay.why] || NET_SAY.none);
     const doc = PNET.toDoc(OWNN.model, OWNN.name), body = JSON.stringify(doc);
@@ -353,6 +390,7 @@ async function netShare() {
     const j = await netCall('/api/nets', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body });
     if (!j || !NET_ID.test(j.id)) throw new Error('the relay gave no id');
     if (LOAD.gone) return;
+    if (!j.again) netMine(SNET.relay.base, j.id, true);   // (the same network put by someone else stays theirs to remove)
     SNET.link = location.href.split('#')[0] + `#${KEY}&explore&tab=net&net=${j.id}`;
     // (the station now shows it, built again from what the relay keeps, with the limits, picks and switches as they are here)
     const v = Object.assign(stateNow(), { net: j.id });
@@ -360,16 +398,25 @@ async function netShare() {
     netLoad(j.id, v, doc);
     SNET.listAt = -1e9;
     sfxAct('clink', 'cell', 'centre');
-  } catch (e) { SNET.putErr = 'Not shared: ' + String(e && e.message || e) + '.'; }
+  } catch (e) { SNET.putErr = 'Not shared: ' + String(e && e.message || e) + '.'; SNET.retry = () => netShare(); }
   SNET.put = ''; pushState(); renderAll();
 }
-// the shared network on show removed from the relay (and the station back to the built-in network)
-async function netRemove() {
+// the shared network on show removed from the relay (and the station back to the built-in network): offered only on the
+// device that put it there, and asked once first (sure: the second press), since it goes for everyone who uses it
+async function netRemove(sure) {
   const id = X.net;
   if (!id || SNET.put) return;
+  if (!sure) { SNET.ask = id; SNET.putErr = ''; renderAll(); return; }
+  SNET.ask = ''; SNET.retry = null;
   SNET.put = 'Removing it from the relay…'; SNET.putErr = ''; renderAll();
-  try { await netCall(`/api/nets/${id}/delete`, { method: 'POST' }); if (!LOAD.gone && X.net === id) { SNET.link = ''; netBack(true); } }
-  catch (e) { SNET.putErr = 'Not removed: ' + String(e && e.message || e) + '.'; }
+  try {
+    await netCall(`/api/nets/${id}/delete`, { method: 'POST' });
+    netMine(SNET.relay.base, id, false);
+    if (!LOAD.gone && X.net === id) { SNET.link = ''; netBack(true); }
+  } catch (e) {
+    if (e && e.status === 404) netMine(SNET.relay.base, id, false);
+    SNET.putErr = 'Not removed: ' + String(e && e.message || e) + '.'; if (!(e && e.status === 404)) SNET.retry = () => netRemove(true);
+  }
   SNET.put = ''; SNET.listAt = -1e9; renderAll();
 }
 // the shared part's words: what is on show or on its way, what went wrong, and what sharing would do (both panes)
@@ -380,6 +427,8 @@ function shareLines() {
   if (X.own === 2) out.push(`Shared on ${relayHost()}${SNET.model ? `: ${fmt(SNET.model.P.N)} proteins, ${fmt(SNET.model.P.E)} links` : ''}. ${inRoom() ? 'Everyone at this station sees it; anyone who can open this relay\'s rooms can read it' : 'Anyone who can open this relay\'s rooms, or has the link, can read it'} until it is removed.`);
   if (SNET.put) out.push(SNET.put);
   if (SNET.putErr) out.push(SNET.putErr);
+  if (SNET.ask && SNET.ask === X.net && !SNET.put) out.push(`Remove ${SNET.name || 'this network'} from ${relayHost()}? It goes for everyone who uses it: this station and any other room or link that shows it, including rooms that shared the same list. It cannot be undone here.`);
+  if (X.net && !SNET.relay.nets && SNET.relay.why === 'away' && !SNET.err) out.push(NET_SAY.away);
   if (X.own === 1 && OWNN.model) {
     if (R.nets) out.push(inRoom() ? `Share with this room puts the pairs, scores and kinds of ${OWNN.name || 'your network'} (nothing else) on this room's relay, ${relayHost()}, and shows it at this station: everyone there sees it, and anyone who can open this relay's rooms can read it until it is removed.`
       : `Put on the relay puts the pairs, scores and kinds of ${OWNN.name || 'your network'} (nothing else) on ${relayHost()}: anyone who can open this relay's rooms, or who has the link, can read it until it is removed.`);
@@ -392,8 +441,12 @@ function shareLines() {
 function shareButtons() {
   const b = [];
   if (X.own === 1 && OWNN.model && SNET.relay.nets && !SNET.put) b.push({ id: 'net:share', label: inRoom() ? 'Share with this room' : 'Put on the relay', on: false, fn: () => netShare() });
-  if (X.net && !SNET.put && SNET.relay.nets) b.push({ id: 'net:remove', label: 'Remove from the relay', on: false, fn: () => netRemove() });
+  const mine = X.net && !SNET.put && SNET.relay.nets && netMine(SNET.relay.base, X.net);
+  if (mine && SNET.ask === X.net) b.push({ id: 'net:remove:yes', label: 'Yes, remove it for everyone', on: false, fn: () => netRemove(true) }, { id: 'net:remove:no', label: 'Keep it', on: false, fn: () => { SNET.ask = ''; renderAll(); } });
+  else if (mine) b.push({ id: 'net:remove', label: 'Remove from the relay', on: false, fn: () => netRemove() });
   if (X.net && SNET.err) b.push({ id: 'net:retry', label: 'Try again', on: false, fn: () => netLoad(X.net, SNET.pend) });
+  else if (SNET.putErr && SNET.retry && !SNET.put) b.push({ id: 'net:again', label: 'Try again', on: false, fn: () => { const f = SNET.retry; SNET.retry = null; SNET.putErr = ''; f(); } });
+  else if (!SNET.relay.nets && SNET.relay.why === 'away' && !SNET.relay.busy && (X.net || (X.own === 1 && OWNN.model))) b.push({ id: 'net:ping', label: 'Try again', on: false, fn: () => { netRelay(true); netList(true); } });
   return b;
 }
 // the relay's networks to open (both panes): newest first, by name and size; the one on show marked

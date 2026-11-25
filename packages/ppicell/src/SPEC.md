@@ -460,6 +460,17 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   found, bad forms, the map itself); `node tools/collab.mjs --net` (two pages and a late joiner at a station: the
   built-in network's limits, switch and pick, the example shared and followed, limits and a pick both ways, no echo, the
   headset's tab drawn, back to the built-in network, the address, Remove; and a relay with `--no-nets`).
+- **After the review (v209)**: the score pattern was quadratic (`RE.num`; 80,000 digits took 10.7 s): now linear, and a
+  line over 4,000 characters, an identifier over 64 or a score or kind over 100 is a bad line by its number before any
+  pattern runs (a 1 MB field refused in milliseconds; `test-pnet.mjs`). *Remove from the relay* only in the browser that
+  put the network there (`netMine`, per relay origin in `localStorage` `ppicellNetsPut`), its sentence saying that it goes
+  for everyone who uses it, other rooms too, and asked once (*Yes, remove it for everyone* / *Keep it*, both panes).
+  Every call to the relay gives up (`netFetch`, an `AbortController` and a timer that `dispose()` clears: the ping 10 s,
+  a call 20 s plus a second for every 100 kB of its body or of the network fetched, at most 3 minutes; the shell's
+  `relayFind` 15 s) with *The relay did not answer* and *Try again*, the busy states cleared on every path. A file chosen
+  while another is still read wins (`OWNN.gen`). The relay: the rate token taken before the body (back only for
+  `again`), puts one at a time with a cap on the store's total (`--nets-max`, 512 MB), and removals that never leave a
+  listed network without its data.
 
 ## Sides: the owner's decisions after stage A (25 November 2026)
 
