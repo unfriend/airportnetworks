@@ -53,6 +53,31 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+- **25 November 2026: `dev` is networks-v211 (FORMAT networks-59), `main` is still networks-v135 (FORMAT networks-41).**
+  The entries below stop at v180; v181 to v199 are in `docs/history.md` and `whatsnew/`, and v200 to v211 (one session,
+  25 November) are these: the tracker guide (`examples/tracker-guide`, the Experiments set's link cards), a studio
+  character worn with any mix of devices tied by nearness (`rig: 'any'`), the mirror robot, the owner's headset notes
+  (sharp text in VR, the cards' corners, *Later* first, a smooth turn; the studio tour's tables and floor, the goggles'
+  grip throttles and game screen), and Back into the cell with membrane sides, complexes, a new chapter, the Network
+  tab's live limits, a network of your own (pairs or wwiznet's files), sharing through the relay (`relay/nets.mjs`) and
+  the export for wwiznet. None of it has been tried on a headset, with trackers or on the owner's relays.
+  - *Open with the owner before `main` moves*:
+    1. the whole release run (smoke, relay, collab, update, live, sound): none of v136 to v211 has had it since v135's,
+       beyond each builder's own blocks; the studio smoke block holds a stick check edited at v202 and not run;
+    2. the terms of the EBI Complex Portal and the Human Protein Atlas (complex memberships in `packages/ppicell/src/sets/sides.js`,
+       places in `data.js` and `data/lookup.json`): "we will confirm the terms later" (`docs/data-and-permissions.md`);
+    3. the goggles' flight status sent to the room (the ephemeral effect `gog`, v203: counts and protein names, no pose),
+       which changed the rule that the goggles send nothing: built without asking, to keep or to remove;
+    4. the knee trackers' place in the tracker guide (on the thigh just above the knee: an assumption, `KNEE` in
+       `tools/studio/tracker-guide/parts.js`); the other places are the owner's;
+    5. the new recordings are unheard (Back into the cell, 15:08, the longest story: trim if too long; JAK2 is spelt out
+       and BiP read "bye pee"); the old one is kept as `packages/ppicell/src/narration-v204-old.mp3` until then;
+    6. every device in a room must be on one release (FORMAT went 55 to 59), and the main relay gets the shared networks'
+       store only when `main` moves;
+    7. waiting on the owner's word: a structure for every node of the CDK5 story's small subnetworks
+       (`packages/cdk5/src/SPEC.md`), and terms from gene-set libraries in Back into the cell
+       (`packages/ppicell/src/SPEC.md`, "Terms from gene-set libraries").
+
 - **At the handover (13 November 2026, brought up to date on 20 November): where each branch is and what comes next.**
   - *The branches.* `dev` is networks-v180 (FORMAT networks-55, shell 178; the v180 to v140 entries below; v139 and v136
     to v138 before them, also on `dev` only), for the owner to try before `main` moves. `main` is networks-v135 (FORMAT

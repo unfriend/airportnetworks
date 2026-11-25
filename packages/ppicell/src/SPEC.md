@@ -636,3 +636,25 @@ Nothing of it is in the repository.
   picked by hand, two bad headers, an over-long line, and the round trip of `src/data/wiz-fixture.mjs` through the
   export (with and without nodes.tsv: the same pairs and verdicts, the ties left out). Headless: the page took the
   fixture's three files at once, named the proteins by the ids, then by `protein_id_c` when picked; no console errors.
+
+## Terms from gene-set libraries (idea; the owner's question, 25 November 2026)
+
+- **The question** (the owner): "we could also use https://github.com/menchelab/enrichr to enrich with some GO terms,
+  Reactome pathways etc, would that help our spatial networks?" The repository's script annotates each gene with the
+  terms it belongs to (`<library>_a` columns, wwiznet's convention); it does not test for enrichment by itself.
+- **Done so far**: only outside the app, with the wwiznet export ("Export for wwiznet"; the README's wrapper for the
+  per-place export). Coverage of the 9,905 placed proteins: GO Biological Process 83.6 %, GO Cellular Component 70.7 %,
+  GO Molecular Function 64.7 %, Reactome 66.0 %, KEGG 48.5 %, Orphanet 88.6 %, Human Phenotype Ontology 18.9 %.
+- **What it could add to the story and explore mode** (not decided, not built):
+  1. *Names for the communities*: test each community in a place against Reactome and GO Biological Process and label
+     it ("mRNA splicing", "vesicle coat"). The clearest gain.
+  2. *A second opinion on places*: GO Cellular Component is finer than the Atlas (ER lumen, the mitochondrial inner
+     membrane, the cytosolic side of a membrane); it could place some of the 3,555 proteins without one and flag cases
+     such as BiP. Not independent: part of GO's location evidence is the Atlas's own, and UniProt's locations, used for
+     the sides, overlap it heavily. Say so wherever it is shown.
+  3. *Sorting the impossible links*: an impossible link whose two proteins share a Reactome pathway points to a wrong
+     place rather than a wrong link; the red remainder would split into "probably a place" and "still unexplained".
+- **Limits**: KEGG's terms restrict redistribution: never ship it in the app. The disease libraries (HPO, Orphanet) are
+  gene-level, not patient data, but stay out of the app and are left to wwiznet. The library files state no licence:
+  each source's terms to confirm before anything of them is shipped.
+

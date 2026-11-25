@@ -28,6 +28,15 @@ session and every agent and workflow it starts avoid them, and every agent promp
   that Auto mode refused it as an unwanted action when nobody had asked). A note that is only discussed, or whose fix
   is not pushed, stays new. Sub-agents still leave notes alone: the main conversation marks them.
 
+- The synthetic voice is rendered in the cloud session too (the owner, 25 November 2026: "you can do that on your
+  machine, did it before"): a fresh cloud machine has no Kokoro, but `tools/voice/README.md`'s "Setup (once)" takes a few
+  minutes there (`~/kokoro`, outside the repository; it goes with the machine). Never hand a render to the owner because
+  the tool "is not here"; set it up, render, and report the recording as unheard.
+- Builders started with the Agent tool cannot start agents of their own, so "run one Sonnet review" inside a builder's
+  prompt does not happen: the main conversation starts the review itself when the builder reports, then one fix round.
+- While a builder is still running, its uncommitted files are its own work in progress: do not commit them because the
+  stop hook asks (say that they are a running builder's). Two agents in one checkout: each commits its own files by
+  explicit path, and only one of them touches `sw.js`, `version.json`, `whatsnew.json` and `index.html`.
 - A cloud session starts with the checkout brought up to date by `.claude/hooks/session-start.sh` (its line *Checkout
   (session-start hook): ...* comes first). If it says behind, diverged or could not fetch, merge GitHub's branch before
   working, as the line says (`git fetch origin <branch> && git merge origin/<branch>`, the branch it names; no rebase,
