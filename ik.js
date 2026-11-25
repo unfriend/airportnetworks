@@ -24,11 +24,14 @@
 //                       out ('far'); of two nearest one part within TWICE (0.1) of each other only the nearer tied ('twice',
 //                       a controller and a wrist tracker) -> { ok, why (nothing seen, nothing near, nothing at the head or
 //                       hips), map, d: { slot: m }, out: [{ id, why, slot, by }], at: { slot: [x, y, z] } }; o.posed (v204):
-//                       against the character as it is posed now instead of its T-pose (the studio's mirror)
+//                       against the character as it is posed now instead of its T-pose (the studio's mirror); o.base
+//                       (v206): the height its own base stands at (its holder's, on a platform), else the floor: the
+//                       character is matched as if it stood on the floor, as the performer does (lift below)
 //   fit(rig, targets, o)     (v201) no headset: the size and the move along the floor that put the character where the
 //                       performer stands (the highest device tried as its eyes, chest and hips; settled by the parts' mean
 //                       miss; sized at the end as calibrate sizes 'any'), then match there -> match's, and k (times its
-//                       size now, about o.origin) and t ([x, 0, z])
+//                       size now, about o.origin) and t ([x, 0, z]); o.base as match's (sized by the performer's
+//                       height over the floor and its own over its base: on a platform the size it has on the floor)
 //   assign(rig, targets, setup, o)   (before v201; kept, unused by the studio) which target is which part, from a T-pose facing the character's way (targets
 //                       { id: pose }): the highest the head, the lowest two the feet, the two furthest out the hands, left
 //                       and right by the character's facing, then the hips, chest, elbows and knees nearest where they
@@ -39,7 +42,8 @@
 //                       as the headset; 'any' by the hips when tracked, else the head as the eyes; o.scale false keeps its
 //                       size), and each part's offset from its target's pose to
 //                       its bone's world pose at rest with the character scaled by s about its origin (o.floor: the
-//                       floor's height, else the origin's) -> { ok, v, setup, s, floor, map, cal: { slot: [x, y, z, qx,
+//                       floor's height, else the origin's; o.base as match's: sized and offset as if it stood on the
+//                       floor) -> { ok, v, setup, s, floor, map, cal: { slot: [x, y, z, qx,
 //                       qy, qz, qw] } } (plain JSON, for a shared record), or { ok: false, why }. The caller then scales
 //                       the character by s (its holder about its origin) before solving
 //   solve(rig, cal, targets, dt, state)   the bones for this frame: the hips placed and turned (from their tracker, else
@@ -256,6 +260,9 @@ function makeIK(THREE) {
   // the devices given (sorted by id, so the order they come in never matters)
   const pointsOf = targets => Object.keys(targets || {}).sort().map(id => ({ id, p: (poseOf(targets[id], newPose()) || {}).p })).filter(x => x.p);
   // the parts' points at rest where the character stands (the head's at its eyes, where a headset is worn), relative to C
+  // (v206) how far the character's own base stands over the floor (o.base: its holder's height; a platform): the performer
+  // stands on the floor, so the character is sized, matched and offset as if lowered by this much (0 without o.base)
+  const lift = (o, floor) => (fin(o.base) ? o.base - floor : 0);
   function slotRest(rig, C) {
     const F = frameOf(rig), out = {}, P = newPose();
     for (const sl of SLOTS) {
@@ -345,7 +352,7 @@ function makeIK(THREE) {
     if (!rig || !rig.ok) return { ok: false, map: {}, d: {}, out: [], why: (rig && rig.why) || 'Not a rig.' };
     rig.root.updateWorldMatrix(true, false);
     const C = rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : C.y, pts = pointsOf(targets);
-    const P = o.posed ? slotsPosed(rig) : slotsAt(slotRest(rig, C), C, 1, V()), H = P.head.y - floor;
+    const P = o.posed ? slotsPosed(rig) : slotsAt(slotRest(rig, C), V().set(0, -lift(o, floor), 0).add(C), 1, V()), H = P.head.y - floor;
     if (!(H > 0.05)) return { ok: false, map: {}, d: {}, out: [], why: 'The character\'s eyes are not above the floor: stand it on the floor.' };
     return judged(matchAt(pts, P, H), pts, P);
   }
@@ -364,7 +371,9 @@ function makeIK(THREE) {
     rig.root.updateWorldMatrix(true, false);
     const C = o.origin ? V().copy(o.origin) : rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : C.y, pts = pointsOf(targets);
     if (!pts.length) return { ok: false, map: {}, d: {}, out: [], why: 'Nothing is seen: no tracker, headset or controller.' };
-    const R0 = slotRest(rig, C), eye0 = R0.head.y, base = C.y - floor;
+    const R0 = slotRest(rig, C), eye0 = R0.head.y;
+    C.y -= lift(o, floor);   // (on a platform: sized and moved as if it stood on the floor, as the performer does)
+    const base = C.y - floor;
     if (!(eye0 > 1e-3) || !(R0.hips.y > 1e-3)) return { ok: false, map: {}, d: {}, out: [], why: 'The character\'s eyes are not above its origin: stand it on the floor.' };
     const top = pts.reduce((a, b) => (b.p.y > a.p.y ? b : a));
     const settle = (k, t) => {
@@ -411,11 +420,11 @@ function makeIK(THREE) {
     if (setup === 'any' && !got.head && !got.hips) return { ok: false, why: 'Nothing tracks the head or the hips: wear the headset, or a tracker on the head or on a belt.' };
     const F = frameOf(rig);
     rig.root.updateWorldMatrix(true, false);
-    const R0 = rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : R0.y;
+    const R0 = rig.root.getWorldPosition(V()), floor = fin(o.floor) ? o.floor : R0.y, up = lift(o, floor), R0f = V().set(0, -up, 0).add(R0);
     let k = 1;
     if (o.scale !== false) {
       const full = setup === 'full' || (setup === 'any' && !!got.hips), have = (full ? got.hips : got.head).p.y - floor;
-      const mine = (full ? restAt(rig, F, rig.rp.hips, rig.rq.hips, newPose()) : restAt(rig, F, rig.eye, rig.rq.head, newPose())).p.y - floor;
+      const mine = (full ? restAt(rig, F, rig.rp.hips, rig.rq.hips, newPose()) : restAt(rig, F, rig.eye, rig.rq.head, newPose())).p.y - up - floor;
       // (a person's hips stand 0.4 to 1.5 m over the floor and their eyes 0.6 to 2.3 m, kneeling to tall; the character may
       // be any size)
       if (!(full ? have >= 0.4 && have <= 1.5 : have >= 0.6 && have <= 2.3)) {
@@ -428,7 +437,7 @@ function makeIK(THREE) {
     for (const sl in use) {
       const b = SLOT_BONE[sl] === 'chest' ? rig.chest : SLOT_BONE[sl], t = got[sl];
       restAt(rig, F, rig.rp[b], rig.rq[b], W);
-      W.p.sub(R0).multiplyScalar(k).add(R0);
+      W.p.sub(R0).multiplyScalar(k).add(R0f);
       iq.copy(t.q).invert();
       off.p.copy(W.p).sub(t.p).applyQuaternion(iq);
       off.q.copy(iq).multiply(W.q).normalize();

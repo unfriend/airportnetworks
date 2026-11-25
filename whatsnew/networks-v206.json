@@ -1,0 +1,20 @@
+{
+  "version": "networks-v206",
+  "date": "2026-11-25",
+  "new": [
+    "Worn with trackers: a character standing on a platform lines up at the size it has on the floor (sized by its eyes over its own base).",
+    "Line up again, these parts: a PC headset or controller chosen by hand for a part is kept, and a part whose device is not seen is named on the card.",
+    "Lining up ends cleanly if the character or its record goes meanwhile (Undo, another device): its place and size come back.",
+    "When nothing is near its head or hips, the card says so and how to fix it, Take these off.",
+    "Still untried from v205 to v200: Back into the cell's sides and complexes, the mirror robot, the tour's tables, sharp VR text, any mix of devices."
+  ],
+  "test": [
+    "With the PC's trackers: stand a character on a box or platform, Line up with the performer (with and without a headset): is it your size, and does it move with you once taken?",
+    "Choose the Index's controller for a hand, set the Headset row to This headset, then Line up again, these parts: is the hand kept?",
+    "v205: Back into the cell's Walls and Machines. v204: the mirror robot. v203: the tour's tables. v202: sharp VR text. v201 and v200: worn with a few mixes."
+  ],
+  "untested": [
+    "Everything worn with real trackers and headsets, the platform case among them (checked only in Node and the page's tests).",
+    "v205's new voice (not recorded) and rings in a headset; v204's mirror; v203's throttles; v202's sharp text; v201 and v200 with real trackers."
+  ]
+}

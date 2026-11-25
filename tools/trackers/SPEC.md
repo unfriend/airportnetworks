@@ -265,6 +265,15 @@ What the shell does with it:
   device or none; *Take these* takes the offsets, its place and size: one change, one Undo step. Records of `'full'` and
   `'feet'` keep working unchanged; lining one up again makes it `'any'`. No room key or `state()` changed shape (the
   record's `rig` takes one more value): no `FORMAT` bump.
+  Since v206: a character standing on a platform (its holder above the scene's floor) is sized by its eyes over its own
+  base, so it has the size it has on the floor (the headset's height over the floor, or `fit`'s, over its eye height
+  over its base; `o.base`), and matched and offset as if it stood on the floor where the performer stands (the lines
+  drawn up to it as it stands); the mirror sizes it the same way. If the item or its record goes while lining up (Undo,
+  another device), the lining up ends and its place and size are put back. *Line up again, these parts* keeps a PC
+  headset or controller chosen by hand for a part whatever the *Headset* row says, and names on the card each part whose
+  device is not seen now (worked out unless another is chosen). A `fit` that sizes and moves it but finds nothing near its
+  head or hips shows the card all the same, red with the reason, *Take these* off, until a device is chosen for one of
+  them.
 - *Line up with the performer* before v201 (records of `'full'` and `'feet'`): the performer stands in a T-pose (Mixamo's rest pose) facing
   the character's way; a 5 s countdown, then the trackers (and in the lighter setups the headset and controllers) are
   given their parts (automatically from the T-pose: highest
@@ -356,7 +365,9 @@ or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
   wins (the distances, `LIMIT` for each device left out, and a nudge towards eyes 1.6 m up: three trackers on the hips and
   feet fit as hips, not as a small head). Then sized as `calibrate` sizes `'any'` (the hips' tracker as high as its hips,
   else the head's at its eyes), moved again and matched. Returns `k` (its size, times its size now, about `o.origin`) and
-  `t` (the move). In the test a performer 1.08 times the size, 1.2 m away: every tracker tied, moved within 3 cm, sized
+  `t` (the move). `o.base` (v206, as `match`'s and `calibrate`'s): the height the character's own base stands at (its
+  holder's); it is sized by the devices' height over the floor and its own over its base, and matched as if lowered onto
+  the floor; without it the base is the floor (as before). In the test a performer 1.08 times the size, 1.2 m away: every tracker tied, moved within 3 cm, sized
   within 1 %; arms 30 degrees down, elbows bent and turned 10 degrees: still every tracker tied (the largest distance 32
   cm).
 - `calibrate(rig, targets, map, setup, o)`: the performer stands in the character in a T-pose (the character's bones
@@ -365,7 +376,8 @@ or scene coordinates into it. A pose is `{ p: [x, y, z], q: [x, y, z, w] }`.
   plus 45 % of the way to the top of its head: `feet` and `head`); `o.scale` false keeps the size. Each worn slot's
   offset `[x, y, z, qx, qy, qz, qw]` (metres to 0.1 mm, 5 decimals) to its bone at rest with the character scaled by `s`
   about its origin; the elbows and knees to the joint (the forearm's and shin's origin, rigid with either bone the
-  tracker is strapped to). Plain JSON: `map`, `cal` and `s` are the record's, and `floor` (the floor's height then, where
+  tracker is strapped to); with `o.base` (v206) sized and offset as if its base stood on the floor (without it, and for
+  every record lined up before, exactly as before: a record's offsets are solved as stored). Plain JSON: `map`, `cal` and `s` are the record's, and `floor` (the floor's height then, where
   `head` plants its feet) joins them. The caller scales the character by `s` before solving. Refused in words: a part not
   tracked, a hips tracker not 0.4 to 1.5 m up, a headset not 0.6 to 2.3 m up.
 - `'any'` (v201) in `calibrate` and `solve`: any slots; the head or the hips needed (else said in words). Each part from

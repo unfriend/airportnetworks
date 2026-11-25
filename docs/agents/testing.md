@@ -2417,7 +2417,9 @@ and feet, a headset and controllers, a headset with a belt and feet, two devices
 far off, nothing at the head or hips, nothing seen) and `'any'` (the same pose as `'full'`, `'feet'` and `'head'` number
 for number; hanging hands; the hips and feet alone; a headset, belt and feet; one foot's tracker; refused without head or
 hips); since v204 (69 checks) `match` with `posed` (the arms hanging: every device tied where the posed figure has it;
-against the T-pose the hands' too far); and since v164, for people's bodies, a headset alone on
+against the T-pose the hands' too far); since v206 (73 checks) a character on a platform 0.4 m up (`o.base`): `fit`
+sizes and moves it as on the floor, `match` ties the same parts and `calibrate` gives the same scale and offsets (and
+without `o.base` it is sized otherwise); and since v164, for people's bodies, a headset alone on
 this rig with straight legs at rest: the head bobbing 2.5 cm over its height at rest and swaying (no steps, both feet
 planted, none sliding: the old solver stepped 19 times), looking down 1 rad (the back upright, the hips under the head:
 before, 15 cm back and 32 degrees), and moving at 1.6 m/s (the feet glide, no steps; stepping again once slow); run it

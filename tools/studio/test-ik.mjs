@@ -422,6 +422,19 @@ function fitFrom(names, at, from) {
   const nh = IK.match(PR, targets(['lhand', 'rhand', 'lfoot', 'rfoot']), { floor: 0 });
   ok(!nh.ok && /head or its hips/.test(nh.why) && Object.keys(nh.map).length === 4, 'match: nothing near the head or hips refused in words (the hands and feet still shown)', shown(nh));
   ok(!IK.match(PR, {}, {}).ok && /Nothing is seen/.test(IK.match(PR, {}, {}).why) && /Nothing is seen/.test(IK.fit(PR, {}, {}).why), 'match and fit: nothing seen, said in words');
+  // (v206) a character on a platform 0.4 m up (o.base: its holder's height) lines up as it does on the floor: the same
+  // size and move (fit), the same parts (match) and the same offsets and scale (calibrate)
+  truthAt(0, perf);
+  const up = y => { PR.toRest(); placeRig(away, PR); PR.root.position.y = y; PR.root.updateMatrixWorld(true); };
+  up(0); const g0 = IK.fit(PR, targets(ELEVEN), { floor: 0 });
+  up(0.4); const g4 = IK.fit(PR, targets(ELEVEN), { floor: 0, base: 0.4 }), gOld = IK.fit(PR, targets(ELEVEN), { floor: 0 });
+  ok(g0.ok && g4.ok && g4.k === g0.k && g4.t.every((v, i) => Math.abs(v - g0.t[i]) < 1e-4) && tied(g4, ELEVEN), 'fit: a character 0.4 m up (o.base) sized and moved as on the floor', JSON.stringify([g0.k, g0.t, g4.k, g4.t, gOld.k]));
+  ok(!(Math.abs(gOld.k - g0.k) < 0.01), 'fit: without o.base the raised character is sized differently (the case o.base is for)', JSON.stringify([g0.k, gOld.k]));
+  truthAt(0); const c0 = (y, o) => { PR.toRest(); placeRig({}, PR); PR.root.position.y = y; PR.root.updateMatrixWorld(true); return [IK.match(PR, targets(ELEVEN), o), IK.calibrate(PR, targets(ELEVEN), mapOf(ELEVEN), 'any', o), IK.calibrate(PR, targets(ELEVEN), mapOf(ELEVEN), 'any', Object.assign({ scale: false }, o))]; };
+  const [m0, k0, n0] = c0(0, { floor: 0 }), [m4, k4, n4] = c0(0.4, { floor: 0, base: 0.4 });
+  const sameCal = (a, b) => a.ok && b.ok && Object.keys(a.cal).length === Object.keys(b.cal).length && Object.keys(a.cal).every(s => a.cal[s].every((v, i) => Math.abs(v - b.cal[s][i]) < 2e-4));
+  ok(tied(m4, ELEVEN) && JSON.stringify(m4.map) === JSON.stringify(m0.map), 'match: a character 0.4 m up (o.base) ties the same parts as on the floor', shown(m4));
+  ok(sameCal(k0, k4) && k0.s === k4.s && sameCal(n0, n4), 'calibrate: a character 0.4 m up (o.base) gets the same scale and offsets as on the floor', JSON.stringify([k0.s, k4.s]));
   placeRig({}, PR);
 }
 // ---- (v204) match against the pose as it stands (the studio's mirror, o.posed): the arms hanging 70 degrees down, a

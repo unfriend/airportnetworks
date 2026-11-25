@@ -206,7 +206,7 @@ function pupTick(pn) {
   if (sec !== PUP.sec) { PUP.sec = sec; dirty(); }
   if (L) {
     const it = STU.items.get(L.id);
-    if (!it || !it.rec.puppet) { PUP.line = null; pupLook(); }
+    if (!it || !it.rec.puppet) pupEnd(it);   // (gone, or worn no more: Undo, another device's edit; its place and size put back)
     else if (!editOn() || lockWhy(it)) { pupEnd(it); pupSay(it.id, !editOn() ? 'Editing is off: not lined up.' : `${it.rec.name} is locked in place: not lined up.`, 'red'); }
     else {
       pupShow(it, L);
@@ -244,7 +244,8 @@ function pupLineStart(it, keep) {
   const W = pupW(), D = pupDevices(P.by, W), hmd = pupHmd(P.by, D);
   const L = { id: it.id, phase: 'count', at: performance.now() + PUP_COUNT, keep: !!keep && !!P.map, head: !!hmd, p: it.rec.p.slice(), s: it.rec.s, p0: it.holder.position.clone(), s0: it.holder.scale.clone() };
   if (hmd) {
-    const h = D[hmd].p[1] - W.p.y, e = IK.restPose(rig, 'eye').p.y - W.p.y;
+    // (its eyes over its own base, the holder's height: on a platform the size it has on the floor, v206)
+    const h = D[hmd].p[1] - W.p.y, e = IK.restPose(rig, 'eye').p.y - pupBase(it);
     if (h < 0.6 || h > 2.3) { pupSay(it.id, `Stand up straight in the headset: it is ${h.toFixed(2)} m over the floor.`, 'red'); return; }
     if (e > 1e-3) L.s = +Math.min(1e4, Math.max(1e-4, it.rec.s * h / e)).toPrecision(4);
   }
@@ -252,6 +253,8 @@ function pupLineStart(it, keep) {
   pupShow(it, L);
   pupSay(it.id, '', 'muted');
 }
+// the height its own base stands at in the world (its holder's: a platform), for ik.js's o.base
+const pupBase = it => it.holder.getWorldPosition(new THREE.Vector3()).y;
 // (the character drawn where and as big as the lining up has it, not yet its record's)
 function pupShow(it, L) {
   const H = it.holder;
@@ -272,16 +275,30 @@ function pupCheck(it, L) {
   if (!rig || !rig.ok) return rig ? rig.why : 'Its model is not here yet.';
   pupRest(it); poseRest(it); pupShow(it, L);
   const W = pupW(), floor = W.p.y, T = pupDevices(P.by, W);
+  // ('Line up again, these parts': a headset or controller of the PC's chosen by hand for a part is kept, whatever the
+  // Headset row says; a part whose device is not seen now is named on the card, L.lost)
+  if (L.keep) {
+    for (const s of PUP_SLOTS) {
+      const id = P.map[s], x = id && !T[id] && !PUP_BODY.test(id) ? TRK.at.get(id) : null;
+      if (x && x.ok && x.p) T[id] = worldPose(_pp1.fromArray(x.p), _pq1.fromArray(x.q), W);
+    }
+    L.lost = PUP_SLOTS.filter(s => P.map[s] && !T[P.map[s]]).map(s => ({ s, id: P.map[s] }));
+  }
   if (!Object.keys(T).length) return 'Nothing is seen: no tracker here, and no headset (choose where a headset comes from).';
+  L.lift = pupBase(it) - floor;   // (on a platform: matched as if on the floor; the lines drawn up to it)
+  L.why = '';
   if (!L.head) {
-    const f = IK.fit(rig, T, { floor, origin: it.holder.getWorldPosition(new THREE.Vector3()) });
+    const f = IK.fit(rig, T, { floor, base: pupBase(it), origin: it.holder.getWorldPosition(new THREE.Vector3()) });
     if (!f.k) return f.why;
+    // (sized and moved, but nothing near its head or hips, or nothing near it at all: the card is shown all the same, red,
+    // Take these off, saying so; a device can be chosen for the head or the hips there)
+    if (!f.ok) L.why = f.why;
     const d = new THREE.Vector3().fromArray(f.t).applyQuaternion(W.q.clone().invert()).divideScalar(W.s.x);
     L.p = it.holder.position.clone().add(d).toArray().map(v => nz(r3(clamp(v, -1000, 1000))));
     L.s = +Math.min(1e4, Math.max(1e-4, L.s * f.k)).toPrecision(4);
     pupShow(it, L);
   }
-  const m = IK.match(rig, T, { floor });
+  const m = IK.match(rig, T, { floor, base: pupBase(it) });
   L.T = T; L.m = m; L.phase = 'check';
   L.map = {};
   if (L.keep) { for (const s of PUP_SLOTS) if (P.map[s] && T[P.map[s]]) L.map[s] = P.map[s]; } else Object.assign(L.map, m.map);
@@ -296,7 +313,7 @@ function pupTake(it) {
   if (!L || L.id !== it.id || L.phase !== 'check' || !P) return 'Nothing to take: line up first.';
   if (!rig || !rig.ok) return rig ? rig.why : 'Its model is not here yet.';
   pupRest(it); poseRest(it); pupShow(it, L);
-  const c = IK.calibrate(rig, L.T, L.map, 'any', { floor: pupW().p.y, scale: false });
+  const c = IK.calibrate(rig, L.T, L.map, 'any', { floor: pupW().p.y, base: pupBase(it), scale: false });
   pupEnd(it);
   if (!c.ok) return c.why;
   setRec(it.id, { p: L.p, s: L.s, puppet: Object.assign({}, P, { on: true, rig: 'any', map: c.map, cal: c.cal, s: L.s, floor: 0 }) });
@@ -327,7 +344,7 @@ function pupLook() {
       const s = slotOf(id), c = !s ? PUP_OUT : STU.pupSlot === s ? PUP_PICK : PUP_LINE;
       local(L.T[id].p, A);
       for (const ax of [[0.025, 0, 0], [0, 0.025, 0], [0, 0, 0.025]]) seg(Bv.copy(A).add(new THREE.Vector3(...ax)), new THREE.Vector3().copy(A).sub(new THREE.Vector3(...ax)), c);
-      if (s) seg(A, local(L.m.at[s], Bv), c);
+      if (s) seg(A, local([L.m.at[s][0], L.m.at[s][1] + (L.lift || 0), L.m.at[s][2]], Bv), c);
       if (!GL.pupTags[k]) { GL.pupTags[k] = LOOKS.tag(30); GL.edit.add(GL.pupTags[k]); }
       const t = GL.pupTags[k++];
       t.userData.set(`${s ? PUP_WORD[s] : 'Left out'} · ${pupSrcWord(it0(L), id)}`, s ? '#3ee08f' : '#ffc24a', 0.06);
@@ -433,7 +450,7 @@ function mirNew(it, rig) {
   if (par) { par.updateWorldMatrix(true, false); par.getWorldQuaternion(Fq); }
   // (the character's own axes in the world: Mixamo's faces +z with its left at +x, as ik.js finds them)
   const R = mirBasis(rig.left.clone().applyQuaternion(Fq).toArray(), rig.up.clone().applyQuaternion(Fq).toArray(), rig.fwd.clone().applyQuaternion(Fq).toArray());
-  const eye = IK.restPose(rig, 'eye').p, eye0 = (eye.y - W.p.y) / W.s.x, u = eye0 / MIR_K.eye;
+  const eye = IK.restPose(rig, 'eye').p, eye0 = (eye.y - pupBase(it)) / W.s.x, u = eye0 / MIR_K.eye;   // (over its own base, v206)
   if (!(eye0 > 0.3)) return null;
   const tg = { hmd: { p: eye.clone().add(new THREE.Vector3(0, 0, MIR_K.ahead * u * W.s.x).applyQuaternion(R)).toArray(), q: R.clone().multiply(MIR_EYEQ).toArray() } };
   for (const s of ['l', 'r']) {
@@ -696,7 +713,8 @@ function puppetBlocks(it, B, dis, mv) {
       { p: `A device for the ${PUP_WORD[s].toLowerCase()} (one tied elsewhere swaps with it).`, c: 'faint' });
     }
     if (out.length) B.push({ p: 'Left out: ' + out.map(id => { const x = (L.m.out || []).find(y => y.id === id); return x ? pupOutWord(P, x) : `${pupSrcWord(P, id)} (changed on this card)`; }).join('; ') + '.', c: 'amber' });
-    if (!ok) B.push({ p: L.m.why || 'Nothing is tied to the head or the hips: one of them must be.', c: 'red' });
+    if (L.lost && L.lost.length) B.push({ p: 'Not seen now, so not lined up: ' + L.lost.map(x => `the ${PUP_WORD[x.s].toLowerCase()} (${pupSrcWord(P, x.id)}${PUP_BODY.test(x.id) && (!P.by || P.by === 'index') ? ': the Headset row chooses where a headset comes from' : ''})`).join('; ') + '. Choose a device for it above, or it is worked out.', c: 'amber' });
+    if (!ok) B.push({ p: (L.m.why || L.why || 'Nothing is tied to the head or the hips: one of them must be.') + ' Choose a device for the head or the hips above, or line up again.', c: 'red' });
     B.push({ row: [{ id: 'pupok', label: 'Take these', act: 'i:pupok', primary: true, dis: dis || mv || !ok }, { id: 'pupagain', label: 'Line up again', act: 'i:pupagain', dis: dis || mv }, { id: 'pupcancel', label: 'Cancel', act: 'i:pupcancel' }] });
   } else B.push({ row: [{ id: 'pupline', label: 'Line up with the performer', act: 'i:pupline', primary: !ready, dis: dis || mv || !!T }].concat(P.map ? [{ id: 'pupkeep', label: 'Line up again, these parts', act: 'i:pupkeep', dis: dis || mv || !!T }] : []) },
     { p: 'A 5 s countdown: the character stands in a T-pose and the performer copies it, facing its way (in a headset, standing in it: it is sized to them first; with none, it comes to them). Then each device is tied to the part it is nearest to, shown before it is taken. One Undo step.', c: 'faint' });
