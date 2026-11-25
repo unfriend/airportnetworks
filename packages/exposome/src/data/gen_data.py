@@ -270,6 +270,8 @@ nClose = [0] * NS
 for s, d, z, c in CLOSE: nClose[s] += 1
 nOverlap = len(pk('output', 'exp_random', 'new_signficant_exp_dis_overlap_adj.pickle'))
 nExpPPI = sum(1 for e, gs in SG.items() if any(g in ADJ for g in gs))
+ZCLOSE = -5
+assert all(z <= ZCLOSE for s_, d_, z, c_ in CLOSE), 'a close pair above the cut'   # (z as printed, two decimals)
 log('proximity: near (FDR)', len(fdr), 'close (z<-5)', len(CLOSE), 'overlap', nOverlap, 'tested', nExpPPI, 'x', len(DIS))
 
 # ---------------------------------------------------------------- countries (EEA releases, the authors' selections, GBD)
@@ -476,23 +478,27 @@ log('ozone-asthma steps', _hist, 'mean', EX['ozoneAsthma']['mean'], 'paths', len
     'pattern examples', [(p['sub'], p['n']) for p in EX['patterns']])
 topGenes = [[g, geneSubs[g]] for g in GENES[:10]]
 med = float(np.median([len(SG[e]) for e in IDS]))
+BIG = 50   # (a large group: 50 substances or more, the story's cut)
 M = {
     'nSubst': NS, 'nNet': NN, 'nGenes': len(GENES), 'nPairs': nPairs, 'medianGenes': med, 'bapGenes': len(SG[BAP]),
     'topGenes': topGenes, 'nEdges': len(EDGES), 'nSignificant': nUnf, 'nPairsAll': NS * (NS - 1) // 2, 'drawn': len(keep), 'maxDeg': max(deg),
     'classes': {'names': CLASS_NAMES, 'ids': CLASS_IDS, 'count': CLASS_COUNT, 'col': CLASS_COL},
     'levels': {'raw': [len(TOPS), len(MIDS), len(FINES)], 'named': [len(NAMED13), len(pk(*L, 'weighted_ji_middle_communities_dict.pickle')), len(dep_fine)],
-               'named13': NAMED13, 'big': sum(len(c['members']) >= 50 for c in COMM if c['lv'] == 0),
-               'bigShare': round(sum(len(c['members']) for c in COMM if c['lv'] == 0 and len(c['members']) >= 50) / NN, 4)},
+               'named13': NAMED13, 'big': sum(len(c['members']) >= BIG for c in COMM if c['lv'] == 0), 'bigMin': BIG,
+               'bigShare': round(sum(len(c['members']) for c in COMM if c['lv'] == 0 and len(c['members']) >= BIG) / NN, 4)},
     'pattern': {'names': ['a central module', 'hubs', 'a module at the edge', 'scattered'], 'count': [patc[k] for k in range(4)], 'of': nPat,
                 'hazard': [haz_by_pat[k] for k in range(4)]},
     'hazard': {'n': len(hz), 'of': nPat, 'r': round(hazR, 4), 'cited': {'matched': 4669, 'share': 0.4738, 'note': 'substances found in the NORMAN list, with or without a score (the authors\' notebook Exp_fin_9, cells 23-24); 3,165 of them have a score'}},
-    'ppi': {'proteins': len(PROT), 'links': len(pairs), 'selfFree': sum(len(v) for v in ADJ.values()) // 2},
-    'dis': {'n': len(DIS), 'tested': nExpPPI * len(DIS), 'subsTested': nExpPPI, 'near': len(fdr), 'close': len(CLOSE), 'overlap': nOverlap},
+    'ppi': {'proteins': len(PROT), 'links': len(pairs), 'selfFree': sum(len(v) for v in ADJ.values()) // 2, 'drawn': len(kp)},
+    # zClose: the authors' cut for their closest pairs (exp_dis_cit_df.tsv holds only pairs below it: checked here)
+    'dis': {'n': len(DIS), 'tested': nExpPPI * len(DIS), 'subsTested': nExpPPI, 'near': len(fdr), 'close': len(CLOSE), 'overlap': nOverlap, 'zClose': ZCLOSE},
     'countries': {'n': len(COUNTRIES), 'airSig': nAirSig, 'airOf': len(prox['air']), 'waterSig': nWaterSig, 'waterOf': len(prox['water']), 'rho': round(rho4d, 4),
                   'airMean': round(sum(len(c['air']) for c in ctry) / len(ctry), 2), 'waterMean': round(sum(len(c['water']) for c in ctry) / len(ctry), 2),
                   'risk': len(risk)},
     'cited': {'chemVsGenes': {'spearman': -0.0009, 'pearson': 0.0358, 'note': 'chemical likeness (Tanimoto) against shared genes (Jaccard), all pairs: the authors\' notebook Exp_fin_3, cell 31 (the pair tables are not in the deposit\'s small files)'},
-              'overlapVsGO': {'spearman': 0.0053, 'note': 'shared genes (Jaccard) against what the genes do (GO, Resnik), pairs related in MeSH: Exp_fin_3, cell 27; the paper\'s 0.005'}},
+              'overlapVsGO': {'spearman': 0.0053, 'note': 'shared genes (Jaccard) against what the genes do (GO, Resnik), pairs related in MeSH: Exp_fin_3, cell 27; the paper\'s 0.005'},
+              'pubmed': {'records': 42000000, 'note': 'the PubMed records the co-citations were counted in, as printed in the paper (not in the deposit)'},
+              'eprtr': {'from': 2007, 'to': 2020, 'note': 'the E-PRTR releases the authors used, as printed in the paper'}},
 }
 D = {
     'source': 'Lombardo, Hütter, Unterlass, Menche, Nat Commun 17, 5754 (2026); deposit Zenodo 18793297 (CC BY 4.0); derived numbers only',
