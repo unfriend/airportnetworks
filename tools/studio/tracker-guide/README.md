@@ -46,7 +46,7 @@ entrance facing down it (-z).
   cube (each person's own) plays it once as you step on, and a press on each sign (for you alone) that plays it again.
   Without `voice/`, the scene has signs only.
 - Budgets: a model under 10,000 triangles, the scene under 60,000 as placed, pictures at most 1,024 px, the folder under
-  3 MB (about 2.8 MB without the voice: `robot.glb` 0.96 MB with its eight clips).
+  3 MB (about 2.8 MB without the voice: `robot.glb` 0.96 MB with its eight clips); with the spoken lines (1.3 MB of MP3) 4.5 MB.
 
 To speak the lines (once the voice is set up as `tools/voice/README.md` says):
 

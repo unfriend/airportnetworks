@@ -70,7 +70,7 @@ the Atlas's reliability. Every number shown is computed from `PDATA` at load tim
 | `sites` | a hub up close (GRB2, PDB 1GRI, its surface): its three binding domains coloured (the one a partner docks at lit, `setHighlight` on its residue range), its partners taking turns at them as their docking stretches (chains of nine amino acids: a phosphotyrosine stretch at the SH2, proline-rich ones at the SH3s), not all 872 at once; and a shuttle: TP53 (1TSR) to and fro, STAT3 (1BG1) switched on by JAK2's kinase (2B7A), through a pore, onto DNA beside p300's acetyltransferase domain (3BIY), all as surfaces (the STAT3 pair and its DNA three models cut from 1BG1's assembly in its own coordinates, so they line up and move apart); the pores and the envelope schematic | new, `models` |
 | `next` | what it would take: the cell refining (a proximity atlas's halos, a cryo-ET slab with its few molecules sharp, a whole-cell volume), ending on the honest cell: dense local networks, thin traffic through gates, a red remainder | new, over `cell` |
 
-## The story (about 540 s; 716 s of story time since v205, about 15 minutes with the voice)
+## The story (about 540 s; 716 s of story time since v205, 15:08 with the voice, v210: chapters at 0:00, 1:12, 2:16, 4:26, 5:57, 7:37, 8:48, 11:56, 13:35)
 
 Since v205 (stage B of "Membrane sides and complexes" below) the chapters are: map 0-60, crowd 60-115, walls 115-223,
 back 223-305, judge 305-380, machines 380-442, red 442-581, moments 581-651, next 651-716 (story time); the words are

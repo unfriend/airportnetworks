@@ -93,12 +93,12 @@ export function makeLayout(parts, files, about) {
   const voice = n => { const f = `sounds/voice-${String(n).padStart(2, '0')}.mp3`; return have.has(f) ? f : null; };
   const said = id => ({ do: [{ on: id, what: 'sound', how: 'once' }], who: 'own' });
   // a spoken line: its sound at the robot's head, a pad on the floor and its cube (each person's own), floor to 2.2 m
-  const speak = (n, at, pad, side) => {
+  const speak = (n, at, pad, side, py = PAD_Y) => {
     const f = voice(n);
     if (!f) return null;
     const sid = 'vo' + String(n).padStart(4, '0');
     sounds.push({ id: sid, name: `Voice ${n}: ${SCRIPT[n].title}`.slice(0, 60), file: f, p: at.map(r3), vol: 1, r: 2.5, loop: false, start: 'always' });
-    shape('pv' + String(n).padStart(4, '0'), `Pad: hear stand ${n}`, 'plane', [pad[0], PAD_Y, pad[2]], [side[0], side[1], 0.01], '#178f86', { q: FLAT, locked: true });
+    shape('pv' + String(n).padStart(4, '0'), `Pad: hear stand ${n}`, 'plane', [pad[0], py, pad[2]], [side[0], side[1], 0.01], '#178f86', { q: FLAT, locked: true });
     cubes.push({ id: 'cv' + String(n).padStart(4, '0'), name: `Speaks: stand ${n}`, p: [r3(pad[0]), 1.1, r3(pad[2])], yaw: 0, size: [r3(side[0]), 2.2, r3(side[1])], mode: 'while', show: [], hide: [],
       plays: [{ on: sid, what: 'sound', how: 'once' }] });
     return sid;
@@ -145,7 +145,7 @@ export function makeLayout(parts, files, about) {
   // ---- your mirror (v204), on the right: a robot that copies whoever wears a headset (puppet.mirror: you stand MD m in
   // front of it, on the pad; each person's own, nothing sent), facing you as you come
   const MX = 1.2, MZ = END - 0.4, MD = 1.6;
-  const v8 = speak(8, [MX, 1.6, MZ], [MX, 0, MZ + MD], [0.8, 0.8]);
+  const v8 = speak(8, [MX, 1.6, MZ], [MX, 0, MZ + MD], [0.8, 0.8], PAD_Y + 0.012);   // (a step above stand 6's pad, which it overlaps: checks.mjs)
   if (!v8) shape('mrs008', 'Pad: stand here for your mirror', 'plane', [MX, PAD_Y, MZ + MD], [0.8, 0.8, 0.01], '#178f86', { q: FLAT, locked: true });
   obj('mir008', 'Your mirror', 'robot', [MX, 0, MZ], 0, { clip: 'Idle', s: (about.cal.Idle || {}).s, puppet: { on: false, rig: 'any', mirror: MD }, locked: true });
   shape('dsc08a', 'Disc: your mirror', 'cylinder', [MX, 0.02, MZ], [1.2, 0.04, 1.2], '#ffd34d', { locked: true });

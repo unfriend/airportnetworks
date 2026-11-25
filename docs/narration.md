@@ -26,7 +26,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Networks for everyone: Pass it on | `packages/pass/audio/narration.mp3` | synthetic voice | 6:46 |
 | Soil microbes: Holding on to nitrogen | `packages/soil/audio/narration.mp3` | synthetic voice | 11:03 |
 | Spatial interactome: Cell map | `packages/spatial/audio/narration.mp3` | synthetic voice | 5:41 |
-| Spatial interactome: Back into the cell | `packages/ppicell/audio/narration.mp3` | synthetic voice | 12:32 |
+| Spatial interactome: Back into the cell | `packages/ppicell/audio/narration.mp3` | synthetic voice | 15:08 |
 | Introduction: Your guide | `packages/tutorial/audio/narration.mp3` | synthetic voice | 3:35 |
 | Brain kinase: The switch that sticks | `packages/cdk5/audio/narration.mp3` | synthetic voice | 8:27 |
 | Network medicine: Proteins | `packages/proteins/audio/narration.mp3` | synthetic voice | 5:48 |
@@ -1315,7 +1315,7 @@ File: `packages/spatial/audio/narration.mp3` (synthetic voice). Chapters: 0:00 I
 
 ## Spatial interactome: Back into the cell (`#ppicell`)
 
-File: `packages/ppicell/audio/narration.mp3` (synthetic voice). Chapters: 0:00 No place, 1:12 Crowds, 2:16 Walls, 3:40 Into the cell, 5:04 Can they meet?, 6:39 Why red?, 9:20 Moments, 11:00 What next; it ends at 12:32.
+File: `packages/ppicell/audio/narration.mp3` (synthetic voice). Chapters: 0:00 No place, 1:12 Crowds, 2:16 Walls, 4:26 Into the cell, 5:57 Can they meet?, 7:37 Machines, 8:48 Why red?, 11:56 Moments, 13:35 What next; it ends at 15:08.
 
 ### 0:00 No place
 
@@ -1342,65 +1342,82 @@ File: `packages/ppicell/audio/narration.mp3` (synthetic voice). Chapters: 0:00 N
 - **2:40** Two proteins in different rooms cannot touch, however well they would fit. And every single mitochondrion is a room of its own.
 - **2:55** Some proteins sit in a wall and reach into both rooms. This receptor crosses the cell's outer membrane. Outside, it catches a signal. Inside, it passes the message on to a partner.
 - **2:57** The receptor: the beta-2 adrenergic receptor, its chain as ribbons, with an agonist (BI-167107) in its pocket and the G protein Gs docked inside, their surfaces; PDB 3SN6 (Rasmussen et al., Nature 2011). Its seven helices cross the membrane.
-- **3:14** And there are doors. Biologists call them gates. Nuclear pores let proteins in and out of the nucleus.
-- **3:28** A mitochondrion pulls its proteins in through a narrow channel, unfolded, like thread through the eye of a needle. And small bubbles called vesicles carry cargo between the other rooms.
-- **3:18** Crossing the pore: TP53's core domain, PDB 1TSR; threading into the mitochondrion: frataxin, PDB 1EKG (Dhe-Paganon et al., J Biol Chem 2000), its chain drawn as beads, folding again inside; their surfaces. The pore and the import gates are simple shapes.
+- **3:14** So a protein has more than an address. It has a side. It can float inside a room. It can cling to a wall from the cytosol's side, or from the far side. Or it can go right through, once, or many times, like our receptor.
+- **3:17** Inside: calmodulin, PDB 1CLL (Chattopadhyaya et al., 1992); on the cytosol's side, held by its lipid tail: H-Ras, PDB 4G0N; their surfaces. The others are simple shapes.
+- **3:31** How do we know? Partly from experiments, and partly from the protein's own build. A greasy stretch marks a crossing. A short tag at the start means: send me inside. No tag means: I stay on the cytosol's side. That last one is a textbook rule, and it has exceptions.
+- **3:32** Sides: UniProt (CC BY 4.0), each protein's membrane spans, topology, lipid anchors, signal and transit peptides and locations.
+- **3:49** And there are doors. Biologists call them gates. Nuclear pores let proteins in and out of the nucleus.
+- **4:02** A mitochondrion pulls its proteins in through a narrow channel, unfolded, like thread through the eye of a needle. And small bubbles called vesicles carry cargo between the other rooms.
+- **3:52** Crossing the pore: TP53's core domain, PDB 1TSR; threading into the mitochondrion: frataxin, PDB 1EKG (Dhe-Paganon et al., J Biol Chem 2000), its chain drawn as beads, folding again inside; their surfaces. The pore and the import gates are simple shapes.
+- **4:14** A mitochondrion even has two walls. So there are four places to be: the outer wall, the gap, the inner wall, and the innermost room, the matrix.
 
-### 3:40 Into the cell
+### 4:26 Into the cell
 
-- **3:42** Now we need an address for every protein. For that we use the Human Protein Atlas, a large public project. Its teams stained human cells for one protein at a time, with an antibody that sticks to it, and photographed under a microscope where the cell lights up.
-- **3:59** Now watch every dot fly home. Many proteins live in more than one place. In our picture, such a protein splits into copies on the way, one dot for each address.
-- **4:12** Inside each room, proteins that are linked settle close together, so their lines stay short. And each mitochondrion keeps its links to itself.
-- **4:29** The lines now take on colours. We will come to what they mean in a moment.
-- **4:42** But about a quarter of the proteins have no address at all. The Atlas has no reliable picture of them yet. They wait outside the cell, in grey.
+- **4:28** Now we need an address for every protein. For that we use the Human Protein Atlas, a large public project. Its teams stained human cells for one protein at a time, with an antibody that sticks to it, and photographed under a microscope where the cell lights up.
+- **4:45** Now watch every dot fly home. Many proteins live in more than one place. In our picture, such a protein splits into copies on the way, one dot for each address.
+- **4:58** Inside each room, proteins that are linked settle close together, so their lines stay short. And each mitochondrion keeps its links to itself.
+- **5:11** And a protein that belongs to a wall settles on it: on its own side, or straddling it.
+- **5:22** The lines now take on colours. We will come to what they mean in a moment.
+- **5:35** But about a quarter of the proteins have no address at all. The Atlas has no reliable picture of them yet. They wait outside the cell, in grey.
 
-### 5:04 Can they meet?
+### 5:57 Can they meet?
 
-- **5:06** Now the test. For every link we ask: can these two proteins actually meet? We take the links where both partners have an address, about 99,000 of them.
-- **5:16** Eight in ten pass. Both partners share a room, so nothing stands between them. These keep the colour of their room.
-- **5:31** About 15 in a hundred are one door apart. Say, one partner is in the cytosol and the other in the nucleus, with the pores between them. Those we colour amber.
-- **5:46** And about 3,000 links should be impossible. Their partners share no room, and no door connects them. Those are red.
-- **6:00** Look at one protein, RELA. It is half of a famous alarm switch called N F kappa B. The Atlas photographed resting cells, and in a resting cell RELA sits in the cytosol. But raise the alarm, and it moves into the nucleus to switch genes on.
-- **6:17** So its 88 amber links are not mistakes. They are moments nobody photographed.
+- **5:59** Now the test. For every link we ask: can these two proteins actually meet? We take the links where both partners have an address, about 99,000 of them. Where we know a protein's side, we use it. Where we do not, we assume it is inside.
+- **6:15** Eight in ten pass. Both partners share a room, or one reaches into the other's room through a wall. These keep the colour of their room.
+- **6:29** About 15 in a hundred are one door apart. Say, one partner is in the cytosol and the other in the nucleus, with the pores between them. Those we colour amber.
+- **6:44** And about 1,200 links should be impossible. Their partners share no room, no wall and no door. Those are red.
+- **6:59** Look at one protein, RELA. It is half of a famous alarm switch called N F kappa B. The Atlas photographed resting cells, and in a resting cell RELA sits in the cytosol. But raise the alarm, and it moves into the nucleus to switch genes on.
+- **7:15** So its 81 amber links are not mistakes. They are moments nobody photographed.
 
-### 6:39 Why red?
+### 7:37 Machines
 
-- **6:41** So what about the red ones? As drawn, those partners could never meet.
-- **6:47** So either the link is wrong, or an address is. To see how that can happen, we have to look at how links are found in the first place. There are three main ways.
-- **7:00** The first is called two-hybrid. You take two human proteins and make them both inside a yeast cell. Each carries half of a switch. If the two stick together, the halves meet, the switch turns on, and the yeast shows it. It is clever, and it can test thousands of pairs. But think about what it tells you: that two proteins can stick. Not that they ever meet in a human cell.
-- **7:22** And indeed, of the links found this way, about 5 in a hundred are red.
-- **7:03** H-Ras and Raf: PDB 4G0N, their surfaces. Not to scale.
-- **7:35** The second way works like fishing. You break cells open, catch one protein with a molecular hook, and see what comes up with it. A machine called a mass spectrometer identifies the catch. But notice: once the cell is broken, the walls are gone. Proteins from different rooms can meet in the tube, though they never would in life.
-- **7:55** Even so, the best-behaved links in our map are the complexes. These are proteins known to work together as stable machines, checked by hand across many studies. Fewer than one in a hundred of their links is red.
-- **8:09** The third way is the newest, and it works inside living cells. You pick a protein, the bait, and attach an enzyme to it that sprays a small tag onto everything within about ten nanometres. Then you collect whatever got tagged. That tells you who was nearby, in the right room. Not necessarily who was holding on.
-- **8:28** The big maps made this way came after the interactome we are looking at.
-- **8:13** The antibody: PDB 1IGT. BirA: PDB 1BIA. Their surfaces; the other proteins simplified. Not to scale.
-- **8:37** So how often a link turns out red depends on how it was found. That is a pattern. It is not proof that the method is to blame.
-- **8:38** Of the five kinds of evidence that suggest contact; a link found in several ways counts under each.
-- **8:48** Part of the problem is the Atlas itself. It tells us that a protein belongs to an organelle, but not on which side of the wall it sits. If we assume every such protein is inside, we get our 3,000 red links. If we allow it to face outwards as well, every one of them becomes possible. The truth lies somewhere in between.
-- **9:09** And remember the proteins waiting outside. Their links, about 35,000 of them, we cannot judge at all.
+- **7:39** Some proteins never work alone. They lock together into machines. Biologists call them complexes, and curators have collected about 2,000 human ones by hand. In our cell, a machine is a group of dots held in one outline.
+- **7:55** Most sit inside one room, like the ribosome of the mitochondria. Some coat a wall from one side, like the coats that shape vesicles. And some go right through a wall. The pore in the nuclear envelope is one. So is the turbine that makes the cell's fuel, A T P.
+- **8:17** But look at these. A few hundred machines have their parts listed in different rooms. Take the proteasome, the cell's shredder. Most of its parts are listed in both the nucleus and the cytosol, but five only in the nucleus, and five only in the cytosol. Yet we know it is one machine. So here it is not the link that is wrong. It is an address.
+- **8:18** The 26S proteasome: 19 parts listed in the nucleus and the cytosol, 5 in the nucleus only, 5 in the cytosol only.
+- **8:39** It happens to the best. The Atlas lists BiP, the most famous resident of the E R's inside, only in the cytosol.
+- **8:40** Complexes: the EBI Complex Portal (curated human complexes); their positions from their members' places and sides, this story's own.
 
-### 9:20 Moments
+### 8:48 Why red?
 
-- **9:22** Now suppose a link is right, and both partners share a room. Even then, it is not a wire. Take GRB2 again. It has 871 partners, but only three hands: three small domains, each of which holds one partner at a time.
-- **9:40** So its partners have to take turns. A link in the map is a moment in time, not a permanent connection.
-- **9:24** GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners: their docking stretches, each a short chain of amino acids (illustrative).
-- **10:00** Or take TP53, the cell's best-known guardian against cancer. It has 449 links, and it travels to and fro through the nuclear pores. Some of its partners wait in the nucleus, others in the cytosol.
-- **10:02** TP53's core domain: PDB 1TSR (Cho et al., 1994), its surface. Not to scale against the pores.
-- **10:15** But be a little careful with that number. TP53 is one of the most studied proteins there is, and 391 of its links come from individual papers. The more people look at a protein, the more partners they find. In systematic screens, which test every pair alike, it only ranks 47th.
-- **10:34** One last traveller: STAT3. It waits in the cytosol until a signal arrives at a receptor, where an enzyme called JAK2 switches it on. Two copies pair up, pass through a pore, and in the nucleus they bind D N A and new partners.
-- **10:51** Its 148 links happen in different places, at different times. Our map shows them all at once.
-- **10:39** STAT3: PDB 1BG1 (Becker et al., 1998); JAK2: 2B7A; p300: 3BIY; their surfaces. Not to scale.
+- **8:49** So what about the red ones? As drawn, those partners could never meet.
+- **8:55** So either the link is wrong, or an address is. We have just seen addresses go wrong. To see how links can, we have to look at how they are found in the first place. There are three main ways.
+- **9:09** The first is called two-hybrid. You take two human proteins and make them both inside a yeast cell. Each carries half of a switch. If the two stick together, the halves meet, the switch turns on, and the yeast shows it. It is clever, and it can test thousands of pairs. But think about what it tells you: that two proteins can stick. Not that they ever meet in a human cell.
+- **9:31** And indeed, of the links found this way, about 2 in a hundred are red.
+- **9:12** H-Ras and Raf: PDB 4G0N, their surfaces. Not to scale.
+- **9:44** The second way works like fishing. You break cells open, catch one protein with a molecular hook, and see what comes up with it. A machine called a mass spectrometer identifies the catch. But notice: once the cell is broken, the walls are gone. Proteins from different rooms can meet in the tube, though they never would in life.
+- **10:04** Even so, the best-behaved links in our map are the complexes. These are proteins known to work together as stable machines, checked by hand across many studies. Fewer than one in a hundred of their links is red.
+- **10:18** The third way is the newest, and it works inside living cells. You pick a protein, the bait, and attach an enzyme to it that sprays a small tag onto everything within about ten nanometres. Then you collect whatever got tagged. That tells you who was nearby, in the right room. Not necessarily who was holding on.
+- **10:37** The big maps made this way came after the interactome we are looking at.
+- **10:22** The antibody: PDB 1IGT. BirA: PDB 1BIA. Their surfaces; the other proteins simplified. Not to scale.
+- **10:46** So how often a link turns out red depends on how it was found. That is a pattern. It is not proof that the method is to blame.
+- **10:47** Of the five kinds of evidence that suggest contact; a link found in several ways counts under each.
+- **10:57** And the sides matter. The Atlas only tells us that a protein belongs to an organelle, not on which side of its wall. Without sides, everything hung on a guess. Assume inside, and about 3,000 links were red. Allow either side, and none were.
+- **11:13** With sides, the guess shrinks. About three quarters of that doubt is settled. And what is left is firmer. Read the unknown ones strictly, and about 1,200 links are red. Read them generously, and about 900 still are. No reading makes them go away any more.
+- **11:31** And sides cut both ways. About 300 links are now worse off than before: most of them now need a door, and about 130 have turned red. A protein on an organelle's outer face does not share its inside.
+- **11:45** And remember the proteins waiting outside. Their links, about 35,000 of them, we cannot judge at all.
 
-### 11:00 What next
+### 11:56 Moments
 
-- **11:01** So what would it take to draw a map that is true to a real cell? We would need to know where, and when, each pair really meets. Three kinds of experiment are getting us there.
-- **11:12** Proximity maps repeat the tagging trick with hundreds, even thousands of baits. They chart who is near whom, room by room.
-- **11:31** Cryo-electron tomography freezes a cell in an instant, cuts it into thin slices, and shows single molecules exactly where they were.
-- **11:47** And whole-cell imaging maps every organelle of an entire cell in three dimensions.
-- **11:59** It would also take fairer maps. Famous proteins collect links, and unstudied ones look lonely. Among the hundred biggest hubs, 42 in a hundred links come from papers alone. A map of binding is also a map of our attention.
-- **12:14** Until then, this is the honest picture. Dense networks inside each room. Thin traffic through the doors. And a red remainder that nobody can explain yet. Which of those links are mistakes, and which are biology we have not understood? That is still open. Have a look around.
-- **12:24** The interactome of J. Menche and colleagues, Science 347, 1257601 (2015); the places from the Human Protein Atlas (proteinatlas.org). The judgement is this story's own.
+- **11:58** Now suppose a link is right, and both partners share a room. Even then, it is not a wire. Take GRB2 again. It has 871 partners, but only three hands: three small domains, each of which holds one partner at a time.
+- **12:16** So its partners have to take turns. A link in the map is a moment in time, not a permanent connection.
+- **12:00** GRB2: PDB 1GRI (Maignan et al., 1995), its surface. Partners: their docking stretches, each a short chain of amino acids (illustrative).
+- **12:36** Or take TP53, the cell's best-known guardian against cancer. It has 449 links, and it travels to and fro through the nuclear pores. Some of its partners wait in the nucleus, others in the cytosol.
+- **12:37** TP53's core domain: PDB 1TSR (Cho et al., 1994), its surface. Not to scale against the pores.
+- **12:51** But be a little careful with that number. TP53 is one of the most studied proteins there is, and 391 of its links come from individual papers. The more people look at a protein, the more partners they find. In systematic screens, which test every pair alike, it only ranks 47th.
+- **13:10** One last traveller: STAT3. It waits in the cytosol until a signal arrives at a receptor, where an enzyme called JAK2 switches it on. Two copies pair up, pass through a pore, and in the nucleus they bind D N A and new partners.
+- **13:27** Its 148 links happen in different places, at different times. Our map shows them all at once.
+- **13:14** STAT3: PDB 1BG1 (Becker et al., 1998); JAK2: 2B7A; p300: 3BIY; their surfaces. Not to scale.
+
+### 13:35 What next
+
+- **13:37** So what would it take to draw a map that is true to a real cell? We would need to know where, and when, each pair really meets. Three kinds of experiment are getting us there.
+- **13:48** Proximity maps repeat the tagging trick with hundreds, even thousands of baits. They chart who is near whom, room by room.
+- **14:06** Cryo-electron tomography freezes a cell in an instant, cuts it into thin slices, and shows single molecules exactly where they were.
+- **14:23** And whole-cell imaging maps every organelle of an entire cell in three dimensions.
+- **14:35** It would also take fairer maps. Famous proteins collect links, and unstudied ones look lonely. Among the hundred biggest hubs, 42 in a hundred links come from papers alone. A map of binding is also a map of our attention.
+- **14:50** Until then, this is the honest picture. Dense networks inside each room. Thin traffic through the doors. And a red remainder that nobody can explain yet. Which of those links are mistakes, and which are biology we have not understood? That is still open. Have a look around.
+- **14:59** The interactome of J. Menche and colleagues, Science 347, 1257601 (2015); the places from the Human Protein Atlas (proteinatlas.org). Sides: UniProt (CC BY 4.0). Complexes: the EBI Complex Portal. The judgement is this story's own.
 
 ## Introduction: Your guide (`#tutorial`)
 

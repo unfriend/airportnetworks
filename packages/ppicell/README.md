@@ -68,14 +68,14 @@ can meet there. Why a spatial interactome that is true to a real cell is so hard
 - Every number the story shows is computed from these as the page runs (`src/sets/pdata.js`, `PDATA`); the judgement
   (possible, through a gate, impossible) is the story's own method, tried out first in `packages/cellstress`.
 
-## The voice (v205: to be made)
+## The voice (v210)
 
-The words changed in v205 (sides and complexes: `src/SCRIPT-sides.md`), and the synthetic voice (Kokoro, `tools/voice/`)
-cannot run on the cloud machine, so the story has no recording for now: it plays with subtitles only (the headset's from
-the `data-say` words), on a timeline laid out by `tools/voice/narrate.mjs --dry` from estimated durations (16.2
-characters a second, as the v204 recording read). The v204 recording says the old words, so it is not served: it is
-kept as `src/narration-v204-old.mp3` (not in the package's index; delete it once the new one is made). Where Kokoro is
-set up (`tools/voice/README.md`), serve the folder and run:
+The words changed in v205 (sides and complexes: `src/SCRIPT-sides.md`); the synthetic voice (Kokoro, `tools/voice/`) was
+set up on the cloud machine at v210 and made the recording: `audio/narration.mp3` (15:08), with the real
+`NARRATION_SYNC` and `NARRATION_ENDS` in `src/engine/e3_story.js`. Nobody has heard it yet. `tools/voice/say.json`
+(`stories.ppicell`) respells `RELA` (*Rel Eigh*, so the A is a letter and not the article), `A T P` and `D N A` (read
+as letters). The v204 recording (the old words) is kept as `src/narration-v204-old.mp3` (not in the package's index;
+delete it once the new one is liked). To make it again after a change of words (cached lines are reused):
 
 ```
 node tools/voice/narrate.mjs ppicell --lines    # what will be read (check A T P, E R, N F kappa B, proteasome)

@@ -13,7 +13,7 @@
 //             --check; exits 1 when not
 //   --sheet   also writes a contact sheet of the models' pictures
 // Budgets (it stops when one is passed): every model under 10,000 triangles and the scene under 60,000 as placed, its
-// pictures at most 1,024 px, the folder under 3 MB.
+// pictures at most 1,024 px, the folder under 3 MB (4.5 MB with the spoken lines, v210: 1.3 MB of voice).
 // Needs Playwright with a Chromium build (as tools/smoke.mjs; PLAYWRIGHT_MODULE and CHROMIUM_PATH as there).
 import fs from 'node:fs';
 import os from 'node:os';
@@ -25,7 +25,7 @@ import { makeLayout, signs } from './layout.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '../../..');
 const SCENE = 'tracker-guide', EXAMPLES = path.join(REPO, 'examples');
-const LIMIT = { tris: 10000, room: 60000, tex: 1024, folder: 3 << 20 };
+const LIMIT = { tris: 10000, room: 60000, tex: 1024 };
 const args = process.argv.slice(2), opt = k => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : null; };
 const check = args.includes('--check'), sheet = opt('--sheet');
 const out = check ? fs.mkdtempSync(path.join(os.tmpdir(), 'tracker-guide-')) : path.join(EXAMPLES, SCENE);
@@ -101,7 +101,8 @@ const n = k => (L.layout[k] || []).length;
 console.log(`the scene: ${n('objects')} objects (${Math.round(room).toLocaleString('en-GB')} triangles and ${draws} draws as placed), ${n('shapes')} shapes, ${n('cubes')} cubes, ${n('sounds')} sounds, ${n('groups')} group`);
 console.log(`${files.size} files, ${(total / 1048576).toFixed(2)} MB: models ${(kinds(/^models\//) / 1024).toFixed(0)} KB, signs ${(kinds(/^signs\//) / 1024).toFixed(0)} KB, sounds ${(kinds(/^sounds\//) / 1024).toFixed(0)} KB, pictures ${(kinds(/^previews\//) / 1024).toFixed(0)} KB`);
 if (room > LIMIT.room) fail(`the scene has ${Math.round(room)} triangles as placed (at most ${LIMIT.room})`);
-if (total > LIMIT.folder) fail(`the folder is ${(total / 1048576).toFixed(2)} MB (at most 3 MB)`);
+const cap = [...files.keys()].some(f => /^sounds\/voice-/.test(f)) ? 4.5 : 3;   // (the voice is 1.3 MB)
+if (total > cap * 1048576) fail(`the folder is ${(total / 1048576).toFixed(2)} MB (at most ${cap} MB)`);
 
 // ---- writing (a build that failed writes nothing; --check writes into its own temporary folder and compares)
 const walk = (d, rel) => fs.existsSync(d) ? fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name), rel + e.name + '/') : [rel + e.name]) : [];

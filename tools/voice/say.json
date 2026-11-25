@@ -193,8 +193,12 @@
     },
     "ppicell": {
       "words": {
-        "RELA": "Rel A",
+        "RELA": "Rel Eigh",
         "SH3s": "S H threes"
+      },
+      "patterns": {
+        "\\bA T P\\b": "A-T-P",
+        "\\bD N A\\b": "D-N-Eigh"
       }
     },
     "cdk5": {
