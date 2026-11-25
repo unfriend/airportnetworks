@@ -9,6 +9,8 @@ function drawSubstancesPane(ctx, P, x, y, W, bottom) {
   y += head(ctx, x, y, 'Start with');
   y += flow(ctx, P, B_QUICK().map(i => ({ id: 'bq:' + i, label: XDATA.label[i], on: XB.sub === i, fn: () => selectSub(XB.sub === i ? -1 : i) })), x, y, W, Math.min(bottom, y + (I ? 104 : 220)), { px: 21, h: 44 }) + 18;
   if (!I) { footNoteB(ctx, B_NOTE.sub, x, y, W, bottom); return; }
+  const end = bottom;
+  bottom -= 96;   // (room for the note, as the page shows it under every card)
   y += fitTitle(ctx, I.name, x, y, W - 150, 34, 42, LOOK.substance, 700, 24) + 4;
   vButton(ctx, P, 'bsub:none', x + W - 130, y - 46, 130, 42, 'None', () => selectSub(-1), { px: 21 });
   const sub = [I.full, I.fams.length ? `Chemical famil${I.fams.length > 1 ? 'ies' : 'y'}: ${listOf(I.fams.map(bFam))}` : ''].filter(Boolean).join(' · ');
@@ -24,20 +26,21 @@ function drawSubstancesPane(ctx, P, x, y, W, bottom) {
   }
   if (y + 70 < bottom) {
     y += head(ctx, x, y, 'Diseases closest to it in this map');
-    y += textBlock(ctx, I.dis ? (I.dis.length ? I.dis.map(([d, z]) => `${d} (z ${f2(z)})`).join('; ') : 'none of the closest pairs (z below −5)') : I.loading.dis ? '…' : 'not available offline', x, y, W, 22, 29, VC.ink, 400, 3) + 12;
+    y += textBlock(ctx, I.dis ? (I.dis.length ? I.dis.map(([d, z]) => `${d} (z ${f2(z)})`).join('; ') : `none of the closest pairs (z below ${Z_CUT()})`) : I.loading.dis ? '…' : 'not available offline', x, y, W, 22, 29, VC.ink, 400, 3) + 12;
   }
   if (I.nb.length && y + 90 < bottom) {
     y += head(ctx, x, y, `Its strongest threads here (${fmt(I.nbAll)} drawn)`);
     y += flow(ctx, P, I.nb.map(j => ({ id: 'bn:' + j, label: XDATA.label[j], fn: () => selectSub(j) })), x, y, W, bottom - 60, { px: 21, h: 44 }) + 12;
   }
   const sc = SCENES.filter(([k]) => k === 'cell' || k === 'ppi');
-  if (sc.length && y + 50 < bottom) flow(ctx, P, sc.map(([k, nm]) => ({ id: 'bs:' + k, label: `Its genes: ${nm}`, fn: () => openScene(k) })), x, y, W, bottom, { px: 21, h: 44 });
+  if (sc.length && y + 50 < bottom) y += flow(ctx, P, sc.map(([k, nm]) => ({ id: 'bs:' + k, label: `Its genes: ${nm}`, fn: () => openScene(k) })), x, y, W, bottom, { px: 21, h: 44 }) + 10;
+  footNoteB(ctx, B_NOTE.sub, x, Math.max(y, bottom - 10), W, end);
 }
 function drawGroupsPane(ctx, P, x, y, W, bottom) {
   const I = groupInfo(XB.comm), C = XDATA.comm, big = B_BIG();
   if (!I) {
     y += textBlock(ctx, `The network falls into groups where its threads are dense, at three levels: ${fmt(C.counts[0])} large ones, ${fmt(C.counts[1])} smaller and ${fmt(C.counts[2])} fine.`, x, y, W, 24, 33, VC.muted, 400, 3) + 14;
-    y += head(ctx, x, y, `The ${big.length} large groups (50 substances or more), and ${fmt(C.counts[0] - big.length)} small ones`);
+    y += head(ctx, x, y, `The ${big.length} large groups (${fmt(XDATA.meta.levels.bigMin)} substances or more), and ${fmt(C.counts[0] - big.length)} small ones`);
     y += flow(ctx, P, big.map(k => ({ id: 'bg:' + k, label: `${bWords(k)} · ${fmt(C.size[k])}`, col: C.col[k], fn: () => selectGroup(k) })), x, y, W, bottom - 40, { px: 20, h: 42 }) + 14;
     footNoteB(ctx, B_NOTE.grp, x, y, W, bottom);
     return;
@@ -54,10 +57,11 @@ function drawGroupsPane(ctx, P, x, y, W, bottom) {
     y += head(ctx, x, y, `Inside it: ${I.kids.length} ${B_LEVEL[I.lv + 1]}s`);
     y += flow(ctx, P, I.kids.map(q => ({ id: 'bg:' + q, label: `${bWords(q)} · ${fmt(C.size[q])}`, fn: () => selectGroup(q) })), x, y, W, Math.min(bottom, y + 150), { px: 20, h: 42 }) + 12;
   }
-  if (y + 90 < bottom) {
+  if (y + 90 < bottom - 96) {
     y += head(ctx, x, y, I.memAll > I.mem.length ? `Members: the ${I.mem.length} best studied of ${fmt(I.memAll)}` : 'Members');
-    flow(ctx, P, I.mem.map(i => ({ id: 'bm:' + i, label: XDATA.label[i], fn: () => { selectSub(i); pickTab('substances'); } })), x, y, W, bottom, { px: 20, h: 42 });
+    y += flow(ctx, P, I.mem.map(i => ({ id: 'bm:' + i, label: XDATA.label[i], fn: () => { selectSub(i); pickTab('substances'); } })), x, y, W, bottom - 96, { px: 20, h: 42 }) + 10;
   }
+  footNoteB(ctx, B_NOTE.grp, x, Math.max(y, bottom - 106), W, bottom);   // (the note, as the page shows it under every card)
 }
 // a closing note in the room left, if any
 const footNoteB = (ctx, text, x, y, W, bottom) => { if (y + 60 < bottom) textBlock(ctx, text, x, y, W, 21, 29, VC.faint, 400, Math.max(1, Math.min(4, Math.floor((bottom - y) / 29)))); };

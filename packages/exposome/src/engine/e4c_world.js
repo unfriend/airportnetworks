@@ -13,7 +13,7 @@ const XC = { dis: -1, country: -1, sub: -1, q: '' };
 const stateC = () => ({ dis: XC.dis, country: XC.country, sub: XC.sub });
 function applyC(v) {
   if (!v || typeof v !== 'object') return;
-  if (Number.isInteger(v.dis) && v.dis >= -1 && v.dis < 65535) XC.dis = v.dis;
+  if (Number.isInteger(v.dis) && v.dis >= -1 && v.dis < XDATA.meta.dis.n) XC.dis = v.dis;
   if (Number.isInteger(v.country) && v.country >= -1 && v.country < XDATA.countries.length) XC.country = v.country;
   if (Number.isInteger(v.sub) && v.sub >= -1 && v.sub < XDATA.N) XC.sub = v.sub;
 }
@@ -29,8 +29,9 @@ function stepC() {
 
 // ------------------------------------------------------------ what both panels say (HTML and the headset's canvas)
 const QUICK_DIS = ['Asthma', 'Colorectal Carcinoma', 'Breast Carcinoma', 'Alzheimer\'s Disease', 'Parkinson Disease', 'Diabetes Mellitus, Non-Insulin-Dependent', 'Schizophrenia', 'Obesity'];
-const NOTE_DIS = 'Close in this map: the proteins a substance touches sit fewer steps from the disease\'s proteins than chance would give (z below −5 here). A link in the data, not a cause; no medical advice.';
-const NOTE_CTY = 'A country\'s releases far above Europe\'s level (industrial reports, 2007 to 2020), weighted: a link in the data, not a cause. Nothing here is about people.';
+// (the notes as functions: their numbers come from the data)
+const NOTE_DIS = () => `Close in this map: the proteins a substance touches sit fewer steps from the disease's proteins than chance would give (z below ${Z_CUT()} here). A link in the data, not a cause; no medical advice.`;
+const NOTE_CTY = () => `A country's releases far above Europe's level (industrial reports, ${XDATA.meta.cited.eprtr.from} to ${XDATA.meta.cited.eprtr.to}), weighted: a link in the data, not a cause. Nothing here is about people.`;
 const disName = d => (d >= 0 ? XDATA.dis.name(d) : '');
 const subName = s => (s >= 0 ? XDATA.label[s] : '');
 function disInfo(d) {
@@ -40,7 +41,7 @@ function disInfo(d) {
   let pair = null;
   if (XC.sub >= 0) {
     const e = (XDATA.dis.closeOf(XC.sub) || []).find(x => x.d === d);
-    pair = e ? `${subName(XC.sub)}: close in this map (z = ${f2(e.z)}); ${fmt(e.cit)} PubMed records name both.` : `${subName(XC.sub)}: not among its closest pairs (z below −5).`;
+    pair = e ? `${subName(XC.sub)}: close in this map (z = ${f2(e.z)}); ${fmt(e.cit)} PubMed records name both.` : `${subName(XC.sub)}: not among its closest pairs (z below ${Z_CUT()}).`;
     if (XC.sub === XDATA.ex.ozone && d === XDATA.dis.find('Asthma') && XDATA.ex.ozoneAsthma.steps) {
       const st = XDATA.ex.ozoneAsthma.steps;
       pair += ` From ozone's targets: ${fmt(st[0])} are asthma proteins, ${fmt(st[1])} one step away, ${fmt(st[2])} two, ${fmt(st[3])} three (the steps drawn).`;
@@ -54,7 +55,7 @@ function ctyInfo(i) {
   if (!c) return null;
   const pct = x => (x >= 0.01 ? `${(100 * x).toFixed(1)} %` : 'under 1 %');
   const rows = [['To air', fmt(c.air.length), 'substances far above Europe\'s level'], ['To water', fmt(c.water.length), ''],
-    ['Score', c.risk ? pct(c.risk[3]) : 'none', c.risk ? 'of the total, weighted by central targets' : 'no elevated releases'],
+    ['Score', c.risk ? pct(c.risk[3]) : 'none', c.risk ? 'of the total score, weighted by central targets' : 'no elevated releases'],
     ['Air', sigWords(c.pa), c.pa ? `p ${c.pa[2] < 0.001 ? '< 0.001' : c.pa[2].toFixed(3)}` : ''], ['Water', sigWords(c.pw), c.pw ? `p ${c.pw[2] < 0.001 ? '< 0.001' : c.pw[2].toFixed(3)}` : '']];
   const inC = XC.sub >= 0 && (c.air.includes(XC.sub) || c.water.includes(XC.sub));
   const near = inC && XDATA.ready('diseases') ? (XDATA.dis.closeOf(XC.sub) || []).slice(0, 6) : [];
@@ -99,12 +100,12 @@ function renderDiseases() {
   const I = disInfo(XC.dis);
   body.innerHTML = `${XC.q ? `<p class="grp-h">${list.length ? 'Matches' : 'No disease holds that'}</p>` : ''}<div class="chips">${list.map(d => _dchip('cdis', d, disName(d), XC.dis === d, LOOK.disease)).join('')}</div>
     ${I ? `<h3 style="color:${inkCol(LOOK.disease)}">${esc(I.head)}</h3>${statsHtmlC(I.rows)}
-      <p class="grp-h">Closest substances${I.close.length ? '' : ': none below z −5'}</p>
+      <p class="grp-h">Closest substances${I.close.length ? '' : `: none below z ${Z_CUT()}`}</p>
       <div class="chips">${I.close.map(e => _dchip('csub', e.s, `${subName(e.s)} · z ${f2(e.z)}`, XC.sub === e.s, LOOK.substance)).join('')}</div>
       ${I.pair ? `<p class="sub">${esc(I.pair)}</p>` : ''}
       <div class="chips" style="margin-top:12px">${X.scene !== 'ppi' ? _dchip('cshow', 'ppi', 'Show in the interactome', false) : ''}${XC.sub >= 0 ? _dchip('csub', -1, 'No substance', false) : ''}${_dchip('cdis', -1, 'None', false)}</div>`
     : '<p class="sub">No disease picked.</p>'}
-    <p class="credits">${esc(NOTE_DIS)}</p>`;
+    <p class="credits">${esc(NOTE_DIS())}</p>`;
 }
 function renderCountries() {
   const pane = $('#pane-countries');
@@ -117,10 +118,10 @@ function renderCountries() {
     ${I ? `<h3>${esc(I.head)}</h3>${statsHtmlC(I.rows)}
       <p class="grp-h">To air</p>${subChips(I.air, '#aee9ff')}
       <p class="grp-h">To water</p>${subChips(I.water, '#3f86ff')}
-      ${I.inC ? `<p class="grp-h">${esc(subName(XC.sub))}: the diseases closest to it</p><div class="chips">${I.near.map(e => _dchip('cdis', e.d, `${disName(e.d)} · z ${f2(e.z)}`, XC.dis === e.d, LOOK.disease)).join('') || '<span class="sub">none below z −5</span>'}</div>` : ''}
+      ${I.inC ? `<p class="grp-h">${esc(subName(XC.sub))}: the diseases closest to it</p><div class="chips">${I.near.map(e => _dchip('cdis', e.d, `${disName(e.d)} · z ${f2(e.z)}`, XC.dis === e.d, LOOK.disease)).join('') || `<span class="sub">none below z ${Z_CUT()}</span>`}</div>` : ''}
       <div class="chips" style="margin-top:12px">${X.scene !== 'globe' ? _dchip('cshowg', XC.country, 'Show on the globe', false) : ''}${_dchip('ccty', -1, 'None', false)}</div>`
     : '<p class="sub">No country picked.</p>'}
-    <p class="credits">${esc(NOTE_CTY)}</p>`;
+    <p class="credits">${esc(NOTE_CTY())}</p>`;
 }
 const statsHtmlC = rows => `<dl class="stats">${rows.map(([k, v, m]) => `<dt>${esc(k)}</dt><dd>${esc(v)}${m ? ` <small>${esc(m)}</small>` : ''}</dd>`).join('')}</dl>`;
 
@@ -146,11 +147,23 @@ function chooseC(p) {
   if (p.s === 'globe') { if (X.tab !== 'countries') showTab('countries'); selectCountry(p.i === XC.country ? -1 : p.i, false); }
 }
 // the address: &dis=<name>, &country=<name>, &csub=<a substance's label>
+// (a country or a disease opens its tab and its scene, the globe or the interactome, unless the address names others)
 function hashC(hp) {
-  const q = s => String(hp.get(s) || '').trim();
-  if (q('country')) { const i = XDATA.countries.findIndex(c => c.name.toLowerCase() === q('country').toLowerCase()); if (i >= 0) XC.country = i; }
+  const q = s => String(hp.get(s) || '').trim(), own = !hp.get('scene'), tab = !hp.get('tab');
   if (q('csub')) { const s = XDATA.find(q('csub'), 1)[0]; if (s !== undefined) XC.sub = s; }
-  if (q('dis') && XDATA.ready('diseases')) { let d = XDATA.dis.find(q('dis')); if (d < 0) d = XDATA.dis.search(q('dis'), 1)[0]; if (d !== undefined && d >= 0) XC.dis = d; }
+  if (q('country')) {
+    const i = XDATA.countries.findIndex(c => c.name.toLowerCase() === q('country').toLowerCase());
+    if (i >= 0) { if (tab) pickTab('countries'); if (own) selectCountry(i); else XC.country = i; }
+  }
+  if (q('dis')) {
+    const take = () => {
+      let d = XDATA.dis.find(q('dis')); if (d < 0) d = XDATA.dis.search(q('dis'), 1)[0];
+      if (d === undefined || d < 0) return;
+      if (tab) pickTab('diseases');
+      if (own) selectDis(d); else { XC.dis = d; renderAll(); }
+    };
+    if (XDATA.ready('diseases')) take(); else XDATA.load('diseases', pkgUrl).then(take, () => {});
+  }
 }
 // a button in C's panes clicked (its data-act not the frame's: true when handled) and a search box typed in
 function actC(el) {

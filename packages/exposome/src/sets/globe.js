@@ -283,7 +283,7 @@ SETS.globe = function (K) {
         alpha: S => (crcK >= 0 ? K.prog(S.globe_threads, 0.85, 1) : 0) },
       { text: () => ['Close diseases more frequent', ` · air ${XDATA.meta.countries.airSig} of ${XDATA.meta.countries.airOf}, water ${XDATA.meta.countries.waterSig} of ${XDATA.meta.countries.waterOf}`],
         at: 'north', cls: 'amb', alpha: S => K.prog(S.globe_close, 0.6, 1) },
-      ...[0, 1, 2].map(k => ({ text: () => (byShare[k] >= 0 ? [C[byShare[k]].name, ` · ${pct(C[byShare[k]].risk[3])}`] : ['', '']), at: 'top' + k, alpha: S => K.prog(S.globe_cols, 0.7, 1) })),
+      ...[0, 1, 2].map(k => ({ text: () => (byShare[k] >= 0 ? [C[byShare[k]].name, ` · ${pct(C[byShare[k]].risk[3])} of the total score`] : ['', '']), at: 'top' + k, alpha: S => K.prog(S.globe_cols, 0.7, 1) })),
     ],
     cam: {
       default: [0, 6, 2.9, 0, 0.03, 0],

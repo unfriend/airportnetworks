@@ -73,7 +73,7 @@ SETS.clot = function (K) {
   g.boundingSphere = new THREE.Sphere(new THREE.Vector3(...C), 2);
   // each family's shape (by its order among the families: 8 shapes, two families share one only past the eighth)
   const shapeOf = c => c % 12;
-  M.forEach((i, j) => { COL.set(K.rgb(X.classes.col[X.prim[i]]), 3 * j); SH[j] = shapeOf(X.prim[i]); });
+  M.forEach((i, j) => { COL.set(K.rgb(LOOK.family[X.prim[i]] || LOOK.none), 3 * j); SH[j] = shapeOf(X.prim[i]); });
   GENES.forEach((q, k) => { COL.set(K.rgb(q.sym === 'SERPINC1' || q.sym === 'F2' ? '#ff8a7a' : '#c98f86'), 3 * (n + k)); SH[n + k] = 20; });
   // the last one: the group's glow, in its top group's colour
   COL.set(K.rgb(top >= 0 ? X.comm.col[top] : '#c65d7d'), 3 * (NP - 1)); SH[NP - 1] = 21; P.set(C, 3 * (NP - 1));
@@ -181,7 +181,7 @@ void main() { float k = fract(vU * 1.5 - uTime * 0.6); float a = vA * (1.0 + uPu
         memberAt(s, j, _p);
         const gp = GENES[k].p;
         for (let m = 0; m < 3; m++) { LP[6 * q + m] = _p[m]; LP[6 * q + 3 + m] = _p[m] + (gp[m] - _p[m]) * e; }
-        const hot = gs === 'SERPINC1', c = K.rgb(hot ? LOOK.thread : X.classes.col[X.prim[M[j]]]);
+        const hot = gs === 'SERPINC1', c = K.rgb(hot ? LOOK.thread : LOOK.family[X.prim[M[j]]] || LOOK.none);
         LC.set(c, 6 * q); LC.set(hot ? K.rgb(LOOK.shared) : c, 6 * q + 3);
         LA[2 * q] = LA[2 * q + 1] = e * (hot ? 0.7 : gs === 'F2' ? 0.32 : 0.22);
         LU[2 * q] = 0; LU[2 * q + 1] = 1;

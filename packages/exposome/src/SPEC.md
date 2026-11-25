@@ -1,12 +1,12 @@
 # Invisible threads (the exposome story): the contract
 
 Key `exposome`, a story package (`packages/exposome/`, `#exposome`), title *Invisible threads*, kick *Chemical exposome*.
-On the Experiments set once integrated (`story.json` `"list": "hidden"` until then: it opens by `#exposome` and from
-developer mode's Stories screen). The script is `src/SCRIPT.md` (the main conversation's): chapters, keys, order and
+On the Experiments set (`story.json` `"list": "experiments"`, in `packages/order.json` after cdk5; integrated 25 November
+2026). The script is `src/SCRIPT.md` (the main conversation's): chapters, keys, order and
 words are kept; this file says what the data gives, what each scene shows and who builds what.
 
-Builder A (this file, the data, the skeleton) is done. **Builders B and C** now write the real sets in parallel, each in
-its own files (below, "Who owns what"). Everything here is binding unless it says *suggested*.
+Builders A (this file, the data, the skeleton), B and C (the sets) are done, and one review's fixes are in (section 11).
+Everything here is binding unless it says *suggested*.
 
 ## Contents
 
@@ -20,6 +20,7 @@ its own files (below, "Who owns what"). Everything here is binding unless it say
 8. Headset, shared rooms, sound
 9. Reuse: the model cell and the globe
 10. Checks, sizes, integration
+11. After the review
 
 ## 1. The data
 
@@ -63,9 +64,11 @@ them, mostly IUPAC names). Never a CTD synonym (often brand names). The full nam
   `cell` position), at radius `0.1 + 0.9 (1 - ln deg / ln maxdeg)^0.8` (±3 %): the best connected in the middle,
   loners at the rim. Say "our drawing" where it matters; it is not the authors'.
 
-**Colours**: chemical families the authors' (`XDATA.classes.col`, Source Data Fig1A); communities the authors' VR
-colours (`XDATA.comm.col`; the VR file colours every node by its top-level community, 16 colours reused); the rest
-`LOOK` (`src/sets/look.js`).
+**Colours**: chemical families ours (`LOOK.family`, `src/sets/look.js`: twelve clearly different colours, the eight
+largest families from the Okabe-Ito set; the authors' Source Data Fig1A colours, `XDATA.classes.col`, gave the three
+largest families three light blues, so "mixed right through" did not show), used on the shelves, in chapter threads and
+in the Substances tab; communities the authors' VR colours (`XDATA.comm.col`; the VR file colours every node by its
+top-level community, 16 colours reused); the rest `LOOK`.
 
 **Communities (Louvain)**: the authors' dendrogram (`Exp_fin_4_Louvain_Clustering`, resolution 0.9) has three levels:
 **125 top, 152 middle, 456 fine** communities (the paper's "125/152/456"); the generator renames them exactly as the
@@ -100,7 +103,8 @@ Everything a set or a pane reads goes through it. It is a plain constant inside 
 (`src/test-data.mjs`).
 
 ```
-XDATA.meta                       counts (below), classes, levels, pattern, hazard, ppi, dis, countries, cited
+XDATA.meta                       counts (below), classes, levels (bigMin 50), pattern, hazard, ppi (drawn), dis (zClose -5),
+                                 countries, cited (chemVsGenes, overlapVsGO, pubmed.records, eprtr.from/to), drawn
 XDATA.ex                         the story's examples: bap, ozone, endrin, crocin (substance indices), ozoneAsthma
                                  { z, cit, disease, diseaseGenes, asthmaCloseSubs, ozoneClose }, clot { id '11_2_1',
                                  comm (index among the fine), members [21], genes [[sym, n] by n], serpinc1 [5 indices] },
@@ -164,7 +168,7 @@ All computed by the generator from the deposit and checked by `node src/test-dat
 | {r} hazard vs best connected target | 0.24 | 0.2389 (Pearson, 3,165) | matches |
 | {D} diseases | 6,177 | 6,177 | matches |
 | {pairs} {near} {overlap} | 60,855,804 / 1,601,884 / 28,403 | the same | matches |
-| 42 million PubMed records | 42 M | not in the data | as printed in the paper (kept as text) |
+| 42 million PubMed records | 42 M | not in the data | as printed in the paper (`meta.cited.pubmed`) |
 | {C} countries | 32 | 32 | matches |
 | about seven to air, eight to water | | 6.9 and 8.0 on average | matches |
 | {it} Italy's substances | 57 | 57 (`Country_risk.tsv`) | matches |
@@ -183,8 +187,9 @@ All computed by the generator from the deposit and checked by `node src/test-dat
   -0.001 / Pearson 0.04 (Tanimoto against shared genes, from the notebook; the pair tables are 1 GB pickles not
   shipped). The panel shows 0.04, cited in `meta.cited`.
 - Chapter 4: "13 broad" becomes "20 large ones (50 or more substances) hold 96 %"; the three named in the voice come
-  from `SORT_EXAMPLES` (`e3_story.js`: top groups 3, 9, 16 = "the immune system and inflammation", "how the body
-  handles fat", "how the liver clears drugs"); the script's "how cells divide" is not supported by any group's terms.
+  from `SORT_EXAMPLES` (`e3_story.js`: top groups 3, 9, 16 = "the immune system and its signals", "how the body
+  handles fat", "how the body clears drugs", after the review); the script's "how cells divide" is not supported by
+  any group's terms.
   The clotting group: fine `11_2_1` (in middle `11_2`, top `11`), 21 substances: argatroban, melagatran, ximelagatran,
   lepirudin, hirudins, calcium heparin, dalteparin, the combined pill (and norgestimate / drospirenone with ethinyl
   estradiol, norpregnenes), clobazam, ioxaglic acid, quinapril, three phosphatidylinositol phosphates, two quercetin
@@ -377,8 +382,12 @@ so in its report: the integration bumps `COLLAB_V` (and `FORMAT` in `shared.js` 
   moves and turns the scene (template behaviour). Chapter 1's "you stand inside the cloud": on a screen the camera
   goes inside (`cam: inside`); in a headset *suggested* as the CDK5 story does (standing inside by scale: the cloud set
   large, the head at its centre), no keepClear on points.
-- `keepClear` (no close view nearer than 0.35 m): only sets with meshes near the camera need it: C's cell skins and
-  the globe export it as the motor unit does; point and line sets (cloud, ppi) do not.
+- `keepClear` (no close view nearer than 0.35 m): `cell`, `ppi` and `globe` export it; `e5_xr.js` takes the engine's
+  `xrCap~2` (with `XR_NEAR`, `xrSampler`, `xrPrep`, `xrClear`) and calls it with the frame's time, as the engine's
+  `xrPlace` does; the sampling (`xrPrep`) runs from `frameFloor` (this story keeps the engine's plain `frame`, which
+  calls neither). The interactome's points move in their shaders, so `ppi` adds a hidden stand-in (every protein in the
+  cell and sorted) for the sampling. The cloud, which you stand inside, is not keepClear: its shader fades points
+  within 0.35 m of your head.
 - Labels: few at once (at most about 6), short (bold 1-3 words, rest under ~30 characters).
 - Sound: only `sfxCue` lines in the tracks (`HOST.audio.fx` through the template); no background, no hum, never an
   `AudioContext`. *Suggested* cues: `whoosh` on the big moves (shelves, network, sort, out to the globe), `step` on a
@@ -421,9 +430,28 @@ serve with `timeout 600 python3 -m http.server 8123` and seek with `HOST.cur.pee
 Sizes: embedded data 961 KB; `main.js` at most about 2.2 MB with the globe and the cell skins; `data/` 3.88 MB (do not
 add to it without asking).
 
-At integration (the main conversation): `story.json` `"list": "experiments"`; `packages/order.json` needs no entry
-(the Experiments set sorts by key after the listed ones, as cdk5/hello); the voice (`tools/voice/narrate.mjs exposome`,
+At integration: `story.json` `"list": "experiments"`; `packages/order.json` names it (after cdk5: the app's own
+stories are all there, whichever set they are on, so `tools/engine/all.mjs` builds it and `version.json` lists it); the voice (`tools/voice/narrate.mjs exposome`,
 which writes `NARRATION_SYNC` and `NARRATION_ENDS`), `len`; `relay/server.mjs` needs nothing (packages are served
 whole); `tools/collab.mjs` `STORIES` an entry; `NOTICE.md` the deposit's licence (CC BY 4.0) and its sources' terms
 (`docs/data-and-permissions.md`); `docs/agents/stories.md` (A wrote the section; B and C add their sets' lines);
 `VERSION`, `tools/release.mjs`, `whatsnew.json`.
+
+## 11. After the review (25 November 2026)
+
+- Panels and panes take every number from the data (`meta.drawn`, `meta.ppi.drawn`, `meta.dis.zClose`,
+  `meta.levels.bigMin`, `meta.cited.pubmed`, `meta.cited.eprtr`); the panels say "in this map" or "here" for the
+  statistics on the substances' network and the interactome, and what is ours or a sample: "on our shelves", "our
+  arrangement", "drawn together here", "A sample", "N threads drawn", "the 45,000 strongest drawn", "by chance you would
+  expect about 3".
+- Chapter reach ends with chapter threads' pair lit (diethylstilbestrol and zearalenone: both touch CASP3 in the data,
+  `PAIR_NAMES` in `sets/pair.js`); in chapter threads each has a plain tag ("a synthetic hormone, once a medicine", "a
+  toxin from mould on grain").
+- Chapter sort's dive: the focus tag says "A larger group" / "A smaller group" with the size in the story (explore names
+  the group). The threads step back at "look at the colours" (`cloud_links` to 0.3).
+- The hand-over from sort to centre overlaps (the cloud and the clotting group fade out to `C.centre.a + 0.5`, the cell
+  comes in from `C.centre.a - 1.4`, its picks keyed at `- 1.6` while hidden).
+- Italy's two ratios are two short tags stacked above it ("4× the world's rate", "1.1× western Europe's"); the score
+  columns' tags say "of the total score".
+- Explore: `&dis=` and `&country=` open their tab and scene; the headset's panes show their notes with a card too, *No
+  substance* in Diseases and *Show on the globe* in Countries; `applyC` bounds the disease by the count.

@@ -12,15 +12,18 @@ function drawDiseasesPane(ctx, P, x, y, W, bottom) {
   if (XC.q) y += head(ctx, x, y, list.length ? `Matches for ${XC.q}` : `No disease holds ${XC.q}`);
   y += flow(ctx, P, items, x, y, W, Math.min(bottom, y + 3 * 52), o) + 10;
   const I = disInfo(XC.dis);
-  if (!I) { y += textBlock(ctx, 'No disease picked.', x, y, W, 22, 30, VC.muted, 400, 1) + 10; noteC(ctx, NOTE_DIS, x, y, W, bottom); return; }
+  if (!I) { y += textBlock(ctx, 'No disease picked.', x, y, W, 22, 30, VC.muted, 400, 1) + 10; noteC(ctx, NOTE_DIS(), x, y, W, bottom); return; }
   y += textBlock(ctx, I.head, x, y, W - 130, 28, 36, LOOK.disease, 700, 1) + 4;
   vButton(ctx, P, 'cd:none', x + W - 120, y - 44, 120, 40, 'None', () => selectDis(-1), { px: 20, r: 6 });
   y += stats(ctx, x, y, W, I.rows) + 4;
-  y += head(ctx, x, y, I.close.length ? 'Closest substances' : 'Closest substances: none below z −5');
+  y += head(ctx, x, y, I.close.length ? 'Closest substances' : `Closest substances: none below z ${Z_CUT()}`);
   y += flow(ctx, P, I.close.map(e => ({ id: 'cs:' + e.s, label: `${subName(e.s)} · z ${f2(e.z)}`, on: XC.sub === e.s, col: LOOK.substance, fn: () => selectSubC(XC.sub === e.s ? -1 : e.s) })), x, y, W, Math.min(bottom, y + 3 * 52), o) + 8;
   if (I.pair && y + 70 < bottom) y += textBlock(ctx, I.pair, x, y, W, 21, 28, VC.ink, 400, 3) + 8;
-  if (X.scene !== 'ppi' && y + 60 < bottom) y += flow(ctx, P, [{ id: 'cd:show', label: 'Show in the interactome', fn: () => { openScene('ppi'); setCtl('ppi', 'show', 'pick'); } }], x, y, W, bottom, o) + 8;
-  noteC(ctx, NOTE_DIS, x, y, W, bottom);
+  const more = [];
+  if (X.scene !== 'ppi') more.push({ id: 'cd:show', label: 'Show in the interactome', fn: () => { openScene('ppi'); setCtl('ppi', 'show', 'pick'); } });
+  if (XC.sub >= 0) more.push({ id: 'cs:none', label: 'No substance', fn: () => selectSubC(-1) });
+  if (more.length && y + 60 < bottom) y += flow(ctx, P, more, x, y, W, bottom, o) + 8;
+  noteC(ctx, NOTE_DIS(), x, y, W, bottom);
 }
 function drawCountriesPane(ctx, P, x, y, W, bottom) {
   const C = XDATA.countries, order = C.map((c, i) => i).sort((a, b) => C[a].name.localeCompare(C[b].name)), I = XC.country >= 0 ? ctyInfo(XC.country) : null;
@@ -29,7 +32,7 @@ function drawCountriesPane(ctx, P, x, y, W, bottom) {
   const cols = 4, cw = (W - 8 * (cols - 1)) / cols, bh = 36;
   order.forEach((i, k) => vButton(ctx, P, 'cc:' + i, x + (k % cols) * (cw + 8), y + Math.floor(k / cols) * (bh + 6), cw, bh, C[i].name, () => selectCountry(XC.country === i ? -1 : i), { on: XC.country === i, px: 18, r: 6 }));
   y += Math.ceil(order.length / cols) * (bh + 6) + 10;
-  if (!I) { y += textBlock(ctx, 'No country picked.', x, y, W, 22, 30, VC.muted, 400, 1) + 10; noteC(ctx, NOTE_CTY, x, y, W, bottom); return; }
+  if (!I) { y += textBlock(ctx, 'No country picked.', x, y, W, 22, 30, VC.muted, 400, 1) + 10; noteC(ctx, NOTE_CTY(), x, y, W, bottom); return; }
   y += textBlock(ctx, I.head, x, y, W, 28, 36, VC.ink, 700, 1) + 4;
   y += stats(ctx, x, y, W, I.rows) + 2;
   const o = { px: 19, h: 40 }, chipsOf = (L, col) => L.map(s => ({ id: 'cs:' + s, label: subName(s), on: XC.sub === s, col, fn: () => selectSubC(XC.sub === s ? -1 : s) }));
@@ -39,5 +42,6 @@ function drawCountriesPane(ctx, P, x, y, W, bottom) {
     y += head(ctx, x, y, `${subName(XC.sub)}: the diseases closest to it`);
     y += flow(ctx, P, I.near.map(e => ({ id: 'cd:' + e.d, label: `${disName(e.d)} · z ${f2(e.z)}`, on: XC.dis === e.d, col: LOOK.disease, fn: () => selectDis(XC.dis === e.d ? -1 : e.d, false) })), x, y, W, Math.min(bottom, y + 2 * 48), o) + 6;
   }
-  noteC(ctx, NOTE_CTY, x, y, W, bottom);
+  if (X.scene !== 'globe' && y + 60 < bottom) y += flow(ctx, P, [{ id: 'cc:show', label: 'Show on the globe', fn: () => { openScene('globe'); selectCountry(XC.country); } }], x, y, W, bottom, o) + 6;
+  noteC(ctx, NOTE_CTY(), x, y, W, bottom);
 }

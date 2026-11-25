@@ -36,6 +36,13 @@ node packages/exposome/src/build.mjs && node tools/packages/scan.mjs
 ```
 
 The plain words for the communities are `src/data/labels.json`, written by hand from `src/data/terms.json` (each
-community's enriched terms with their FDR, generated): check a label against its terms before changing it.
+community's enriched terms with their FDR, generated): check a label against its terms before changing it. A rerun may
+reshuffle `terms.json`'s samples of members: keep the committed file then (only `labels.json` feeds the app).
+
+On the Experiments set of cards (`story.json` `list: "experiments"`, in `packages/order.json`). Its card's miniature is
+`exposome.threads` (`src/minis.js`, built by `node tools/lowpoly/build.mjs`); `icon.png` a frame of the network in its
+communities' colours. The build also reads `packages/ppicell/src/sets/cell.js` (the model cell's skins) and
+`packages/airports/main.js` (the globe): rebuild after either changes. The chemical families' colours are ours
+(`LOOK.family`), the communities' the authors'.
 
 Nothing here is about people: countries are shown by their rates only. Nothing here is medical advice.

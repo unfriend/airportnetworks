@@ -4,6 +4,8 @@
 // parts (tools/engine/) and the sets and engine files in this folder, as the built stories are made
 // (docs/agents/stories.md). This folder is the package's src/: packages/<key>/src/build.mjs writes packages/<key>/main.js,
 // with the key of packages/<key>/story.json.
+// It also reads packages/ppicell/src/sets/cell.js (the model cell's skins) and packages/airports/main.js (the globe) at
+// build time, cut by src/c-cut.mjs: rebuild after a change to either (the relay's --build finds the first by this line).
 // usage: node packages/<key>/src/build.mjs          -> writes packages/<key>/main.js
 //        node packages/<key>/src/build.mjs --check  -> exits 1 if main.js is out of date
 //        --root <dir>: the app's folder, when this one is not inside it (a copy elsewhere)

@@ -4,6 +4,8 @@
 // and Countries (builder C: e4c_world.js, e6c_world.js). This file is the frame both fill (builder A's).
 const SCENES = [...SCENES_B, ...SCENES_C];
 const SCENE_SHORT = { cloud: 'Substances', cell: 'Cell', ppi: 'Interactome', globe: 'Europe' };
+// the authors' cut for a substance and a disease's closest pairs, as printed (z below it: diseases.bin)
+const Z_CUT = () => '−' + Math.abs(XDATA.meta.dis.zClose);
 const TABS = [['scenes', 'Scene'], ['substances', 'Substances'], ['groups', 'Groups'], ['diseases', 'Diseases'], ['countries', 'Countries']];
 //#use ctlsOf ctlShown~2
 const X = { tab: 'scenes', scene: SET_ORDER[0], ctl: {}, t0: 0, turn: 'on' };

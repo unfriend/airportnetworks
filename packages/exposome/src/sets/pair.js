@@ -12,12 +12,15 @@
 // draw in and their threads fold into one, the rest fade, the one thread between the two brightens.
 // Anchors: left, right (the two), tie (above the middle), shared (the shared genes' disc). One draw each: points, threads,
 // the tie (a thin glowing tube).
+// the pair (also the two lit at the end of chapter reach, sets/cell.js: both touch CASP3 in the data) and their tags
+const PAIR_NAMES = ['Diethylstilbestrol', 'Zearalenone'];
+const PAIR_NOTE = { Diethylstilbestrol: 'a synthetic hormone, once a medicine', Zearalenone: 'a toxin from mould on grain' };
 SETS.pair = function (K) {
   const { THREE, clamp, smooth } = K;
   const set = K.newSet('pair');
   const X = XDATA, G = X.meta.nGenes;
   const byName = nm => X.label.indexOf(nm);
-  const S1 = Math.max(0, byName('Diethylstilbestrol')), S2 = Math.max(0, byName('Zearalenone'));
+  const S1 = Math.max(0, byName(PAIR_NAMES[0])), S2 = Math.max(0, byName(PAIR_NAMES[1]));
   const PA = [-0.85, 0, 0], PB = [0.85, 0, 0];
   const CA = K.rgb(LOOK.substance), CB = K.rgb('#ffb43b'), CS = K.rgb(LOOK.thread);
   const CAP = 1400;   // (genes drawn at most; any pair of the network's middle sizes fits: the two here have 439)
@@ -107,12 +110,15 @@ SETS.pair = function (K) {
       tie.visible = te > 0.01;
       tie.scale.set(1, 0.6 + 0.8 * te, 0.6 + 0.8 * te);
     },
-    anchors: { left: [-0.85, -0.13, 0], right: [0.85, -0.13, 0], tie: [0, 0.5, 0], shared: [0, 0.47, 0], centre: [0, 0, 0] },
+    anchors: { left: [-0.85, -0.13, 0], right: [0.85, -0.13, 0], leftNote: [-0.85, -0.27, 0], rightNote: [0.85, -0.27, 0], tie: [0, 0.5, 0], shared: [0, 0.47, 0], centre: [0, 0, 0] },
     labels: [
       { at: 'left', text: () => [X.label[cur.s1] || '', cur.nA ? ` · ${fmt(cur.nA)} genes` : ''], alpha: s => clamp(s.pair_genes * 3, 0, 1) },
       { at: 'right', text: () => [X.label[cur.s2] || '', cur.nB ? ` · ${fmt(cur.nB)} genes` : ''], alpha: s => clamp(s.pair_genes * 3, 0, 1) },
+      // what the two are, in a few plain words (documented facts; only for the story's own pair)
+      { at: 'leftNote', text: () => ['', PAIR_NOTE[X.label[cur.s1]] || ''], alpha: s => clamp(s.pair_genes * 3, 0, 1) * (1 - clamp(s.pair_tie * 3 - 1.5, 0, 1)) },
+      { at: 'rightNote', text: () => ['', PAIR_NOTE[X.label[cur.s2]] || ''], alpha: s => clamp(s.pair_genes * 3, 0, 1) * (1 - clamp(s.pair_tie * 3 - 1.5, 0, 1)) },
       // the shared genes against chance: the two lists' sizes, drawn at random from every gene with a known substance
-      { at: 'shared', text: () => (cur.n ? [`${fmt(cur.shared)} shared`, ` · chance would give about ${Math.max(1, Math.round(cur.nA * cur.nB / G))}`] : ['', '']),
+      { at: 'shared', text: () => (cur.n ? [`${fmt(cur.shared)} shared`, ` · by chance you would expect about ${Math.max(1, Math.round(cur.nA * cur.nB / G))}`] : ['', '']),
         alpha: s => clamp(s.pair_share * 3 - 1, 0, 1) * (1 - clamp(s.pair_tie * 3 - 1.5, 0, 1)) },
       { at: 'tie', text: () => ['One thread', cur.n ? ` · ${fmt(cur.shared)} genes in common` : ''], alpha: s => clamp(s.pair_tie * 3 - 1.5, 0, 1) },
     ],

@@ -131,6 +131,12 @@ SETS.ppi = function (K) {
     lg.attributes.aA.array[2 * j] = a; lg.attributes.aA.array[2 * j + 1] = a;
   }
   const links = add(new THREE.LineSegments(lg, lineMat()), 8);
+  // (for the headset's keep clear: every protein where it stands in the cell and where it stands sorted, never drawn
+  // (its material hidden) but sampled, since the drawn points move in their shaders, not in their positions)
+  const cg = new THREE.BufferGeometry(), cp = new Float32Array(Math.max(3, 6 * n));
+  cp.set(CP.subarray(0, 3 * n)); cp.set(SP.subarray(0, 3 * n), 3 * n);
+  cg.setAttribute('position', new THREE.BufferAttribute(cp, 3));
+  add(new THREE.Points(cg, new THREE.PointsMaterial({ visible: false })), 0);
 
   // ------------------------------------------------------------ a substance's targets and the contacts among them
   const SCAP = 14000, LCAP = 6000;
@@ -302,6 +308,7 @@ SETS.ppi = function (K) {
   if (asthma >= 0) showDis(asthma);
   const asthmaView = knotView();
   return Object.assign(set, {
+    keepClear: true,   // (a headset keeps every protein clear of your head: the hidden stand-in above)
     params: { ppi_a: 1, ppi_links: 0, ppi_sort: 1, ppi_pat: -1, ppi_sub: -1, ppi_hl: 1, ppi_haz: 0, ppi_dis: -1, ppi_dhl: 1, ppi_gat: 1,
       ppi_paths: 0, ppi_pairs: 0, ppi_ripple: 0, ppi_rip: 0, ppi_shrink: 0, ppi_tags: 0 },
     update(S) {
@@ -339,16 +346,16 @@ SETS.ppi = function (K) {
       pairs: () => sxs([0.2, 0.75, 0.2]),
     },
     labels: [
-      { text: ['Hubs', ' · the most contacts'], at: 'hubs', cls: 'amb', alpha: S => clamp(S.ppi_tags, 0, 1) * K.prog(S.ppi_sort, 0.7, 1) },
+      { text: ['Hubs', ' · our arrangement: most contacts in the middle'], at: 'hubs', cls: 'amb', alpha: S => clamp(S.ppi_tags, 0, 1) * K.prog(S.ppi_sort, 0.7, 1) },
       { text: ['Loners', ' · few contacts'], at: 'rim', alpha: S => clamp(S.ppi_tags, 0, 1) * K.prog(S.ppi_sort, 0.7, 1) },
       { text: () => [shownSub >= 0 ? XDATA.label[shownSub] : '', shownPat >= 0 ? ` · ${patName[shownPat]} (${Math.round(100 * patShare[shownPat])} %)` : shownSub >= 0 ? ` · ${fmt(subN)} proteins` : ''],
         at: 'sub', cls: 'cyn', alpha: S => (S.ppi_sub >= 0 ? clamp(S.ppi_hl, 0, 1) : 0) * (1 - clamp(S.ppi_pairs * 2, 0, 1)) },
-      { text: () => [shownDis >= 0 ? XDATA.dis.name(shownDis) : '', shownDis >= 0 ? ` · ${fmt(disN)} proteins` : ''], at: 'knot', cls: 'mag',
+      { text: () => [shownDis >= 0 ? XDATA.dis.name(shownDis) : '', shownDis >= 0 ? ` · ${fmt(disN)} proteins, drawn together here` : ''], at: 'knot', cls: 'mag',
         alpha: S => (S.ppi_dis >= 0 ? clamp(S.ppi_dhl, 0, 1) : 0) * (1 - clamp(S.ppi_paths * 1.5, 0, 1) * 0) },
       { text: () => ['Steps', OA.mean ? ` · ${OA.mean.toFixed(1)} on average` : ''], at: 'steps', cls: 'amb', alpha: S => (pathsOn ? K.prog(S.ppi_paths, 0.5, 0.9) : 0) },
       { text: ['An illustration', ' · a hit spreading'], at: () => (Math.round(S0.ppi_rip) === 1 ? sxs(rim >= 0 ? sAt(rim) : [1, 0, 0]) : sxs([0, -0.08, 0])),
         alpha: S => K.prog(S.ppi_ripple, 0, 0.08) * (1 - K.prog(S.ppi_ripple, 0.85, 1)) },
-      { text: ['Close pairs', ' · bright'], at: 'pairs', cls: 'amb', alpha: S => K.prog(S.ppi_pairs, 0.5, 1) },
+      { text: ['A sample of the pairs', ' · the close ones bright'], at: 'pairs', cls: 'amb', alpha: S => K.prog(S.ppi_pairs, 0.5, 1) },
     ],
     cam: {
       default: [20, 14, 3.9, 0, 0, 0],

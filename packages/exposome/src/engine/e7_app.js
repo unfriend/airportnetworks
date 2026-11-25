@@ -70,7 +70,9 @@ const APP = {
 };
 
 //#use lastNow EXV
-const frameLife = () => false, frameLow = () => {}, frameFloor = () => {};   // (frame: nothing life size, low or on a floor)
+// (frame: nothing life size, low or on a floor; frameFloor, called every frame, also runs the headset's sampling of the
+// sets that keep clear, in slices: the engine's frame~2 does that, this frame does not)
+const frameLife = () => false, frameLow = () => {}, frameFloor = () => { if (navigator.xr) xrPrep(XR.on ? 2 : 1); };
 //#use frame applyTheme LOAD init loadStep warm
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {
@@ -136,7 +138,7 @@ return {
   peek: src => eval(src),
   dispose() {
     // timers left running must not write into the next story's panes (they share ids) or build this one after all
-    LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t);
+    LOAD.gone = true; clearTimeout(LOAD.t); clearTimeout(xrMsg.t); clearTimeout(XB.blurT);
     if (GL.mo) GL.mo.disconnect();
     if (XR.session) XR.session.removeEventListener('visibilitychange', xrVisibility);
     if (GL.scene) GL.scene.traverse(o => {

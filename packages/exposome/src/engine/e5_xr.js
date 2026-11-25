@@ -1,14 +1,20 @@
-//#use WEBXR XR _xd _xq2 _xa _xX xrPlaceLife xrCap xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode
+//#use WEBXR XR _xd _xq2 _xa _xX xrPlaceLife xrCap~2 XR_NEAR _xsm xrKey xrDrawn xrSampler _xjob xrPrep xrClear xrRecenterAsk
+//#use xrRecenter xrLifeHome xrLabelMode xrCardMode
 // (builder B) The scene's pose: the engine's xrPlace (the view's side facing you, floating in front, closer views
 // bigger), blended (XR.inW) to standing inside the substances' cloud: its middle at your eyes (the rig's origin), XR_IN m
 // a unit, the cloud's inside view in front of you, as the CDK5 story stands you inside its map. In the story by story
 // time alone (ST.stand: chapters cloud and end, standB in e3b_substances.js), so everyone at a station sees the same; in
-// explore with the cloud's From inside view (eased). Nothing comes nearer than 0.35 m to your head: the cloud fades its
-// points there (sets/cloud.js).
+// explore with the cloud's From inside view (eased). Nothing comes nearer than 0.35 m to your head: the sets that keep
+// clear (cell, ppi, globe: keepClear) cap the scale as the engine's xrPlace does (xrCap, eased by the frame's time), and
+// the cloud, which you stand inside, fades its points there itself (sets/cloud.js).
+// (the engine's frame, which this story takes for its narrow and wide framing, neither passes dt to xrPlace nor samples
+// the sets that keep clear: xrPlace keeps its own clock, and frameFloor, called every frame, runs the sampling)
 const XR_IN = 1.25, _xqi = new THREE.Quaternion();
 Object.assign(XR, { inW: 0, inT: 0 });
 function xrPlace(v) {
   if (xrPlaceLife(v)) return;
+  const now = performance.now(), dt = XR.inT ? Math.min(0.1, (now - XR.inT) / 1000) : undefined, story = APP.mode === 'story';
+  XR.inT = now;
   const d = Math.max(v[2], 0.05);
   _xq.setFromAxisAngle(_xX, clamp(v[1], -85, 85) * D2R).multiply(_xq2.setFromAxisAngle(_xY, -v[0] * D2R));
   const R0 = XR.baseR * clamp(Math.pow(3.6 / d, 0.85), 0.12, 10) * XR.size;
@@ -19,14 +25,12 @@ function xrPlace(v) {
   XR.globeBase.set(cx, cy, -dc);
   xrFace(_xq2, gx, gy, gz);
   GL.world.quaternion.copy(_xq2).multiply(_xq);
-  let R = xrCap(R0, gx, gy, gz);
+  let R = xrCap(R0, gx, gy, gz, dt);
   _xb.copy(XR.target).applyQuaternion(GL.world.quaternion).multiplyScalar(R);
   GL.world.position.set(gx - _xb.x, gy - _xb.y, gz - _xb.z);
   // standing inside
-  const now = performance.now(), dt = XR.inT ? Math.min(0.1, (now - XR.inT) / 1000) : 0, story = APP.mode === 'story';
-  XR.inT = now;
   const want = story ? standB(storyT(APP.t)) : X.scene === 'cloud' && viewIs('cloud', 'inside') ? 1 : 0;
-  XR.inW = story ? want : XR.inW + (want - XR.inW) * (1 - Math.exp(-dt * 2.5));
+  XR.inW = story ? want : XR.inW + (want - XR.inW) * (1 - Math.exp(-(dt || 0) * 2.5));
   if (XR.inW < 0.002 && !want) XR.inW = 0;
   const w = XR.inW;
   if (w > 0.001 && GL.sets.cloud) {
@@ -48,5 +52,5 @@ function xrPlace(v) {
 //#use rayAngles startDrag dragGlobe xrPress xrPressScene xrRelease xrReleaseScene xrGrab xrGrabScene _gq carry
 //#use xrCarryScene xrResize xrPoint xrBallHit xrSceneHit xrDrag xrSticks _xUp xrBegin xrPosed xrPointed xrUpdate
 //#use xrExtraAlpha xrClickPick xrMinD xrZoom xrMsg xrStart xrOnReset xrEnterScene xrOnEnter xrStars XR_AWAY_MS
-//#use xrVisibility xrFreshStart xrAdopt xrEnded xrOnEnd xrSetup
+//#use xrVisibility xrFreshStart xrAdopt xrEnded xrOnEnd~2 xrSetup
 

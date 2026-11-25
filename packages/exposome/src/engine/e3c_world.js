@@ -39,8 +39,10 @@ function trackWorld(T) {
 
   // ------------------------------------------------------------ centre: the interactome out of the cell, sorted; the four patterns; hazard
   a = C.centre.a; b = C.centre.b;
-  jump('cell_gene', a, casp3, -1); key('cell_rev', a, 0); key('cell_two', a, 0); key('cell_sp', a, 0); key('cell_thr', a, 0); key('cell_dots', a, 0); key('cell_shell', a, 1);
-  show('cell', a, a + 1.2, a + 13, a + 17);                               // 1.5 back in the cell (its rooms)
+  // (the cell comes in while the clotting group is still going: chapter sort's fade-out ends at a + 0.5)
+  const a0 = a - 1.6;
+  jump('cell_gene', a0, casp3, -1); key('cell_rev', a0, 0); key('cell_two', a0, 0); key('cell_sp', a0, 0); key('cell_thr', a0, 0); key('cell_dots', a0, 0); key('cell_shell', a0, 1);
+  show('cell', a - 1.4, a + 0.4, a + 13, a + 17);                         // 1.5 back in the cell (its rooms)
   show('ppi', a + 0.3, a + 1.5);                                          // its proteins, and their contacts
   ramp('ppi_links', a + 3, a + 9, 0, 1);
   ramp('ppi_sort', a + 13, a + 21, 0, 1);                                 // 13 out of the cell, sorted
@@ -104,7 +106,10 @@ function trackWorld(T) {
   jump('globe_sub', a + 21, -1, E.endrin);                                                                                // endrin
   ramp('globe_threads', a + 26, a + 33, 0, 1);                                                                            // 26 threads down to its close diseases
   const gb = E.endrinItaly.gbd['Colon and rectum cancer'];
-  label('globe', () => { const p = ga.italy(); return [p[0] - 0.03, p[1] + 0.09, p[2]]; }, `<b>Colon and rectum cancer</b> ${f2(gb[0])}× the world's rate, ${f2(gb[1])}× western Europe's`, a + 35, a + 48, 'amb');
+  // the two ratios as two short tags stacked above Italy (a phone's width; clear of endrin's and the disease's tags)
+  const times = x => (x >= 3 ? String(Math.round(x)) : x.toFixed(1)) + '×';
+  label('globe', () => { const p = ga.italy(); return [p[0] - 0.03, p[1] + 0.15, p[2]]; }, `<b>${times(gb[0])}</b> the world's rate`, a + 35, a + 48, 'amb');
+  label('globe', () => { const p = ga.italy(); return [p[0] - 0.03, p[1] + 0.12, p[2]]; }, `<b>${times(gb[1])}</b> western Europe's`, a + 35.6, a + 48, 'amb');
   ramp('globe_threads', a + 48, a + 50, 1, 0);
   jump('globe_sub', a + 50, E.endrin, -1); jump('globe_country', a + 50, italy, -1);
   ramp('globe_close', a + 57, a + 61, 0, 1);                                                                              // 58 close against distant

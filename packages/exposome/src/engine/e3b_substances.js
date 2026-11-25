@@ -18,7 +18,7 @@ function trackSubstances(T) {
     pair_genes: 0, pair_share: 0, pair_tie: 0, clot_in: 0, clot_four: 0, clot_gene: 0, clot_label: 0, clot_pulse: 0 });
   // the story's framing of B's views (FIT: the target moved clear of the side panel on a wide screen; on a narrow one it
   // goes back): the pair's left substance otherwise stands behind the panel, the clotting group's four at its edge
-  const cl = [0.035, 0, -0.01];   // (a little to the left of the clotting group as the camera sees it: clot.js's view)
+  const cl = [0.01, 0, -0.01];   // (a little to the left of the clotting group as the camera sees it: clot.js's view)
   Object.assign(FIT, { pair: { default: [0, 0, 0, -0.3, 0, 0] }, clot: { default: [0, 0, 0, ...cl], back: [0, 0, 0, ...cl] } });
   FIT.cloud = Object.assign(FIT.cloud || {}, { g1121: [0, 0, 0, ...cl], default: [0, 0, 0, 0, -0.1, 0], near: [0, 0, 0, 0, -0.08, 0] });
   let a, b;
@@ -57,6 +57,7 @@ function trackSubstances(T) {
   ramp('cloud_pair', a + 22, a + 25, 1, 0);
   ramp('cloud_net', a + 26.5, a + 37, 0, 1);              // 25 "let the threads pull": the shelves fall apart
   ramp('cloud_drift', a + 36, a + 40, 0.08, 0.2);
+  ramp('cloud_links', a + 36, a + 39, 1, 0.3);              // 37 "look at the colours": the threads step back, the families show
   cam(a + 16, 'cloud', 'rings', 30);
   cam(a + 25, 'cloud', 'default', 55, 'spin');
   cam(a + 37, 'cloud', 'default', 85, 'spin');
@@ -84,7 +85,7 @@ function trackSubstances(T) {
   cam(a + 27.5, 'cloud', 'g11', 0);
   cam(a + 31, 'cloud', 'g1121', 0);
   // 30 the clotting group: its 21 gather; the four come forward as the voice names them
-  show('clot', a + 29.2, a + 30.5, b - 3, b - 0.5);
+  show('clot', a + 29.2, a + 30.5, b - 1.8, b + 0.5);   // (out as the cell comes in: e3c_world.js)
   ramp('cloud_hideClot', a + 29.2, a + 29.8, 0, 1);
   ramp('clot_in', a + 29.5, a + 34, 0, 1);
   ramp('clot_four', a + 31.2, a + 32.4, 0, 0.25);         // heparin
@@ -100,7 +101,7 @@ function trackSubstances(T) {
   cam(a + 72, 'clot', 'default', 6, 'spin');
   ramp('clot_tags', a + 72.5, a + 74.5, 1, 0);
   cam(a + 78, 'clot', 'back', 14);                        // 73 "which are dangerous?": pull back
-  ramp('cloud_a', b - 2.5, b - 0.5, 1, 0);
+  ramp('cloud_a', b - 1.8, b + 0.5, 1, 0);
   T.sfxCue(a + 6.2, 'whoosh', 'cloud', 'centre', { dur: 5, gain: 0.5 });
   T.sfxCue(a + 27.8, 'whoosh', 'cloud', 'focus', { dur: 4, gain: 0.5 });
   [32, 34.6, 37.4, 40].forEach((s, i) => T.sfxCue(a + s, 'step', 'clot', 'four' + i, { pitch: Math.pow(2, i / 12), gain: 0.5 }));

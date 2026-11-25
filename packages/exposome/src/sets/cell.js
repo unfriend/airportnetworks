@@ -106,7 +106,7 @@ SETS.cell = function (K) {
   // the 72 most studied after the substance itself, on a shell round the cell, each with threads to its 220 most studied
   // genes' proteins (a sample: the panel gives the collection's size)
   const MANY = 72, PER = 220, SHELL = 2.15;
-  const famCol = i => K.rgb(XDATA.classes.col[XDATA.prim[i]] || '#9aa7b8');
+  const famCol = i => K.rgb(LOOK.family[XDATA.prim[i]] || '#9aa7b8');
   const order = Array.from({ length: XDATA.N }, (_, i) => i).sort((a, b) => XDATA.ngenes[b] - XDATA.ngenes[a] || a - b);
   const manySubs = order.filter(i => i !== XDATA.ex.bap).slice(0, MANY);
   const ga = Math.PI * (3 - Math.sqrt(5));
@@ -198,7 +198,7 @@ SETS.cell = function (K) {
       revPts.visible = revLines.visible = S.cell_rev > 0.002 && S.cell_gene >= 0;
     },
     anchors: {
-      centre: [0, 0, 0], substance: SRC, outer,
+      centre: [0, 0, 0], substance: SRC, outer, many: () => spiral(0, MANY, SHELL, 0.8),
       moving: () => v3.lerp(FROM, SRC, smooth(clamp(S0.cell_sp || 0, 0, 1))),
       gene: () => (S0.cell_gene >= 0 ? at(Math.round(S0.cell_gene)) : [0, 0, 0]),
       casp3: () => (CASP3 >= 0 ? at(CASP3) : [0, 0, 0]),
@@ -206,8 +206,9 @@ SETS.cell = function (K) {
       two0: () => revPos[0] || [0, 0, 0], two1: () => revPos[1] || [0, 0, 0],
     },
     labels: [
-      { text: () => [lab(shownSub), S0.cell_thr > 0.6 ? ` · ${fmt(XDATA.ngenes[shownSub] || 0)} genes` : ''], at: 'moving', cls: 'cyn',
+      { text: () => [lab(shownSub), S0.cell_thr > 0.6 ? ` · ${fmt(XDATA.ngenes[shownSub] || 0)} genes` + (nThr > MAXT ? `, ${fmt(MAXT)} threads drawn` : '') : ''], at: 'moving', cls: 'cyn',
         alpha: S => clamp(S.cell_sp, 0, 1) * (1 - clamp(S.cell_rev * 3, 0, 1)) * (S.cell_sub >= 0 ? 1 : 0) },
+      { text: ['A sample', ` · ${MANY} substances, ${PER} threads each at most`], at: 'many', minor: true, alpha: S => K.prog(S.cell_many, 0.5, 1) * (1 - clamp(S.cell_rev * 3, 0, 1)) },
       { text: ['Place not known', ` · ${fmt(unknown)} proteins`], at: 'outer', alpha: S => clamp(S.cell_note, 0, 1) * clamp(S.cell_dots, 0, 1), minor: true },
       { text: () => ['CASP3', rn ? ` · ${fmt(rn)} substances` : ''], at: 'casp3', cls: 'amb', alpha: S => (S.cell_gene >= 0 ? K.prog(S.cell_rev, 0, 0.15) : 0) },
       { text: () => [top[1][0], ` · ${fmt(top[1][1])}`], at: 'g2', alpha: S => K.prog(S.cell_rev, 0.35, 0.5) * (1 - clamp(S.cell_two, 0, 1)), minor: true },
@@ -253,7 +254,14 @@ SETS.cell.prep = () => {
     P.cut = EXPO_CELL(K, THREE, clamp, v3, stand, mul, perp);
     P.stage = 1; return false;
   }
-  if (P.stage === 1) { P.rev = (XDATA.ppi.N && XDATA.ready('targets') && XDATA.subsOfGene('CASP3')) || []; P.stage = 2; }
+  if (P.stage === 1) {
+    P.rev = (XDATA.ppi.N && XDATA.ready('targets') && XDATA.subsOfGene('CASP3')) || [];
+    // the two lit at "two substances, the same genes?" are chapter threads' pair (pair.js) when the data says both touch
+    // CASP3 (it does); else the first two of its list
+    const two = PAIR_NAMES.map(nm => XDATA.label.indexOf(nm));
+    if (two.every(i => i >= 0 && P.rev.includes(i))) P.rev = two.concat(P.rev.filter(i => !two.includes(i)));
+    P.stage = 2;
+  }
   return true;
 };
 // the point of P (n points, x y z, in obj's frame) nearest a world ray, within tol (local units) of it, nearer side first;

@@ -62,10 +62,10 @@ function groupInfo(k) {
   return { k, lv, name: bWords(k), plain: !!C.label[k], id: C.id[k], size: C.size[k], terms: (C.terms[k] || []).slice(0, 3), path,
     kids: kids.length > 1 ? kids : [], mem: mem.slice(0, 12), memAll: mem.length, col: C.col[path[0]] };
 }
-// the large groups (50 substances or more), largest first, and how many small ones besides
-const B_BIG = () => B_BIG.v || (B_BIG.v = XDATA.comm.byLevel[0].filter(k => XDATA.comm.size[k] >= 50).sort((a, b) => XDATA.comm.size[b] - XDATA.comm.size[a]));
+// the large groups (meta.levels.bigMin, 50 substances or more), largest first, and how many small ones besides
+const B_BIG = () => B_BIG.v || (B_BIG.v = XDATA.comm.byLevel[0].filter(k => XDATA.comm.size[k] >= XDATA.meta.levels.bigMin).sort((a, b) => XDATA.comm.size[b] - XDATA.comm.size[a]));
 const B_NOTE = {
-  sub: 'A thread between two substances: they share many more genes than chance would give. The drawing shows the strongest 45,000 of the 736,470 threads in this map. Closeness to a disease is a distance in the cell\'s network of proteins, not a cause.',
+  get sub() { return `A thread between two substances: they share many more genes than chance would give. The drawing shows the strongest ${fmt(XDATA.meta.drawn)} of the ${fmt(XDATA.meta.nEdges)} threads in this map. Closeness to a disease is a distance in the cell's network of proteins, not a cause.`; },
   grp: 'Groups (communities) are where the threads are dense: found by the authors at three levels. A group\'s words come from the processes its shared genes are known for (its top terms); where they gave no clear theme, the top term itself is shown.',
 };
 
@@ -95,7 +95,7 @@ function selectGroup(k, fly = true) {
 
 // ------------------------------------------------------------ the Substances pane
 const bChip = (act, v, label, on, col) => chip(`data-act="${act}" data-v="${v}"`, esc(label), on, col);
-const bRows = rows => `<dl class="stats">${rows.map(([k, v, more]) => `<dt>${esc(k)}</dt><dd>${esc(v)}${more ? `<small>${esc(more)}</small>` : ''}</dd>`).join('')}</dl>`;
+const bRows = rows => `<dl class="stats">${rows.map(([k, v, more]) => `<dt>${esc(k)}</dt><dd>${esc(v)}${more ? ` <small>${esc(more)}</small>` : ''}</dd>`).join('')}</dl>`;
 function renderSubstances() {
   const pane = $('#pane-substances');
   if (!pane) return;
@@ -116,18 +116,18 @@ function renderSubstances() {
       } else if (ev.key === 'Escape') bSugg(false);
     });
     q.addEventListener('focus', () => { bLoad('names'); if (q.value.trim()) bSugg(true); });
-    q.addEventListener('blur', () => setTimeout(() => bSugg(false), 150));
+    q.addEventListener('blur', () => { clearTimeout(XB.blurT); XB.blurT = setTimeout(() => bSugg(false), 150); });
     sg.addEventListener('mousedown', ev => { const li = ev.target.closest('li'); if (li) { ev.preventDefault(); selectSub(+li.dataset.i); bSugg(false); } });
   }
   const I = subInfo(XB.sub), body = $('#xsBody');
   body.innerHTML = `<p class="grp-h">Start with</p><div class="chips">${B_QUICK().map(i => bChip('bsub', i, XDATA.label[i], XB.sub === i)).join('')}</div>
     ${I ? `<h3 style="color:${inkCol(LOOK.substance)}">${esc(I.name)}</h3>${I.full ? `<p class="sub">${esc(I.full)}</p>` : ''}
-      <p class="sub">${I.fams.length ? `Chemical famil${I.fams.length > 1 ? 'ies' : 'y'}: ${esc(listOf(I.fams.map(bFam)))}.` : ''}</p>
+      ${I.fams.length ? `<p class="grp-h">Chemical famil${I.fams.length > 1 ? 'ies' : 'y'} <small>(the colours of the shelves)</small></p><p class="sub">${I.fams.map(c => `<span style="display:inline-flex;align-items:center;gap:6px;margin:0 12px 2px 0"><span style="display:inline-block;width:11px;height:11px;border-radius:50%;background:${swCol(LOOK.family[c] || LOOK.none)}"></span>${esc(bFam(c))}</span>`).join('')}</p>` : ''}
       ${bRows(I.rows)}
       ${I.net ? `<p class="grp-h">Its groups, from large to fine</p><div class="chips">${I.groups.map((k, lv) => bChip('bgroup', k, `${bWords(k)} · ${fmt(XDATA.comm.size[k])}`, false, XDATA.comm.col[I.groups[0]])).join('')}</div>`
         : '<p class="sub">No thread to another substance here, so no place in the network and no group.</p>'}
       <p class="grp-h">Its genes${I.genes ? ', most studied first' : ''}</p><p class="sub">${I.genes ? esc(I.genes.join(', ')) + (XDATA.ngenes[I.i] > I.genes.length ? ` and ${fmt(XDATA.ngenes[I.i] - I.genes.length)} more` : '') : I.loading.genes ? '…' : 'not available offline'}</p>
-      <p class="grp-h">Diseases closest to it in this map</p><p class="sub">${I.dis ? (I.dis.length ? esc(I.dis.map(([d, z]) => `${d} (z ${f2(z)})`).join('; ')) : 'none of the closest pairs (z below −5)') : I.loading.dis ? '…' : 'not available offline'}</p>
+      <p class="grp-h">Diseases closest to it in this map</p><p class="sub">${I.dis ? (I.dis.length ? esc(I.dis.map(([d, z]) => `${d} (z ${f2(z)})`).join('; ')) : `none of the closest pairs (z below ${Z_CUT()})`) : I.loading.dis ? '…' : 'not available offline'}</p>
       ${I.nb.length ? `<p class="grp-h">Its strongest threads here (${fmt(I.nbAll)} drawn)</p><div class="chips">${I.nb.map(j => bChip('bsub', j, XDATA.label[j], false)).join('')}</div>` : ''}
       <div class="chips" style="margin-top:12px">${SCENES.filter(([k]) => k === 'cell' || k === 'ppi').map(([k, nm]) => bChip('bscene', k, `Its genes: ${nm}`, false)).join('')}${bChip('bsub', 'none', 'None', false)}</div>`
     : '<p class="sub">No substance picked.</p>'}
@@ -155,7 +155,7 @@ function renderGroups() {
       ${I.kids.length ? `<p class="grp-h">Inside it: ${I.kids.length} ${B_LEVEL[I.lv + 1]}s</p><div class="chips">${I.kids.map(q => bChip('bgroup', q, `${bWords(q)} · ${fmt(C.size[q])}`, false)).join('')}</div>` : ''}
       <p class="grp-h">Members${I.memAll > I.mem.length ? `: the ${I.mem.length} best studied of ${fmt(I.memAll)}` : ''}</p><div class="chips">${I.mem.map(i => bChip('bsub', i, XDATA.label[i], false)).join('')}</div>
       <div class="chips" style="margin-top:12px">${bChip('bgroup', 'none', 'All groups', false)}</div>`
-    : `<p class="grp-h">The ${big.length} large groups (50 substances or more), and ${fmt(C.counts[0] - big.length)} small ones</p>
+    : `<p class="grp-h">The ${big.length} large groups (${fmt(XDATA.meta.levels.bigMin)} substances or more), and ${fmt(C.counts[0] - big.length)} small ones</p>
       <div class="chips">${big.map(k => bChip('bgroup', k, `${bWords(k)} · ${fmt(C.size[k])}`, false, C.col[k])).join('')}</div>`}
     <p class="note">${esc(B_NOTE.grp)}</p>`;
 }

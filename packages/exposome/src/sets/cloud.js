@@ -3,8 +3,8 @@
 // round the middle, so a camera or a head at the middle stands inside it), the chemist's shelves (XDATA.shelf: one ring
 // per chemical family, the generator's) and the authors' own 3D layout of the network (XDATA.pos, never laid out again
 // here). The 45,000 drawn links (XDATA.links, the strongest) are one LineSegments that shares the points' buffers (an
-// index into them), so every thread follows its two ends through every move. Coloured by chemical family (the authors'
-// colours, XDATA.classes.col) or by community (the authors' colours, XDATA.comm.col; a community below the top level gets
+// index into them), so every thread follows its two ends through every move. Coloured by chemical family (our
+// colours, LOOK.family) or by community (the authors' colours, XDATA.comm.col; a community below the top level gets
 // a lighter or darker shade of its top group's, so the smaller groups show). Three draw calls: points, threads, halos.
 //
 // Params (the engine eases them; steps marked *step*, never eased):
@@ -35,7 +35,7 @@ SETS.cloud = function (K) {
   const { THREE, clamp, smooth } = K;
   const set = K.newSet('cloud');
   const X = XDATA, n = X.NN, CM = X.comm, r = K.rng(11);
-  const famCol = X.classes.col.map(c => K.rgb(c));
+  const famCol = X.classes.names.map((nm, c) => K.rgb(LOOK.family[c] || LOOK.none));
   const hash = i => { const s = Math.sin(i * 12.9898 + 78.233) * 43758.5453; return s - Math.floor(s); };
 
   // ---------------------------------------------------------------- the communities' middles (in the authors' layout)
@@ -328,7 +328,10 @@ void main() {
     alpha: s => (s.cloud_focus >= 0 ? 0 : clamp((s.cloud_names - j / 4) * 8, 0, 1)) * clamp(s.cloud_col * 2 - 1, 0, 1) }));
   OTHERS.forEach(k => labels.push({ at: () => cenAt(k, [0, 0, 0]), minor: true, text: [words(k), ' · ' + fmt(CM.size[k])],
     alpha: s => (s.cloud_focus >= 0 ? 0 : clamp((s.cloud_names - 0.75) * 8, 0, 1)) * clamp(s.cloud_col * 2 - 1, 0, 1) }));
-  labels.push({ at: 'focus', text: () => { const k = S.cloud_focus; return k >= 0 && k < CM.n ? [words(k), ` · ${fmt(CM.size[k])} substances${lvName[CM.lv[k]]}`] : ['', '']; },
+  // (in the story's dive the levels above the clotting group are not named: their words would speak of something else
+  // while the voice heads for blood clotting; explore names every group)
+  const story = () => typeof APP !== 'undefined' && APP.mode === 'story';
+  labels.push({ at: 'focus', text: () => { const k = S.cloud_focus; return k >= 0 && k < CM.n ? (story() && CM.lv[k] < 2 ? [CM.lv[k] ? 'A smaller group' : 'A larger group', ` · ${fmt(CM.size[k])} substances`] : [words(k), ` · ${fmt(CM.size[k])} substances${lvName[CM.lv[k]]}`]) : ['', '']; },
     alpha: s => (s.cloud_focus >= 0 && s.cloud_pick < 0 ? clamp(s.cloud_dim * 2 - 0.6, 0, 1) : 0) * (1 - clamp(((s.clot_a || 0) - 0.2) * 3, 0, 1)) });
   labels.push({ at: 'pick', text: () => { const i = S.cloud_pick; return i >= 0 && i < n ? [X.label[i], ` · ${fmt(X.ngenes[i])} genes`] : ['', '']; },
     alpha: s => (s.cloud_pick >= 0 ? clamp(s.cloud_dim * 2 - 0.5, 0, 1) : 0) });
