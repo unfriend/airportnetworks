@@ -27,7 +27,17 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   (`HOST.menu.follow`), so the Stories screen opens on the set the story is in; `#experiments` opens on that set.
   `HOST.stories()` is every story of both sets: what a shared room may run (Add, an All stories circle's pick, a
   station's clock); Arrange all, Repeat all and the default start see only `HOST.list`. `hidden` still means hidden
-  (developer mode on the main set, and the address): no package uses it now. A story the list does not have (a shared
+  (developer mode on the main set, and the address): no package uses it now.
+- Link cards (v200; `LINKS` in `HOST.menu`): cards on the Experiments set, after its packages and before the card back,
+  that open a page at an address rather than a story: *Studio* (`studio-card`: `#studio`) and *Tracker guide*
+  (`tracker-guide`: `#studio&scenes=examples&scene=tracker-guide&visit`, the studio's example visiting). Each has a key of
+  its own (never a story's), `menu: 'link'` (the arch's button says *Open*, as for a menu card: no story code changed), and
+  is no story: `HOST.stories()`, Arrange all, a room's Add and the packages never see it; shown only while the shell knows
+  its page (`HOST.meta`). `HOST.menu.link(key)` finds one; `HOST.menu.go(key)` (the page's click and `HOST.go`) gives the
+  page its address just before it starts (`HOST.start(key, '<address>')`: a string `keepHash` is written by `HOST.hist`
+  then, after the menu has followed the story, so the page reads its words: the studio's `HP0`), or starts the page on
+  show again with it (`HOST.run`); the set stays the Experiments one (`M.link`, `follow`). In a shared room it starts the
+  page as any story there, without the address (the scene there is the room's). An older shell has no link cards. A story the list does not have (a shared
   room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`. An entry with `intro: true` (v173, the
   tutorial: an introduction, not one of the stories) is passed by in three places in `index.html`: `HOST.count()`
   counts only the entries without it, the default start (no `#key`) builds the first entry without it behind the

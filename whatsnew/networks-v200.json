@@ -1,0 +1,22 @@
+{
+  "version": "networks-v200",
+  "date": "2026-11-25",
+  "new": [
+    "A tracker guide: on the Experiments cards, Tracker guide opens the studio on a scene of stands you walk round, one for each way to wear trackers, each with the tutorial's robot and a sign.",
+    "Eleven trackers, lining up in a T-pose (the trackers light up in the order the app finds them, and an orange character steps in and is sized), six trackers, feet and headset, headset and controllers, headset and tracked hands.",
+    "Every move the robots make is worked out by the app's own solver from the pucks they wear; where a limb misses its puck, the solver guessed.",
+    "At the end two robots to wear yourself: with trackers on the relay, open the scene from the studio's Examples, turn on Edit, select one and choose Line up with the performer.",
+    "Two new cards on the Experiments set: Studio, and Tracker guide."
+  ],
+  "test": [
+    "On a phone and a headset: open Experiments, then Tracker guide. Does the studio open on the guide with no Edit button? Does Back to the stories bring the Experiments cards back?",
+    "In a headset, walk the guide with the sticks. Can you read the signs and the small tags on the pucks from where you stand? Is any robot or sign in the way?",
+    "Watch stand 2 for a whole loop (16 s): the countdown, the trackers lighting up, the orange character stepping in, then following.",
+    "With the PC's trackers: open the guide from the studio's Examples (not visiting), Edit, select the left robot and line it up with the performer. Does it follow?"
+  ],
+  "untested": [
+    "Everything a headset shows in the guide: the signs and tags at reading distance, the walk (about 15 m), the frame rate with fourteen skinned figures. Only a page in Walk view was checked.",
+    "Wearing the two robots with real trackers or a headset's head and hands; where real straps sit (the knee pucks' place on the thigh is our guess).",
+    "The spoken lines are not in the scene yet: the voice was not set up on the build machine (tools/studio/tracker-guide/README.md says how to speak them)."
+  ]
+}

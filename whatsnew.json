@@ -1,22 +1,22 @@
 {
-  "version": "networks-v199",
-  "date": "2026-11-24",
+  "version": "networks-v200",
+  "date": "2026-11-25",
   "new": [
-    "A studio tour: in the studio's Scene pane, Examples, open studio-tour. A hall with a stand for each thing the studio does, each working, with a sign saying what it is and what to do there.",
-    "The basics first (models, textures, shapes, cut-outs...), then what reacts to you (trigger cubes, presses, sequences, sounds, screens), then what moves (motions, behaviours, paths, trails).",
-    "At the end a shuttle for four: walk in and sit down, and for you the hall gives way to another world. The VR goggles are on its shelf, and a panel waits for the game screen.",
-    "VR goggles in the studio (v197, v198): take them with the grip and bring them to your face to fly a ship through the cell of Back into the cell. Grip near your face and pull away, or the menu's Goggles off, to take them off."
+    "A tracker guide: on the Experiments cards, Tracker guide opens the studio on a scene of stands you walk round, one for each way to wear trackers, each with the tutorial's robot and a sign.",
+    "Eleven trackers, lining up in a T-pose (the trackers light up in the order the app finds them, and an orange character steps in and is sized), six trackers, feet and headset, headset and controllers, headset and tracked hands.",
+    "Every move the robots make is worked out by the app's own solver from the pucks they wear; where a limb misses its puck, the solver guessed.",
+    "At the end two robots to wear yourself: with trackers on the relay, open the scene from the studio's Examples, turn on Edit, select one and choose Line up with the performer.",
+    "Two new cards on the Experiments set: Studio, and Tracker guide."
   ],
   "test": [
-    "In a headset, open the studio tour and walk the hall with the sticks. Are the signs readable from where you stand? Is anything too close or in the way?",
-    "Step onto the pads, press the buttons, carry the red ball into the basket, and let the robot follow you. Does each stand do what its sign says?",
-    "Sit in the shuttle: does the other world replace the hall through the windows and the door, and come back as you step out? With two headsets, only the one inside should see it.",
-    "Take the goggles from the shuttle's shelf and bring them to your face; take them off again. Are they back on the shelf?",
-    "In AR: the purple poster should go to your nearest real wall, the orange box show instead of the blue ball."
+    "On a phone and a headset: open Experiments, then Tracker guide. Does the studio open on the guide with no Edit button? Does Back to the stories bring the Experiments cards back?",
+    "In a headset, walk the guide with the sticks. Can you read the signs and the small tags on the pucks from where you stand? Is any robot or sign in the way?",
+    "Watch stand 2 for a whole loop (16 s): the countdown, the trackers lighting up, the orange character stepping in, then following.",
+    "With the PC's trackers: open the guide from the studio's Examples (not visiting), Edit, select the left robot and line it up with the performer. Does it follow?"
   ],
   "untested": [
-    "Everything a headset shows in the tour: the walk's length (about 35 m), the signs at reading distance, the pads, presses and grips, the shuttle's world as you sit, the goggles from its shelf, the poster on a real wall in AR. Only a page in Walk view was checked.",
-    "How the tour's sounds sound (bell, music box, buzz, notes, tunes, whoosh): unheard.",
-    "The goggles' game itself (v197, v198): the grab to the face, the take-off gesture, the fade and bubble, comfort and frame rate on a Quest."
+    "Everything a headset shows in the guide: the signs and tags at reading distance, the walk (about 15 m), the frame rate with fourteen skinned figures. Only a page in Walk view was checked.",
+    "Wearing the two robots with real trackers or a headset's head and hands; where real straps sit (the knee pucks' place on the thigh is our guess).",
+    "The spoken lines are not in the scene yet: the voice was not set up on the build machine (tools/studio/tracker-guide/README.md says how to speak them)."
   ]
 }

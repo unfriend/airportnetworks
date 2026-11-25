@@ -17,6 +17,7 @@
 // --only 'update the room': Update the room's buttons, the order and a reload by it, v136;
 // --only 'studio xp': the Bliss XP room, the studio's first example scene, v137;
 // --only 'studio tour': the studio tour, an example scene with a stand for each thing the studio does, v199;
+// --only 'studio guide': the tracker guide, an example scene of ways to wear trackers, and the Experiments set's link cards, v200;
 // --only 'studio paint': paintings, strokes drawn in the air with a ribbon, a tube, a glow pen or a spray can, v144;
 // --only 'studio sequences': timelines of events on items (kind q), shared on the room's clock, v146;
 // --only 'studio press': an object's or shape's reactions to a press and to being pointed at, shared by a stamp, v146;
@@ -13268,6 +13269,43 @@ if (runs('studio tour')) {
     if (!g || g.on || g.items.length !== 1 || !g.loaded) errors.push('studio tour: the goggles\' state: ' + JSON.stringify(g));
   });
   await tp.close();
+}
+// The tracker guide (v200): examples/tracker-guide/, made by tools/studio/tracker-guide/make.mjs. The Experiments set
+// has its two link cards (Studio, Tracker guide) after the packages and before the card back, none on the main set; the
+// Tracker guide card opens the studio on the example, visiting (no Edit); every model loads with the clips its layout
+// names (the robot's and each stand's pucks, one clip name a stand), under its budgets; the layout is read with no bad
+// items, the two robots to try have their wearing ready (on nobody) and the robot is a Mixamo rig to the solver.
+if (runs('studio guide')) {
+  const gp = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  gp.on('pageerror', e => errors.push('studio guide: ' + (e.stack || e.message)));
+  gp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio guide: ' + m.text()); });
+  const ss = s => gp.evaluate(s => HOST.cur.peek(s), s);
+  await step('studio guide: the Experiments set\'s link cards open the studio, the guide visiting; its models load with their clips; its layout reads back', async () => {
+    await gp.goto(base + 'index.html#experiments');
+    await gp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.menu && HOST.menu.at === 'experiments' && document.querySelector('#picker .card[data-story="tracker-guide"]'), null, { timeout: 60000 }).catch(() => errors.push('studio guide: no Tracker guide card on the Experiments set'));
+    const keys = await gp.evaluate(() => [...document.querySelectorAll('#picker .card')].map(c => c.dataset.story));
+    if (keys.slice(-3).join() !== 'studio-card,tracker-guide,stories') errors.push('studio guide: the Experiments set\'s last cards: ' + keys.slice(-3).join());
+    if (await gp.evaluate(() => HOST.stories().some(s => /^(studio-card|tracker-guide)$/.test(s.key)))) errors.push('studio guide: a link card is among HOST.stories()');
+    await gp.click('#picker .card[data-story="tracker-guide"]');
+    const ok = await gp.waitForFunction(() => HOST.curKey === 'studio' && HOST.cur && HOST.cur.peek('STU.scene') === 'tracker-guide' && HOST.cur.peek('STUDIO.ready()'), null, { timeout: 180000 }).then(() => true, () => false);
+    if (!ok) { errors.push('studio guide: the card did not open the guide'); return; }
+    if (!await ss('HP0.has("visit")')) errors.push('studio guide: the guide opened not visiting');
+    if (await gp.evaluate(() => HOST.menu.at) !== 'experiments') errors.push('studio guide: the Stories screen would not open on the Experiments set again');
+    const layout = await gp.evaluate(async () => (await fetch('examples/tracker-guide/layout.json')).json());
+    const r = await ss(`(() => { const out = [], tris = {};
+      for (const it of STU.items.values()) if (it.kind === 'o') { const E = it.E; if (!E || E.state === 'failed' || !it.model) out.push(it.rec.file + ' did not load'); else { tris[it.rec.file] = E.info.tris; if (E.info.tris > 10000) out.push(it.rec.file + ': ' + E.info.tris + ' triangles'); } }
+      const rob = [...STU.items.values()].find(it => it.id === 'try001'), rig = rob && rob.model ? IK.rigOf(rob.model.o) : null;
+      if (!rig || !rig.ok) out.push('the robot is not a rig to the solver: ' + (rig && rig.why));
+      return { out, tris, bad: STU.bad, clips: Object.fromEntries([...LIB].map(([p, E]) => [p, (E.clips || []).map(c => c.name)])) }; })()`);
+    if (r.bad) r.out.push('the layout was read with ' + r.bad + ' bad items');
+    const room = layout.objects.reduce((s, o) => s + (r.tris[o.file] || 0), 0);
+    if (room > 60000) r.out.push(`${room} triangles as placed`);
+    for (const o of layout.objects) if (o.clip && !(r.clips[o.file] || []).includes(o.clip)) r.out.push(`${o.id}: ${o.file} has no clip ${o.clip}`);
+    for (const id of ['try001', 'try002']) { const o = layout.objects.find(x => x.id === id); if (!o || !o.puppet || o.puppet.on || o.puppet.by) r.out.push(id + ': its wearing is not ready: ' + JSON.stringify(o && o.puppet)); }
+    console.log(`     (${Object.keys(r.tris).length} models, ${layout.objects.length} objects, ${room.toLocaleString('en-GB')} triangles as placed)`);
+    if (r.out.length) errors.push(...r.out.map(b => 'studio guide: ' + b));
+  });
+  await gp.close();
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
 await step('Repeat one and Repeat all', async () => {

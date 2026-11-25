@@ -1,0 +1,31 @@
+{
+  "name": "tracker-guide",
+  "files": [
+    {"path":"models/character.glb","bytes":385532,"at":1795591842042,"kind":"model"},
+    {"path":"models/pucks-1-eleven-trackers.glb","bytes":241100,"at":1795591842046,"kind":"model"},
+    {"path":"models/pucks-2-line-up.glb","bytes":461440,"at":1795591842050,"kind":"model"},
+    {"path":"models/pucks-3-six-trackers.glb","bytes":132360,"at":1795591842046,"kind":"model"},
+    {"path":"models/pucks-4-feet-and-headset.glb","bytes":108932,"at":1795591842046,"kind":"model"},
+    {"path":"models/pucks-5-headset-and-controllers.glb","bytes":73836,"at":1795591842046,"kind":"model"},
+    {"path":"models/pucks-6-headset-and-hands.glb","bytes":60064,"at":1795591842050,"kind":"model"},
+    {"path":"models/robot.glb","bytes":985948,"at":1795591842042,"kind":"model"},
+    {"path":"previews/models/character.glb.jpg","bytes":6620,"at":1795591842046,"kind":"preview"},
+    {"path":"previews/models/pucks-1-eleven-trackers.glb.jpg","bytes":4696,"at":1795591842046,"kind":"preview"},
+    {"path":"previews/models/pucks-2-line-up.glb.jpg","bytes":4610,"at":1795591842050,"kind":"preview"},
+    {"path":"previews/models/pucks-3-six-trackers.glb.jpg","bytes":3631,"at":1795591842046,"kind":"preview"},
+    {"path":"previews/models/pucks-4-feet-and-headset.glb.jpg","bytes":3338,"at":1795591842046,"kind":"preview"},
+    {"path":"previews/models/pucks-5-headset-and-controllers.glb.jpg","bytes":2963,"at":1795591842046,"kind":"preview"},
+    {"path":"previews/models/pucks-6-headset-and-hands.glb.jpg","bytes":3327,"at":1795591842050,"kind":"preview"},
+    {"path":"previews/models/robot.glb.jpg","bytes":6097,"at":1795591842042,"kind":"preview"},
+    {"path":"signs/00-welcome.glb","bytes":57568,"at":1795591842042,"kind":"model"},
+    {"path":"signs/01-whole-body-11-trackers.glb","bytes":51184,"at":1795591842038,"kind":"model"},
+    {"path":"signs/02-lining-up-the-t-pose.glb","bytes":59272,"at":1795591842038,"kind":"model"},
+    {"path":"signs/03-whole-body-6-trackers.glb","bytes":42300,"at":1795591842038,"kind":"model"},
+    {"path":"signs/04-feet-and-headset.glb","bytes":39100,"at":1795591842038,"kind":"model"},
+    {"path":"signs/05-headset-and-controllers.glb","bytes":44892,"at":1795591842042,"kind":"model"},
+    {"path":"signs/06-headset-and-tracked-hands.glb","bytes":47568,"at":1795591842042,"kind":"model"},
+    {"path":"signs/07-try-it-yourself.glb","bytes":67600,"at":1795591842042,"kind":"model"}
+  ],
+  "layoutAt": 1795591842050,
+  "save": false
+}

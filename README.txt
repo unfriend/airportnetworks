@@ -229,6 +229,11 @@ its circle) moves every item there again, for everyone (one Undo step).
   and at the end a shuttle: sit inside and the hall gives way to another world;
   the VR goggles are on its shelf
   (#studio&scenes=examples&scene=studio-tour opens it directly).
+- The tracker guide (Experiments, Tracker guide; or Examples, tracker-guide):
+  stands you walk round, one for each way to wear trackers, from eleven on the
+  whole body to a headset alone, each on the tutorial's robot with a sign; at
+  the end two robots to wear yourself with trackers (open the scene from
+  Examples, turn on Edit, select one, Line up with the performer).
 - A sound can follow a model, or one of its bones: on the sound's card Follow
   an object..., point at the figure (or click it), then pick a bone (Head,
   Chest, a hand...; More bones... lists them all). A voice placed at her mouth

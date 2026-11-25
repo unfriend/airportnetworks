@@ -1404,6 +1404,25 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   66 shapes. No studio code changed for it. `node tools/smoke.mjs --only 'studio tour'`. Untested on a headset: the walk
   itself (its length, about 35 m, with the sticks), the signs' reading distance, the shuttle's cube and world as you sit
   inside, the goggles taken from its shelf, the sounds' levels (unheard).
+- **The tracker guide (example scene)** (v200; `tools/studio/tracker-guide/README.md`). `examples/tracker-guide/`, made by
+  `node tools/studio/tracker-guide/make.mjs` (`--check`; never edit it by hand; headless Chromium loading the XP room's
+  `kit.js`, the tour's `parts.js` for its signs, `ik.js` and `bodies.js`): a walkway with the welcome, six stands of ways
+  to wear trackers (11 trackers; lining up in a T-pose; 6 trackers; feet and headset; headset and controllers; headset and
+  tracked hands) and two robots to try. The robot is `bodies.js`'s mannequin (`HOST.bodies.mannequin()`, added for this:
+  nothing in the app calls it) exported as a skinned model with Mixamo's bone names; every move is `ik.js`'s, baked: a
+  performer's joints turned by a few simple moves, each tracker, headset, controller or tracked wrist fixed to one of its
+  bones, `assign` (the build fails if the rule names a tracker wrongly), `calibrate`, `solve` at 60 Hz, `sample` at 20,
+  `clipOf`. One `robot.glb` holds every clip; each stand places it beside its own pucks model (the targets as bones of
+  their own, tagged with their part) with the same clip name, in step on the scene's clock. Stand 2 adds `character.glb`
+  (orange, its armature 0.8: slid in and sized by `calibrate`'s scale) and a countdown; the pucks light up in `assign`'s
+  order. The two robots to try carry `puppet` `{ rig: 'full' }` and `{ rig: 'feet' }` (worn by nobody): *Line up with the
+  performer* on their cards, with editing on (not with `&visit`, which the Experiments card's link uses). The spoken lines
+  (`script.json`) are sounds only once `voice.mjs` has rendered them (Kokoro, `af_heart`): a pad and a personal cube per
+  stand plays its line, a press on its sign (`who: 'own'`) again. About 2.8 MB without the voice; 31,000 triangles and 41
+  draws of models as placed. The head's puck on the front of the head (the owner); the knee's on the thigh, 80 % of the way
+  to the knee (an assumption, `KNEE` in `parts.js`). Studio code unchanged. `node tools/smoke.mjs --only 'studio guide'`.
+  Untested on a headset: the walk, the signs and the pucks' small tags at reading distance, fourteen skinned figures'
+  frame cost on a Quest, wearing the two robots with real trackers; the voice (not rendered, unheard).
 - **Untested on a headset**: the grips, the corner stretch, the VR stick walk, objects on the real floor in AR, the
   emitters through HRTF and streamed sounds on a Quest (`createMediaElementSource` there), the frame rate with the
   397,066-triangle scan, the memory peak while its 8,192 px JPEG is decoded before it is drawn down, how the flat-shaded

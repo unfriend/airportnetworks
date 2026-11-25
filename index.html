@@ -882,7 +882,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 198, id: '16b494481e355957', format: 'networks-56' },
+  shell: { n: 200, id: '88edea248f1d4098', format: 'networks-56' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3472,7 +3472,8 @@ HOST.teardown = function () {
 // screen see only HOST.list
 HOST.stories = function () { const L = this.list; return L.concat(this.packages ? this.packages.experiments().filter(m => !L.some(x => x.key === m.key)) : []); };
 HOST.meta = function (key) { return this.list.find(s => s.key === key) || (self.STORY_EXTRA || []).find(s => s && s.key === key) || (this.packages && this.packages.get(key)); };
-// place: a place to put back once the story is built (a swap, a reload: HOST.live)
+// place: a place to put back once the story is built (a swap, a reload: HOST.live); keepHash a string: the address to
+// give the page just before it starts (HOST.menu's link cards: the page reads its words as it starts)
 HOST.start = async function (key, keepHash, place) {
   // at an All stories circle in a shared room a person's story is the circle's pick, for everyone there: the room then
   // switches this device too (shared.js)
@@ -3492,6 +3493,7 @@ HOST.start = async function (key, keepHash, place) {
   this.busy = true;
   this.loading.begin(meta);
   try { await this.load(meta.key, this.live.stale(meta.key)); } catch (e) { this.loading.fail(e.message); this.busy = false; this.queued = ''; return; }
+  if (typeof keepHash === 'string') this.hist.replace(keepHash);
   this.run(meta, keepHash, place);
   this.closePicker();
   this.next();
@@ -3579,7 +3581,7 @@ HOST.putPlace = function (P) {
   if (P.view != null && c.setView) try { c.setView(P.view); } catch (e) { /* no view to take */ }
 };
 // from the headset menu: change story after the click that asked for it has finished
-HOST.go = key => setTimeout(() => (HOST.menu.is(key) ? HOST.menu.open(key) : HOST.start(key)), 0);   // (a card of HOST.menu: its screen)
+HOST.go = key => setTimeout(() => (HOST.menu.link(key) ? HOST.menu.go(key) : HOST.menu.is(key) ? HOST.menu.open(key) : HOST.start(key)), 0);   // (a card of HOST.menu: its screen, or the address it opens)
 // The Stories screen's two sets of cards (v188; the owner, 23 November 2026: "add one card at the end called experiments
 // that opens another cards arch menu with the hidden and experimental things that are not in the main menu"), the same
 // on the page (HOST.cards) and in the headset (the card arch: cards(), built again as HOST.listRev changes): the main
@@ -3593,16 +3595,39 @@ HOST.menu = (function () {
     desc: 'Stories in the making, short pieces and tests that are not in the main set. They work as the stories do.', len: 'Opens more cards' };
   const BACK = { key: 'stories', menu: 'main', kick: 'Back', title: 'Network stories', col: '#46d9ff',
     desc: 'Back to the main stories.', len: 'Opens the main cards' };
+  // (v200: cards on the Experiments set that open a page at an address, not a story package: the studio, and the studio
+  // on its tracker guide, visiting. Each has a key of its own, never a story's; it is no story either: HOST.stories(),
+  // Arrange all and a room's Add never see it. A link opens its page with its address's words, which the page reads as it
+  // starts: the studio's &scenes, &scene and &visit)
+  const LINKS = [
+    { key: 'studio-card', menu: 'link', open: 'studio', tail: '', kick: 'Make your own', title: 'Studio', col: '#ffb43b',
+      desc: 'Your own models, sounds and trigger cubes placed life size in the room. Its Scene pane opens the example scenes.', len: 'Opens the studio' },
+    { key: 'tracker-guide', menu: 'link', open: 'studio', tail: '&scenes=examples&scene=tracker-guide&visit', kick: 'Trackers', title: 'Tracker guide', col: '#3ee0c8',
+      desc: 'Ways to wear trackers, from eleven on the whole body to a headset alone, each on a robot that moves as a performer would. Walk round the stands.', len: 'A studio scene, about 15 m to walk' },
+  ];
   const exps = () => (HOST.packages ? HOST.packages.experiments() : []);
   const which = key => (key === EXP.key || key === 'experiments' ? 'experiments' : 'main');
   const api = {
     get at() { return M.at; },
     // a card of the menu itself (not a story)
     is: key => key === EXP.key || key === BACK.key,
+    // a card that opens a page at an address (LINKS), or undefined
+    link: key => LINKS.find(l => l.key === key),
+    // open a link card's page: its address first (the page reads it as it starts), then the page; the page already on
+    // show is started again, so it reads the new address. In a shared room the page is started as any story there
+    go(key) {
+      const l = api.link(key), meta = l && HOST.meta(l.open);
+      if (!meta || HOST.busy) return false;
+      M.link = l.open;   // (its page is on this set of cards: the Stories screen opens on it again, follow)
+      if (HOST.collab && HOST.collab.joined) { HOST.start(l.open); return true; }
+      const h = '#' + l.open + l.tail;
+      if (HOST.curKey === l.open && HOST.cur) { HOST.hist.replace(h); HOST.run(meta, true); HOST.closePicker(); } else HOST.start(l.open, h);
+      return true;
+    },
     // the set a story's card is in
-    of: key => (exps().some(m => m.key === key) ? 'experiments' : 'main'),
+    of: key => (exps().some(m => m.key === key) || key === M.link ? 'experiments' : 'main'),
     // the cards of the set on show: stories, then the card to the other set (none to an empty Experiments set)
-    cards: () => (M.at === 'experiments' ? exps().concat([BACK]) : HOST.list.concat(exps().length ? [EXP] : [])),
+    cards: () => (M.at === 'experiments' ? exps().concat(LINKS.filter(l => HOST.meta(l.open)), [BACK]) : HOST.list.concat(exps().length ? [EXP] : [])),
     title: () => (M.at === 'experiments' ? 'Experiments' : 'Network stories'),
     // show the other set (a card's key or 'main' / 'experiments'): both Stories screens change at once
     open(key) {
@@ -5668,6 +5693,7 @@ HOST.arrange = (function () {
     const c = ev.target.closest('[data-story]');
     if (!c) return;
     HOST.handheld.storyTap();   // (a phone or tablet: full screen, asked for within the tap)
+    if (HOST.menu.link(c.dataset.story)) { HOST.menu.go(c.dataset.story); return; }   // (a card that opens a page at an address: the studio)
     if (HOST.menu.is(c.dataset.story)) { HOST.menu.open(c.dataset.story); return; }   // (Experiments, or back: the other set of cards)
     if (HOST.collab && HOST.collab.allPick && HOST.collab.allPick(c.dataset.story)) return;   // (following an All stories circle: its pick)
     if (c.dataset.story === HOST.curKey) { HOST.closePicker(); window.dispatchEvent(new Event('storyrestart')); } else HOST.start(c.dataset.story);

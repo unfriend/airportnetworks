@@ -993,5 +993,8 @@ void main() {
   }
   const stats = () => statsOf(W.def);
   return { CAP, PARTS, can, attach, warm, person, begin, add, end, info, stats, meshes: () => ({ body: W.def ? W.def.body : null, halo: W.def ? W.def.halo : null }),
-    set, size, grip, point };
+    set, size, grip, point,
+    // (the mannequin's bones and geometry, made once: the tracker guide's generator, tools/studio/tracker-guide/, exports
+    // it as a skinned model; nothing in the app calls it)
+    mannequin: () => W.M || (W.M = mannequin()) };
 })();

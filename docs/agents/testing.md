@@ -1212,6 +1212,16 @@ cube active inside it, the world outside shown and the hall hidden, and the othe
 `flight.js` loaded. After changing `tools/studio/tour/` (or `tools/studio/xp/kit.js`, which it loads), run
 `node tools/studio/tour/make.mjs` and its `--check`.
 
+### smoke: studio guide
+
+Its *studio guide* step (`--only 'studio guide'`, about a minute, v200): the Experiments set ends with the link cards
+*Studio* and *Tracker guide* and then the card back, and neither is in `HOST.stories()`; *Tracker guide* opens the studio
+on `examples/tracker-guide` visiting (`&visit`), the Stories screen still on the Experiments set; every model loaded,
+under 10,000 triangles, the scene under 60,000 as placed, the clips its layout names there; its layout read with no bad
+items, the two robots to try worn by nobody with their wearing ready, and the robot a Mixamo rig to `IK.rigOf`. After
+changing `tools/studio/tracker-guide/` (or what it loads: the tour's `parts.js`, `ik.js`, `bodies.js`), run
+`node tools/studio/tracker-guide/make.mjs` and its `--check`.
+
 ### smoke: bodies
 
 `--only bodies` (v164): people's bodies (`bodies.js`, "People's bodies" in `docs/agents/shared-rooms.md`) with a

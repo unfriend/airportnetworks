@@ -71,6 +71,7 @@ session and every agent and workflow it starts avoid them, and every agent promp
 | `lowpoly.js` (the shell's four), `packages/<key>/minis.js` (a story's miniatures, v190) | `tools/lowpoly/`, `packages/<key>/src/minis.js` and `src/props.json` | `node tools/lowpoly/build.mjs` |
 | `examples/bliss-xp` | `tools/studio/xp/` | `node tools/studio/xp/make.mjs` |
 | `examples/studio-tour` | `tools/studio/tour/` (and `tools/studio/xp/kit.js`) | `node tools/studio/tour/make.mjs` |
+| `examples/tracker-guide` | `tools/studio/tracker-guide/` (and the tour's `parts.js`, `ik.js`, `bodies.js`) | `node tools/studio/tracker-guide/make.mjs` (its voice: `voice.mjs` first) |
 | `tools/studio/test/scenes/` | `tools/studio/test/make.mjs` | the same, then `node tools/studio/scan.mjs tools/studio/test/scenes --check` |
 | `version.json` | `sw.js` `VERSION` | `node tools/release.mjs` |
 | `docs/narration.md` | the running stories | `node tools/narration.mjs` |

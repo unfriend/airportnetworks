@@ -1,0 +1,22 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Tracker guide: the generator</title>
+<!-- The tracker guide's generator page (tools/studio/tracker-guide/make.mjs opens it in headless Chromium): three.js r128,
+     its own glTF exporter and loader, the Bliss XP room's kit (tools/studio/xp/kit.js), the studio tour's parts (for its
+     signs: tools/studio/tour/parts.js), the app's own solver (ik.js) and people's bodies (bodies.js, for the mannequin:
+     the tutorial's robot), all loaded, not copied; then the guide's parts. -->
+<script src="../../../three.min.js"></script>
+<script src="../vendor/GLTFExporter.js"></script>
+<script src="../vendor/GLTFLoader.js"></script>
+<script src="../xp/kit.js"></script>
+<script>
+  // (as the tour's page: opaque pictures as JPEGs at quality 0.62; the vendored exporter itself is never edited)
+  const toBlob0 = HTMLCanvasElement.prototype.toBlob;
+  HTMLCanvasElement.prototype.toBlob = function (cb, type, q) { return toBlob0.call(this, cb, type, q === undefined && type === 'image/jpeg' ? 0.62 : q); };
+  window.HOST = {};   // (bodies.js hangs itself on HOST.bodies; nothing else of the shell is here)
+</script>
+<script src="../tour/parts.js"></script>
+<script src="../../../ik.js"></script>
+<script src="../../../bodies.js"></script>
+<script src="parts.js"></script>
+<script>XP.ready = XP.fonts().then(() => true);</script>
