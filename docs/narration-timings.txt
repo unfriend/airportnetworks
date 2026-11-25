@@ -68,6 +68,10 @@ The CDK5 story, The switch that sticks (#cdk5, a story package since v189), has 
 chapters start at 0:00, 1:17, 2:03, 2:32, 3:12, 3:52, 4:35, 5:23, 6:07, 6:57
 and 7:58, ending at 8:27 (the v191 script); its tables are in packages/cdk5/src/engine/e3_story.js (then rebuild).
 
+The exposome story, Invisible threads (#exposome, a story package), has packages/exposome/audio/narration.mp3, a
+synthetic voice (Kokoro af_heart). Its chapters start at 0:00, 0:56, 2:09, 3:10, 4:38, 6:11, 7:23 and 8:58, ending at
+9:48; its tables are in packages/exposome/src/engine/e3_story.js (then rebuild).
+
 Back into the cell (#ppicell, a story package) has packages/ppicell/audio/narration.mp3, a synthetic voice (Kokoro
 af_heart; v210; the words of v205: sides and complexes). Its chapters start at 0:00, 1:12, 2:16, 4:26, 5:57, 7:37, 8:48,
 11:56 and 13:35, ending at 15:08 (the layout's estimate was 15:07); its tables are in

@@ -121,6 +121,15 @@
     }
   },
   "stories": {
+    "exposome": {
+      "words": {
+        "endrin": "En drin"
+      },
+      "patterns": {
+        "benzo-a-pyrene": "Benzo-eh-pyreen",
+        "\\bcaspase\\b": "kass-payz"
+      }
+    },
     "tutorial": {
       "words": {
         "Recenter": "Re-center"

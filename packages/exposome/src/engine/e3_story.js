@@ -17,15 +17,18 @@ const CH = [
 // these and NARRATION_ENDS from it); until then this table is laid out as tools/pace.mjs does (the panel's words read
 // at 2.1 words a second, each stretch at least 1.1 times its story time), so the captions keep a reading pace.
 const NARRATION_SYNC = [
-  [0, 0], [1.8, 1.6], [3.6, 3],                       // Substances
-  [55.3, 50],                                         // One reaches in
-  [126.8, 115],                                       // Threads
-  [187.3, 170], [187.9, 170.6], [188.9, 171.5],       // What they do
-  [275.3, 250],                                       // Where it hits
-  [368.8, 335],                                       // Diseases
-  [440.3, 400],                                       // Europe
-  [533.8, 485], [534.4, 485.6], [535.4, 486.5], [575.6, 523], [590.2, 530],  // A map
+  [0, 0], [3.3, 3], [13.55, 12], [24.55, 22], [35.23, 31],  // Substances
+  [56.13, 50], [57.78, 51.5], [69.54, 61], [78.34, 69], [86.27, 76], [97.37, 86], [122.67, 109],
+  [128.79, 114.3],                                    // One reaches in
+  [129.56, 115],                                      // Threads
+  [190.06, 170], [223.06, 200], [236.43, 212],        // What they do
+  [278.23, 250],                                      // Where it hits
+  [371.73, 335], [373.38, 336.5], [381.64, 344], [390.44, 352], [400.48, 361],  // Diseases
+  [443.38, 400], [463.18, 418], [472.6, 426], [482.7, 435], [498.1, 449], [508.8, 458],  // Europe
+  [538.5, 485], [588, 530],                           // A map
 ];
+// where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
+const NARRATION_ENDS = { cloud: 52.9, reach: 128.55, threads: 184.85, sort: 273.25, centre: 368, disease: 436.85, europe: 533.8, end: 578.85 };
 //#use storyT narrT T_END
 CH.forEach(c => { c.na = narrT(c.a); c.nb = narrT(c.b); }); // chapter times on the recording's clock
 // the engine's own params beside the sets' (DEF): none here; none keyed at an even pace or on a log scale (evalTrack)

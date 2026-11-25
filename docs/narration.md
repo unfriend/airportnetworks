@@ -29,6 +29,7 @@ MP3 at the file named under each story; if your chapters start at other times, c
 | Spatial interactome: Back into the cell | `packages/ppicell/audio/narration.mp3` | synthetic voice | 15:08 |
 | Introduction: Your guide | `packages/tutorial/audio/narration.mp3` | synthetic voice | 3:35 |
 | Brain kinase: The switch that sticks | `packages/cdk5/audio/narration.mp3` | synthetic voice | 8:27 |
+| Chemical exposome: Invisible threads | `packages/exposome/audio/narration.mp3` | synthetic voice | 9:48 |
 | Network medicine: Proteins | `packages/proteins/audio/narration.mp3` | synthetic voice | 5:48 |
 | Collective motion: Flock | `packages/flock/audio/narration.mp3` | synthetic voice | 1:36 |
 | Swarm robotics: Robot gang | `packages/robots/audio/narration.mp3` | synthetic voice | 1:49 |
@@ -1581,6 +1582,89 @@ File: `packages/cdk5/audio/narration.mp3` (synthetic voice). Chapters: 0:00 A ci
 - **8:14** The map is yours now. Pick any protein, any pathway, any disease. Have a look around.
 - **8:18** After the Menche lab's CDK5_data repository (github.com/menchelab/CDK5_data) by Christiane Hütter: its CDK5_analytics and CDK5_minimal_new VR projects, made with cartoGRAPHs; the interactome, Reactome's pathways, the Gene Ontology and the Disease Ontology as the authors used them. The knots are named from today's Gene Ontology (release 2026-07-26), not the authors' own annotation; most of the map's big clouds mix many processes.
 - **8:19** Ours: the close-ups at the map's centre (their balls, tubes and names, a clearer drawing of the centre's proteins at the authors' places, scaled up; the structures from the Protein Data Bank, not to scale), the tags with numbers and the over-representation counts. Narration: a synthetic voice.
+
+## Chemical exposome: Invisible threads (`#exposome`)
+
+File: `packages/exposome/audio/narration.mp3` (synthetic voice). Chapters: 0:00 Substances, 0:56 One reaches in, 2:09 Threads, 3:10 What they do, 4:38 Where it hits, 6:11 Diseases, 7:23 Europe, 8:58 A map; it ends at 9:48.
+
+### 0:00 Substances
+
+- **0:03** Take a breath. With it comes exhaust from the street, a trace of smoke, perhaps a little perfume. Now add your breakfast, your coffee, and the pill you took this morning.
+- **0:13** Scientists have a word for all of it together: the exposome. Everything that reaches your body from the outside, over a whole life.
+- **0:24** Here is its chemical part. Every dot around you is one substance. There are nearly ten thousand of them: pollutants, pesticides, medicines, things in our food.
+- **0:35** How do you put ten thousand substances in order? A chemist sorts them by what they are made of. Each colour here is one chemical family.
+- **0:47** It is tidy. But it does not tell us what we most want to know. What does each of them do to us?
+
+### 0:56 One reaches in
+
+- **0:57** To find out, we follow one substance into the body. This one is called benzo-a-pyrene. It is in cigarette smoke, in car exhaust, and in the black crust of a grilled steak.
+- **1:09** And this is a human cell, with its rooms. Every small dot is one of its proteins: the workers that our genes hold the plans for.
+- **1:18** When the substance arrives, some genes are switched up and others down. Watch. Every thread is one gene it disturbs.
+- **1:26** This is one of the most studied chemicals of all, and it has been seen to touch about sixteen thousand genes. Most substances touch far fewer: half of them three or fewer.
+- **1:37** Curators read thousands of studies like this, one paper at a time, and gathered them in one public collection. More than half a million threads, between ten thousand substances and twenty-six thousand genes.
+- **1:51** Now turn it round, and take one gene. This is caspase 3, a protein that tells a damaged cell to die. About seventeen hundred different substances pull on it.
+- **2:02** So here is a thought. If two substances pull on the same genes, should we not tie them together?
+
+### 2:09 Threads
+
+- **2:11** That is the idea behind this map. We take two substances and compare the genes they disturb. If they share many more than chance would give, we tie a thread between them.
+- **2:23** We do that for every pair, and there are nearly fifty million pairs. We keep only the strongest threads, about seven hundred thousand.
+- **2:37** And now we let the threads pull. Substances that share a lot move close together. Watch the chemist's tidy shelves fall apart.
+- **2:50** Look at the colours. The chemical families are mixed right through. What a substance is made of tells you almost nothing about which genes it disturbs.
+- **3:02** So what do these new neighbours have in common?
+
+### 3:10 What they do
+
+- **3:11** The network falls into groups, where the threads are dense. Here are the largest, each in its own colour. And every group has a theme.
+- **3:23** This one disturbs the immune system and its signals. This one, how the body handles fat. This one, how the body clears drugs.
+- **3:34** Inside each group there are smaller groups, and smaller ones again. Let us go down into one.
+- **3:43** Twenty-one substances. One is heparin, a blood thinner you get in hospital. One is a hormone from the contraceptive pill. One is a contrast dye for X-ray pictures. And one is a sedative.
+- **3:56** A chain of sugars, a hormone, a dye, a sedative. As chemicals they have nothing in common. But they all pull on the same few genes, and those genes control how our blood clots.
+- **4:09** That is the heart of it. The body does not care what a molecule looks like. It reacts to which of its systems is disturbed.
+- **4:19** And that is useful. When a new substance that nobody has studied well lands in this group, we have a first guess at what it may do.
+- **4:30** But which disturbances are the dangerous ones?
+
+### 4:38 Where it hits
+
+- **4:39** For that, we go back into the cell. Its proteins do not work alone. They touch each other, pass signals on, and build machines together. Draw every known contact and you get another network.
+- **4:52** Let us take it out of the cell and sort it. The proteins with the most contacts go to the middle. The loners go out to the rim.
+- **5:03** Now we can ask where a substance hits. There are four patterns. Some hit a tight group right in the middle. More than four in ten do this.
+- **5:12** Some hit a few big hubs and little else.
+- **5:18** Some hit a tight group far out at the rim.
+- **5:25** And for a third, the hits are scattered, with no pattern we can see. Perhaps partly because our map of the cell is not finished.
+- **5:36** Now compare this with what toxicologists know. For about a third of the substances there is a hazard score, from harmless to very harmful.
+- **5:46** The substances that hit the middle score highest, on average. The more central the target, the greater the harm.
+- **5:56** It makes sense. Pull a thread at the edge of a web and little happens. Pull one in the middle and the whole web moves.
+- **6:05** And what if the part that moves matters for a disease?
+
+### 6:11 Diseases
+
+- **6:13** Diseases have their place in this network too. The genes behind asthma, for example, sit close together, like a neighbourhood.
+- **6:21** So we can measure a distance. From the proteins a substance hits, how many steps is it to the neighbourhood of the disease?
+- **6:30** Here is ozone, the gas of summer smog. Its targets lie right beside the asthma neighbourhood. And doctors have long known that ozone makes asthma worse.
+- **6:40** The map did not know that. It only counted steps.
+- **6:45** We measured sixty million pairs of substance and disease. About one and a half million came out close: closer than chance allows.
+- **6:58** Can we trust it? One test is the medical literature. The closer a pair sits in the network, the more often the two are written about together.
+- **7:12** But papers are not people. Does any of this show up in real populations?
+
+### 7:23 Europe
+
+- **7:25** For that we leave the cell and go up. A long way up. This is Europe.
+- **7:33** Factories here must report what they release into the air and into water. So for every country we know which substances stand out.
+- **7:43** Take Italy. One substance that stands out there is endrin, an insecticide that was banned long ago, but still turns up in the reports.
+- **7:52** From endrin we follow the threads: to its genes, to their proteins, and on to the diseases that sit close by. One of them is cancer of the colon.
+- **8:02** And in Italy that cancer is more common: about four times the world's average, and a little above the rest of western Europe.
+- **8:18** One case proves nothing. Italy is richer and older than most of the world, and that alone means more cancer. So we did it for every country and every substance.
+- **8:28** In about two thirds of the countries, the diseases close to a country's chemicals are more common there than the diseases far from them.
+- **8:38** It is a tendency, not a proof. The map cannot say that a chemical caused a disease. It says where to look.
+- **8:47** Each column here is a country's score: how much it releases, counted more when the targets are central.
+
+### 8:58 A map
+
+- **9:00** So that is the map. From a molecule, to a gene, to a cell, to a continent, all tied together by threads you cannot see.
+- **9:09** It leaves a lot out. It does not know the dose. It does not know how long you were exposed, or how substances add up. And it only knows what somebody has already studied.
+- **9:23** But it gives ten thousand substances a place. And when the next new chemical comes along, we can ask who its neighbours are.
+- **9:33** Now it is yours. Pick a substance, a disease or a country, and follow the threads.
 
 ## Network medicine: Proteins (`#proteins`)
 

@@ -432,7 +432,7 @@
       "kick": "Chemical exposome",
       "col": "#f0a35e",
       "desc": "Nearly ten thousand substances from air, water, food and medicines, tied together by the genes they disturb: what they do in our cells, which diseases sit close by, and what Europe's factories release.",
-      "len": "Story 9:50 · substances, cells and countries",
+      "len": "Story 9:48 · substances, cells and countries",
       "page": "Invisible threads: the chemicals around us and the diseases they touch",
       "brand": "Invisible threads",
       "sub": "the chemicals around us and the diseases they touch",
@@ -445,17 +445,18 @@
       "minis": "minis.js",
       "icon": "exposome.threads",
       "needs": 188,
-      "fp": "7c2a9684bb2b73ee",
-      "bytes": 5526728,
+      "fp": "19df680e334afbbd",
+      "bytes": 10222947,
       "files": {
+        "audio/narration.mp3": "1d82b44fc7892e18",
         "data/diseases.bin": "4d6333403113bf7e",
         "data/names.json": "9364ba56aee2f3d8",
         "data/ppi.bin": "ba719a97bd364cc3",
         "data/targets.bin": "1b31c835fd84f5ac",
         "icon.png": "49469413291a69d5",
-        "main.js": "1529362888e35f4c",
+        "main.js": "5a887598fdcf0a9c",
         "minis.js": "bb45f996703ed45e",
-        "story.json": "acebd6dd90db3651"
+        "story.json": "36c1006ea5ed94d8"
       }
     },
     {
