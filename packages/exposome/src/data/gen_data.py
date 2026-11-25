@@ -438,6 +438,40 @@ EX = {
     'endrinClose': close_of(IX[ENDRIN]), 'endrinItaly': {'gbd': gbd, 'inAir': IX[ENDRIN] in ctry[COUNTRIES.index('Italy')]['air'],
                                                         'inWater': IX[ENDRIN] in ctry[COUNTRIES.index('Italy')]['water']},
 }
+# (builder C, the interactome's scenes: what needs the whole interactome, which the app does not carry; ppi.bin draws a
+# sample of its contacts) the steps from each of ozone's targets to the nearest asthma protein (breadth-first over every
+# contact; the authors' closest distance), counted, and a sample of those shortest paths (interactome indices, the
+# target first); and for chapter centre's four example substances the contacts among their targets (all counted, a
+# sample drawn, by a hash of the pair)
+def steps_to(src_set):
+    dist = {s: 0 for s in src_set}; par = {s: None for s in src_set}; q = collections.deque(sorted(src_set))
+    while q:
+        u = q.popleft()
+        for v in sorted(ADJ[u]):
+            if v not in dist: dist[v] = dist[u] + 1; par[v] = u; q.append(v)
+    return dist, par
+_asth = set(g for g in DG['Asthma'] if g in PX)
+_dist, _par = steps_to(_asth)
+_oz = sorted(set(g for g in SG[OZONE] if g in PX), key=lambda g: PX[g])
+_hist = [0] * 5
+for g in _oz: _hist[min(4, _dist.get(g, 4))] += 1
+_far = sorted((g for g in _oz if _dist.get(g, 0) >= 1), key=lambda g: hashlib.md5(('oz ' + g).encode()).hexdigest())[:240]
+def _path(g):
+    out = [PX[g]]
+    while _par[g] is not None: g = _par[g]; out.append(PX[g])
+    return out
+EX['ozoneAsthma']['steps'] = _hist
+EX['ozoneAsthma']['mean'] = round(sum(min(_dist.get(g, 9), 9) for g in _oz) / max(1, len(_oz)), 3)
+EX['ozoneAsthma']['paths'] = [_path(g) for g in _far]
+def _among(e, cap=1500):
+    T = set(g for g in SG[e] if g in PX)
+    L = sorted({(min(PX[a], PX[b]), max(PX[a], PX[b])) for a in T for b in ADJ[a] if b in T and a != b})
+    keep_ = sorted(sorted(L, key=lambda p: hashlib.md5(('%d %d' % p).encode()).hexdigest())[:cap])
+    return {'n': len(L), 'links': [x for p in keep_ for x in p]}
+_lab = {LABEL[i].lower(): IDS[i] for i in range(NS)}
+EX['patterns'] = [dict(sub=IX[_lab[nm]], **_among(_lab[nm])) for nm in ('cadmium', 'triclosan', 'thallium', 'scopolamine')]
+log('ozone-asthma steps', _hist, 'mean', EX['ozoneAsthma']['mean'], 'paths', len(EX['ozoneAsthma']['paths']),
+    'pattern examples', [(p['sub'], p['n']) for p in EX['patterns']])
 topGenes = [[g, geneSubs[g]] for g in GENES[:10]]
 med = float(np.median([len(SG[e]) for e in IDS]))
 M = {
