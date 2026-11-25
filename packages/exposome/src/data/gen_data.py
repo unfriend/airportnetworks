@@ -463,6 +463,8 @@ def _path(g):
 EX['ozoneAsthma']['steps'] = _hist
 EX['ozoneAsthma']['mean'] = round(sum(min(_dist.get(g, 9), 9) for g in _oz) / max(1, len(_oz)), 3)
 EX['ozoneAsthma']['paths'] = [_path(g) for g in _far]
+# (asthma's own contacts: the links among its proteins, the module drawn as a neighbourhood)
+EX['ozoneAsthma']['module'] = [x for p in sorted({(min(PX[a], PX[b]), max(PX[a], PX[b])) for a in _asth for b in ADJ[a] if b in _asth and a != b}) for x in p]
 def _among(e, cap=1500):
     T = set(g for g in SG[e] if g in PX)
     L = sorted({(min(PX[a], PX[b]), max(PX[a], PX[b])) for a in T for b in ADJ[a] if b in T and a != b})
