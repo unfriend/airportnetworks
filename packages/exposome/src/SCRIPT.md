@@ -5,8 +5,8 @@ network-based map of the chemical exposome connects molecular interactions to pu
 5754 (2026), doi 10.1038/s41467-026-72402-y. For a lay audience: no term without a gloss, one running image (threads).
 
 Each part: **say** (the voice, `data-say`; one `data-at` line each) and **panel** (key points, exact numbers). `{...}`
-is a number looked up in the story's data as the page runs (the paper's value in brackets, to check the generator
-against); speech rounds it with the story's helpers. British spelling. Where the data cannot give a number or an
+is a number looked up in the story's data as the page runs (the data's value in brackets, corrected on 25 November
+2026 after the data check: `SPEC.md` section 3 says where the deposit differs from the paper's text); speech rounds it with the story's helpers. British spelling. Where the data cannot give a number or an
 example, change the words to what the data says and tell the main conversation; never hard-code the bracketed value.
 
 Title: **Invisible threads** · sub: *the chemicals around us and the diseases they touch* · kick: *Chemical exposome*.
@@ -47,16 +47,16 @@ substance to the proteins of the genes it disturbs. Then one protein (CASP3) and
    disturbs.
    **panel**: A thread: an experiment in which the substance changed a gene's activity or its protein.
 4. **say**: This is one of the most studied chemicals of all, and it has been seen to touch about {sixteen thousand}
-   genes. Most substances touch far fewer: half of them fewer than {median}.
-   **panel**: Benzo(a)pyrene: {bap} [16,470] genes, the most of any substance here. Half of all substances: fewer
-   than {median}.
+   genes. Most substances touch far fewer: half of them {three} or fewer.
+   **panel**: Benzo(a)pyrene: {bap} [16,470] genes, the most of any substance here. Half of all substances: {median} [3]
+   or fewer.
 5. **say**: Curators read thousands of studies like this, one paper at a time, and gathered them in one public
    collection. More than half a million threads, between ten thousand substances and {twenty-five thousand} genes.
    **panel**: {links} [573,674] curated links between {N} [9,887] substances and {genes} [25,580] genes.
 6. **say**: Now turn it round, and take one gene. This is caspase 3, a protein that tells a damaged cell to die. About
    {seventeen hundred} different substances pull on it.
    **panel**: **CASP3**, a switch for cell death: disturbed by {casp3} [1,701] substances, the most of any gene; then
-   {g2} [BCL2, 1,078] and {g3} [BAX, 968].
+   {g2} [TNF, 1,208] and {g3} [BCL2, 1,078].
 7. **say**: So here is a thought. If two substances pull on the same genes, should we not tie them together?
    **panel**: Two substances, the same genes?
 
@@ -78,8 +78,8 @@ shelves fall apart, colours still the chemical families.
    **panel**: The same substances, now arranged by the genes they share.
 4. **say**: Look at the colours. The chemical families are mixed right through. What a substance is made of tells you
    almost nothing about which genes it disturbs.
-   **panel**: Alike in chemistry and alike in effect: almost unrelated in this map (correlation {rho} [0.005], where 1
-   would be a perfect match).
+   **panel**: Alike in chemistry and alike in effect: almost unrelated in this map (correlation {rho} [0.04, the authors' value for chemical
+   likeness against shared genes, cited], where 1 would be a perfect match).
 5. **say**: So what do these new neighbours have in common?
    **panel**: New neighbours.
 
@@ -91,9 +91,10 @@ forward with their names and their shared gene.
 
 1. **say**: The network falls into groups, where the threads are dense. Here are the largest, each in its own colour.
    And every group has a theme.
-   **panel**: Communities: groups of substances with many links inside and few outside. {broad} [13] broad ones here.
+   **panel**: Communities: groups of substances with many links inside and few outside. {big} [20] large ones (50 substances or more) hold {pct} [96] % of the map.
 2. **say**: (as the labels come up, name three from the data in plain words, for example:) This one disturbs
-   inflammation. This one, how the body handles fat and sugar. This one, how cells divide.
+   the immune system and inflammation. This one, how the body handles fat. This one, how the liver clears drugs.
+   (Top groups 3, 9 and 16; only themes the groups' enriched terms support.)
    **panel**: Each community with what its genes do (the processes its shared genes are known for), in plain words.
 3. **say**: Inside each group there are smaller groups, and smaller ones again. Let us go down into one.
    **panel**: Three levels: {l1} [125], {l2} [152] and {l3} [456] communities, from broad to fine.
@@ -103,8 +104,8 @@ forward with their names and their shared gene.
    agent ioxaglic acid, the sedative clobazam.
 5. **say**: A chain of sugars, a hormone, a dye, a sedative. As chemicals they have nothing in common. But they all
    pull on the same few genes, and those genes control how our blood clots.
-   **panel**: All four touch **SERPINC1** (antithrombin, a brake on clotting); the group's shared genes belong to
-   blood clotting.
+   **panel**: All four touch **SERPINC1** (antithrombin, a brake on clotting); {f2} [19] of the {n} [21] touch
+   **F2** (prothrombin, which makes the clot). The group's shared genes belong to blood clotting.
 6. **say**: That is the heart of it. The body does not care what a molecule looks like. It reacts to which of its
    systems is disturbed.
    **panel**: Not what it is: what it disturbs.
@@ -137,9 +138,9 @@ as a small flare where its targets sit, the more harmful the brighter.
 6. **say**: And for {a third}, the hits are scattered, with no pattern we can see. Perhaps partly because our map of
    the cell is not finished.
    **panel**: **Scattered** ({scat} [34] %): no group, no hubs. The map of contacts is incomplete.
-7. **say**: Now compare this with what toxicologists know. For about half of the substances there is a hazard score,
+7. **say**: Now compare this with what toxicologists know. For about {a third} of the substances there is a hazard score,
    from harmless to very harmful.
-   **panel**: A hazard score from 0 to 1 for {haz} [47] % of the substances (the NORMAN network's list); those
+   **panel**: A hazard score from 0 to 1 for {haz} [32] % of the substances ({n} [3,165]) (the NORMAN network's list); those
    without one are mostly natural compounds.
 8. **say**: The substances that hit the middle score highest, on average. The more central the target, the greater
    the harm.
@@ -193,7 +194,8 @@ down to its nearest diseases, colon and rectum cancer named. Then all countries:
    the European level (about seven to air, eight to water).
 3. **say**: Take Italy. One substance that stands out there is endrin, an insecticide that was banned long ago, but
    still turns up in the reports.
-   **panel**: **Italy**: {it} [57] substances stand out. One is **endrin**, a long-banned insecticide.
+   **panel**: **Italy**: {it} [57] substances stand out. One, in its releases to water, is **endrin**, a long-banned
+   insecticide.
 4. **say**: From endrin we follow the threads: to its genes, to their proteins, and on to the diseases that sit close
    by. One of them is cancer of the colon.
    **panel**: Diseases close to endrin's targets in the map; among them cancer of the colon and rectum.
@@ -206,8 +208,8 @@ down to its nearest diseases, colon and rectum cancer named. Then all countries:
    **panel**: One case is not proof: age and wealth differ too.
 7. **say**: In about {two thirds} of the countries, the diseases close to a country's chemicals are more common there
    than the diseases far from them.
-   **panel**: Close diseases more frequent than distant ones in {a} [17] of {A} [24] countries for air, {b} [16] of
-   {B} [23] for water. A modest trend overall (correlation {rho} [0.26]).
+   **panel**: Close diseases more frequent than distant ones in {a} [17] of {A} [24] countries for air, {b} [15] of
+   {B} [23] for water. A modest trend overall (correlation {rho} [0.25]).
 8. **say**: It is a tendency, not a proof. The map cannot say that a chemical caused a disease. It says where to
    look.
    **panel**: A link in the data, not a cause.
