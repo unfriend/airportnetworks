@@ -1,6 +1,6 @@
 {
   "app": "networks",
-  "version": "networks-v211",
+  "version": "networks-v212",
   "format": "networks-59",
   "shell": {
     "n": 208,
@@ -68,6 +68,10 @@
     },
     "cdk5": {
       "fp": "d10cc3040e081da7",
+      "needs": 188
+    },
+    "exposome": {
+      "fp": "19df680e334afbbd",
       "needs": 188
     },
     "proteins": {

@@ -1,19 +1,23 @@
 {
-  "version": "networks-v211",
+  "version": "networks-v212",
   "date": "2026-11-25",
   "new": [
-    "Back into the cell's Network tab can save the network on show for wwiznet, the Menche lab's 3D network explorer: Export for wwiznet (ZIP) gives every protein in each of its places at its place in the cell, the links with their verdicts, a ready view and a guide window. Also from the command line (packages/ppicell/README.md). The same tab opens a wwiznet dataset (its edges.tsv, with its nodes.tsv or its folder) as your own network, reading only the links, a score, a kind and the protein names.",
-    "Still untried: v210's two voices, v209's shared networks, v208's sharing with a room, v207's Network tab, v206 lining up a worn character, v205 sides and complexes, v204 to v200 (mirror robot, tour tables, sharp VR text, any mix of devices)."
+    "A new story on the Experiments set: Invisible threads, the chemical exposome (Lombardo, Hütter, Unterlass, Menche, Nature Communications 2026). Nearly 10,000 substances all around you, sorted first by chemistry and then by the genes they disturb (the authors' own 3D layout), the blood-clotting group close up, the model cell from Back into the cell and its proteins sorted with hubs in the middle, asthma and ozone, and Europe on the airports globe. About ten minutes, with a synthetic voice.",
+    "Its explore mode has four tabs: Substances (search any of 9,764), Groups (three levels, in plain words), Diseases and Countries.",
+    "All numbers come from the authors' data deposit (Zenodo, CC BY 4.0); only derived numbers ship. Where the deposit differs from the paper's text is in docs/questions-for-authors.md.",
+    "Still untried: v211's wwiznet export, v210's two voices, v209 to v200 (shared networks, the Network tab, worn characters, the mirror robot)."
   ],
   "test": [
-    "On a laptop: Back into the cell, explore, Network tab, Export for wwiznet. Unzip into a wwiznet deployment's data folder, add the line from HOW-TO-OPEN.txt, open /?dataset=ppicell. Does the cell read as a cell? Try the guide window's buttons (Impossible only, the hairball, a complex).",
-    "Drop a wwiznet dataset's folder (or its edges.tsv and nodes.tsv together) on the Network tab: does it name the proteins by the right column, and can you pick another?",
-    "The same dataset in a headset through wwiznet: is it fluid with about 107,000 edges, and is the guide window placed well?",
-    "v210 to v200: both voices, sharing a network with a room, the Network tab, lining up a worn character, the mirror robot."
+    "In a headset: Experiments, Invisible threads. Do you stand inside the cloud in chapter 1 and at the end? Is anything ever closer than a forearm to your face (the cell, the sorted proteins, asthma close up)?",
+    "Can a lay person follow it? Listen for the blood-clotting chapter (heparin, the pill, an X-ray dye, a sedative) and the Italy example with its caveat.",
+    "Explore: search cadmium or caffeine under Substances, open its group, then Diseases (asthma) and Countries (pick one on the globe). On a phone too.",
+    "Is the globe a comfortable size and place in the headset, and can you pick a country with the ray?",
+    "v211 to v200: the wwiznet export, both voices, sharing a network with a room."
   ],
   "untested": [
-    "wwiznet drew the export only through its WebGL2 fallback in a headless browser here: never on a real machine with WebGPU, never in a Quest.",
-    "Both v210 voices are unheard (pronunciation, pace, level).",
-    "v209 and earlier: sharing on the owner's relays, v207's Network tab in a headset and on a phone, v206 with real trackers, v205's rings, v204 to v200 on devices."
+    "Nothing of this story has been in a headset: standing inside, the keep-clear guard, the panes on the panel, picking with the ray, frame rate with 9,764 points and 45,000 threads.",
+    "The voice is unheard (benzo-a-pyrene, caspase and endrin were respelt for it; pace and level unknown), and so are its sound cues.",
+    "Not run in a shared room; the full suites run before main moves.",
+    "Before main: the non-commercial terms of DisGeNET and the Global Burden of Disease study (docs/data-and-permissions.md)."
   ]
 }
