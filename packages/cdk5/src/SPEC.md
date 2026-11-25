@@ -421,3 +421,37 @@ the signal (`pulse`), the cut (`snap`, then `spark`), CDK5 turning red (`knock`)
   proteins); only the coarsest level, loaded per subnetwork; shown in a subnetwork's close view only, since the layout
   is the authors' and is never laid out again; the nodes counted first; Christiane Hütter (the story's author) asked.
 - **Status**: not started.
+
+### Counted and estimated (25 November 2026; the owner: "count the nodes and estimate the filesize / total triangle count, do not start yet, wait for my go")
+
+Nothing is built. Counted from `CDATA.pathways` (the members) and the scenes; lengths from UniProt (reviewed human
+entries, by gene name); sizes scaled from this story's nine models (`models/*.mol`: about 13.4 bytes a triangle over
+their three levels, 800 to 1,400 triangles at the coarsest).
+
+| Subnetwork | Proteins | Drawn in its scene | Triangles, coarsest level | Size |
+| --- | --- | --- | --- | --- |
+| Signalling by NTRK2 | 25 | 25 | 37,000 | 0.5 MB |
+| Deregulated CDK5 in Alzheimer's disease models | 22 | 22 | 30,000 | 0.4 MB |
+| Semaphorin interactions | 63 | 56 | 108,000 | 1.4 MB |
+| Transcriptional regulation by NPAS4 | 33 | 25, and CDK5 | 52,000 | 0.7 MB |
+| CDK5, p35, p39, calpain-1 | 4 | 4 | | |
+| **Distinct proteins of the small subnetworks** | **135** | about 120 | **217,000** | **2.8 MB** |
+| CDK5's 205 partners (the star) | 205 | 205 | 277,000 | 3.6 MB |
+| Everything (distinct) | 325 | | 472,000 | 6.2 MB |
+
+- **The rule behind the triangles** (ours, fitted to the nine models; the real builder may come out 30 % either way):
+  coarsest level = 800 x (length / 119)^0.4, between 800 and 3,000, so it grows slowly with length. All three levels
+  would be about 16 times the coarsest (about 46 MB for the 135): ship the coarsest only.
+- **Full-length proteins are far larger than today's cut-out domains**: median 670 amino acids among the 135, eight of
+  about 2,000 or more (TLN1 2,541, CREBBP 2,442, PLXNB1 2,135, DOCK3 2,030, MYH14, MYH10, MYH11, TNRC6A). Disordered
+  stretches cut or drawn as a thread would lower the count (not subtracted here).
+- **On screen**: the Semaphorin scene is the heaviest, 56 structures and about 96,000 triangles at once: within what
+  the app draws, but 56 models are more draw calls than any scene has now (instance or merge them; the frame rate in a
+  headset to be measured).
+- **AlphaFold** splits entries above about 2,700 amino acids into pieces: none of the 135; one of the 205 partners
+  (2,752).
+- **Names**: ARNTL (now BMAL1) among the 135, and PARK2 (PRKN), HIST4H4, HBA1, HIST1H1C, H1F0, HIST1H1E among the
+  partners, did not match UniProt's current gene names: to be matched by hand.
+- **Not tried**: `tools/mol/build.py`'s Python setup on a cloud machine, and its reading of AlphaFold's files (it reads
+  PDB entries today).
+

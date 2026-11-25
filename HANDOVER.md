@@ -75,7 +75,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     6. every device in a room must be on one release (FORMAT went 55 to 59), and the main relay gets the shared networks'
        store only when `main` moves;
     7. waiting on the owner's word: a structure for every node of the CDK5 story's small subnetworks
-       (`packages/cdk5/src/SPEC.md`), and terms from gene-set libraries in Back into the cell
+       (`packages/cdk5/src/SPEC.md`: counted and estimated, 135 proteins, about 217,000 triangles and 2.8 MB at the
+       coarsest level; not started), and terms from gene-set libraries in Back into the cell
        (`packages/ppicell/src/SPEC.md`, "Terms from gene-set libraries").
 
 - **At the handover (13 November 2026, brought up to date on 20 November): where each branch is and what comes next.**
