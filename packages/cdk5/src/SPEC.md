@@ -411,3 +411,13 @@ the signal (`pulse`), the cut (`snap`, then `spark`), CDK5 turning red (`knock`)
   cdk5` runs the story's own steps once the integrator has added them).
 - Keep screenshots in `/private/tmp/claude-501/-Users-chris-Desktop-Github-XRdatastories-Chiettini-airportnetworks/67a63163-d030-49e3-bacf-2b013ee6df76/scratchpad/cdk5-shots/` (outside the repository; `SHOTS=<that folder>`), small (640 x 400), at most about 20 per builder.
 - Report headset behaviour (sizes, standing inside, the veil) as untested.
+
+## A structure for every node of the small subnetworks (waiting; the owner, 25 November 2026)
+
+- **The idea** (the owner): "add proteins for every node in the small subnetworks". **Decided**: "let's wait with this
+  one for now".
+- **What it would take, when taken up**: most nodes have no full experimental structure, so AlphaFold's predicted ones
+  (CC BY 4.0), labelled as predicted, the low-confidence stretches cut or drawn as a thread (Tau and other disordered
+  proteins); only the coarsest level, loaded per subnetwork; shown in a subnetwork's close view only, since the layout
+  is the authors' and is never laid out again; the nodes counted first; Christiane Hütter (the story's author) asked.
+- **Status**: not started.

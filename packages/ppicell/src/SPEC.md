@@ -154,3 +154,40 @@ in living cells), the kinds compared, the two readings, the proteins without a p
   localisation-filtered interactomes were named from memory and need a proper literature search); validation against
   proximity-labelling or other spatial proteomics maps; the Human Protein Atlas data's terms.
 - **Status**: not started; the owner has not asked for a draft.
+
+## Membrane sides and complexes (planned; the owner, 25 November 2026)
+
+- **The question** (the owner): "can we add complexes, how do we get where proteins and complexes are on a hull
+  (inside/outside/or sticking through it/other cases?)". **Decided**: for the whole story (told chapters, numbers and
+  explore mode), not as an explore-mode layer only.
+- **Where the sides come from**: UniProt (CC BY 4.0): each protein's membrane spans and which side each stretch is on
+  (*Transmembrane*, *Topological domain*, *Intramembrane*, *Lipidation*, *Signal peptide*, the subcellular location's
+  topology). The story already uses it for one protein (the receptor of chapter 3, P07550). From it each protein in a
+  place with a membrane gets a position: soluble inside the space; on the membrane, the cytosol's side; on the membrane,
+  the far side; through the membrane once; through it several times; secreted; unknown.
+- **Unknown stays honest**: a protein without that annotation keeps today's two readings (strict and generous). The
+  finding of chapter 6 changes from "0 % to 3 % from the faces alone" to how much of that span the annotations settle.
+- **Mitochondria**: four layers (outer membrane, the gap, inner membrane, matrix) where UniProt tells them apart; today
+  all count as the matrix.
+- **Complexes**: the EBI Complex Portal's curated human complexes (CC0 / CC BY 4.0: to confirm). A complex's position
+  follows from its members' (all inside, all on one face, spanning). Drawn as dots held in one outline that sits inside
+  a space, on a face or through the skin. A complex whose members are listed where they cannot meet is a finding, shown
+  as such, never hidden.
+- **The data**: the interactome's and the Atlas's source files stay outside the repository and are not on a cloud
+  machine, so the new step reads `src/sets/data.js` as it stands and adds to it (`src/data/gen_sides.py`: derived
+  classes and complex memberships only, no sequences). Its test joins `src/data/test-data.mjs`.
+- **The narration** is rewritten for the chapters it touches (3, 5, 6 and a line for complexes); the voice is synthetic,
+  so `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell` run where Kokoro is (not on a cloud machine): until
+  then the recording says the old words.
+
+## Your own network (planned for after "Membrane sides and complexes"; the owner, 25 November 2026)
+
+- **The idea** (the owner): "make this an interactive app where one can upload their own PPI, select limits etc, live
+  control them even". **Decided**: wait until the story's rework above is done, then do it.
+- **Stages**: (1) the method in the browser on the built-in data (today `gen_data.py` judges, groups and lays out):
+  controls for how many links are drawn, the kinds of evidence, the readings, the Atlas's reliability, the places;
+  (2) upload on a page: a list of pairs by gene symbol or UniProt id with an optional score, mapped with lookup tables
+  the package ships (human only: the Atlas is human); the data stays in the browser unless shared; (3) live control in a
+  room: someone at a laptop changes the limits, headsets see the cell change; a headset takes the network through the
+  relay, as studio scenes go.
+- **Status**: not started.
