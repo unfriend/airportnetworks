@@ -1,0 +1,6868 @@
+{
+ "top": {
+  "1": {
+   "n": 1463,
+   "in": "middle 1",
+   "terms": [
+    [
+     "Signal Transduction",
+     1.5e-104
+    ],
+    [
+     "Disease",
+     1.89e-84
+    ],
+    [
+     "Regulation of Apoptotic Process (GO:0042981)",
+     3.39e-82
+    ],
+    [
+     "Generic Transcription Pathway",
+     9.91e-71
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     6.51e-70
+    ],
+    [
+     "Cytokine Signaling in Immune System",
+     1.79e-66
+    ],
+    [
+     "Diseases of Signal Transduction by Growth Factor Receptors and Second Messengers",
+     1.83e-66
+    ],
+    [
+     "Negative Regulation of Apoptotic Process (GO:0043066)",
+     1.83e-66
+    ]
+   ],
+   "sample": [
+    "4-methyl-N-(3-(4-methylimidazol…",
+    "PF 3758309",
+    "Phenylephrine",
+    "Poly(amidoamine)",
+    "Xylitol",
+    "heliotrine",
+    "myristicin",
+    "pyrimidin-2-one beta…"
+   ]
+  },
+  "2": {
+   "n": 1439,
+   "in": "middle 2",
+   "terms": [
+    [
+     "Signal Transduction",
+     0.0
+    ],
+    [
+     "Intracellular Membrane-Bounded Organelle (GO:0043231)",
+     2.52e-317
+    ],
+    [
+     "Metabolism",
+     6.09e-293
+    ],
+    [
+     "Nucleus (GO:0005634)",
+     2.02e-248
+    ],
+    [
+     "Metabolism of Proteins",
+     1.42e-237
+    ],
+    [
+     "Disease",
+     1.7e-217
+    ],
+    [
+     "Immune System",
+     3.02e-148
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     3.09e-146
+    ]
+   ],
+   "sample": [
+    "Acetaminophen",
+    "Aflatoxin B1",
+    "Benzo(a)pyrene",
+    "Cisplatin",
+    "Cyclosporine",
+    "Doxorubicin",
+    "Valproic Acid",
+    "abrine"
+   ]
+  },
+  "3": {
+   "n": 1202,
+   "in": "middle 3",
+   "terms": [
+    [
+     "Cytokine Signaling in Immune System",
+     7.12e-98
+    ],
+    [
+     "Signaling by Interleukins",
+     4.27e-93
+    ],
+    [
+     "Immune System",
+     1.31e-92
+    ],
+    [
+     "Signal Transduction",
+     7.45e-91
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     1.96e-69
+    ],
+    [
+     "Positive Regulation of Cytokine Production (GO:0001819)",
+     6.85e-67
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     2.37e-65
+    ],
+    [
+     "Disease",
+     1.17e-58
+    ]
+   ],
+   "sample": [
+    "Estrogens, Conjugated (USP)",
+    "Heroin",
+    "Pantothenic Acid",
+    "Platelet Activating Factor",
+    "Thioacetamide",
+    "abacavir",
+    "jasplakinolide",
+    "pyrvinium"
+   ]
+  },
+  "4": {
+   "n": 974,
+   "in": "middle 4",
+   "terms": [
+    [
+     "Biological Oxidations",
+     1.52e-72
+    ],
+    [
+     "Metabolism",
+     2.16e-65
+    ],
+    [
+     "Drug ADME",
+     6.08e-53
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     3.53e-52
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     4.33e-44
+    ],
+    [
+     "Metabolism of Lipids",
+     3.11e-43
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     2.03e-38
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     1.68e-36
+    ]
+   ],
+   "sample": [
+    "Amitriptyline",
+    "Imipramine",
+    "Pyrrolizidine Alkaloids",
+    "Quinidine",
+    "Thioridazine",
+    "sporidesmin",
+    "systhane",
+    "walrycin A"
+   ]
+  },
+  "5": {
+   "n": 812,
+   "in": "broad 5",
+   "terms": [
+    [
+     "Signal Transduction",
+     2.66e-47
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     2.67e-39
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     3.24e-37
+    ],
+    [
+     "Cellular Responses to Stress",
+     4.16e-37
+    ],
+    [
+     "Positive Regulation of DNA-templated Transcription (GO:0045893)",
+     1.8e-36
+    ],
+    [
+     "Metabolism of Lipids",
+     2e-36
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     2.02e-36
+    ],
+    [
+     "Generic Transcription Pathway",
+     3.81e-36
+    ]
+   ],
+   "sample": [
+    "16 alpha-ethyl-21-hydroxy-19…",
+    "4-hydroxy-equilenin",
+    "Herbicides",
+    "Potassium Chloride",
+    "Propolis",
+    "bazedoxifene",
+    "tetrachlorodian",
+    "triphenyl phosphate"
+   ]
+  },
+  "6": {
+   "n": 584,
+   "in": "middle 6",
+   "terms": [
+    [
+     "Signal Transduction",
+     2.85e-104
+    ],
+    [
+     "Disease",
+     3.1e-70
+    ],
+    [
+     "Diseases of Signal Transduction by Growth Factor Receptors and Second Messengers",
+     2.77e-68
+    ],
+    [
+     "Cytokine Signaling in Immune System",
+     1.94e-66
+    ],
+    [
+     "Signaling by Interleukins",
+     9.47e-66
+    ],
+    [
+     "Signaling by Receptor Tyrosine Kinases",
+     1.43e-59
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     3.67e-59
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     7.48e-54
+    ]
+   ],
+   "sample": [
+    "Benzophenoneidum",
+    "N-benzyloxycarbonylprolylprolinal",
+    "Phosphates",
+    "VER 155008",
+    "Vecuronium Bromide",
+    "cotylenin A",
+    "maleic acid",
+    "methyllycaconitine"
+   ]
+  },
+  "7": {
+   "n": 444,
+   "in": "broad 7",
+   "terms": [
+    [
+     "Cellular Response to Chemical Stress",
+     5.4e-34
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     2.57e-24
+    ],
+    [
+     "Detoxification of Reactive Oxygen Species",
+     7.26e-22
+    ],
+    [
+     "Cellular Responses to Stress",
+     4.31e-21
+    ],
+    [
+     "KEAP1-NFE2L2 Pathway",
+     1.42e-19
+    ],
+    [
+     "Nuclear Events Mediated by NFE2L2",
+     5.17e-19
+    ],
+    [
+     "Signal Transduction",
+     5.17e-19
+    ],
+    [
+     "NFE2L2 Regulating Anti-Oxidant Detoxification Enzymes",
+     1.58e-15
+    ]
+   ],
+   "sample": [
+    "Barium",
+    "Bromocriptine",
+    "MK2i peptide",
+    "N-butyrylglucosamine",
+    "Pilocarpine",
+    "diphenylcyclopropenone",
+    "exoenzyme C3, Clostridium…",
+    "protocatechualdehyde"
+   ]
+  },
+  "8": {
+   "n": 394,
+   "in": "broad 8",
+   "terms": [
+    [
+     "Transport of Small Molecules",
+     1e-18
+    ],
+    [
+     "Basolateral Plasma Membrane (GO:0016323)",
+     2.29e-15
+    ],
+    [
+     "Recycling of Bile Acids and Salts",
+     2.29e-15
+    ],
+    [
+     "SLC-mediated Transmembrane Transport",
+     2.29e-15
+    ],
+    [
+     "Bile Acid and Bile Salt Transport (GO:0015721)",
+     3.57e-14
+    ],
+    [
+     "Transport of Bile Salts and Organic Acids, Metal Ions and Amine Compounds",
+     3.57e-14
+    ],
+    [
+     "Bile Acid and Bile Salt Metabolism",
+     9.43e-14
+    ],
+    [
+     "Monocarboxylic Acid Transport (GO:0015718)",
+     2.47e-13
+    ]
+   ],
+   "sample": [
+    "3-iodothyronamine",
+    "Protons",
+    "Scopolamine",
+    "Sulfobromophthalein",
+    "calcipotriene",
+    "coenzyme Q10",
+    "estradiol-17 beta-glucuronide",
+    "perfluorobutanesulfonic acid"
+   ]
+  },
+  "9": {
+   "n": 308,
+   "in": "broad 9",
+   "terms": [
+    [
+     "Metabolism of Lipids",
+     4.84e-25
+    ],
+    [
+     "Metabolism",
+     5.7e-23
+    ],
+    [
+     "PPARA Activates Gene Expression",
+     5.7e-23
+    ],
+    [
+     "Regulation of Lipid Metabolism by PPARalpha",
+     5.92e-23
+    ],
+    [
+     "Nuclear Receptor Transcription Pathway",
+     7.99e-17
+    ],
+    [
+     "SUMOylation of Intracellular Receptors",
+     1.2e-15
+    ],
+    [
+     "Metabolism of Steroids",
+     3.04e-14
+    ],
+    [
+     "Nuclear Receptor-Mediated Signaling Pathway (GO:0141193)",
+     3.2e-13
+    ]
+   ],
+   "sample": [
+    "Lenalidomide",
+    "Teratogens",
+    "ciprofibrate",
+    "diisodecyl phthalate",
+    "muraglitazar",
+    "tesaglitazar",
+    "triphenyltin chloride",
+    "tris(1-chloro-2-propyl)phosphate"
+   ]
+  },
+  "10": {
+   "n": 291,
+   "in": "broad 10",
+   "terms": [
+    [
+     "Cellular Response to Chemical Stress",
+     1.68e-10
+    ],
+    [
+     "Metabolism",
+     1.17e-09
+    ],
+    [
+     "Biological Oxidations",
+     6.56e-09
+    ],
+    [
+     "Drug ADME",
+     1.9e-08
+    ],
+    [
+     "Glutathione Metabolic Process (GO:0006749)",
+     6.25e-08
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     1.01e-07
+    ],
+    [
+     "Cellular Responses to Stress",
+     2.76e-07
+    ],
+    [
+     "Phase II - Conjugation of Compounds",
+     6.13e-07
+    ]
+   ],
+   "sample": [
+    "1,3-butadiene",
+    "Betaine",
+    "Insecticides",
+    "Lipid Peroxides",
+    "Platinum Compounds",
+    "Vinyl Chloride",
+    "erastin",
+    "ferric nitrilotriacetate"
+   ]
+  },
+  "11": {
+   "n": 266,
+   "in": "broad 11",
+   "terms": [
+    [
+     "Metabolism of Folate and Pterines",
+     9.36e-05
+    ],
+    [
+     "Modified Amino Acid Transport (GO:0072337)",
+     9.36e-05
+    ],
+    [
+     "Folic Acid Transport (GO:0015884)",
+     0.00016
+    ],
+    [
+     "Metabolism of Water-Soluble Vitamins and Cofactors",
+     0.000215
+    ],
+    [
+     "Regulation of miRNA Transcription (GO:1902893)",
+     0.000215
+    ],
+    [
+     "Metabolism of Proteins",
+     0.00041
+    ],
+    [
+     "Peptide Hormone Metabolism",
+     0.000582
+    ],
+    [
+     "Metabolism",
+     0.000637
+    ]
+   ],
+   "sample": [
+    "2,3-dichloro-1-propanol",
+    "5-methyltetrahydrofolate",
+    "Gabapentin",
+    "Quinapril",
+    "Zalcitabine",
+    "fialuridine",
+    "phosphatidylinositol 3,4,5…",
+    "racecadotril"
+   ]
+  },
+  "12": {
+   "n": 265,
+   "in": "broad 12",
+   "terms": [
+    [
+     "Amine Ligand-Binding Receptors",
+     7.8e-19
+    ],
+    [
+     "Adrenoceptors",
+     1.41e-15
+    ],
+    [
+     "Adenylate Cyclase-Activating Adrenergic Receptor Signaling Pathway (GO:0071880)",
+     4.47e-14
+    ],
+    [
+     "Chemical Synaptic Transmission (GO:0007268)",
+     8.88e-14
+    ],
+    [
+     "Synaptic Transmission, GABAergic (GO:0051932)",
+     1.78e-13
+    ],
+    [
+     "Adrenergic Receptor Signaling Pathway (GO:0071875)",
+     6.53e-13
+    ],
+    [
+     "Drug ADME",
+     7.02e-13
+    ],
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     1.11e-12
+    ]
+   ],
+   "sample": [
+    "Chlorides",
+    "Chlorpheniramine",
+    "Isoflurane",
+    "Metoclopramide",
+    "Tetraethylammonium",
+    "desloratadine",
+    "tert-Butyl Alcohol",
+    "valdecoxib"
+   ]
+  },
+  "13": {
+   "n": 189,
+   "in": "broad 13",
+   "terms": [
+    [
+     "Acetylcholine Receptor Activity (GO:0015464)",
+     3.42e-17
+    ],
+    [
+     "Acetylcholine Receptor Signaling Pathway (GO:0095500)",
+     1.28e-14
+    ],
+    [
+     "Muscarinic Acetylcholine Receptors",
+     3.08e-11
+    ],
+    [
+     "Reversible Hydration of Carbon Dioxide",
+     3.12e-11
+    ],
+    [
+     "Chemical Synaptic Transmission (GO:0007268)",
+     7.13e-10
+    ],
+    [
+     "Anterograde Trans-Synaptic Signaling (GO:0098916)",
+     8.44e-10
+    ],
+    [
+     "Highly Calcium Permeable Postsynaptic Nicotinic Acetylcholine Receptors",
+     6.04e-09
+    ],
+    [
+     "Carbonate Dehydratase Activity (GO:0004089)",
+     9.05e-09
+    ]
+   ],
+   "sample": [
+    "Acetazolamide",
+    "Acetylcholine",
+    "Isoflurophate",
+    "Pancuronium",
+    "Rocuronium",
+    "Sulpiride",
+    "methamidophos",
+    "oryzalin"
+   ]
+  },
+  "14": {
+   "n": 158,
+   "in": "middle 14",
+   "terms": [
+    [
+     "Potassium Ion Transmembrane Transport (GO:0071805)",
+     1.47e-18
+    ],
+    [
+     "Potassium Ion Transport (GO:0006813)",
+     5.21e-14
+    ],
+    [
+     "Voltage-Gated Potassium Channel Activity (GO:0005249)",
+     1.7e-13
+    ],
+    [
+     "Voltage-Gated Potassium Channel Complex (GO:0008076)",
+     1.93e-13
+    ],
+    [
+     "Potassium Channel Complex (GO:0034705)",
+     3.03e-13
+    ],
+    [
+     "Voltage Gated Potassium Channels",
+     3.11e-13
+    ],
+    [
+     "Inorganic Cation Transmembrane Transport (GO:0098662)",
+     3.33e-13
+    ],
+    [
+     "Monoatomic Cation Transmembrane Transport (GO:0098655)",
+     3.33e-13
+    ]
+   ],
+   "sample": [
+    "Benzydamine",
+    "Ibogaine",
+    "N-(1-(3-morpholin-4…",
+    "Quinazolinones",
+    "Ritanserin",
+    "Rubidium",
+    "Thallium",
+    "ezogabine"
+   ]
+  },
+  "15": {
+   "n": 140,
+   "in": "broad 15",
+   "terms": [
+    [
+     "Metabolism",
+     3.25e-16
+    ],
+    [
+     "Oxidoreductase Activity, Acting on the Aldehyde or Oxo Group of Donors, NAD or NADP as Acceptor (GO:0016620)",
+     6.85e-16
+    ],
+    [
+     "Alcohol Dehydrogenase (NADP+) Activity (GO:0008106)",
+     1.45e-15
+    ],
+    [
+     "Aminoglycoside Antibiotic Metabolic Process (GO:0030647)",
+     1.45e-15
+    ],
+    [
+     "Daunorubicin Metabolic Process (GO:0044597)",
+     1.45e-15
+    ],
+    [
+     "Doxorubicin Metabolic Process (GO:0044598)",
+     4.65e-15
+    ],
+    [
+     "Polyketide Metabolic Process (GO:0030638)",
+     4.65e-15
+    ],
+    [
+     "Aldose Reductase (NADPH) Activity (GO:0004032)",
+     1.35e-14
+    ]
+   ],
+   "sample": [
+    "9-cis-retinal",
+    "Flunitrazepam",
+    "Glycyrrhetinic Acid",
+    "Naphthalenes",
+    "Pregnanolone",
+    "Sorbitol",
+    "benzo(a)pyrene-1,6-quinone",
+    "benzo(a)pyrene-3,6-quinone"
+   ]
+  },
+  "16": {
+   "n": 136,
+   "in": "broad 16",
+   "terms": [
+    [
+     "Biological Oxidations",
+     1.75e-34
+    ],
+    [
+     "Drug ADME",
+     1.7e-27
+    ],
+    [
+     "Aspirin ADME",
+     1.8e-24
+    ],
+    [
+     "Retinoic Acid Binding (GO:0001972)",
+     4.67e-23
+    ],
+    [
+     "Glucuronidation",
+     2.13e-22
+    ],
+    [
+     "Metabolism",
+     4.1e-22
+    ],
+    [
+     "Monocarboxylic Acid Binding (GO:0033293)",
+     2.21e-21
+    ],
+    [
+     "Retinoid Binding (GO:0005501)",
+     2.21e-21
+    ]
+   ],
+   "sample": [
+    "4-hydroxyestrone",
+    "Clofibric Acid",
+    "Fenoprofen",
+    "Hymecromone",
+    "Ketoprofen",
+    "Pregnenolone Carbonitrile",
+    "alloin",
+    "glabridin"
+   ]
+  },
+  "17": {
+   "n": 92,
+   "in": "broad 17",
+   "terms": [
+    [
+     "Muscarinic Acetylcholine Receptors",
+     9.88e-13
+    ],
+    [
+     "GPCR Sgnlng Pway, Coupled to Cyclic Nucleotide Second Messenger (GO:0007187)",
+     1.27e-11
+    ],
+    [
+     "GPCR Ligand Binding",
+     6.6e-10
+    ],
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     1.22e-09
+    ],
+    [
+     "G Protein-Coupled Acetylcholine Receptor Signaling Pathway (GO:0007213)",
+     1.22e-09
+    ],
+    [
+     "G Protein-Coupled Neurotransmitter Receptor Activity (GO:0099528)",
+     1.45e-09
+    ],
+    [
+     "Acetylcholine Receptor Activity (GO:0015464)",
+     1.63e-09
+    ],
+    [
+     "Adenylate Cyclase-Inhibiting G Protein-Coupled Receptor Signaling Pathway (GO:0007193)",
+     2.08e-09
+    ]
+   ],
+   "sample": [
+    "4-diphenylacetoxy-1,1…",
+    "5-(3-(3-hydroxyphenoxy)azetidin…",
+    "Iodides",
+    "Quinuclidinyl Benzilate",
+    "Tiotropium Bromide",
+    "Tropicamide",
+    "methoctramine",
+    "oxotremorine M"
+   ]
+  },
+  "18": {
+   "n": 91,
+   "in": "broad 18",
+   "terms": [
+    [
+     "Formation of Fibrin Clot (Clotting Cascade)",
+     1.45e-07
+    ],
+    [
+     "Intrinsic Pathway of Fibrin Clot Formation",
+     2.69e-06
+    ],
+    [
+     "Gamma-carboxylated Protein Precursors Transport From the Endoplasmic Reticulum to Golgi Apparatus",
+     3.23e-05
+    ],
+    [
+     "Gamma-carboxylation of Protein Precursors",
+     3.23e-05
+    ],
+    [
+     "Removal of Aminoterminal Propeptides From Gamma-Carboxylated Proteins",
+     3.23e-05
+    ],
+    [
+     "Gamma-carboxylation, Transport, and Amino-Terminal Cleavage of Proteins",
+     3.7e-05
+    ],
+    [
+     "Common Pathway of Fibrin Clot Formation",
+     0.000295
+    ],
+    [
+     "Intracellular Organelle Lumen (GO:0070013)",
+     0.000328
+    ]
+   ],
+   "sample": [
+    "1-oleoyl-2-acetoyl-sn-glycerol",
+    "5-hydroxyeicosatetraenoic acid…",
+    "Nandrolone Decanoate",
+    "Ortho Evra",
+    "Palladium",
+    "estradiol and norethindrone",
+    "ethinyl estradiol and…",
+    "phenylacetic acid"
+   ]
+  },
+  "19": {
+   "n": 53,
+   "in": "fine 19",
+   "terms": [],
+   "sample": [
+    "Ethylenethiourea",
+    "MB327",
+    "Naled",
+    "Phosphorous Acids",
+    "Pyridinium Compounds",
+    "SAD-128",
+    "di-n-butyl-2,2-dichlorovinyl…",
+    "kangshuai yizhi"
+   ]
+  },
+  "20": {
+   "n": 50,
+   "in": "broad 20",
+   "terms": [
+    [
+     "Amine Ligand-Binding Receptors",
+     2.25e-19
+    ],
+    [
+     "Dopamine Receptors",
+     2.38e-15
+    ],
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     1.78e-12
+    ],
+    [
+     "G Protein-Coupled Dopamine Receptor Signaling Pathway (GO:0007212)",
+     1.02e-11
+    ],
+    [
+     "GPCR Ligand Binding",
+     1.64e-11
+    ],
+    [
+     "Phospholipase C-activating Dopamine Receptor Signaling Pathway (GO:0060158)",
+     7.85e-11
+    ],
+    [
+     "Phospholipase C-activating G Protein-Coupled Receptor Signaling Pathway (GO:0007200)",
+     1.03e-10
+    ],
+    [
+     "Signaling by GPCR",
+     2.85e-10
+    ]
+   ],
+   "sample": [
+    "7-fluoro-2-oxo-4-(2-(4…",
+    "7-methyl-6,7,8,9,14,15…",
+    "A 86929",
+    "Lurasidone Hydrochloride",
+    "Phenethylamines",
+    "Pramipexole",
+    "Spiperone",
+    "sarizotan"
+   ]
+  },
+  "21": {
+   "n": 46,
+   "in": "middle 21",
+   "terms": [
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     0.000113
+    ],
+    [
+     "GPCR Downstream Signalling",
+     0.000113
+    ],
+    [
+     "Signaling by GPCR",
+     0.000113
+    ],
+    [
+     "GPCR Ligand Binding",
+     0.000457
+    ],
+    [
+     "Signal Transduction",
+     0.00504
+    ],
+    [
+     "G Protein-Coupled Serotonin Receptor Activity (GO:0004993)",
+     0.00883
+    ],
+    [
+     "Serotonin Receptors",
+     0.00883
+    ],
+    [
+     "Positive Regulation of ERK1 and ERK2 Cascade (GO:0070374)",
+     0.0159
+    ]
+   ],
+   "sample": [
+    "(1-(2-morpholin-4-yl-ethyl)-1H…",
+    "(1-pentyl-1H-indol-3-yl)(2,2,3…",
+    "(4-ethyl-1-naphthalenyl)(1-(5…",
+    "1-(5-fluoropentyl)-3-(1…",
+    "1-(5-fluoropentyl)-3-(4-methyl…",
+    "1-pentyl-3-(1-naphthoyl)indole",
+    "Guanosine 5'-O-(3…",
+    "JWH-073"
+   ]
+  },
+  "22": {
+   "n": 12,
+   "in": "fine 22",
+   "terms": [],
+   "sample": [
+    "2,3,4-tri-O-acetylarabinopyranos…",
+    "3,5-di-tert-butylphenol",
+    "4-(4-chlorophenyl)-3-methylbut…",
+    "agathic acid",
+    "dibutyrylglycerol",
+    "isocupressic acid",
+    "naphthoresorcinol",
+    "phenalen-1-one"
+   ]
+  },
+  "23": {
+   "n": 11,
+   "in": "fine 23",
+   "terms": [],
+   "sample": [
+    "3-(2-cyano-3-(trifluoromethyl)ph…",
+    "A-836339",
+    "GW833972A",
+    "Hydantoins",
+    "LEI121",
+    "VCE-003",
+    "nabilone",
+    "nabiximols"
+   ]
+  },
+  "24": {
+   "n": 11,
+   "in": "fine 24",
+   "terms": [],
+   "sample": [
+    "1-(1-methylethyl)-4-((1-(6…",
+    "2-methylpyrrolidine",
+    "3-fluoro-3-(3-fluoro-4…",
+    "5-((3-cyclobutyl-2,3,4,5…",
+    "6-(4-(3-(2-methylpyrrolidin-1…",
+    "Histamine H3 Antagonists",
+    "Methylhistamines",
+    "N-ethyl-3-fluoro-3-(3-fluoro-4…"
+   ]
+  },
+  "25": {
+   "n": 10,
+   "in": "fine 25",
+   "terms": [],
+   "sample": [
+    "MST 312",
+    "TEMPOL-H",
+    "erucifoline",
+    "intermedine",
+    "jacobine",
+    "otosenine",
+    "riddelliine",
+    "seneciphylline"
+   ]
+  },
+  "26": {
+   "n": 10,
+   "in": "fine 26",
+   "terms": [],
+   "sample": [
+    "(2S)-2-(4-(((3S)-1-acetimidoyl…",
+    "Fondaparinux",
+    "darexaban",
+    "darexaban glucuronide",
+    "idraparinux",
+    "mangiferin heptasulfate",
+    "persulfated 3,6-(O…",
+    "razaxaban"
+   ]
+  },
+  "27": {
+   "n": 10,
+   "in": "fine 27",
+   "terms": [],
+   "sample": [
+    "2-cyano-3-hydroxy-N-(4…",
+    "4,5-dihydroorotic acid",
+    "HR 325",
+    "X 910279",
+    "brequinar",
+    "lapachol",
+    "naphthazarin",
+    "polyporic acid"
+   ]
+  },
+  "28": {
+   "n": 9,
+   "in": "middle 28",
+   "terms": [
+    [
+     "DNA Repair",
+     0.0148
+    ],
+    [
+     "Resolution of Abasic Sites (AP Sites)",
+     0.0275
+    ]
+   ],
+   "sample": [
+    "1,N(6)-ethenoadenine",
+    "5-chlorouracil",
+    "5-formyl-2'-deoxyuridine 5'…",
+    "5-formyldeoxycytosine-5'…",
+    "6-thio-2'-deoxyguanosine-5'…",
+    "fluorodeoxyuridine triphosphate",
+    "ginnalin A",
+    "methoxyamine"
+   ]
+  },
+  "29": {
+   "n": 8,
+   "in": "fine 29",
+   "terms": [],
+   "sample": [
+    "1,3-dihydroxypropan-2-yl 11-(2…",
+    "1-(4-chlorophenyl)-3-(3-(6…",
+    "7'-Isothiocyanato-11-hydroxy-1'…",
+    "AM11542",
+    "AM6538",
+    "CUMYL-PEGACLONE",
+    "N-(1-amino-3,3-dimethyl-1…",
+    "N-(3-(4-chlorophenyl)-2-(3…"
+   ]
+  },
+  "30": {
+   "n": 8,
+   "in": "middle 30",
+   "terms": [
+    [
+     "Dipeptidyl-Peptidase Activity (GO:0008239)",
+     3.55e-07
+    ],
+    [
+     "Exopeptidase Activity (GO:0008238)",
+     3.47e-05
+    ],
+    [
+     "Proteolysis (GO:0006508)",
+     0.00539
+    ],
+    [
+     "Protein Metabolic Process (GO:0019538)",
+     0.0284
+    ]
+   ],
+   "sample": [
+    "Sitagliptin Phosphate",
+    "UAMC00132",
+    "Vildagliptin",
+    "alanylproline-4-nitroanilide",
+    "alogliptin",
+    "bis(4-acetamidophenyl) 1…",
+    "glycylproline 4-nitroanilide",
+    "saxagliptin"
+   ]
+  },
+  "31": {
+   "n": 8,
+   "in": "fine 31",
+   "terms": [
+    [
+     "Acyl Chain Remodelling of PG",
+     0.000892
+    ],
+    [
+     "Acyl Chain Remodelling of PI",
+     0.000892
+    ],
+    [
+     "Calcium-Dependent Phospholipase A2 Activity (GO:0047498)",
+     0.000892
+    ],
+    [
+     "Low-Density Lipoprotein Particle Remodeling (GO:0034374)",
+     0.000892
+    ],
+    [
+     "Positive Regulation of Macrophage Derived Foam Cell Differentiation (GO:0010744)",
+     0.000892
+    ],
+    [
+     "Acyl Chain Remodelling of PS",
+     0.001
+    ],
+    [
+     "Phosphatidylglycerol Metabolic Process (GO:0046471)",
+     0.00103
+    ],
+    [
+     "Acyl Chain Remodelling of PC",
+     0.00114
+    ]
+   ],
+   "sample": [
+    "13-cis-12-(3'-carboxyphenyl)reti…",
+    "LY 311727",
+    "SB 203347",
+    "indoxam",
+    "kaempferol-3-O-galactoside",
+    "petrosaspongiolide m",
+    "quercetagetin",
+    "varespladib"
+   ]
+  },
+  "32": {
+   "n": 8,
+   "in": "fine 32",
+   "terms": [],
+   "sample": [
+    "CGP 57698",
+    "CP 199330",
+    "CP 199331",
+    "CP 265298",
+    "CP 288886",
+    "ICI 198615",
+    "MEN91507",
+    "iralukast"
+   ]
+  },
+  "33": {
+   "n": 7,
+   "in": "fine 33",
+   "terms": [
+    [
+     "Nucleotide-like (Purinergic) Receptors",
+     1.66e-06
+    ],
+    [
+     "G Protein-Coupled Receptor Activity (GO:0004930)",
+     0.00424
+    ],
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     0.00586
+    ],
+    [
+     "Response to Purine-Containing Compound (GO:0014074)",
+     0.00586
+    ],
+    [
+     "Surfactant Metabolism",
+     0.0068
+    ],
+    [
+     "GPCR Ligand Binding",
+     0.00832
+    ],
+    [
+     "GPCR Downstream Signalling",
+     0.0178
+    ],
+    [
+     "Phagocytosis (GO:0006909)",
+     0.0216
+    ]
+   ],
+   "sample": [
+    "1,2,4-triazolo(1,5-c)pyrimidine",
+    "1,3-dipropyl-8-cyclopentylxanthine",
+    "1-propyl-8-(4-sulfophenyl)xanthine",
+    "2-(2-furanyl)-7-(2-(4-(4-(2…",
+    "5-(5-amino-3-(4…",
+    "istradefylline",
+    "phosphoric acid mono-(2-(4-(3,3…"
+   ]
+  },
+  "34": {
+   "n": 7,
+   "in": "middle 34",
+   "terms": [],
+   "sample": [
+    "2'-C-methylcytidine",
+    "2'-deoxycytidine 5'-triphosphate",
+    "3'-amino-2',3'-dideoxycytidine",
+    "Deoxyadenosines",
+    "N(2)-furfuryl-deoxyguanosine",
+    "N-(2'-deoxyguanosin-8-yl)-3…",
+    "Purine Nucleosides"
+   ]
+  },
+  "35": {
+   "n": 7,
+   "in": "fine 35",
+   "terms": [],
+   "sample": [
+    "3-((3,5-bis(trifluoromethyl)phen…",
+    "R116301",
+    "S 18523",
+    "casopitant",
+    "substance P, Sar(9)-Met(O2)(11)-",
+    "vestipitant",
+    "vofopitant"
+   ]
+  },
+  "36": {
+   "n": 6,
+   "in": "fine 36",
+   "terms": [],
+   "sample": [
+    "Atrasentan",
+    "N-((2'-(((4,5-dimethyl-3…",
+    "N-(2-acetyl-4,6-dimethylphenyl)…",
+    "ambrisentan",
+    "clazosentan",
+    "darusentan"
+   ]
+  },
+  "37": {
+   "n": 6,
+   "in": "fine 37",
+   "terms": [],
+   "sample": [
+    "L 748,337",
+    "N-(4-(2-((2-hydroxy-2-(3…",
+    "SR 59104A",
+    "SR 59119A",
+    "amibegron",
+    "solabegron"
+   ]
+  },
+  "38": {
+   "n": 6,
+   "in": "fine 38",
+   "terms": [
+    [
+     "Vitamin K Metabolic Process (GO:0042373)",
+     0.00073
+    ],
+    [
+     "Peptidyl-Glutamic Acid Modification (GO:0018200)",
+     0.00137
+    ],
+    [
+     "Fat-Soluble Vitamin Metabolic Process (GO:0006775)",
+     0.00282
+    ],
+    [
+     "Metabolism of Fat-Soluble Vitamins",
+     0.00735
+    ]
+   ],
+   "sample": [
+    "4-hydroxycoumarin",
+    "bromadiolone",
+    "coumachlor",
+    "coumatetralyl",
+    "ferulenol",
+    "fluindione"
+   ]
+  },
+  "39": {
+   "n": 5,
+   "in": "fine 39",
+   "terms": [],
+   "sample": [
+    "13,14-dihydro-15…",
+    "BW 245C",
+    "BW A868C",
+    "L 644698",
+    "ZK 110841"
+   ]
+  },
+  "40": {
+   "n": 5,
+   "in": "fine 40",
+   "terms": [],
+   "sample": [
+    "8-hydroxyoctanoic acid",
+    "S-hydroxymethylglutathione",
+    "dodecanedioic acid",
+    "sebacic acid",
+    "undecanoic acid"
+   ]
+  },
+  "41": {
+   "n": 5,
+   "in": "fine 41",
+   "terms": [],
+   "sample": [
+    "Arginine Vasopressin",
+    "F-180 vasoconstrictor peptide",
+    "Monobactams",
+    "vasopressin, 1-(1…",
+    "vasopressin, Phe(2)-Ile(3)…"
+   ]
+  },
+  "42": {
+   "n": 5,
+   "in": "fine 42",
+   "terms": [],
+   "sample": [
+    "Cerium",
+    "Erbium",
+    "Holmium",
+    "Scandium",
+    "Yttrium"
+   ]
+  },
+  "43": {
+   "n": 4,
+   "in": "fine 43",
+   "terms": [],
+   "sample": [
+    "(4-chloro-2-((2-fluoro-5…",
+    "(4-chloro-2-((2-methyl-5…",
+    "15R-methyl prostaglandin D2",
+    "ramatroban"
+   ]
+  },
+  "44": {
+   "n": 4,
+   "in": "fine 44",
+   "terms": [],
+   "sample": [
+    "Uridine Diphosphate Galactose",
+    "Uridine Diphosphate Glucose",
+    "Uridine Diphosphate N…",
+    "thymidine 5'-diphosphate"
+   ]
+  },
+  "45": {
+   "n": 4,
+   "in": "fine 45",
+   "terms": [],
+   "sample": [
+    "GSK 650394",
+    "Phosphorus, Dietary",
+    "Sevelamer",
+    "calcium bicarbonate"
+   ]
+  },
+  "46": {
+   "n": 4,
+   "in": "fine 46",
+   "terms": [],
+   "sample": [
+    "4-amylcinnamoylanthranilic acid",
+    "Adenosine Diphosphate Ribose",
+    "diethylene glycol",
+    "diphenoquinone"
+   ]
+  },
+  "47": {
+   "n": 4,
+   "in": "fine 47",
+   "terms": [],
+   "sample": [
+    "1'-hydroxyestragole",
+    "2-methoxyestrone",
+    "6-(4-hydroxy-3-(trifluoromethyl)…",
+    "acetoacetyl CoA"
+   ]
+  },
+  "48": {
+   "n": 4,
+   "in": "fine 48",
+   "terms": [],
+   "sample": [
+    "2,6-dimethyl-1,4-benzoquinone",
+    "Pentanoic Acids",
+    "Xylulose",
+    "hexanoic acid"
+   ]
+  },
+  "49": {
+   "n": 4,
+   "in": "fine 49",
+   "terms": [
+    [
+     "Actin-Mediated Cell Contraction (GO:0070252)",
+     0.000156
+    ],
+    [
+     "Cardiac Muscle Cell Membrane Repolarization (GO:0099622)",
+     0.000156
+    ],
+    [
+     "Membrane Repolarization During Ventricular Cardiac Muscle Cell Action Potential (GO:0098915)",
+     0.000156
+    ],
+    [
+     "Negative Regulation of Delayed Rectifier Potassium Channel Activity (GO:1902260)",
+     0.000156
+    ],
+    [
+     "Negative Regulation of Voltage-Gated Potassium Channel Activity (GO:1903817)",
+     0.000156
+    ],
+    [
+     "Phase 3 - Rapid Repolarisation",
+     0.000156
+    ],
+    [
+     "Potassium Ion Export Across Plasma Membrane (GO:0097623)",
+     0.000156
+    ],
+    [
+     "Regulation of Delayed Rectifier Potassium Channel Activity (GO:1902259)",
+     0.000156
+    ]
+   ],
+   "sample": [
+    "6-cyano-4-(N-ethylsulfonyl-N…",
+    "HMR 1556",
+    "Mepivacaine",
+    "barium chloride"
+   ]
+  },
+  "50": {
+   "n": 4,
+   "in": "fine 50",
+   "terms": [],
+   "sample": [
+    "Sulfur",
+    "Uroporphyrinogens",
+    "nodakenin",
+    "scopolin"
+   ]
+  },
+  "51": {
+   "n": 4,
+   "in": "fine 51",
+   "terms": [],
+   "sample": [
+    "Hexuronic Acids",
+    "aminomalonic acid",
+    "threitol",
+    "threonic acid"
+   ]
+  },
+  "52": {
+   "n": 4,
+   "in": "fine 52",
+   "terms": [],
+   "sample": [
+    "2-methyl-4-chlorophenol",
+    "3-cresol",
+    "4-chlorophenol",
+    "chloroxylenol"
+   ]
+  },
+  "53": {
+   "n": 4,
+   "in": "fine 53",
+   "terms": [],
+   "sample": [
+    "2-nitrophenyl selenocyanic acid",
+    "Selenium Compounds",
+    "benzeneseleninic acid",
+    "cisplatin-deoxy(guanosine…"
+   ]
+  },
+  "54": {
+   "n": 4,
+   "in": "fine 54",
+   "terms": [],
+   "sample": [
+    "2-(3-cyano-5-(3,4…",
+    "3-hydroxy-2-naphthoic acid",
+    "6-bromo-3-methylthieno(3,2…",
+    "oxantel pamoate"
+   ]
+  },
+  "55": {
+   "n": 3,
+   "in": "fine 55",
+   "terms": [],
+   "sample": [
+    "Fucose",
+    "Guanosine Monophosphate",
+    "Mersalyl"
+   ]
+  },
+  "56": {
+   "n": 3,
+   "in": "fine 56",
+   "terms": [
+    [
+     "Bis(5'-Adenosyl)-Pentaphosphatase Activity (GO:0034432)",
+     0.00013
+    ],
+    [
+     "Diadenosine Polyphosphate Catabolic Process (GO:0015961)",
+     0.00013
+    ],
+    [
+     "Synthesis of Pyrophosphates in the Cytosol",
+     0.000391
+    ],
+    [
+     "Purine Ribonucleotide Catabolic Process (GO:0009154)",
+     0.000997
+    ],
+    [
+     "Inositol Phosphate Metabolic Process (GO:0043647)",
+     0.0012
+    ],
+    [
+     "Inositol Phosphate Metabolism",
+     0.0049
+    ],
+    [
+     "Pyrophosphatase Activity (GO:0016462)",
+     0.00637
+    ]
+   ],
+   "sample": [
+    "adenosine 5'-pentaphosphate",
+    "adenosine 5'-tetraphosphate",
+    "diadenosine 5',5''''-P1,P6…"
+   ]
+  },
+  "57": {
+   "n": 3,
+   "in": "fine 57",
+   "terms": [],
+   "sample": [
+    "1,2-dihydro-1,2-dihydroxy-5…",
+    "1-hydroxybenzo(a)pyrene",
+    "dibenzo(a,l)pyrene 11,12…"
+   ]
+  },
+  "58": {
+   "n": 3,
+   "in": "fine 58",
+   "terms": [],
+   "sample": [
+    "3-dihydroxy-6-methyl-7…",
+    "Fibrinolytic Agents",
+    "Oxamic Acid"
+   ]
+  },
+  "59": {
+   "n": 3,
+   "in": "fine 59",
+   "terms": [],
+   "sample": [
+    "5-(N-benzyl-N-methylaminomethyl)…",
+    "deslorelin",
+    "relugolix"
+   ]
+  },
+  "60": {
+   "n": 3,
+   "in": "fine 60",
+   "terms": [
+    [
+     "Gi/o-coupled Serotonin Receptor Activity (GO:0001586)",
+     0.000261
+    ],
+    [
+     "Adenylate Cyclase-Inhibiting Serotonin Receptor Signaling Pathway (GO:0007198)",
+     0.00043
+    ],
+    [
+     "G Protein-Coupled Serotonin Receptor Activity (GO:0004993)",
+     0.00043
+    ],
+    [
+     "Serotonin Receptors",
+     0.00043
+    ],
+    [
+     "G Protein-Coupled Serotonin Receptor Signaling Pathway (GO:0098664)",
+     0.000474
+    ],
+    [
+     "Serotonin Receptor Activity (GO:0099589)",
+     0.000665
+    ],
+    [
+     "G Protein-Coupled Amine Receptor Activity (GO:0008227)",
+     0.00141
+    ],
+    [
+     "Amine Ligand-Binding Receptors",
+     0.00294
+    ]
+   ],
+   "sample": [
+    "BRL 15572",
+    "N-(3-(2-dimethylamino)ethoxy-4…",
+    "naratriptan"
+   ]
+  },
+  "61": {
+   "n": 3,
+   "in": "fine 61",
+   "terms": [],
+   "sample": [
+    "3-cyano-N-(1,3-diphenyl-1H…",
+    "3-fluoro-5-(2-(2…",
+    "Quisqualic Acid"
+   ]
+  },
+  "62": {
+   "n": 3,
+   "in": "fine 62",
+   "terms": [],
+   "sample": [
+    "4-allyl-8-ethyl-7,8-dihydro-2…",
+    "9-chloro-2-(2-furyl)-5…",
+    "MRE 3008-F20"
+   ]
+  },
+  "63": {
+   "n": 3,
+   "in": "fine 63",
+   "terms": [],
+   "sample": [
+    "5-fluorocytidine",
+    "Tetrahydrouridine",
+    "diazepinone riboside"
+   ]
+  },
+  "64": {
+   "n": 3,
+   "in": "fine 64",
+   "terms": [],
+   "sample": [
+    "5-fluoropyrimidine",
+    "XELOX",
+    "gimeracil"
+   ]
+  },
+  "65": {
+   "n": 3,
+   "in": "fine 65",
+   "terms": [],
+   "sample": [
+    "N-(3-aminopropyl)-2-(((3…",
+    "N-(4-methoxyphenyl)-4-menthone…",
+    "icilin"
+   ]
+  },
+  "66": {
+   "n": 3,
+   "in": "fine 66",
+   "terms": [],
+   "sample": [
+    "1,2-didecanoylglycerol",
+    "4-hydroxybenzyl alcohol",
+    "OMDM 169"
+   ]
+  },
+  "67": {
+   "n": 3,
+   "in": "fine 67",
+   "terms": [],
+   "sample": [
+    "Bromosuccinimide",
+    "luteolin 4'-O-glucoside",
+    "methylglucoside"
+   ]
+  },
+  "68": {
+   "n": 2,
+   "in": "fine 68",
+   "terms": [],
+   "sample": [
+    "7-(3-(3-hydroxy-4-(4'…",
+    "SQ 29548"
+   ]
+  },
+  "69": {
+   "n": 2,
+   "in": "fine 69",
+   "terms": [],
+   "sample": [
+    "5,12,20-trihydroxy-6,8,10,14…",
+    "leukotriene B5"
+   ]
+  },
+  "70": {
+   "n": 2,
+   "in": "fine 70",
+   "terms": [],
+   "sample": [
+    "2,6-diamino-4-hydroxy-5…",
+    "4,6-diamino-5-N…"
+   ]
+  },
+  "71": {
+   "n": 2,
+   "in": "fine 71",
+   "terms": [],
+   "sample": [
+    "2-phenylcyclopropanecarboxylic…",
+    "mannosamine"
+   ]
+  },
+  "72": {
+   "n": 2,
+   "in": "fine 72",
+   "terms": [],
+   "sample": [
+    "atractylon",
+    "pyeongwee-san extract"
+   ]
+  },
+  "73": {
+   "n": 2,
+   "in": "fine 73",
+   "terms": [],
+   "sample": [
+    "6-thiouric acid",
+    "6-thioxanthine"
+   ]
+  },
+  "74": {
+   "n": 2,
+   "in": "fine 74",
+   "terms": [],
+   "sample": [
+    "spinorphin",
+    "tynorphin"
+   ]
+  },
+  "75": {
+   "n": 2,
+   "in": "fine 75",
+   "terms": [],
+   "sample": [
+    "8-(2,6-dichlorophenyl)-10…",
+    "PD 0166285"
+   ]
+  },
+  "76": {
+   "n": 2,
+   "in": "fine 76",
+   "terms": [],
+   "sample": [
+    "2-aminoadamantane",
+    "myrtenal"
+   ]
+  },
+  "77": {
+   "n": 2,
+   "in": "fine 77",
+   "terms": [],
+   "sample": [
+    "cis-1-methyl-7-((4-(2,6…",
+    "nociceptin"
+   ]
+  },
+  "78": {
+   "n": 2,
+   "in": "fine 78",
+   "terms": [],
+   "sample": [
+    "olcegepant",
+    "telcagepant"
+   ]
+  },
+  "79": {
+   "n": 2,
+   "in": "fine 79",
+   "terms": [],
+   "sample": [
+    "6,10-diaza-3(1,3),8(1…",
+    "bicuculline methiodide"
+   ]
+  },
+  "80": {
+   "n": 2,
+   "in": "fine 80",
+   "terms": [],
+   "sample": [
+    "delta-1-piperidine-6-carboxylic…",
+    "pipecolic acid"
+   ]
+  },
+  "81": {
+   "n": 2,
+   "in": "fine 81",
+   "terms": [],
+   "sample": [
+    "Dipeptides",
+    "UAMC00039"
+   ]
+  },
+  "82": {
+   "n": 2,
+   "in": "fine 82",
+   "terms": [],
+   "sample": [
+    "astressin B",
+    "sauvagine"
+   ]
+  },
+  "83": {
+   "n": 2,
+   "in": "fine 83",
+   "terms": [],
+   "sample": [
+    "Flavin Mononucleotide",
+    "Flavin-Adenine Dinucleotide"
+   ]
+  },
+  "84": {
+   "n": 2,
+   "in": "fine 84",
+   "terms": [
+    [
+     "Intracellular Membrane-Bounded Organelle (GO:0043231)",
+     0.0274
+    ]
+   ],
+   "sample": [
+    "Arbutin",
+    "kojic acid"
+   ]
+  },
+  "85": {
+   "n": 2,
+   "in": "fine 85",
+   "terms": [],
+   "sample": [
+    "5,6-dichloro-1-ethyl-1,3…",
+    "bicuculline methobromide"
+   ]
+  },
+  "86": {
+   "n": 2,
+   "in": "fine 86",
+   "terms": [],
+   "sample": [
+    "dioleoylphosphatidic acid",
+    "phosphatidylethanol"
+   ]
+  },
+  "87": {
+   "n": 2,
+   "in": "fine 87",
+   "terms": [],
+   "sample": [
+    "MP470",
+    "R428 compound"
+   ]
+  },
+  "88": {
+   "n": 2,
+   "in": "fine 88",
+   "terms": [],
+   "sample": [
+    "5-(3-methylphenoxy)-2(1H)…",
+    "bafetinib"
+   ]
+  },
+  "89": {
+   "n": 2,
+   "in": "fine 89",
+   "terms": [],
+   "sample": [
+    "Ethane",
+    "treprostinil"
+   ]
+  },
+  "90": {
+   "n": 2,
+   "in": "fine 90",
+   "terms": [],
+   "sample": [
+    "Amprolium",
+    "Thiamine"
+   ]
+  },
+  "91": {
+   "n": 2,
+   "in": "fine 91",
+   "terms": [],
+   "sample": [
+    "1, 3-di-(N-carboxybenzoyl…",
+    "2-(2-(3,5-difluorophenyl)-2…"
+   ]
+  },
+  "92": {
+   "n": 2,
+   "in": "fine 92",
+   "terms": [],
+   "sample": [
+    "2,4,5-trihydroxyphenylalanine…",
+    "tele-methylhistamine"
+   ]
+  },
+  "93": {
+   "n": 2,
+   "in": "fine 93",
+   "terms": [],
+   "sample": [
+    "Caspofungin",
+    "SK&F 91488"
+   ]
+  },
+  "94": {
+   "n": 2,
+   "in": "fine 94",
+   "terms": [],
+   "sample": [
+    "Carcinogens",
+    "Mutagens"
+   ]
+  },
+  "95": {
+   "n": 2,
+   "in": "fine 95",
+   "terms": [],
+   "sample": [
+    "7 alpha-hydroxy-4-cholesten-3-one",
+    "cholest-4-en-3-one"
+   ]
+  },
+  "96": {
+   "n": 2,
+   "in": "fine 96",
+   "terms": [],
+   "sample": [
+    "nicotinate mononucleotide",
+    "nicotinic acid adenine…"
+   ]
+  },
+  "97": {
+   "n": 2,
+   "in": "fine 97",
+   "terms": [],
+   "sample": [
+    "N-(1,3-dimethylbutyl)-N'-phenyl…",
+    "dichloroacetonitrile"
+   ]
+  },
+  "98": {
+   "n": 2,
+   "in": "fine 98",
+   "terms": [],
+   "sample": [
+    "BIII 890 CL",
+    "NW 1029"
+   ]
+  },
+  "99": {
+   "n": 2,
+   "in": "fine 99",
+   "terms": [],
+   "sample": [
+    "N2-((2S)-2-(3,5-difluorophenyl)…",
+    "benzyloxycarbonyl-leucyl-leucyl…"
+   ]
+  },
+  "100": {
+   "n": 2,
+   "in": "fine 100",
+   "terms": [],
+   "sample": [
+    "Carbapenems",
+    "valproic acid glucuronide"
+   ]
+  },
+  "101": {
+   "n": 2,
+   "in": "fine 101",
+   "terms": [],
+   "sample": [
+    "7-dehydrocholesterol",
+    "BM 15766"
+   ]
+  },
+  "102": {
+   "n": 2,
+   "in": "fine 102",
+   "terms": [
+    [
+     "Amino Acid Catabolic Process (GO:0009063)",
+     0.000997
+    ],
+    [
+     "Branched-Chain Amino Acid Catabolic Process (GO:0009083)",
+     0.000997
+    ],
+    [
+     "Branched-Chain Amino Acid Metabolic Process (GO:0009081)",
+     0.000997
+    ],
+    [
+     "Diseases of Branched-Chain Amino Acid Catabolism",
+     0.000997
+    ],
+    [
+     "Branched-chain Amino Acid Catabolism",
+     0.00109
+    ],
+    [
+     "Carboxylic Acid Catabolic Process (GO:0046395)",
+     0.0013
+    ]
+   ],
+   "sample": [
+    "acryloyl-coenzyme A",
+    "methacrylyl-coenzyme A"
+   ]
+  },
+  "103": {
+   "n": 2,
+   "in": "fine 103",
+   "terms": [],
+   "sample": [
+    "Protease Inhibitors",
+    "succinylacetone"
+   ]
+  },
+  "104": {
+   "n": 2,
+   "in": "fine 104",
+   "terms": [],
+   "sample": [
+    "RB 006",
+    "RB 007"
+   ]
+  },
+  "105": {
+   "n": 2,
+   "in": "fine 105",
+   "terms": [],
+   "sample": [
+    "LY2112688",
+    "MSH, 4-Nle-7-Phe-alpha-"
+   ]
+  },
+  "106": {
+   "n": 2,
+   "in": "fine 106",
+   "terms": [],
+   "sample": [
+    "CID755673",
+    "bicinchoninic acid"
+   ]
+  },
+  "107": {
+   "n": 2,
+   "in": "fine 107",
+   "terms": [],
+   "sample": [
+    "2-aminoethoxydiphenylborane",
+    "5-diisopropoxyphosphoryl-5…"
+   ]
+  },
+  "108": {
+   "n": 2,
+   "in": "fine 108",
+   "terms": [
+    [
+     "Regulation of Non-Canonical Wnt Signaling Pathway (GO:2000050)",
+     3.31e-05
+    ],
+    [
+     "Non-Canonical Wnt Signaling Pathway (GO:0035567)",
+     0.000364
+    ],
+    [
+     "Canonical Wnt Signaling Pathway (GO:0060070)",
+     0.00078
+    ],
+    [
+     "Wnt Signaling Pathway (GO:0016055)",
+     0.00135
+    ],
+    [
+     "Negative Regulation of Canonical Wnt Signaling Pathway (GO:0090090)",
+     0.00254
+    ],
+    [
+     "Regulation of Wnt Signaling Pathway (GO:0030111)",
+     0.00254
+    ],
+    [
+     "Negative Regulation of Wnt Signaling Pathway (GO:0030178)",
+     0.00425
+    ],
+    [
+     "Regulation of Canonical Wnt Signaling Pathway (GO:0060828)",
+     0.012
+    ]
+   ],
+   "sample": [
+    "Biguanides",
+    "Polyamines"
+   ]
+  },
+  "109": {
+   "n": 2,
+   "in": "fine 109",
+   "terms": [
+    [
+     "- Reg of Mt Outer Membrane Permeabilization Inv in Apoptotic Sgnlng Pway (GO:1901029)",
+     1.11e-10
+    ],
+    [
+     "Negative Regulation of Mitochondrial Membrane Permeability (GO:0035795)",
+     1.11e-10
+    ],
+    [
+     "Reg of Mt Outer Membrane Permeabilization Inv in Apoptotic Sgnlng Pway (GO:1901028)",
+     7.25e-10
+    ],
+    [
+     "Negative Regulation of Organelle Organization (GO:0010639)",
+     1.52e-08
+    ],
+    [
+     "Negative Regulation of Apoptotic Signaling Pathway (GO:2001234)",
+     1.03e-07
+    ],
+    [
+     "ADP Transmembrane Transporter Activity (GO:0015217)",
+     1.66e-07
+    ],
+    [
+     "ATP Transmembrane Transporter Activity (GO:0005347)",
+     3.26e-07
+    ],
+    [
+     "Transport of Nucleosides and Free Purine and Pyrimidine Bases Across the Plasma Membrane",
+     3.26e-07
+    ]
+   ],
+   "sample": [
+    "closantel",
+    "dehydroabietylamine"
+   ]
+  },
+  "110": {
+   "n": 2,
+   "in": "fine 110",
+   "terms": [],
+   "sample": [
+    "2-piperidinoethyl 4-amino-5…",
+    "GR 113808"
+   ]
+  },
+  "111": {
+   "n": 2,
+   "in": "fine 111",
+   "terms": [],
+   "sample": [
+    "Allylamine",
+    "N'-(2-phenylallyl)hydrazine"
+   ]
+  },
+  "112": {
+   "n": 2,
+   "in": "fine 112",
+   "terms": [],
+   "sample": [
+    "GH-RH(1-29), desaminotyrosyl(1)…",
+    "plY protein, Streptococcus…"
+   ]
+  },
+  "113": {
+   "n": 2,
+   "in": "fine 113",
+   "terms": [],
+   "sample": [
+    "Carbimazole",
+    "notexin"
+   ]
+  },
+  "114": {
+   "n": 2,
+   "in": "fine 114",
+   "terms": [
+    [
+     "Ca2+ Activated K+ Channels",
+     0.000587
+    ],
+    [
+     "Calcium-Activated Potassium Channel Activity (GO:0015269)",
+     0.000587
+    ],
+    [
+     "Calcium-Activated Cation Channel Activity (GO:0005227)",
+     0.00133
+    ],
+    [
+     "Inward Rectifier Potassium Channel Activity (GO:0005242)",
+     0.00229
+    ],
+    [
+     "Potassium Channel Activity (GO:0005267)",
+     0.0134
+    ],
+    [
+     "Voltage-Gated Potassium Channel Activity (GO:0005249)",
+     0.0134
+    ],
+    [
+     "Ligand-Gated Monoatomic Cation Channel Activity (GO:0099094)",
+     0.0139
+    ],
+    [
+     "Potassium Channels",
+     0.0171
+    ]
+   ],
+   "sample": [
+    "Apamin",
+    "leiurotoxin I"
+   ]
+  },
+  "115": {
+   "n": 2,
+   "in": "fine 115",
+   "terms": [],
+   "sample": [
+    "Homoarginine",
+    "N,N-dimethylarginine"
+   ]
+  },
+  "116": {
+   "n": 2,
+   "in": "fine 116",
+   "terms": [],
+   "sample": [
+    "4-hydroxyphenylacetic acid",
+    "methylmercury sulfide"
+   ]
+  },
+  "117": {
+   "n": 2,
+   "in": "fine 117",
+   "terms": [],
+   "sample": [
+    "Galactolipids",
+    "Monoglycerides"
+   ]
+  },
+  "118": {
+   "n": 2,
+   "in": "fine 118",
+   "terms": [],
+   "sample": [
+    "1-O-hexadecyl-2-arachidonyl-sn…",
+    "4-nitro-3-(octanoyloxy)benzoic…"
+   ]
+  },
+  "119": {
+   "n": 2,
+   "in": "fine 119",
+   "terms": [],
+   "sample": [
+    "Clopamide",
+    "cyclothiazide"
+   ]
+  },
+  "120": {
+   "n": 2,
+   "in": "fine 120",
+   "terms": [],
+   "sample": [
+    "Botulinum Toxins, Type A",
+    "trisialoganglioside GT1"
+   ]
+  },
+  "121": {
+   "n": 2,
+   "in": "fine 121",
+   "terms": [],
+   "sample": [
+    "N-benzyl-N-ethyl-2-(7,8-dihydro…",
+    "SSR180575"
+   ]
+  },
+  "122": {
+   "n": 2,
+   "in": "fine 122",
+   "terms": [],
+   "sample": [
+    "A-317491",
+    "alpha,beta-methyleneadenosine…"
+   ]
+  },
+  "123": {
+   "n": 2,
+   "in": "fine 123",
+   "terms": [],
+   "sample": [
+    "AZ 505",
+    "LLY-507"
+   ]
+  },
+  "124": {
+   "n": 2,
+   "in": "fine 124",
+   "terms": [],
+   "sample": [
+    "MEN 11420",
+    "Neurokinin A"
+   ]
+  },
+  "125": {
+   "n": 2,
+   "in": "fine 125",
+   "terms": [],
+   "sample": [
+    "eliglustat",
+    "isofagomine"
+   ]
+  }
+ },
+ "mid": {
+  "1": {
+   "n": 1463,
+   "in": "middle 1",
+   "terms": [
+    [
+     "Signal Transduction",
+     1.5e-104
+    ],
+    [
+     "Disease",
+     1.89e-84
+    ],
+    [
+     "Regulation of Apoptotic Process (GO:0042981)",
+     3.39e-82
+    ],
+    [
+     "Generic Transcription Pathway",
+     9.91e-71
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     6.51e-70
+    ],
+    [
+     "Cytokine Signaling in Immune System",
+     1.79e-66
+    ],
+    [
+     "Diseases of Signal Transduction by Growth Factor Receptors and Second Messengers",
+     1.83e-66
+    ],
+    [
+     "Negative Regulation of Apoptotic Process (GO:0043066)",
+     1.83e-66
+    ]
+   ],
+   "sample": [
+    "4-methyl-N-(3-(4-methylimidazol…",
+    "PF 3758309",
+    "Phenylephrine",
+    "Poly(amidoamine)",
+    "Xylitol",
+    "heliotrine",
+    "myristicin",
+    "pyrimidin-2-one beta…"
+   ]
+  },
+  "2": {
+   "n": 1439,
+   "in": "middle 2",
+   "terms": [
+    [
+     "Signal Transduction",
+     0.0
+    ],
+    [
+     "Intracellular Membrane-Bounded Organelle (GO:0043231)",
+     2.52e-317
+    ],
+    [
+     "Metabolism",
+     6.09e-293
+    ],
+    [
+     "Nucleus (GO:0005634)",
+     2.02e-248
+    ],
+    [
+     "Metabolism of Proteins",
+     1.42e-237
+    ],
+    [
+     "Disease",
+     1.7e-217
+    ],
+    [
+     "Immune System",
+     3.02e-148
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     3.09e-146
+    ]
+   ],
+   "sample": [
+    "Acetaminophen",
+    "Aflatoxin B1",
+    "Benzo(a)pyrene",
+    "Cisplatin",
+    "Cyclosporine",
+    "Doxorubicin",
+    "Valproic Acid",
+    "abrine"
+   ]
+  },
+  "3": {
+   "n": 1202,
+   "in": "middle 3",
+   "terms": [
+    [
+     "Cytokine Signaling in Immune System",
+     7.12e-98
+    ],
+    [
+     "Signaling by Interleukins",
+     4.27e-93
+    ],
+    [
+     "Immune System",
+     1.31e-92
+    ],
+    [
+     "Signal Transduction",
+     7.45e-91
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     1.96e-69
+    ],
+    [
+     "Positive Regulation of Cytokine Production (GO:0001819)",
+     6.85e-67
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     2.37e-65
+    ],
+    [
+     "Disease",
+     1.17e-58
+    ]
+   ],
+   "sample": [
+    "Estrogens, Conjugated (USP)",
+    "Heroin",
+    "Pantothenic Acid",
+    "Platelet Activating Factor",
+    "Thioacetamide",
+    "abacavir",
+    "jasplakinolide",
+    "pyrvinium"
+   ]
+  },
+  "4": {
+   "n": 974,
+   "in": "middle 4",
+   "terms": [
+    [
+     "Biological Oxidations",
+     1.52e-72
+    ],
+    [
+     "Metabolism",
+     2.16e-65
+    ],
+    [
+     "Drug ADME",
+     6.08e-53
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     3.53e-52
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     4.33e-44
+    ],
+    [
+     "Metabolism of Lipids",
+     3.11e-43
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     2.03e-38
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     1.68e-36
+    ]
+   ],
+   "sample": [
+    "Amitriptyline",
+    "Imipramine",
+    "Pyrrolizidine Alkaloids",
+    "Quinidine",
+    "Thioridazine",
+    "sporidesmin",
+    "systhane",
+    "walrycin A"
+   ]
+  },
+  "5_1": {
+   "n": 660,
+   "in": "middle 5_1",
+   "terms": [
+    [
+     "Signal Transduction",
+     2.56e-46
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     7.46e-37
+    ],
+    [
+     "Cellular Responses to Stress",
+     7.46e-37
+    ],
+    [
+     "Metabolism of Lipids",
+     7.46e-37
+    ],
+    [
+     "Positive Regulation of DNA-templated Transcription (GO:0045893)",
+     1.77e-36
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     2.51e-36
+    ],
+    [
+     "Metabolism",
+     3.33e-35
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     3.33e-35
+    ]
+   ],
+   "sample": [
+    "16 alpha-ethyl-21-hydroxy-19…",
+    "4-hydroxy-equilenin",
+    "Herbicides",
+    "Potassium Chloride",
+    "Propolis",
+    "bazedoxifene",
+    "tetrachlorodian",
+    "triphenyl phosphate"
+   ]
+  },
+  "5_2": {
+   "n": 152,
+   "in": "middle 5_2",
+   "terms": [
+    [
+     "Nuclear Receptor Transcription Pathway",
+     4.81e-07
+    ],
+    [
+     "Biological Oxidations",
+     4.07e-06
+    ],
+    [
+     "SUMOylation of Intracellular Receptors",
+     4.07e-06
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     7.46e-05
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     0.000347
+    ],
+    [
+     "Xenobiotic Catabolic Process (GO:0042178)",
+     0.000347
+    ],
+    [
+     "Endogenous Sterols",
+     0.000398
+    ],
+    [
+     "DNA-binding Transcription Activator Activity, RNA Polymerase II-specific (GO:0001228)",
+     0.00051
+    ]
+   ],
+   "sample": [
+    "2,3,5,6-tetrafluoro-4…",
+    "4-OH-2',3,3',4',5'…",
+    "Megestrol",
+    "Nabumetone",
+    "acenaphthene",
+    "decamethylcyclopentasiloxane",
+    "flunisolide",
+    "mono-isobutyl phthalate"
+   ]
+  },
+  "6": {
+   "n": 584,
+   "in": "middle 6",
+   "terms": [
+    [
+     "Signal Transduction",
+     2.85e-104
+    ],
+    [
+     "Disease",
+     3.1e-70
+    ],
+    [
+     "Diseases of Signal Transduction by Growth Factor Receptors and Second Messengers",
+     2.77e-68
+    ],
+    [
+     "Cytokine Signaling in Immune System",
+     1.94e-66
+    ],
+    [
+     "Signaling by Interleukins",
+     9.47e-66
+    ],
+    [
+     "Signaling by Receptor Tyrosine Kinases",
+     1.43e-59
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     3.67e-59
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     7.48e-54
+    ]
+   ],
+   "sample": [
+    "Benzophenoneidum",
+    "N-benzyloxycarbonylprolylprolinal",
+    "Phosphates",
+    "VER 155008",
+    "Vecuronium Bromide",
+    "cotylenin A",
+    "maleic acid",
+    "methyllycaconitine"
+   ]
+  },
+  "7_1": {
+   "n": 204,
+   "in": "middle 7_1",
+   "terms": [
+    [
+     "Cellular Response to Chemical Stress",
+     2.34e-24
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     1.03e-19
+    ],
+    [
+     "Cellular Responses to Stress",
+     1.03e-19
+    ],
+    [
+     "NFE2L2 Regulating Anti-Oxidant Detoxification Enzymes",
+     1.28e-16
+    ],
+    [
+     "KEAP1-NFE2L2 Pathway",
+     7.78e-16
+    ],
+    [
+     "Nuclear Events Mediated by NFE2L2",
+     8.86e-16
+    ],
+    [
+     "Cellular Response to Chemical Stress (GO:0062197)",
+     4.4e-15
+    ],
+    [
+     "Detoxification of Reactive Oxygen Species",
+     6.33e-14
+    ]
+   ],
+   "sample": [
+    "3-(pyridin-3-ylsulfonyl)-5…",
+    "Bromocriptine",
+    "Hydroxyl Radical",
+    "Pilocarpine",
+    "S-nitro-N-acetylpenicillamine",
+    "dimethylthioarsinic acid",
+    "diphenylcyclopropenone",
+    "trigonelline"
+   ]
+  },
+  "7_2": {
+   "n": 90,
+   "in": "middle 7_2",
+   "terms": [
+    [
+     "FOXO-mediated Transcription of Oxidative Stress, Metabolic and Neuronal Genes",
+     3.78e-05
+    ],
+    [
+     "Loss of Function of SMAD2 3 in Cancer",
+     3.78e-05
+    ],
+    [
+     "Loss of Function of TGFBR1 in Cancer",
+     3.78e-05
+    ],
+    [
+     "Positive Regulation of Biosynthetic Process (GO:0009891)",
+     3.78e-05
+    ],
+    [
+     "Regulation of Epithelial to Mesenchymal Transition (GO:0010717)",
+     3.78e-05
+    ],
+    [
+     "SMAD2 3 Phosphorylation Motif Mutants in Cancer",
+     3.78e-05
+    ],
+    [
+     "Syndecan Interactions",
+     3.78e-05
+    ],
+    [
+     "TGFBR1 KD Mutants in Cancer",
+     3.78e-05
+    ]
+   ],
+   "sample": [
+    "2,2'-(hydroxynitrosohydrazono)bi…",
+    "4-(5,6,7,8-tetrahydro-5,5,8,8…",
+    "4-O-methylhonokiol",
+    "MK2i peptide",
+    "anagrelide",
+    "exoenzyme C3, Clostridium…",
+    "methyl ferulate",
+    "protocatechualdehyde"
+   ]
+  },
+  "7_3": {
+   "n": 59,
+   "in": "middle 7_3",
+   "terms": [
+    [
+     "Calcium Ion Transport (GO:0006816)",
+     3.18e-08
+    ],
+    [
+     "TRP Channels",
+     6.4e-08
+    ],
+    [
+     "Calcium Ion Transmembrane Transport (GO:0070588)",
+     1.21e-07
+    ],
+    [
+     "Calcium Channel Activity (GO:0005262)",
+     1.77e-07
+    ],
+    [
+     "Transport of Small Molecules",
+     1.94e-06
+    ],
+    [
+     "Calcium Ion Transmembrane Transporter Activity (GO:0015085)",
+     3.42e-06
+    ],
+    [
+     "Calcium Ion Import (GO:0070509)",
+     1.42e-05
+    ],
+    [
+     "Stimuli-sensing Channels",
+     1.67e-05
+    ]
+   ],
+   "sample": [
+    "1-oleoyl-2-acetylglycerol",
+    "3-(4-chlorophenyl)-N-methyl-N'…",
+    "Barium",
+    "Cilazapril",
+    "Gadolinium",
+    "Lanthanum",
+    "Strontium",
+    "osteum"
+   ]
+  },
+  "7_4": {
+   "n": 42,
+   "in": "middle 7_4",
+   "terms": [
+    [
+     "Diacylglycerol-Dependent Serine/Threonine Kinase Activity (GO:0004697)",
+     4.37e-07
+    ],
+    [
+     "Cellular Response to Oxidative Stress (GO:0034599)",
+     1.63e-05
+    ],
+    [
+     "Detoxification of Reactive Oxygen Species",
+     1.63e-05
+    ],
+    [
+     "Transcriptional Activation of Mitochondrial Biogenesis",
+     5.53e-05
+    ],
+    [
+     "Cellular Response to Chemical Stress",
+     0.000128
+    ],
+    [
+     "Cellular Responses to Stress",
+     0.000138
+    ],
+    [
+     "Protein Serine Kinase Activity (GO:0106310)",
+     0.000138
+    ],
+    [
+     "VEGFR2 Mediated Cell Proliferation",
+     0.000162
+    ]
+   ],
+   "sample": [
+    "12-deoxyphorbolphenylacetate-20…",
+    "2',5'-oligoadenylate",
+    "Erythropoietin",
+    "LGM2605",
+    "N-butyrylglucosamine",
+    "Ribonucleosides",
+    "cuprous sulfide",
+    "thymeleatoxin"
+   ]
+  },
+  "7_5": {
+   "n": 38,
+   "in": "middle 7_5",
+   "terms": [
+    [
+     "GLI Proteins Bind Promoters of Hh Responsive Genes to Promote Transcription",
+     1.99e-08
+    ],
+    [
+     "Hedgehog 'On' State",
+     1.99e-08
+    ],
+    [
+     "Smoothened Signaling Pathway (GO:0007224)",
+     5.62e-08
+    ],
+    [
+     "Signal Transduction",
+     3.13e-07
+    ],
+    [
+     "Signaling by Hedgehog",
+     3.58e-07
+    ],
+    [
+     "Metabolism of Angiotensinogen to Angiotensins",
+     4.21e-07
+    ],
+    [
+     "Hedgehog 'Off' State",
+     5.18e-06
+    ],
+    [
+     "Regulation of Smoothened Signaling Pathway (GO:0008589)",
+     3.83e-05
+    ]
+   ],
+   "sample": [
+    "Antipain",
+    "Captopril",
+    "GANT 61",
+    "PD 123319",
+    "ST 1435",
+    "goralatide",
+    "omapatrilat",
+    "phenylalanyl-prolyl-arginine…"
+   ]
+  },
+  "8_1": {
+   "n": 365,
+   "in": "middle 8_1",
+   "terms": [
+    [
+     "Transport of Small Molecules",
+     8.92e-21
+    ],
+    [
+     "Basolateral Plasma Membrane (GO:0016323)",
+     2.01e-16
+    ],
+    [
+     "SLC-mediated Transmembrane Transport",
+     2.01e-16
+    ],
+    [
+     "Recycling of Bile Acids and Salts",
+     3.11e-16
+    ],
+    [
+     "Transport of Bile Salts and Organic Acids, Metal Ions and Amine Compounds",
+     5.42e-15
+    ],
+    [
+     "Bile Acid and Bile Salt Transport (GO:0015721)",
+     8.59e-15
+    ],
+    [
+     "Bile Acid and Bile Salt Metabolism",
+     1.93e-14
+    ],
+    [
+     "Monocarboxylic Acid Transport (GO:0015718)",
+     4.28e-14
+    ]
+   ],
+   "sample": [
+    "3-iodothyronamine",
+    "Bumetanide",
+    "Protons",
+    "Scopolamine",
+    "Sulfobromophthalein",
+    "coenzyme Q10",
+    "estradiol-17 beta-glucuronide",
+    "perfluorobutanesulfonic acid"
+   ]
+  },
+  "8_2": {
+   "n": 29,
+   "in": "middle 8_2",
+   "terms": [
+    [
+     "GPCR Sgnlng Pway, Coupled to Cyclic Nucleotide Second Messenger (GO:0007187)",
+     6.4e-11
+    ],
+    [
+     "G Protein-Coupled Serotonin Receptor Activity (GO:0004993)",
+     1.55e-08
+    ],
+    [
+     "Serotonin Receptors",
+     1.55e-08
+    ],
+    [
+     "Serotonin Receptor Activity (GO:0099589)",
+     7.19e-08
+    ],
+    [
+     "G Protein-Coupled Amine Receptor Activity (GO:0008227)",
+     3.84e-07
+    ],
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     1.17e-06
+    ],
+    [
+     "Amine Ligand-Binding Receptors",
+     1.55e-06
+    ],
+    [
+     "Positive Regulation of Phospholipid Biosynthetic Process (GO:0071073)",
+     1.55e-06
+    ]
+   ],
+   "sample": [
+    "1,25-dihydroxyergocalciferol",
+    "1-(8-bromobenzo(1,2-b;4,5…",
+    "24a-homo-1,15-dihydroxyergocalci…",
+    "Homovanillic Acid",
+    "N-(2-(2-methoxy-6H-dipyrido(2,3…",
+    "Norfenfluramine",
+    "S 20098",
+    "calcipotriene"
+   ]
+  },
+  "9_1": {
+   "n": 264,
+   "in": "middle 9_1",
+   "terms": [
+    [
+     "PPARA Activates Gene Expression",
+     1.41e-20
+    ],
+    [
+     "Regulation of Lipid Metabolism by PPARalpha",
+     1.41e-20
+    ],
+    [
+     "Metabolism of Lipids",
+     5.03e-19
+    ],
+    [
+     "Nuclear Receptor Transcription Pathway",
+     6.27e-18
+    ],
+    [
+     "Metabolism",
+     1.5e-17
+    ],
+    [
+     "SUMOylation of Intracellular Receptors",
+     1.24e-16
+    ],
+    [
+     "Nuclear Receptor-Mediated Signaling Pathway (GO:0141193)",
+     4.81e-14
+    ],
+    [
+     "Signaling by Nuclear Receptors",
+     7.53e-11
+    ]
+   ],
+   "sample": [
+    "Lenalidomide",
+    "Teratogens",
+    "ciprofibrate",
+    "diisodecyl phthalate",
+    "muraglitazar",
+    "tesaglitazar",
+    "triphenyltin chloride",
+    "tris(1-chloro-2-propyl)phosphate"
+   ]
+  },
+  "9_2": {
+   "n": 44,
+   "in": "middle 9_2",
+   "terms": [
+    [
+     "Cholesterol Biosynthesis",
+     8.78e-14
+    ],
+    [
+     "Cholesterol Metabolic Process (GO:0008203)",
+     1.37e-13
+    ],
+    [
+     "Metabolism of Steroids",
+     4.62e-13
+    ],
+    [
+     "Activation of Gene Expression by SREBF (SREBP)",
+     7.92e-13
+    ],
+    [
+     "Regulation of Cholesterol Biosynthesis by SREBP (SREBF)",
+     4.54e-12
+    ],
+    [
+     "Secondary Alcohol Biosynthetic Process (GO:1902653)",
+     5.32e-12
+    ],
+    [
+     "Cholesterol Biosynthetic Process (GO:0006695)",
+     6e-12
+    ],
+    [
+     "Sterol Biosynthetic Process (GO:0016126)",
+     1.12e-11
+    ]
+   ],
+   "sample": [
+    "1,3-dichloro-2-propanol",
+    "Desmosterol",
+    "N'-(3,4-dihydroxybenzylidene)-3…",
+    "N-(4-(2-(2-propylpyridin-4…",
+    "artemisic acid",
+    "copper histidine",
+    "mevalonolactone",
+    "ziprasidone"
+   ]
+  },
+  "10_1": {
+   "n": 123,
+   "in": "middle 10_1",
+   "terms": [
+    [
+     "Drug ADME",
+     1.8e-10
+    ],
+    [
+     "Cellular Response to Chemical Stress",
+     1.35e-08
+    ],
+    [
+     "Glutathione Metabolic Process (GO:0006749)",
+     2.76e-07
+    ],
+    [
+     "Metabolism",
+     2.76e-07
+    ],
+    [
+     "Biological Oxidations",
+     7.52e-07
+    ],
+    [
+     "Cellular Responses to Stress",
+     9.42e-06
+    ],
+    [
+     "Glutathione Transferase Activity (GO:0004364)",
+     9.47e-06
+    ],
+    [
+     "Nuclear Events Mediated by NFE2L2",
+     9.89e-06
+    ]
+   ],
+   "sample": [
+    "Carbon Disulfide",
+    "Insecticides",
+    "Lipid Peroxides",
+    "Platinum Compounds",
+    "Pyrazines",
+    "S-phenyl-N-acetylcysteine",
+    "Vinyl Chloride",
+    "hydrazine"
+   ]
+  },
+  "10_2": {
+   "n": 111,
+   "in": "middle 10_2",
+   "terms": [
+    [
+     "Biological Oxidations",
+     4.55e-09
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     2.44e-05
+    ],
+    [
+     "Arachidonate Metabolic Process (GO:0019369)",
+     7.41e-05
+    ],
+    [
+     "CYP2E1 Reactions",
+     8.28e-05
+    ],
+    [
+     "Arachidonate Monooxygenase Activity (GO:0008391)",
+     0.000122
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     0.000122
+    ],
+    [
+     "Epoxygenase P450 Pathway (GO:0019373)",
+     0.00016
+    ],
+    [
+     "Xenobiotics",
+     0.000505
+    ]
+   ],
+   "sample": [
+    "1,3-butadiene",
+    "Acetic Acid",
+    "Betaine",
+    "Nitrosamines",
+    "Trihalomethanes",
+    "erastin",
+    "ferric nitrilotriacetate",
+    "muconic acid"
+   ]
+  },
+  "10_3": {
+   "n": 41,
+   "in": "middle 10_3",
+   "terms": [
+    [
+     "Thyroxine Biosynthesis",
+     1.24e-05
+    ],
+    [
+     "Metabolism of Amine-Derived Hormones",
+     4.22e-05
+    ],
+    [
+     "Thyroid Hormone Metabolic Process (GO:0042403)",
+     0.0219
+    ]
+   ],
+   "sample": [
+    "2-((4-(1-methyl-4-pyridin-4-yl…",
+    "Ergocalciferols",
+    "GW9508",
+    "Reactive Nitrogen Species",
+    "captafol",
+    "dichlone",
+    "dinocap",
+    "o-Phthalaldehyde"
+   ]
+  },
+  "11_1": {
+   "n": 143,
+   "in": "middle 11_1",
+   "terms": [
+    [
+     "Hemostasis",
+     0.00498
+    ],
+    [
+     "Formation of Fibrin Clot (Clotting Cascade)",
+     0.0152
+    ],
+    [
+     "HFE-transferrin Receptor Complex (GO:1990712)",
+     0.0264
+    ],
+    [
+     "Transport of Small Molecules",
+     0.0264
+    ],
+    [
+     "Clathrin-Coated Endocytic Vesicle Membrane (GO:0030669)",
+     0.03
+    ],
+    [
+     "C2H2 Zinc Finger Domain Binding (GO:0070742)",
+     0.0395
+    ],
+    [
+     "Clathrin-Coated Endocytic Vesicle (GO:0045334)",
+     0.0395
+    ],
+    [
+     "Clathrin-Coated Vesicle Membrane (GO:0030665)",
+     0.0395
+    ]
+   ],
+   "sample": [
+    "Chlorine",
+    "Didanosine",
+    "Phlorhizin",
+    "Zalcitabine",
+    "bivalirudin",
+    "chebulinic acid",
+    "fialuridine",
+    "tellimagrandin I"
+   ]
+  },
+  "11_2": {
+   "n": 56,
+   "in": "middle 11_2",
+   "terms": [
+    [
+     "Common Pathway of Fibrin Clot Formation",
+     1.26e-05
+    ],
+    [
+     "Formation of Fibrin Clot (Clotting Cascade)",
+     7.04e-05
+    ],
+    [
+     "Intrinsic Pathway of Fibrin Clot Formation",
+     0.00168
+    ],
+    [
+     "Regulation of IGF Transport and Uptake by Insulin-like Growth Factor Binding Proteins (IGFBPs)",
+     0.00386
+    ],
+    [
+     "G Protein-Coupled Receptor Dimeric Complex (GO:0038037)",
+     0.0111
+    ],
+    [
+     "Hemostasis",
+     0.0111
+    ],
+    [
+     "GPCR Ligand Binding",
+     0.0182
+    ],
+    [
+     "Regulation of miRNA Transcription (GO:1902893)",
+     0.0182
+    ]
+   ],
+   "sample": [
+    "2,3-dichloro-1-propanol",
+    "4-anisidine",
+    "Contraceptives, Oral, Combined",
+    "Gabapentin",
+    "Quinapril",
+    "arsenic trisulfide",
+    "phosphatidylinositol 3,4,5…",
+    "racecadotril"
+   ]
+  },
+  "11_3": {
+   "n": 46,
+   "in": "middle 11_3",
+   "terms": [
+    [
+     "Metabolism of Folate and Pterines",
+     6.74e-10
+    ],
+    [
+     "Metabolism of Water-Soluble Vitamins and Cofactors",
+     8.33e-08
+    ],
+    [
+     "Metabolism of Vitamins and Cofactors",
+     8.19e-07
+    ],
+    [
+     "Folic Acid Transport (GO:0015884)",
+     2.12e-06
+    ],
+    [
+     "Modified Amino Acid Transport (GO:0072337)",
+     9.45e-05
+    ],
+    [
+     "Metabolism",
+     0.00014
+    ],
+    [
+     "Amide Transport (GO:0042886)",
+     0.000308
+    ],
+    [
+     "Dicarboxylic Acid Transport (GO:0006835)",
+     0.000308
+    ]
+   ],
+   "sample": [
+    "5-fluoro-2'-deoxyuridine",
+    "5-methyltetrahydrofolate",
+    "BGC945",
+    "Cefepime",
+    "N-((5-((2-amino-4-oxo-4,7…",
+    "biflorin",
+    "lometrexol",
+    "stallimycin"
+   ]
+  },
+  "12_1": {
+   "n": 190,
+   "in": "middle 12_1",
+   "terms": [
+    [
+     "Drug ADME",
+     1.05e-13
+    ],
+    [
+     "Amine Ligand-Binding Receptors",
+     3.41e-13
+    ],
+    [
+     "Aspirin ADME",
+     1.44e-08
+    ],
+    [
+     "Xenobiotic Transport (GO:0042908)",
+     3.2e-08
+    ],
+    [
+     "Adrenoceptors",
+     2.31e-07
+    ],
+    [
+     "Adenylate Cyclase-Activating Adrenergic Receptor Signaling Pathway (GO:0071880)",
+     1.09e-06
+    ],
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     1.9e-06
+    ],
+    [
+     "Adrenergic Receptor Signaling Pathway (GO:0071875)",
+     4.09e-06
+    ]
+   ],
+   "sample": [
+    "Chlorpheniramine",
+    "Mefloquine",
+    "Metoclopramide",
+    "Mianserin",
+    "Strychnine",
+    "Tetraethylammonium",
+    "desloratadine",
+    "valdecoxib"
+   ]
+  },
+  "12_2": {
+   "n": 46,
+   "in": "middle 12_2",
+   "terms": [
+    [
+     "Chloride Channel Activity (GO:0005254)",
+     7.07e-25
+    ],
+    [
+     "GABA Receptor Activity (GO:0016917)",
+     7.07e-25
+    ],
+    [
+     "Gamma-Aminobutyric Acid Signaling Pathway (GO:0007214)",
+     7.07e-25
+    ],
+    [
+     "Chloride Transport (GO:0006821)",
+     4.68e-24
+    ],
+    [
+     "Synaptic Transmission, GABAergic (GO:0051932)",
+     1.38e-23
+    ],
+    [
+     "Chloride Transmembrane Transport (GO:1902476)",
+     4.04e-23
+    ],
+    [
+     "GABA-A Receptor Activity (GO:0004890)",
+     4.04e-23
+    ],
+    [
+     "GABA-A Receptor Complex (GO:1902711)",
+     4.04e-23
+    ]
+   ],
+   "sample": [
+    "1-(4-ethynylphenyl)-4-propyl-2…",
+    "Chlorides",
+    "Felbamate",
+    "Isoflurane",
+    "Picrotoxin",
+    "picrotoxinin",
+    "tert-Butyl Alcohol",
+    "tetramethylenedisulfotetramine"
+   ]
+  },
+  "13_1": {
+   "n": 121,
+   "in": "middle 13_1",
+   "terms": [
+    [
+     "Acetylcholine Receptor Activity (GO:0015464)",
+     6.35e-20
+    ],
+    [
+     "Acetylcholine Receptor Signaling Pathway (GO:0095500)",
+     2.41e-17
+    ],
+    [
+     "Chemical Synaptic Transmission (GO:0007268)",
+     4.6e-13
+    ],
+    [
+     "Muscarinic Acetylcholine Receptors",
+     9.03e-13
+    ],
+    [
+     "Anterograde Trans-Synaptic Signaling (GO:0098916)",
+     9.06e-13
+    ],
+    [
+     "Neuron Projection (GO:0043005)",
+     2.39e-11
+    ],
+    [
+     "Highly Calcium Permeable Postsynaptic Nicotinic Acetylcholine Receptors",
+     2.37e-10
+    ],
+    [
+     "Acetylcholine Binding and Downstream Events",
+     7.99e-10
+    ]
+   ],
+   "sample": [
+    "Acetylcholine",
+    "Isoflurophate",
+    "Pancuronium",
+    "Physostigmine",
+    "Rivastigmine",
+    "Rocuronium",
+    "methamidophos",
+    "mipafox"
+   ]
+  },
+  "13_2": {
+   "n": 56,
+   "in": "middle 13_2",
+   "terms": [
+    [
+     "Reversible Hydration of Carbon Dioxide",
+     4.78e-36
+    ],
+    [
+     "Carbonate Dehydratase Activity (GO:0004089)",
+     8.41e-32
+    ],
+    [
+     "Hydro-Lyase Activity (GO:0016836)",
+     6.14e-26
+    ],
+    [
+     "Metabolism",
+     1.28e-09
+    ],
+    [
+     "Erythrocytes Take up Oxygen and Release Carbon Dioxide",
+     3.77e-05
+    ],
+    [
+     "Erythrocytes Take up Carbon Dioxide and Release Oxygen",
+     0.000106
+    ],
+    [
+     "O2 CO2 Exchange in Erythrocytes",
+     0.000106
+    ],
+    [
+     "Arylesterase Activity (GO:0004064)",
+     0.00618
+    ]
+   ],
+   "sample": [
+    "Acetazolamide",
+    "Bicarbonates",
+    "Methazolamide",
+    "Sulpiride",
+    "Synephrine",
+    "oryzalin",
+    "perchlorate",
+    "sulfamic acid"
+   ]
+  },
+  "14": {
+   "n": 158,
+   "in": "middle 14",
+   "terms": [
+    [
+     "Potassium Ion Transmembrane Transport (GO:0071805)",
+     1.47e-18
+    ],
+    [
+     "Potassium Ion Transport (GO:0006813)",
+     5.21e-14
+    ],
+    [
+     "Voltage-Gated Potassium Channel Activity (GO:0005249)",
+     1.7e-13
+    ],
+    [
+     "Voltage-Gated Potassium Channel Complex (GO:0008076)",
+     1.93e-13
+    ],
+    [
+     "Potassium Channel Complex (GO:0034705)",
+     3.03e-13
+    ],
+    [
+     "Voltage Gated Potassium Channels",
+     3.11e-13
+    ],
+    [
+     "Inorganic Cation Transmembrane Transport (GO:0098662)",
+     3.33e-13
+    ],
+    [
+     "Monoatomic Cation Transmembrane Transport (GO:0098655)",
+     3.33e-13
+    ]
+   ],
+   "sample": [
+    "Benzydamine",
+    "Ibogaine",
+    "N-(1-(3-morpholin-4…",
+    "Quinazolinones",
+    "Ritanserin",
+    "Rubidium",
+    "Thallium",
+    "ezogabine"
+   ]
+  },
+  "15_1": {
+   "n": 110,
+   "in": "middle 15_1",
+   "terms": [
+    [
+     "Aldose Reductase (NADPH) Activity (GO:0004032)",
+     3.14e-17
+    ],
+    [
+     "Alcohol Dehydrogenase (NADP+) Activity (GO:0008106)",
+     8.78e-16
+    ],
+    [
+     "Aminoglycoside Antibiotic Metabolic Process (GO:0030647)",
+     8.78e-16
+    ],
+    [
+     "Daunorubicin Metabolic Process (GO:0044597)",
+     8.78e-16
+    ],
+    [
+     "Doxorubicin Metabolic Process (GO:0044598)",
+     2.63e-15
+    ],
+    [
+     "Polyketide Metabolic Process (GO:0030638)",
+     2.63e-15
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     8.51e-14
+    ],
+    [
+     "Tertiary Alcohol Metabolic Process (GO:1902644)",
+     9.35e-14
+    ]
+   ],
+   "sample": [
+    "9-cis-retinal",
+    "Flunitrazepam",
+    "Glycyrrhetinic Acid",
+    "Naphthalenes",
+    "Pregnanolone",
+    "Sorbitol",
+    "benzo(a)pyrene-1,6-quinone",
+    "benzo(a)pyrene-3,6-quinone"
+   ]
+  },
+  "16_1": {
+   "n": 86,
+   "in": "middle 16_1",
+   "terms": [
+    [
+     "Biological Oxidations",
+     3.45e-34
+    ],
+    [
+     "Aspirin ADME",
+     5.29e-28
+    ],
+    [
+     "Retinoic Acid Binding (GO:0001972)",
+     9.29e-27
+    ],
+    [
+     "Glucuronidation",
+     4.97e-26
+    ],
+    [
+     "Monocarboxylic Acid Binding (GO:0033293)",
+     7.71e-25
+    ],
+    [
+     "Retinoid Binding (GO:0005501)",
+     7.71e-25
+    ],
+    [
+     "Glucuronosyltransferase Activity (GO:0015020)",
+     1.04e-24
+    ],
+    [
+     "Drug ADME",
+     1.24e-24
+    ]
+   ],
+   "sample": [
+    "4-hydroxyestrone",
+    "Clofibric Acid",
+    "Fenoprofen",
+    "Hymecromone",
+    "Ketoprofen",
+    "Pregnenolone Carbonitrile",
+    "alloin",
+    "glabridin"
+   ]
+  },
+  "16_2": {
+   "n": 32,
+   "in": "middle 16_2",
+   "terms": [
+    [
+     "ADP Catabolic Process (GO:0046032)",
+     0.0387
+    ],
+    [
+     "Glycolytic Process (GO:0006096)",
+     0.0387
+    ],
+    [
+     "Intracellular Organelle Lumen (GO:0070013)",
+     0.0387
+    ],
+    [
+     "Pyridine Nucleotide Catabolic Process (GO:0019364)",
+     0.0387
+    ],
+    [
+     "Regulation of Supramolecular Fiber Organization (GO:1902903)",
+     0.0387
+    ],
+    [
+     "Positive Regulation of Transcription by RNA Polymerase II (GO:0045944)",
+     0.0408
+    ],
+    [
+     "Carbohydrate Catabolic Process (GO:0016052)",
+     0.0419
+    ],
+    [
+     "Defense Response to Fungus (GO:0050832)",
+     0.0419
+    ]
+   ],
+   "sample": [
+    "2,5-dihydroxybenzoic acid",
+    "Azure B",
+    "CHF 5022",
+    "Creatine",
+    "Inositol",
+    "Phosphoenolpyruvate",
+    "memoquin",
+    "turmeric extract"
+   ]
+  },
+  "17_1": {
+   "n": 77,
+   "in": "middle 17_1",
+   "terms": [
+    [
+     "Muscarinic Acetylcholine Receptors",
+     2.55e-13
+    ],
+    [
+     "Acetylcholine Receptor Activity (GO:0015464)",
+     5.15e-10
+    ],
+    [
+     "Adenylate Cyclase-Inhibiting G Protein-Coupled Receptor Signaling Pathway (GO:0007193)",
+     5.15e-10
+    ],
+    [
+     "G Protein-Coupled Acetylcholine Receptor Signaling Pathway (GO:0007213)",
+     5.15e-10
+    ],
+    [
+     "G Protein-Coupled Neurotransmitter Receptor Activity (GO:0099528)",
+     5.15e-10
+    ],
+    [
+     "GPCR Sgnlng Pway, Coupled to Cyclic Nucleotide Second Messenger (GO:0007187)",
+     5.15e-10
+    ],
+    [
+     "Adenylate Cyclase-Inhibiting G Protein-Coupled Acetylcholine Receptor Signaling Pathway (GO:0007197)",
+     3.06e-09
+    ],
+    [
+     "Acetylcholine Receptor Signaling Pathway (GO:0095500)",
+     1.03e-08
+    ]
+   ],
+   "sample": [
+    "4-diphenylacetoxy-1,1…",
+    "5-(3-(3-hydroxyphenoxy)azetidin…",
+    "Pipecuronium",
+    "Quinuclidinyl Benzilate",
+    "Tiotropium Bromide",
+    "Tropicamide",
+    "methoctramine",
+    "oxotremorine M"
+   ]
+  },
+  "18_1": {
+   "n": 79,
+   "in": "middle 18_1",
+   "terms": [
+    [
+     "Synthesis of 5-Eicosatetraenoic Acids",
+     1.73e-07
+    ],
+    [
+     "Formation of Fibrin Clot (Clotting Cascade)",
+     2.07e-07
+    ],
+    [
+     "Arachidonate Metabolism",
+     1.19e-06
+    ],
+    [
+     "Intrinsic Pathway of Fibrin Clot Formation",
+     3.01e-06
+    ],
+    [
+     "Arylesterase Activity (GO:0004064)",
+     4.83e-06
+    ],
+    [
+     "Gamma-carboxylated Protein Precursors Transport From the Endoplasmic Reticulum to Golgi Apparatus",
+     3.37e-05
+    ],
+    [
+     "Gamma-carboxylation of Protein Precursors",
+     3.61e-05
+    ],
+    [
+     "Removal of Aminoterminal Propeptides From Gamma-Carboxylated Proteins",
+     3.61e-05
+    ]
+   ],
+   "sample": [
+    "1-oleoyl-2-acetoyl-sn-glycerol",
+    "5-hydroxyeicosatetraenoic acid…",
+    "Nandrolone Decanoate",
+    "Ortho Evra",
+    "Palladium",
+    "estradiol and norethindrone",
+    "ethinyl estradiol and…",
+    "phenylacetic acid"
+   ]
+  },
+  "19": {
+   "n": 53,
+   "in": "fine 19",
+   "terms": [],
+   "sample": [
+    "Ethylenethiourea",
+    "MB327",
+    "Naled",
+    "Phosphorous Acids",
+    "Pyridinium Compounds",
+    "SAD-128",
+    "di-n-butyl-2,2-dichlorovinyl…",
+    "kangshuai yizhi"
+   ]
+  },
+  "20_1": {
+   "n": 37,
+   "in": "middle 20_1",
+   "terms": [
+    [
+     "Amine Ligand-Binding Receptors",
+     2.25e-19
+    ],
+    [
+     "Dopamine Receptors",
+     2.38e-15
+    ],
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     1.78e-12
+    ],
+    [
+     "G Protein-Coupled Dopamine Receptor Signaling Pathway (GO:0007212)",
+     1.02e-11
+    ],
+    [
+     "GPCR Ligand Binding",
+     1.64e-11
+    ],
+    [
+     "Phospholipase C-activating Dopamine Receptor Signaling Pathway (GO:0060158)",
+     7.85e-11
+    ],
+    [
+     "Phospholipase C-activating G Protein-Coupled Receptor Signaling Pathway (GO:0007200)",
+     1.03e-10
+    ],
+    [
+     "Signaling by GPCR",
+     2.85e-10
+    ]
+   ],
+   "sample": [
+    "7-fluoro-2-oxo-4-(2-(4…",
+    "7-methyl-6,7,8,9,14,15…",
+    "A 86929",
+    "Lurasidone Hydrochloride",
+    "Phenethylamines",
+    "Pramipexole",
+    "Spiperone",
+    "sarizotan"
+   ]
+  },
+  "21": {
+   "n": 46,
+   "in": "middle 21",
+   "terms": [
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     0.000113
+    ],
+    [
+     "GPCR Downstream Signalling",
+     0.000113
+    ],
+    [
+     "Signaling by GPCR",
+     0.000113
+    ],
+    [
+     "GPCR Ligand Binding",
+     0.000457
+    ],
+    [
+     "Signal Transduction",
+     0.00504
+    ],
+    [
+     "G Protein-Coupled Serotonin Receptor Activity (GO:0004993)",
+     0.00883
+    ],
+    [
+     "Serotonin Receptors",
+     0.00883
+    ],
+    [
+     "Positive Regulation of ERK1 and ERK2 Cascade (GO:0070374)",
+     0.0159
+    ]
+   ],
+   "sample": [
+    "(1-(2-morpholin-4-yl-ethyl)-1H…",
+    "(1-pentyl-1H-indol-3-yl)(2,2,3…",
+    "(4-ethyl-1-naphthalenyl)(1-(5…",
+    "1-(5-fluoropentyl)-3-(1…",
+    "1-(5-fluoropentyl)-3-(4-methyl…",
+    "1-pentyl-3-(1-naphthoyl)indole",
+    "Guanosine 5'-O-(3…",
+    "JWH-073"
+   ]
+  }
+ },
+ "fine": {
+  "1_1": {
+   "n": 942,
+   "in": "fine 1_1",
+   "terms": [
+    [
+     "Signal Transduction",
+     4.46e-87
+    ],
+    [
+     "Regulation of Apoptotic Process (GO:0042981)",
+     2.84e-80
+    ],
+    [
+     "Disease",
+     3.72e-72
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     4.9e-68
+    ],
+    [
+     "Generic Transcription Pathway",
+     1.27e-66
+    ],
+    [
+     "Negative Regulation of Apoptotic Process (GO:0043066)",
+     7.16e-63
+    ],
+    [
+     "Cytokine Signaling in Immune System",
+     9.7e-63
+    ],
+    [
+     "Positive Regulation of Apoptotic Process (GO:0043065)",
+     4.04e-61
+    ]
+   ],
+   "sample": [
+    "4-methyl-N-(3-(4-methylimidazol…",
+    "PF 3758309",
+    "Phenylephrine",
+    "Poly(amidoamine)",
+    "Xylitol",
+    "heliotrine",
+    "myristicin",
+    "pyrimidin-2-one beta…"
+   ]
+  },
+  "1_2": {
+   "n": 203,
+   "in": "fine 1_2",
+   "terms": [
+    [
+     "Positive Regulation of Apoptotic Process (GO:0043065)",
+     7.35e-20
+    ],
+    [
+     "Regulation of Apoptotic Process (GO:0042981)",
+     6.21e-18
+    ],
+    [
+     "Programmed Cell Death",
+     1.51e-17
+    ],
+    [
+     "Signaling by Interleukins",
+     3.95e-17
+    ],
+    [
+     "Positive Regulation of Programmed Cell Death (GO:0043068)",
+     3.08e-16
+    ],
+    [
+     "Cytokine Signaling in Immune System",
+     6.44e-15
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     7e-15
+    ],
+    [
+     "Immune System",
+     1.5e-14
+    ]
+   ],
+   "sample": [
+    "1-(1-methanesulfonylpiperidin-4…",
+    "Propafenone",
+    "Razoxane",
+    "SP2509",
+    "UCF 101",
+    "Vinorelbine",
+    "echinacoside",
+    "ginsenoside Rb1"
+   ]
+  },
+  "1_3": {
+   "n": 197,
+   "in": "fine 1_3",
+   "terms": [
+    [
+     "Generic Transcription Pathway",
+     6.24e-31
+    ],
+    [
+     "RNA Polymerase II Transcription",
+     2.05e-29
+    ],
+    [
+     "Gene Expression (Transcription)",
+     1.63e-26
+    ],
+    [
+     "Mitotic G1 Phase and G1 S Transition",
+     1.18e-24
+    ],
+    [
+     "Transcriptional Regulation by TP53",
+     1.55e-23
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     1.79e-22
+    ],
+    [
+     "Disease",
+     5.22e-22
+    ],
+    [
+     "Cell Cycle",
+     2.31e-21
+    ]
+   ],
+   "sample": [
+    "FTI 277",
+    "Glutathione Disulfide",
+    "clobenpropit",
+    "dimethoxon",
+    "methylparaoxon",
+    "ptaquiloside",
+    "raltitrexed",
+    "sodium tungstate(VI)"
+   ]
+  },
+  "1_4": {
+   "n": 31,
+   "in": "fine 1_4",
+   "terms": [
+    [
+     "SUMO E3 Ligases SUMOylate Target Proteins",
+     0.00526
+    ],
+    [
+     "SUMOylation",
+     0.00526
+    ]
+   ],
+   "sample": [
+    "2-cyclopentyl-5-(5…",
+    "BIX 02189",
+    "MLN 8237",
+    "N'-(3-bromo-4-hydroxybenzylidene…",
+    "NVP-BSK805",
+    "antimony trioxide",
+    "concanamycin A",
+    "mezerein"
+   ]
+  },
+  "1_5": {
+   "n": 24,
+   "in": "fine 1_5",
+   "terms": [
+    [
+     "Response to Endoplasmic Reticulum Stress (GO:0034976)",
+     3.07e-16
+    ],
+    [
+     "Endoplasmic Reticulum Unfolded Protein Response (GO:0030968)",
+     4.92e-15
+    ],
+    [
+     "Unfolded Protein Response (UPR)",
+     4.92e-15
+    ],
+    [
+     "ATF6 (ATF6-alpha) Activates Chaperone Genes",
+     1.25e-14
+    ],
+    [
+     "ATF6 (ATF6-alpha) Activates Chaperones",
+     4.28e-14
+    ],
+    [
+     "Cellular Responses to Stress",
+     4.28e-14
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     1.73e-13
+    ],
+    [
+     "Cellular Response to Unfolded Protein (GO:0034620)",
+     3.68e-12
+    ]
+   ],
+   "sample": [
+    "4-Quinolones",
+    "Glycine",
+    "Naltrexone",
+    "Pyrazinamide",
+    "chromium histidinate",
+    "importazole",
+    "nonivamide",
+    "perhexiline maleate"
+   ]
+  },
+  "2_1": {
+   "n": 1242,
+   "in": "fine 2_1",
+   "terms": [
+    [
+     "Signal Transduction",
+     2.25e-286
+    ],
+    [
+     "Disease",
+     3.95e-232
+    ],
+    [
+     "Intracellular Membrane-Bounded Organelle (GO:0043231)",
+     4.97e-204
+    ],
+    [
+     "Metabolism",
+     4.97e-204
+    ],
+    [
+     "Immune System",
+     1.1e-184
+    ],
+    [
+     "Cytokine Signaling in Immune System",
+     2.46e-166
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     2.52e-163
+    ],
+    [
+     "Nucleus (GO:0005634)",
+     5.73e-162
+    ]
+   ],
+   "sample": [
+    "Bortezomib",
+    "Lipopolysaccharides",
+    "Raloxifene Hydrochloride",
+    "Tamoxifen",
+    "Troglitazone",
+    "Vehicle Emissions",
+    "ochratoxin A",
+    "perfluorooctane sulfonic acid"
+   ]
+  },
+  "2_2": {
+   "n": 170,
+   "in": "fine 2_2",
+   "terms": [
+    [
+     "Intracellular Membrane-Bounded Organelle (GO:0043231)",
+     0.0
+    ],
+    [
+     "Signal Transduction",
+     0.0
+    ],
+    [
+     "Nucleus (GO:0005634)",
+     1.86e-297
+    ],
+    [
+     "Metabolism",
+     5.98e-296
+    ],
+    [
+     "Metabolism of Proteins",
+     2.04e-216
+    ],
+    [
+     "Disease",
+     4.12e-188
+    ],
+    [
+     "Positive Regulation of DNA-templated Transcription (GO:0045893)",
+     6.27e-142
+    ],
+    [
+     "Post-translational Protein Modification",
+     3.64e-141
+    ]
+   ],
+   "sample": [
+    "Acetaminophen",
+    "Aflatoxin B1",
+    "Benzo(a)pyrene",
+    "Cisplatin",
+    "Cyclosporine",
+    "Doxorubicin",
+    "Valproic Acid",
+    "abrine"
+   ]
+  },
+  "3_1": {
+   "n": 815,
+   "in": "fine 3_1",
+   "terms": [
+    [
+     "Cytokine Signaling in Immune System",
+     4.06e-81
+    ],
+    [
+     "Immune System",
+     6.84e-80
+    ],
+    [
+     "Signaling by Interleukins",
+     1.65e-79
+    ],
+    [
+     "Signal Transduction",
+     4.89e-68
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     9.6e-66
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     1.54e-61
+    ],
+    [
+     "Positive Regulation of Cytokine Production (GO:0001819)",
+     4.15e-57
+    ],
+    [
+     "Positive Regulation of DNA-templated Transcription (GO:0045893)",
+     1.08e-46
+    ]
+   ],
+   "sample": [
+    "Aluminum Hydroxide",
+    "Estrogens, Conjugated (USP)",
+    "Heroin",
+    "Pantothenic Acid",
+    "Platelet Activating Factor",
+    "Thioacetamide",
+    "abacavir",
+    "jasplakinolide"
+   ]
+  },
+  "3_2": {
+   "n": 127,
+   "in": "fine 3_2",
+   "terms": [
+    [
+     "Cytokine Signaling in Immune System",
+     2.97e-22
+    ],
+    [
+     "Signaling by Interleukins",
+     4.67e-21
+    ],
+    [
+     "Interleukin-10 Signaling",
+     2.59e-16
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     1.68e-15
+    ],
+    [
+     "Receptor Ligand Activity (GO:0048018)",
+     1.68e-15
+    ],
+    [
+     "Cytokine-Mediated Signaling Pathway (GO:0019221)",
+     1.74e-15
+    ],
+    [
+     "Immune System",
+     2e-15
+    ],
+    [
+     "Positive Regulation of Cell Population Proliferation (GO:0008284)",
+     1.59e-12
+    ]
+   ],
+   "sample": [
+    "2-(1-(3-dimethylaminopropyl)-5…",
+    "5-chloro-2-methyl-4…",
+    "Chrysenes",
+    "Digoxin",
+    "Glyoxal",
+    "Heparitin Sulfate",
+    "Inositol Phosphates",
+    "pyrvinium"
+   ]
+  },
+  "3_3": {
+   "n": 61,
+   "in": "fine 3_3",
+   "terms": [
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     0.00488
+    ],
+    [
+     "Activation of NF-kappaB-inducing Kinase Activity (GO:0007250)",
+     0.0098
+    ],
+    [
+     "Biological Oxidations",
+     0.0098
+    ],
+    [
+     "CASP8 Activity Is Inhibited",
+     0.0098
+    ],
+    [
+     "Cellular Response to Decreased Oxygen Levels (GO:0036294)",
+     0.0098
+    ],
+    [
+     "Cellular Response to Hypoxia (GO:0071456)",
+     0.0098
+    ],
+    [
+     "Death Receptor Activity (GO:0005035)",
+     0.0098
+    ],
+    [
+     "Dimerization of Procaspase-8",
+     0.0098
+    ]
+   ],
+   "sample": [
+    "1-((4-methylsulfonyl)phenyl)-3…",
+    "2-hydroxychavicol",
+    "3,4-Methylenedioxyamphetamine",
+    "8-Hydroxy-2'-Deoxyguanosine",
+    "EGTA acetoxymethyl ester",
+    "Ketorolac",
+    "Potassium Iodide",
+    "bisperoxovanadium"
+   ]
+  },
+  "3_4": {
+   "n": 55,
+   "in": "fine 3_4",
+   "terms": [
+    [
+     "Cellular Response to Decreased Oxygen Levels (GO:0036294)",
+     3.82e-06
+    ],
+    [
+     "Cellular Response to Hypoxia (GO:0071456)",
+     3.82e-06
+    ],
+    [
+     "+ Reg of Phosphatidylinositol 3-Kinase/Prot Kinase B Signal Transduction (GO:0051897)",
+     0.000102
+    ],
+    [
+     "Regulation of Phosphatidylinositol 3-Kinase/Protein Kinase B Signal Transduction (GO:0051896)",
+     0.000345
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     0.000542
+    ],
+    [
+     "PI3K AKT Signaling in Cancer",
+     0.000542
+    ],
+    [
+     "Positive Regulation of Vasculature Development (GO:1904018)",
+     0.000542
+    ],
+    [
+     "Signaling by Receptor Tyrosine Kinases",
+     0.000542
+    ]
+   ],
+   "sample": [
+    "4-methyl-7-diethylaminocoumarin",
+    "Amino Acids",
+    "Dermatan Sulfate",
+    "Phenformin",
+    "Water",
+    "alliin",
+    "potassium nitrate",
+    "scutellarin"
+   ]
+  },
+  "3_5": {
+   "n": 27,
+   "in": "fine 3_5",
+   "terms": [
+    [
+     "Interleukin-10 Signaling",
+     0.000429
+    ],
+    [
+     "Cytokine Activity (GO:0005125)",
+     0.00139
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     0.00225
+    ],
+    [
+     "Positive Regulation of Gene Expression (GO:0010628)",
+     0.00225
+    ],
+    [
+     "Positive Regulation of Nuclear Division (GO:0051785)",
+     0.00225
+    ],
+    [
+     "Positive Regulation of Vascular Endothelial Growth Factor Production (GO:0010575)",
+     0.00225
+    ],
+    [
+     "Regulation of Vascular Endothelial Growth Factor Production (GO:0010574)",
+     0.00225
+    ],
+    [
+     "Cellular Response to Cytokine Stimulus (GO:0071345)",
+     0.00282
+    ]
+   ],
+   "sample": [
+    "Diphenhydramine",
+    "Fludrocortisone",
+    "Procyclidine",
+    "Ticrynafen",
+    "Trazodone",
+    "Trihexyphenidyl",
+    "entacapone",
+    "lumiracoxib"
+   ]
+  },
+  "4_1": {
+   "n": 536,
+   "in": "fine 4_1",
+   "terms": [
+    [
+     "Biological Oxidations",
+     2.37e-64
+    ],
+    [
+     "Metabolism",
+     6.91e-56
+    ],
+    [
+     "Drug ADME",
+     1.07e-50
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     5.17e-48
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     1.57e-40
+    ],
+    [
+     "Metabolism of Lipids",
+     6.55e-39
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     1.22e-33
+    ],
+    [
+     "Cellular Responses to Stress",
+     6.55e-33
+    ]
+   ],
+   "sample": [
+    "Amitriptyline",
+    "Imipramine",
+    "Pyrrolizidine Alkaloids",
+    "Quinidine",
+    "Thioridazine",
+    "sporidesmin",
+    "systhane",
+    "walrycin A"
+   ]
+  },
+  "4_2": {
+   "n": 273,
+   "in": "fine 4_2",
+   "terms": [
+    [
+     "Drug ADME",
+     3.64e-34
+    ],
+    [
+     "Metabolism of Lipids",
+     1.62e-33
+    ],
+    [
+     "Metabolism",
+     2.85e-32
+    ],
+    [
+     "Biological Oxidations",
+     2.58e-30
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     1.3e-29
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     3.21e-27
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     3.05e-25
+    ],
+    [
+     "Nuclear Receptor Transcription Pathway",
+     8.71e-23
+    ]
+   ],
+   "sample": [
+    "1,4-bis(2-(3,5-dichloropyridylox…",
+    "Metyrapone",
+    "Miconazole",
+    "Rifaximin",
+    "dihydroxy-vitamin D3",
+    "eldecalcitol",
+    "pimecrolimus",
+    "schizandrin B"
+   ]
+  },
+  "4_3": {
+   "n": 53,
+   "in": "fine 4_3",
+   "terms": [
+    [
+     "Biological Oxidations",
+     1.87e-08
+    ],
+    [
+     "Metabolism",
+     6.01e-08
+    ],
+    [
+     "Drug ADME",
+     1.92e-06
+    ],
+    [
+     "Paracetamol ADME",
+     1.92e-06
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     2.96e-05
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     0.000173
+    ],
+    [
+     "Phase II - Conjugation of Compounds",
+     0.000185
+    ],
+    [
+     "Long-Chain Fatty Acid Biosynthetic Process (GO:0042759)",
+     0.000186
+    ]
+   ],
+   "sample": [
+    "2-amino-3-methylimidazo(4,5…",
+    "2-aminofluorene",
+    "6-methyl-2-(phenylethynyl)pyridine",
+    "7-(deoxyadenosin-N(6)…",
+    "Hair Dyes",
+    "Sodium Glutamate",
+    "Triamterene",
+    "phosphatidylethanolamine"
+   ]
+  },
+  "4_4": {
+   "n": 36,
+   "in": "fine 4_4",
+   "terms": [
+    [
+     "Cellular Response to cAMP (GO:0071320)",
+     0.0112
+    ],
+    [
+     "Response to cAMP (GO:0051591)",
+     0.0112
+    ]
+   ],
+   "sample": [
+    "4,5-dimethoxy-2-nitrobenzyl-8…",
+    "Hydrocarbons, Fluorinated",
+    "Petroleum",
+    "Quinolinic Acid",
+    "benzo(f)quinoline",
+    "dihydroresveratrol",
+    "indole",
+    "lawsone"
+   ]
+  },
+  "4_5": {
+   "n": 35,
+   "in": "fine 4_5",
+   "terms": [],
+   "sample": [
+    "((3-methoxythiophen-2…",
+    "5-Methoxytryptamine",
+    "Cinacalcet",
+    "Hydroxymethylglutaryl-CoA…",
+    "Muscarinic Agonists",
+    "methamphetamine hydroxylamine",
+    "paynantheine",
+    "trimethylamine"
+   ]
+  },
+  "5_1_1": {
+   "n": 291,
+   "in": "fine 5_1_1",
+   "terms": [
+    [
+     "Signal Transduction",
+     4.94e-38
+    ],
+    [
+     "Metabolism of Lipids",
+     7.72e-35
+    ],
+    [
+     "Nuclear Receptor Transcription Pathway",
+     1.79e-34
+    ],
+    [
+     "Metabolism",
+     5.89e-32
+    ],
+    [
+     "Positive Regulation of DNA-templated Transcription (GO:0045893)",
+     9.2e-31
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     1.18e-30
+    ],
+    [
+     "Cellular Response to Oxygen-Containing Compound (GO:1901701)",
+     2.03e-28
+    ],
+    [
+     "Positive Regulation of Transcription by RNA Polymerase II (GO:0045944)",
+     6.05e-28
+    ]
+   ],
+   "sample": [
+    "16 alpha-ethyl-21-hydroxy-19…",
+    "4-hydroxy-equilenin",
+    "Herbicides",
+    "Potassium Chloride",
+    "Propolis",
+    "bazedoxifene",
+    "tetrachlorodian",
+    "triphenyl phosphate"
+   ]
+  },
+  "5_1_2": {
+   "n": 186,
+   "in": "fine 5_1_2",
+   "terms": [
+    [
+     "Positive Regulation of Gene Expression (GO:0010628)",
+     2.15e-12
+    ],
+    [
+     "Generic Transcription Pathway",
+     7.68e-12
+    ],
+    [
+     "Positive Regulation of Macromolecule Biosynthetic Process (GO:0010557)",
+     7.68e-12
+    ],
+    [
+     "Regulation of Gene Expression (GO:0010468)",
+     7.68e-12
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     1.84e-11
+    ],
+    [
+     "RNA Polymerase II Transcription",
+     3.33e-11
+    ],
+    [
+     "Nuclear Receptor Transcription Pathway",
+     3.81e-11
+    ],
+    [
+     "Cellular Responses to Stress",
+     4.7e-11
+    ]
+   ],
+   "sample": [
+    "2,3-dibromopropyl-2,4,6…",
+    "Androgens",
+    "Dutasteride",
+    "Finasteride",
+    "NVP-BHG712",
+    "cyclopamine",
+    "kenpaullone",
+    "mibolerone"
+   ]
+  },
+  "5_1_3": {
+   "n": 90,
+   "in": "fine 5_1_3",
+   "terms": [
+    [
+     "Nuclear Receptor-Mediated Signaling Pathway (GO:0141193)",
+     2.32e-09
+    ],
+    [
+     "ESR-mediated Signaling",
+     2.04e-08
+    ],
+    [
+     "SUMOylation of Intracellular Receptors",
+     1.56e-07
+    ],
+    [
+     "Signaling by Nuclear Receptors",
+     1.56e-07
+    ],
+    [
+     "Generic Transcription Pathway",
+     2.12e-07
+    ],
+    [
+     "SUMO E3 Ligases SUMOylate Target Proteins",
+     2.12e-07
+    ],
+    [
+     "SUMOylation",
+     2.12e-07
+    ],
+    [
+     "Gene Expression (Transcription)",
+     2.4e-07
+    ]
+   ],
+   "sample": [
+    "5-hydroxymethylcytosine",
+    "AM 281",
+    "Androstenediol",
+    "Ethinyl Estradiol-Norgestrel…",
+    "octylphenol",
+    "pirfenidone",
+    "pirimicarb",
+    "secoisolariciresinol diglucoside"
+   ]
+  },
+  "5_1_4": {
+   "n": 30,
+   "in": "fine 5_1_4",
+   "terms": [
+    [
+     "Metabolism of Steroid Hormones",
+     8.35e-24
+    ],
+    [
+     "Metabolism of Steroids",
+     1.99e-21
+    ],
+    [
+     "Steroid Hormone Biosynthetic Process (GO:0120178)",
+     1.47e-20
+    ],
+    [
+     "Hormone Biosynthetic Process (GO:0042446)",
+     6.89e-20
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     7.56e-19
+    ],
+    [
+     "Metabolism of Lipids",
+     1.33e-16
+    ],
+    [
+     "Glucocorticoid Biosynthesis",
+     2.24e-14
+    ],
+    [
+     "Steroid Biosynthetic Process (GO:0006694)",
+     2.37e-14
+    ]
+   ],
+   "sample": [
+    "2,2',3,4',5',6-hexachlorobiphenyl",
+    "2,4,6-tribromophenol",
+    "2,4-dibromophenol",
+    "3,3',4,4',5,5'-hexabromobiphenyl",
+    "3,3',4,4'-tetrabromobiphenyl",
+    "dibutyldichlorotin",
+    "pentabromophenol",
+    "perflubron"
+   ]
+  },
+  "5_1_5": {
+   "n": 21,
+   "in": "fine 5_1_5",
+   "terms": [
+    [
+     "Estrogen Response Element Binding (GO:0034056)",
+     3.26e-06
+    ],
+    [
+     "Steroid Hormone Receptor Signaling Pathway (GO:0043401)",
+     3.26e-06
+    ],
+    [
+     "Nuclear Receptor-Mediated Signaling Pathway (GO:0141193)",
+     3.67e-05
+    ],
+    [
+     "SUMOylation of Intracellular Receptors",
+     3.67e-05
+    ],
+    [
+     "Nuclear Receptor-Mediated Steroid Hormone Signaling Pathway (GO:0030518)",
+     0.000102
+    ],
+    [
+     "Nuclear Receptor Transcription Pathway",
+     0.000115
+    ],
+    [
+     "HSP90 Chaperone Cycle for Steroid Hormone Receptors (SHR) in the Presence of Ligand",
+     0.000117
+    ],
+    [
+     "SUMO E3 Ligases SUMOylate Target Proteins",
+     0.00291
+    ]
+   ],
+   "sample": [
+    "2-acetylphenothiazine",
+    "Adrenocorticotropic Hormone",
+    "Isoquinolines",
+    "ZK 216348",
+    "aclacinomycins",
+    "deacylcortivazol",
+    "methylprednisolone aceponate",
+    "pararosaniline"
+   ]
+  },
+  "5_2_1": {
+   "n": 81,
+   "in": "fine 5_2_1",
+   "terms": [
+    [
+     "Nuclear Receptor Transcription Pathway",
+     4.58e-06
+    ],
+    [
+     "SUMOylation of Intracellular Receptors",
+     0.00021
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     0.0015
+    ],
+    [
+     "DNA-binding Transcription Activator Activity, RNA Polymerase II-specific (GO:0001228)",
+     0.00159
+    ],
+    [
+     "Positive Regulation of Transcription by RNA Polymerase II (GO:0045944)",
+     0.00254
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     0.00282
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     0.00282
+    ],
+    [
+     "Estrogen Response Element Binding (GO:0034056)",
+     0.00308
+    ]
+   ],
+   "sample": [
+    "4-OH-2',3,3',4',5'…",
+    "Glycogen",
+    "acenaphthene",
+    "molinate",
+    "mono-isobutyl phthalate",
+    "octachlorostyrene",
+    "rimcazole",
+    "triphenylarsine"
+   ]
+  },
+  "5_2_2": {
+   "n": 59,
+   "in": "fine 5_2_2",
+   "terms": [
+    [
+     "Intracellular Receptor Signaling Pathway (GO:0030522)",
+     0.0465
+    ],
+    [
+     "SUMOylation of Intracellular Receptors",
+     0.0465
+    ]
+   ],
+   "sample": [
+    "2,3,5,6-tetrafluoro-4…",
+    "Huang Qi",
+    "Megestrol",
+    "Nabumetone",
+    "bromperidol",
+    "decamethylcyclopentasiloxane",
+    "flunisolide",
+    "menatetrenone"
+   ]
+  },
+  "6_1": {
+   "n": 315,
+   "in": "fine 6_1",
+   "terms": [
+    [
+     "Signal Transduction",
+     9.23e-87
+    ],
+    [
+     "Cytokine Signaling in Immune System",
+     1.58e-63
+    ],
+    [
+     "Signaling by Interleukins",
+     5.33e-61
+    ],
+    [
+     "Disease",
+     2.07e-59
+    ],
+    [
+     "Signaling by Receptor Tyrosine Kinases",
+     5.83e-57
+    ],
+    [
+     "Diseases of Signal Transduction by Growth Factor Receptors and Second Messengers",
+     5.85e-56
+    ],
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     1.29e-52
+    ],
+    [
+     "Positive Regulation of Intracellular Signal Transduction (GO:1902533)",
+     1.16e-49
+    ]
+   ],
+   "sample": [
+    "Carbachol",
+    "KN 62",
+    "N-benzyloxycarbonylprolylprolinal",
+    "Phosphates",
+    "VER 155008",
+    "Vecuronium Bromide",
+    "cotylenin A",
+    "methyllycaconitine"
+   ]
+  },
+  "6_2": {
+   "n": 67,
+   "in": "fine 6_2",
+   "terms": [
+    [
+     "Interleukin-4 and Interleukin-13 Signaling",
+     5.95e-22
+    ],
+    [
+     "Signaling by Interleukins",
+     2.67e-15
+    ],
+    [
+     "Response to UV-A (GO:0070141)",
+     7.66e-15
+    ],
+    [
+     "Collagen Catabolic Process (GO:0030574)",
+     2.37e-14
+    ],
+    [
+     "Activation of Matrix Metalloproteinases",
+     3.33e-14
+    ],
+    [
+     "Cellular Response to UV-A (GO:0071492)",
+     4.25e-13
+    ],
+    [
+     "Extracellular Matrix Disassembly (GO:0022617)",
+     4.25e-13
+    ],
+    [
+     "Degradation of the Extracellular Matrix",
+     5.8e-13
+    ]
+   ],
+   "sample": [
+    "2-methoxy-5-((3,4,5…",
+    "4-methyl-N1-(3-phenylpropyl)benz…",
+    "Angiotensin-Converting Enzyme…",
+    "LDN 193189",
+    "N(6)-(delta(2)-isopentenyl)adenine",
+    "Roxarsone",
+    "hinokiflavone",
+    "naphthol AS-E phosphate"
+   ]
+  },
+  "6_3": {
+   "n": 63,
+   "in": "fine 6_3",
+   "terms": [
+    [
+     "Cellular Response to Insulin Stimulus (GO:0032869)",
+     2.41e-14
+    ],
+    [
+     "Negative Regulation of Apoptotic Process (GO:0043066)",
+     1.91e-11
+    ],
+    [
+     "Signal Transduction",
+     2.3e-11
+    ],
+    [
+     "Negative Regulation of Programmed Cell Death (GO:0043069)",
+     4.25e-11
+    ],
+    [
+     "Disease",
+     2.58e-10
+    ],
+    [
+     "Regulation of Apoptotic Process (GO:0042981)",
+     6.73e-10
+    ],
+    [
+     "Response to Insulin (GO:0032868)",
+     1.28e-09
+    ],
+    [
+     "MTOR Signalling",
+     1.88e-09
+    ]
+   ],
+   "sample": [
+    "(N)-methanocarba-2MeSADP",
+    "Orotic Acid",
+    "convulxin",
+    "frenolicin B",
+    "maleic acid",
+    "plerixafor",
+    "sclareol",
+    "staurosporine aglycone"
+   ]
+  },
+  "6_4": {
+   "n": 23,
+   "in": "fine 6_4",
+   "terms": [
+    [
+     "ERBB2 Activates PTK6 Signaling",
+     2.72e-10
+    ],
+    [
+     "ERBB2 Regulates Cell Motility",
+     2.72e-10
+    ],
+    [
+     "PI3K Events in ERBB2 Signaling",
+     2.72e-10
+    ],
+    [
+     "SHC1 Events in ERBB2 Signaling",
+     6.56e-10
+    ],
+    [
+     "Signaling by ERBB2 TMD JMD Mutants",
+     6.56e-10
+    ],
+    [
+     "Signaling by ERBB2 KD Mutants",
+     9.46e-10
+    ],
+    [
+     "Signaling by ERBB2 in Cancer",
+     9.58e-10
+    ],
+    [
+     "Downregulation of ERBB2 Signaling",
+     1.33e-09
+    ]
+   ],
+   "sample": [
+    "2-acetamidoethanethiol",
+    "4-(4-(3-hydroxyphenyl)-3-(4…",
+    "CMF regimen",
+    "FD137 nitrosourea",
+    "Folfox protocol",
+    "Magnesium Chloride",
+    "PKI 166",
+    "antimonite"
+   ]
+  },
+  "7_1_1": {
+   "n": 68,
+   "in": "fine 7_1_1",
+   "terms": [
+    [
+     "Cellular Responses to Stimuli",
+     4.24e-15
+    ],
+    [
+     "Cellular Responses to Stress",
+     1.45e-14
+    ],
+    [
+     "KEAP1-NFE2L2 Pathway",
+     5.62e-14
+    ],
+    [
+     "NFE2L2 Regulating Anti-Oxidant Detoxification Enzymes",
+     5.68e-14
+    ],
+    [
+     "Cellular Response to Chemical Stress",
+     8.49e-14
+    ],
+    [
+     "Nuclear Events Mediated by NFE2L2",
+     2.02e-13
+    ],
+    [
+     "Negative Regulation of Ferroptosis (GO:0110076)",
+     7.85e-08
+    ],
+    [
+     "Regulation of Ferroptosis (GO:0110075)",
+     3.23e-07
+    ]
+   ],
+   "sample": [
+    "3-(pyridin-3-ylsulfonyl)-5…",
+    "4-hydroxy-7-oxo-5-heptenoic…",
+    "Bromocriptine",
+    "Pilocarpine",
+    "S-nitro-N-acetylpenicillamine",
+    "diphenylcyclopropenone",
+    "ethylene dimethacrylate",
+    "trigonelline"
+   ]
+  },
+  "7_1_2": {
+   "n": 34,
+   "in": "fine 7_1_2",
+   "terms": [
+    [
+     "Cellular Response to Chemical Stress",
+     8.28e-13
+    ],
+    [
+     "NFE2L2 Regulating Anti-Oxidant Detoxification Enzymes",
+     6.21e-11
+    ],
+    [
+     "Nuclear Events Mediated by NFE2L2",
+     2.71e-10
+    ],
+    [
+     "KEAP1-NFE2L2 Pathway",
+     1.39e-09
+    ],
+    [
+     "Cellular Responses to Stress",
+     9.57e-09
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     2.08e-08
+    ],
+    [
+     "Detoxification of Reactive Oxygen Species",
+     0.000252
+    ],
+    [
+     "Disease",
+     0.00078
+    ]
+   ],
+   "sample": [
+    "4-(E)-((p-tolylimino)…",
+    "5,6-dihydrocyclopenta-1,2…",
+    "Iodoacetamide",
+    "brusatol",
+    "citraconic acid",
+    "dibutyldi(4-chlorobenzohydroxama…",
+    "siomycin A",
+    "tris(2-carboxyethyl)phosphine"
+   ]
+  },
+  "7_1_3": {
+   "n": 26,
+   "in": "fine 7_1_3",
+   "terms": [
+    [
+     "Cellular Response to Chemical Stress",
+     0.000346
+    ],
+    [
+     "Detoxification of Reactive Oxygen Species",
+     0.000346
+    ],
+    [
+     "Glutathione Metabolic Process (GO:0006749)",
+     0.000346
+    ],
+    [
+     "Cellular Response to Chemical Stress (GO:0062197)",
+     0.00414
+    ],
+    [
+     "Cellular Response to Superoxide (GO:0071451)",
+     0.00829
+    ],
+    [
+     "Removal of Superoxide Radicals (GO:0019430)",
+     0.00829
+    ],
+    [
+     "NFE2L2 Regulating Anti-Oxidant Detoxification Enzymes",
+     0.0133
+    ],
+    [
+     "Nitric Oxide Metabolic Process (GO:0046209)",
+     0.0158
+    ]
+   ],
+   "sample": [
+    "1,2-diaminobenzene",
+    "Aprindine",
+    "Furans",
+    "Hydroxyl Radical",
+    "Inulin",
+    "Metanephrine",
+    "acetamiprid",
+    "chlorite"
+   ]
+  },
+  "7_2_1": {
+   "n": 53,
+   "in": "fine 7_2_1",
+   "terms": [
+    [
+     "Syndecan Interactions",
+     1.05e-07
+    ],
+    [
+     "Non-integrin membrane-ECM Interactions",
+     3.21e-06
+    ],
+    [
+     "Extracellular Matrix Organization",
+     4.71e-06
+    ],
+    [
+     "ECM Proteoglycans",
+     5.88e-06
+    ],
+    [
+     "Signal Transduction",
+     6.11e-06
+    ],
+    [
+     "FOXO-mediated Transcription of Oxidative Stress, Metabolic and Neuronal Genes",
+     6.14e-06
+    ],
+    [
+     "Integrin Cell Surface Interactions",
+     6.14e-06
+    ],
+    [
+     "Positive Regulation of Biosynthetic Process (GO:0009891)",
+     6.14e-06
+    ]
+   ],
+   "sample": [
+    "2,2'-(hydroxynitrosohydrazono)bi…",
+    "4-O-methylhonokiol",
+    "MK2i peptide",
+    "S-Adenosylhomocysteine",
+    "anagrelide",
+    "exoenzyme C3, Clostridium…",
+    "methyl ferulate",
+    "protocatechualdehyde"
+   ]
+  },
+  "7_3_1": {
+   "n": 33,
+   "in": "fine 7_3_1",
+   "terms": [
+    [
+     "Calcium Ion Transport (GO:0006816)",
+     4.77e-09
+    ],
+    [
+     "TRP Channels",
+     1.81e-08
+    ],
+    [
+     "Calcium Ion Transmembrane Transport (GO:0070588)",
+     2.53e-08
+    ],
+    [
+     "Calcium Channel Activity (GO:0005262)",
+     3.71e-08
+    ],
+    [
+     "Calcium Ion Transmembrane Transporter Activity (GO:0015085)",
+     1.17e-06
+    ],
+    [
+     "Calcium Ion Import (GO:0070509)",
+     5.44e-06
+    ],
+    [
+     "Stimuli-sensing Channels",
+     5.44e-06
+    ],
+    [
+     "Monoatomic Cation Channel Activity (GO:0005261)",
+     1e-05
+    ]
+   ],
+   "sample": [
+    "1-oleoyl-2-acetylglycerol",
+    "3-(4-chlorophenyl)-N-methyl-N'…",
+    "Barium",
+    "Cilazapril",
+    "Gadolinium",
+    "Lanthanum",
+    "Strontium",
+    "osteum"
+   ]
+  },
+  "8_1_1": {
+   "n": 96,
+   "in": "fine 8_1_1",
+   "terms": [
+    [
+     "ABC-type Xenobiotic Transporter Activity (GO:0008559)",
+     1.57e-13
+    ],
+    [
+     "Drug ADME",
+     1.82e-13
+    ],
+    [
+     "Xenobiotic Transport (GO:0042908)",
+     9.61e-12
+    ],
+    [
+     "Basolateral Plasma Membrane (GO:0016323)",
+     2.43e-11
+    ],
+    [
+     "Transport of Small Molecules",
+     3.09e-11
+    ],
+    [
+     "Vascular Transport (GO:0010232)",
+     2.9e-10
+    ],
+    [
+     "Transport Across Blood-Brain Barrier (GO:0150104)",
+     2.94e-10
+    ],
+    [
+     "Icosanoid Transport (GO:0071715)",
+     3.28e-10
+    ]
+   ],
+   "sample": [
+    "Iodoacetates",
+    "aluminum fluoride",
+    "bisbenzimide ethoxide…",
+    "calcein AM",
+    "cyazofamid",
+    "estradiol-17 beta-glucuronide",
+    "pitavastatin",
+    "rostafuroxin"
+   ]
+  },
+  "8_1_2": {
+   "n": 41,
+   "in": "fine 8_1_2",
+   "terms": [
+    [
+     "Synthesis of Bile Acids and Bile Salts via 7Alpha-Hydroxycholesterol",
+     4.99e-07
+    ],
+    [
+     "Synthesis of Bile Acids and Bile Salts",
+     1.15e-06
+    ],
+    [
+     "Bile Acid and Bile Salt Metabolism",
+     1.91e-06
+    ],
+    [
+     "Metabolism of Steroids",
+     1.91e-06
+    ],
+    [
+     "Nuclear Receptor Transcription Pathway",
+     3.29e-06
+    ],
+    [
+     "ABC-type Xenobiotic Transporter Activity (GO:0008559)",
+     4.97e-06
+    ],
+    [
+     "Synthesis of Bile Acids and Bile Salts via 27-Hydroxycholesterol",
+     1.29e-05
+    ],
+    [
+     "Recycling of Bile Acids and Salts",
+     2.53e-05
+    ]
+   ],
+   "sample": [
+    "7-hydroxytheonellasterol",
+    "Cholates",
+    "Cholestanols",
+    "Vitamin B 6",
+    "cholanic acid",
+    "coenzyme Q10",
+    "emamectin",
+    "moxidectin"
+   ]
+  },
+  "8_1_4": {
+   "n": 32,
+   "in": "fine 8_1_4",
+   "terms": [
+    [
+     "Icosanoid Transport (GO:0071715)",
+     2.67e-14
+    ],
+    [
+     "Icosanoid Transmembrane Transporter Activity (GO:0071714)",
+     1.55e-11
+    ],
+    [
+     "Organic Anion Transport",
+     2.47e-10
+    ],
+    [
+     "Organic Anion Transport (GO:0015711)",
+     3.53e-09
+    ],
+    [
+     "Prostaglandin Transport (GO:0015732)",
+     6.21e-09
+    ],
+    [
+     "Prostaglandin Transmembrane Transporter Activity (GO:0015132)",
+     8.13e-09
+    ],
+    [
+     "Organic Cation Anion Zwitterion Transport",
+     2.88e-08
+    ],
+    [
+     "Transport of Small Molecules",
+     5.35e-08
+    ]
+   ],
+   "sample": [
+    "6-carboxyfluorescein",
+    "Anions",
+    "Bumetanide",
+    "Cefazolin",
+    "Ceftibuten",
+    "Linolenic Acids",
+    "adefovir",
+    "p-Aminohippuric Acid"
+   ]
+  },
+  "8_1_3": {
+   "n": 32,
+   "in": "fine 8_1_3",
+   "terms": [
+    [
+     "Bile Acid and Bile Salt Transport (GO:0015721)",
+     2.37e-22
+    ],
+    [
+     "Organic Hydroxy Compound Transport (GO:0015850)",
+     1.76e-19
+    ],
+    [
+     "Monocarboxylic Acid Transport (GO:0015718)",
+     3.28e-18
+    ],
+    [
+     "Bile Acid Transmembrane Transporter Activity (GO:0015125)",
+     3.22e-17
+    ],
+    [
+     "Lipid Transport (GO:0006869)",
+     1.37e-16
+    ],
+    [
+     "Basolateral Plasma Membrane (GO:0016323)",
+     2.23e-14
+    ],
+    [
+     "Recycling of Bile Acids and Salts",
+     4.72e-14
+    ],
+    [
+     "Bile Acid and Bile Salt Metabolism",
+     1.56e-11
+    ]
+   ],
+   "sample": [
+    "2,2',4,4',5,6'-hexabromodiphenyl…",
+    "3-iodothyronamine",
+    "Nateglinide",
+    "Sulfobromophthalein",
+    "TAK-875",
+    "Taurochenodeoxycholic Acid",
+    "microcystin-LF",
+    "perfluorobutanesulfonic acid"
+   ]
+  },
+  "8_1_5": {
+   "n": 26,
+   "in": "fine 8_1_5",
+   "terms": [
+    [
+     "ABC-type Xenobiotic Transporter Activity (GO:0008559)",
+     3.55e-06
+    ],
+    [
+     "Xenobiotic Transport (GO:0042908)",
+     1.69e-05
+    ],
+    [
+     "Paracetamol ADME",
+     4e-05
+    ],
+    [
+     "ABC-family Proteins Mediated Transport",
+     0.000391
+    ],
+    [
+     "ABC-type Glutathione S-conjugate Transporter Activity (GO:0015431)",
+     0.000391
+    ],
+    [
+     "Leukotriene Transport (GO:0071716)",
+     0.000391
+    ],
+    [
+     "Nuclear Events Mediated by NFE2L2",
+     0.000391
+    ],
+    [
+     "Transport Across Blood-Brain Barrier (GO:0150104)",
+     0.000391
+    ]
+   ],
+   "sample": [
+    "5(6)-carboxy-2',7'…",
+    "5-carboxyfluorescein diacetate",
+    "Alkylating Agents",
+    "CF regimen",
+    "Fosinopril",
+    "S-(2,4-dinitrophenyl)glutathione",
+    "Unithiol",
+    "arsenotriglutathione"
+   ]
+  },
+  "8_1_6": {
+   "n": 25,
+   "in": "fine 8_1_6",
+   "terms": [
+    [
+     "Monoamine Transmembrane Transporter Activity (GO:0008504)",
+     9.32e-09
+    ],
+    [
+     "Monoamine Transport (GO:0015844)",
+     9.32e-09
+    ],
+    [
+     "Sodium:Chloride Symporter Activity (GO:0015378)",
+     1.88e-08
+    ],
+    [
+     "Neurotransmitter Transport (GO:0006836)",
+     2.29e-06
+    ],
+    [
+     "Neurotransmitter Clearance",
+     5.96e-06
+    ],
+    [
+     "Na+ Cl- Dependent Neurotransmitter Transporters",
+     4.01e-05
+    ],
+    [
+     "Nitrogen Compound Transport (GO:0071705)",
+     0.000277
+    ],
+    [
+     "Amine Ligand-Binding Receptors",
+     0.000364
+    ]
+   ],
+   "sample": [
+    "Mazindol",
+    "Octopamine",
+    "Piperazines",
+    "Tyramine",
+    "Vortioxetine",
+    "phenethylamine",
+    "tianeptine",
+    "tryptamine"
+   ]
+  },
+  "8_1_7": {
+   "n": 22,
+   "in": "fine 8_1_7",
+   "terms": [
+    [
+     "ABC Transporter Disorders",
+     0.000517
+    ],
+    [
+     "ABC-type Xenobiotic Transporter Activity (GO:0008559)",
+     0.00284
+    ],
+    [
+     "Disorders of Transmembrane Transporters",
+     0.00284
+    ]
+   ],
+   "sample": [
+    "3-(6-isobutyl-9-methoxy-1,4…",
+    "Clofazimine",
+    "Ranolazine",
+    "Tolvaptan",
+    "antimycin",
+    "benziodarone",
+    "midecamycin",
+    "tipranavir"
+   ]
+  },
+  "9_1_1": {
+   "n": 119,
+   "in": "fine 9_1_1",
+   "terms": [
+    [
+     "Metabolism of Lipids",
+     4.23e-17
+    ],
+    [
+     "PPARA Activates Gene Expression",
+     4.24e-16
+    ],
+    [
+     "Regulation of Lipid Metabolism by PPARalpha",
+     4.24e-16
+    ],
+    [
+     "Nuclear Receptor Transcription Pathway",
+     5.94e-16
+    ],
+    [
+     "Metabolism",
+     6.43e-15
+    ],
+    [
+     "SUMOylation of Intracellular Receptors",
+     9.1e-14
+    ],
+    [
+     "NR1H2 & NR1H3 Regulate Gene Expression Linked to Lipogenesis",
+     6.82e-10
+    ],
+    [
+     "NR1H2 & NR1H3 Regulate Gene Expression to Control Bile Acid Homeostasis",
+     6.82e-10
+    ]
+   ],
+   "sample": [
+    "cannabidiolic acid",
+    "ciprofibrate",
+    "diisodecyl phthalate",
+    "monoisononylphthalate",
+    "muraglitazar",
+    "tesaglitazar",
+    "triphenyltin chloride",
+    "tris(1-chloro-2-propyl)phosphate"
+   ]
+  },
+  "9_2_1": {
+   "n": 23,
+   "in": "fine 9_2_1",
+   "terms": [
+    [
+     "Activation of Gene Expression by SREBF (SREBP)",
+     9.85e-12
+    ],
+    [
+     "Regulation of Cholesterol Biosynthesis by SREBP (SREBF)",
+     2.62e-11
+    ],
+    [
+     "Cholesterol Biosynthesis",
+     2.87e-10
+    ],
+    [
+     "Metabolism of Steroids",
+     6.98e-09
+    ],
+    [
+     "Cholesterol Biosynthetic Process (GO:0006695)",
+     1.19e-07
+    ],
+    [
+     "Secondary Alcohol Biosynthetic Process (GO:1902653)",
+     1.19e-07
+    ],
+    [
+     "Sterol Biosynthetic Process (GO:0016126)",
+     1.65e-07
+    ],
+    [
+     "Isoprenoid Biosynthetic Process (GO:0008299)",
+     1.74e-06
+    ]
+   ],
+   "sample": [
+    "1,3-dichloro-2-propanol",
+    "3,3-dimethylallyl pyrophosphate",
+    "N'-(3,4-dihydroxybenzylidene)-3…",
+    "N-(4-(2-(2-propylpyridin-4…",
+    "artemisic acid",
+    "copper histidine",
+    "mevalonolactone",
+    "ziprasidone"
+   ]
+  },
+  "10_1_1": {
+   "n": 51,
+   "in": "fine 10_1_1",
+   "terms": [
+    [
+     "Cellular Response to Chemical Stress",
+     9.97e-11
+    ],
+    [
+     "Cellular Responses to Stress",
+     7.2e-07
+    ],
+    [
+     "Glutathione Metabolic Process (GO:0006749)",
+     7.69e-07
+    ],
+    [
+     "Cellular Responses to Stimuli",
+     8.32e-07
+    ],
+    [
+     "Nuclear Events Mediated by NFE2L2",
+     1.38e-05
+    ],
+    [
+     "Heme Degradation",
+     1.55e-05
+    ],
+    [
+     "NFE2L2 Regulating Anti-Oxidant Detoxification Enzymes",
+     2.29e-05
+    ],
+    [
+     "KEAP1-NFE2L2 Pathway",
+     3.07e-05
+    ]
+   ],
+   "sample": [
+    "2-heptanone",
+    "Gramicidin",
+    "Hydrocarbons, Aromatic",
+    "Merbromin",
+    "Tiopronin",
+    "benzene oxide",
+    "bisphenol A glucuronide",
+    "bucillamine"
+   ]
+  },
+  "10_1_2": {
+   "n": 36,
+   "in": "fine 10_1_2",
+   "terms": [
+    [
+     "Glutathione Transferase Activity (GO:0004364)",
+     3.35e-12
+    ],
+    [
+     "Biological Oxidations",
+     8.06e-12
+    ],
+    [
+     "Glutathione Conjugation",
+     8.06e-12
+    ],
+    [
+     "Glutathione Metabolic Process (GO:0006749)",
+     8.06e-12
+    ],
+    [
+     "Drug ADME",
+     9.93e-12
+    ],
+    [
+     "Phase II - Conjugation of Compounds",
+     3.31e-09
+    ],
+    [
+     "Paracetamol ADME",
+     5.76e-07
+    ],
+    [
+     "Metabolism",
+     9.43e-06
+    ]
+   ],
+   "sample": [
+    "Carbon Disulfide",
+    "Insecticides",
+    "Lipid Peroxides",
+    "Methyldopa",
+    "Platinum Compounds",
+    "S-phenyl-N-acetylcysteine",
+    "Vinyl Chloride",
+    "hydrazine"
+   ]
+  },
+  "10_2_1": {
+   "n": 50,
+   "in": "fine 10_2_1",
+   "terms": [
+    [
+     "Biological Oxidations",
+     6.12e-07
+    ],
+    [
+     "Phase I - Functionalization of Compounds",
+     0.000221
+    ],
+    [
+     "Paracetamol ADME",
+     0.000478
+    ],
+    [
+     "Arachidonate Metabolic Process (GO:0019369)",
+     0.00162
+    ],
+    [
+     "Cytochrome P450 - Arranged by Substrate Type",
+     0.00307
+    ],
+    [
+     "CYP2E1 Reactions",
+     0.0104
+    ],
+    [
+     "Drug ADME",
+     0.0104
+    ],
+    [
+     "Arachidonate Epoxygenase Activity (GO:0008392)",
+     0.0114
+    ]
+   ],
+   "sample": [
+    "1,3-butadiene",
+    "Acetic Acid",
+    "Betaine",
+    "Nitrosamines",
+    "Trihalomethanes",
+    "erastin",
+    "ferric nitrilotriacetate",
+    "muconic acid"
+   ]
+  },
+  "10_2_2": {
+   "n": 22,
+   "in": "fine 10_2_2",
+   "terms": [],
+   "sample": [
+    "2,3-dihydroxynaphthalene",
+    "3,4-Dihydroxyphenylacetic Acid",
+    "3,4-dihydroxyphenylglycol",
+    "4-methylcatechol",
+    "Benserazide",
+    "Modafinil",
+    "dihydrexidine",
+    "oleacein"
+   ]
+  },
+  "11_1_1": {
+   "n": 73,
+   "in": "fine 11_1_1",
+   "terms": [],
+   "sample": [
+    "Didanosine",
+    "Dithionitrobenzoic Acid",
+    "Myristic Acid",
+    "Phlorhizin",
+    "Zalcitabine",
+    "fialuridine",
+    "gold cyanide",
+    "sodium sulfite"
+   ]
+  },
+  "11_1_2": {
+   "n": 35,
+   "in": "fine 11_1_2",
+   "terms": [],
+   "sample": [
+    "4-fluoroaniline",
+    "Chlorine",
+    "Cyanides",
+    "Free Radicals",
+    "Potassium Cyanide",
+    "Threonine",
+    "bivalirudin",
+    "syringic acid"
+   ]
+  },
+  "11_2_1": {
+   "n": 21,
+   "in": "fine 11_2_1",
+   "terms": [
+    [
+     "Common Pathway of Fibrin Clot Formation",
+     1.64e-08
+    ],
+    [
+     "Formation of Fibrin Clot (Clotting Cascade)",
+     9.21e-08
+    ],
+    [
+     "Regulation of IGF Transport and Uptake by Insulin-like Growth Factor Binding Proteins (IGFBPs)",
+     6.99e-06
+    ],
+    [
+     "Intrinsic Pathway of Fibrin Clot Formation",
+     1.31e-05
+    ],
+    [
+     "Hemostasis",
+     2.47e-05
+    ],
+    [
+     "Post-translational Protein Phosphorylation",
+     0.000974
+    ],
+    [
+     "Platelet Activation, Signaling and Aggregation",
+     0.0124
+    ],
+    [
+     "Endoplasmic Reticulum Lumen (GO:0005788)",
+     0.0145
+    ]
+   ],
+   "sample": [
+    "Clobazam",
+    "Contraceptives, Oral, Combined",
+    "Hirudins",
+    "Quinapril",
+    "norgestimate and ethinyl estradiol",
+    "phosphatidylinositol 3,4,5…",
+    "quercetin 3,7,3',4'-tetrasulfate",
+    "quercetin 3-acetyl-7,3',4'…"
+   ]
+  },
+  "12_1_1": {
+   "n": 109,
+   "in": "fine 12_1_1",
+   "terms": [
+    [
+     "Drug ADME",
+     2.65e-14
+    ],
+    [
+     "Xenobiotic Transport (GO:0042908)",
+     6.57e-11
+    ],
+    [
+     "Abacavir Transmembrane Transport",
+     7.09e-09
+    ],
+    [
+     "Polyamine Transport (GO:0015846)",
+     7.09e-09
+    ],
+    [
+     "Organic Cation Transport (GO:0015695)",
+     4.06e-08
+    ],
+    [
+     "SLC-mediated Transmembrane Transport",
+     7.96e-08
+    ],
+    [
+     "Abacavir ADME",
+     1.02e-07
+    ],
+    [
+     "Organic Cation Transport",
+     1.47e-07
+    ]
+   ],
+   "sample": [
+    "Chlorpheniramine",
+    "Mefloquine",
+    "Metoclopramide",
+    "Mianserin",
+    "Strychnine",
+    "Tetraethylammonium",
+    "desloratadine",
+    "valdecoxib"
+   ]
+  },
+  "12_1_2": {
+   "n": 28,
+   "in": "fine 12_1_2",
+   "terms": [
+    [
+     "Carboxylic Ester Hydrolase Activity (GO:0052689)",
+     0.000657
+    ],
+    [
+     "Aspirin ADME",
+     0.0353
+    ]
+   ],
+   "sample": [
+    "4-methylumbelliferyl acetate",
+    "6-O-monoacetylmorphine",
+    "Dextropropoxyphene",
+    "Meperidine",
+    "bis(4-nitrophenyl)phosphate",
+    "cyclohexyl carbamic acid 3'…",
+    "phenethylcymserine",
+    "prostaglandin E2 glyceryl ester"
+   ]
+  },
+  "12_1_3": {
+   "n": 23,
+   "in": "fine 12_1_3",
+   "terms": [],
+   "sample": [
+    "Amisulpride",
+    "Cannabinol",
+    "Chlorprothixene",
+    "Fenfluramine",
+    "adrenocorticotropin zinc",
+    "carbidopa and levodopa",
+    "nalmefene",
+    "perphenazine GABA ester"
+   ]
+  },
+  "12_1_4": {
+   "n": 20,
+   "in": "fine 12_1_4",
+   "terms": [
+    [
+     "Adrenoceptors",
+     2.49e-07
+    ],
+    [
+     "Adenylate Cyclase-Activating Adrenergic Receptor Signaling Pathway (GO:0071880)",
+     4.23e-07
+    ],
+    [
+     "Adrenergic Receptor Signaling Pathway (GO:0071875)",
+     9.57e-07
+    ],
+    [
+     "Vasodilation (GO:0042311)",
+     9.85e-07
+    ],
+    [
+     "Amine Ligand-Binding Receptors",
+     7.31e-06
+    ],
+    [
+     "Positive Regulation of Cold-Induced Thermogenesis (GO:0120162)",
+     7.74e-05
+    ],
+    [
+     "Adenylate Cyclase-Activating G Protein-Coupled Receptor Signaling Pathway (GO:0007189)",
+     0.000191
+    ],
+    [
+     "G Alpha (S) Signalling Events",
+     0.000191
+    ]
+   ],
+   "sample": [
+    "3-(2-ethylphenoxy)-1-(1,2,3,4…",
+    "BRL 37344",
+    "CGP 20712A",
+    "N-(3-hydroxy-1-(naphthalen-1…",
+    "Nadolol",
+    "Putrescine",
+    "broxaterol",
+    "cyanopindolol"
+   ]
+  },
+  "12_2_1": {
+   "n": 37,
+   "in": "fine 12_2_1",
+   "terms": [
+    [
+     "GABA Receptor Activity (GO:0016917)",
+     3.27e-26
+    ],
+    [
+     "Gamma-Aminobutyric Acid Signaling Pathway (GO:0007214)",
+     3.27e-26
+    ],
+    [
+     "GABA-A Receptor Activity (GO:0004890)",
+     4.59e-24
+    ],
+    [
+     "GABA-A Receptor Complex (GO:1902711)",
+     4.59e-24
+    ],
+    [
+     "Chloride Channel Activity (GO:0005254)",
+     7.42e-24
+    ],
+    [
+     "Chloride Transport (GO:0006821)",
+     4.49e-23
+    ],
+    [
+     "Transmitter-Gated Monoatomic Ion Channel Activity (GO:0022824)",
+     5.33e-23
+    ],
+    [
+     "Chloride Transmembrane Transport (GO:1902476)",
+     1.27e-21
+    ]
+   ],
+   "sample": [
+    "1-(4-ethynylphenyl)-4-propyl-2…",
+    "Bicuculline",
+    "Chlorides",
+    "Felbamate",
+    "Pentylenetetrazole",
+    "Picrotoxin",
+    "picrotoxinin",
+    "tetramethylenedisulfotetramine"
+   ]
+  },
+  "13_1_1": {
+   "n": 46,
+   "in": "fine 13_1_1",
+   "terms": [
+    [
+     "Carboxylic Ester Hydrolase Activity (GO:0052689)",
+     1.35e-06
+    ],
+    [
+     "Drug ADME",
+     0.000155
+    ],
+    [
+     "Aspirin ADME",
+     0.00102
+    ],
+    [
+     "Metabolism of Lipids",
+     0.005
+    ],
+    [
+     "Peptide Hormone Metabolism",
+     0.00502
+    ],
+    [
+     "Neurotransmitter Clearance",
+     0.00693
+    ],
+    [
+     "Post-translational Protein Phosphorylation",
+     0.00693
+    ],
+    [
+     "Regulation of IGF Transport and Uptake by Insulin-like Growth Factor Binding Proteins (IGFBPs)",
+     0.00945
+    ]
+   ],
+   "sample": [
+    "Isoflurophate",
+    "Organophosphates",
+    "Soman",
+    "Thiazolidines",
+    "methamidophos",
+    "mipafox",
+    "piperidine",
+    "tabun"
+   ]
+  },
+  "13_1_2": {
+   "n": 35,
+   "in": "fine 13_1_2",
+   "terms": [
+    [
+     "Acetylcholine Receptor Activity (GO:0015464)",
+     5.55e-26
+    ],
+    [
+     "Acetylcholine Receptor Signaling Pathway (GO:0095500)",
+     5.5e-23
+    ],
+    [
+     "Highly Calcium Permeable Postsynaptic Nicotinic Acetylcholine Receptors",
+     1.49e-14
+    ],
+    [
+     "Acetylcholine Binding and Downstream Events",
+     4.14e-14
+    ],
+    [
+     "Chemical Synaptic Transmission (GO:0007268)",
+     4.14e-14
+    ],
+    [
+     "Muscarinic Acetylcholine Receptors",
+     4.14e-14
+    ],
+    [
+     "Postsynaptic Nicotinic Acetylcholine Receptors",
+     4.14e-14
+    ],
+    [
+     "Cellular Response to Acetylcholine (GO:1905145)",
+     1.62e-12
+    ]
+   ],
+   "sample": [
+    "Acetylcholine",
+    "Dimethylphenylpiperazinium Iodide",
+    "Mivacurium",
+    "Pancuronium",
+    "Physostigmine",
+    "Rivastigmine",
+    "Rocuronium",
+    "epibatidine"
+   ]
+  },
+  "13_1_3": {
+   "n": 20,
+   "in": "fine 13_1_3",
+   "terms": [],
+   "sample": [
+    "2-methyl-1-propenylbenzoate",
+    "Benzoylcholine",
+    "Thiocholine",
+    "butyrylcholine",
+    "ethephon",
+    "phenyl valerate",
+    "succinylmonocholine",
+    "tetramethylammonium"
+   ]
+  },
+  "13_2_1": {
+   "n": 28,
+   "in": "fine 13_2_1",
+   "terms": [
+    [
+     "Reversible Hydration of Carbon Dioxide",
+     6.51e-06
+    ],
+    [
+     "Hydro-Lyase Activity (GO:0016836)",
+     0.000224
+    ],
+    [
+     "Arylesterase Activity (GO:0004064)",
+     0.000869
+    ],
+    [
+     "Carboxylic Ester Hydrolase Activity (GO:0052689)",
+     0.00146
+    ],
+    [
+     "Erythrocytes Take up Oxygen and Release Carbon Dioxide",
+     0.00146
+    ],
+    [
+     "Carbonate Dehydratase Activity (GO:0004089)",
+     0.00215
+    ],
+    [
+     "Erythrocytes Take up Carbon Dioxide and Release Oxygen",
+     0.00215
+    ],
+    [
+     "O2 CO2 Exchange in Erythrocytes",
+     0.00215
+    ]
+   ],
+   "sample": [
+    "2,6-xylenol",
+    "Bicarbonates",
+    "Methazolamide",
+    "Sulfhydryl Compounds",
+    "Sulpiride",
+    "Synephrine",
+    "Zonisamide",
+    "brinzolamide"
+   ]
+  },
+  "14_1": {
+   "n": 150,
+   "in": "fine 14_1",
+   "terms": [
+    [
+     "Delayed Rectifier Potassium Channel Activity (GO:0005251)",
+     0.000335
+    ],
+    [
+     "Amine Ligand-Binding Receptors",
+     0.000509
+    ],
+    [
+     "Metal Ion Transport (GO:0030001)",
+     0.000509
+    ],
+    [
+     "Voltage Gated Potassium Channels",
+     0.000509
+    ],
+    [
+     "Action Potential (GO:0001508)",
+     0.00157
+    ],
+    [
+     "Inorganic Cation Transmembrane Transport (GO:0098662)",
+     0.00157
+    ],
+    [
+     "Monoatomic Cation Transmembrane Transport (GO:0098655)",
+     0.00157
+    ],
+    [
+     "Voltage-Gated Potassium Channel Activity (GO:0005249)",
+     0.00162
+    ]
+   ],
+   "sample": [
+    "Benzydamine",
+    "Clemastine",
+    "E 4021",
+    "E 4031",
+    "Ibogaine",
+    "Methiothepin",
+    "Ritanserin",
+    "ebastine"
+   ]
+  },
+  "15_1_1": {
+   "n": 64,
+   "in": "fine 15_1_1",
+   "terms": [
+    [
+     "Aminoglycoside Antibiotic Metabolic Process (GO:0030647)",
+     7.83e-16
+    ],
+    [
+     "Daunorubicin Metabolic Process (GO:0044597)",
+     7.83e-16
+    ],
+    [
+     "Doxorubicin Metabolic Process (GO:0044598)",
+     1.76e-15
+    ],
+    [
+     "Polyketide Metabolic Process (GO:0030638)",
+     1.76e-15
+    ],
+    [
+     "Aldose Reductase (NADPH) Activity (GO:0004032)",
+     4.69e-15
+    ],
+    [
+     "Steroid Metabolic Process (GO:0008202)",
+     2.66e-14
+    ],
+    [
+     "Alcohol Dehydrogenase (NADP+) Activity (GO:0008106)",
+     4.16e-14
+    ],
+    [
+     "Tertiary Alcohol Metabolic Process (GO:1902644)",
+     4.18e-14
+    ]
+   ],
+   "sample": [
+    "9-cis-retinal",
+    "Flunitrazepam",
+    "Glycyrrhetinic Acid",
+    "Naphthalenes",
+    "Phosphatidylinositol 4,5…",
+    "Pregnanolone",
+    "benzo(a)pyrene-1,6-quinone",
+    "benzo(a)pyrene-3,6-quinone"
+   ]
+  },
+  "15_1_2": {
+   "n": 32,
+   "in": "fine 15_1_2",
+   "terms": [
+    [
+     "Alcohol Dehydrogenase (NADP+) Activity (GO:0008106)",
+     3.96e-07
+    ],
+    [
+     "Aldose Reductase (NADPH) Activity (GO:0004032)",
+     9.94e-06
+    ],
+    [
+     "Oxidoreductase Activity, Acting on the Aldehyde or Oxo Group of Donors, NAD or NADP as Acceptor (GO:0016620)",
+     8.49e-05
+    ],
+    [
+     "Metabolism",
+     0.000438
+    ],
+    [
+     "Biological Oxidations",
+     0.000502
+    ],
+    [
+     "Primary Alcohol Metabolic Process (GO:0034308)",
+     0.000502
+    ],
+    [
+     "Oxidoreductase Activity, Acting on the CH-OH Group of Donors, NAD or NADP as Acceptor (GO:0016616)",
+     0.00128
+    ],
+    [
+     "Aminoglycoside Antibiotic Metabolic Process (GO:0030647)",
+     0.00227
+    ]
+   ],
+   "sample": [
+    "2,3-hexanedione",
+    "2-nonenal",
+    "4-Chloromercuribenzenesulfonate",
+    "Benzyl Alcohol",
+    "Glyceraldehyde",
+    "Phenylglyoxal",
+    "Sorbitol",
+    "decanaldehyde"
+   ]
+  },
+  "16_1_1": {
+   "n": 68,
+   "in": "fine 16_1_1",
+   "terms": [
+    [
+     "Aspirin ADME",
+     1.54e-29
+    ],
+    [
+     "Retinoic Acid Binding (GO:0001972)",
+     4.43e-28
+    ],
+    [
+     "Glucuronidation",
+     2.11e-27
+    ],
+    [
+     "Drug ADME",
+     2.39e-26
+    ],
+    [
+     "Monocarboxylic Acid Binding (GO:0033293)",
+     2.46e-26
+    ],
+    [
+     "Retinoid Binding (GO:0005501)",
+     2.46e-26
+    ],
+    [
+     "Glucuronosyltransferase Activity (GO:0015020)",
+     3.31e-26
+    ],
+    [
+     "Regulation of Fatty Acid Metabolic Process (GO:0019217)",
+     3.88e-23
+    ]
+   ],
+   "sample": [
+    "2-hydroxyestrone",
+    "Clofibric Acid",
+    "Fenoprofen",
+    "Hymecromone",
+    "Ketoprofen",
+    "Pregnenolone Carbonitrile",
+    "alloin",
+    "glabridin"
+   ]
+  },
+  "16_2_1": {
+   "n": 21,
+   "in": "fine 16_2_1",
+   "terms": [],
+   "sample": [
+    "2,5-dihydroxybenzoic acid",
+    "7,8-dihydrobiopterin",
+    "Azure B",
+    "CHF 5022",
+    "Creatine",
+    "Phosphoenolpyruvate",
+    "memoquin",
+    "turmeric extract"
+   ]
+  },
+  "17_1_1": {
+   "n": 41,
+   "in": "fine 17_1_1",
+   "terms": [],
+   "sample": [
+    "7,8-benzoquinoline",
+    "Deamino Arginine Vasopressin",
+    "Enterotoxins",
+    "Glycine Agents",
+    "Guanylyl Imidodiphosphate",
+    "Methacholine Chloride",
+    "P(1),P(5)-di(adenosine-5'…",
+    "taurolithocholic acid 3-sulfate"
+   ]
+  },
+  "17_1_2": {
+   "n": 22,
+   "in": "fine 17_1_2",
+   "terms": [
+    [
+     "Muscarinic Acetylcholine Receptors",
+     5.1e-16
+    ],
+    [
+     "G Protein-Coupled Acetylcholine Receptor Signaling Pathway (GO:0007213)",
+     1.58e-12
+    ],
+    [
+     "Acetylcholine Receptor Activity (GO:0015464)",
+     1.97e-12
+    ],
+    [
+     "G Protein-Coupled Neurotransmitter Receptor Activity (GO:0099528)",
+     8.41e-12
+    ],
+    [
+     "Acetylcholine Receptor Signaling Pathway (GO:0095500)",
+     3.31e-11
+    ],
+    [
+     "Adenylate Cyclase-Inhibiting G Protein-Coupled Acetylcholine Receptor Signaling Pathway (GO:0007197)",
+     3.92e-11
+    ],
+    [
+     "Amine Ligand-Binding Receptors",
+     7e-11
+    ],
+    [
+     "GPCR Sgnlng Pway, Coupled to Cyclic Nucleotide Second Messenger (GO:0007187)",
+     1.35e-10
+    ]
+   ],
+   "sample": [
+    "4-diphenylacetoxy-1,1…",
+    "Gallamine Triethiodide",
+    "Pipecuronium",
+    "Quinuclidinyl Benzilate",
+    "Tiotropium Bromide",
+    "Tropicamide",
+    "methoctramine",
+    "oxotremorine M"
+   ]
+  },
+  "18_1_1": {
+   "n": 23,
+   "in": "fine 18_1_1",
+   "terms": [
+    [
+     "Arylesterase Activity (GO:0004064)",
+     1.18e-07
+    ],
+    [
+     "Synthesis of 5-Eicosatetraenoic Acids",
+     4.97e-07
+    ],
+    [
+     "Arachidonate Metabolism",
+     0.000128
+    ],
+    [
+     "Carboxylic Ester Hydrolase Activity (GO:0052689)",
+     0.000655
+    ],
+    [
+     "Protein Homodimerization Activity (GO:0042803)",
+     0.000792
+    ],
+    [
+     "Atorvastatin ADME",
+     0.000875
+    ],
+    [
+     "Metabolism of Lipids",
+     0.000875
+    ],
+    [
+     "Fatty Acid Metabolism",
+     0.00132
+    ]
+   ],
+   "sample": [
+    "5,6,7,8-tetrahydroxy-4-oxooctanal",
+    "5-hydroxyeicosatetraenoic acid…",
+    "Fatty Acids, Monounsaturated",
+    "Nandrolone Decanoate",
+    "Palladium",
+    "Thiobarbituric Acid Reactive…",
+    "palmitoleic acid",
+    "phenylacetic acid"
+   ]
+  },
+  "19": {
+   "n": 53,
+   "in": "fine 19",
+   "terms": [],
+   "sample": [
+    "Ethylenethiourea",
+    "MB327",
+    "Naled",
+    "Phosphorous Acids",
+    "Pyridinium Compounds",
+    "SAD-128",
+    "di-n-butyl-2,2-dichlorovinyl…",
+    "kangshuai yizhi"
+   ]
+  },
+  "21_1": {
+   "n": 43,
+   "in": "fine 21_1",
+   "terms": [
+    [
+     "GPCR Downstream Signalling",
+     0.00321
+    ],
+    [
+     "Signaling by GPCR",
+     0.00321
+    ],
+    [
+     "Class A 1 (Rhodopsin-like Receptors)",
+     0.00506
+    ],
+    [
+     "GPCR Ligand Binding",
+     0.0145
+    ],
+    [
+     "Positive Regulation of ERK1 and ERK2 Cascade (GO:0070374)",
+     0.019
+    ],
+    [
+     "Signal Transduction",
+     0.0332
+    ],
+    [
+     "Regulation of ERK1 and ERK2 Cascade (GO:0070372)",
+     0.0419
+    ]
+   ],
+   "sample": [
+    "(1-(2-morpholin-4-yl-ethyl)-1H…",
+    "(1-pentyl-1H-indol-3-yl)(2,2,3…",
+    "(4-ethyl-1-naphthalenyl)(1-(5…",
+    "1-(5-fluoropentyl)-3-(1…",
+    "1-(5-fluoropentyl)-3-(4-methyl…",
+    "1-pentyl-3-(1-naphthoyl)indole",
+    "Guanosine 5'-O-(3…",
+    "JWH-073"
+   ]
+  }
+ }
+}

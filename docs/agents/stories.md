@@ -916,6 +916,29 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   (`packages/ppicell/README.md`, "The voice").
 - British spelling; "in this map" for counts on the set; the Complex Portal's terms are to confirm before `main`.
 
+## Invisible threads, the exposome story (`packages/exposome/`, a story package, in the making) is built the same way
+
+`packages/exposome/main.js` ("Invisible threads", the chemical exposome) is built from `packages/exposome/src/` as the
+template's packages are (`node packages/exposome/src/build.mjs`, `--check`; then `node tools/packages/scan.mjs`).
+`src/SCRIPT.md` is its script (the main conversation's), `src/SPEC.md` the contract (data, numbers against the paper,
+chapters and scene track, sets and their params, who owns which files, explore mode); `README.md` its sources.
+
+- The science and data: Lombardo, Hütter, Unterlass and Menche, Nat Commun 17, 5754 (2026); their deposit (Zenodo
+  18793297, CC BY 4.0) stays out of the repository. `python3 -I packages/exposome/src/data/gen_data.py <deposit>
+  <cell.json>` (numpy, pandas, openpyxl; pickles through a restricted unpickler) writes derived numbers only:
+  `src/sets/data.js` (`EXPO_DATA`, embedded, about 1 MB) and `data/targets.bin`, `ppi.bin`, `diseases.bin`,
+  `names.json` (about 3.9 MB, fetched when a set's `prep` or a pane needs them). `src/sets/xdata.js` (`XDATA`) is the
+  only way in; `node packages/exposome/src/test-data.mjs` checks it against the paper's numbers.
+- The app computes nothing scientific: the communities (Louvain: 125 top, 152 middle, 456 fine, renamed as the authors'
+  notebook does), their colours and the network's 3D layout are the authors'; the shelves by chemistry and the sorted
+  interactome are ours, said so. Plain words for the communities are hand-written in `src/data/labels.json` from
+  `src/data/terms.json` (the enrichment with FDR): label only what the terms support.
+- Reads two other packages' sources, never edits them: `packages/ppicell/src/sets/cell.js` (the model cell: its
+  proteins' places through `src/data/gen_cell.mjs`, and its skins cut at build time) and `packages/airports/main.js`
+  (the globe, cut as the pass story does). Rebuild after either changes.
+- Wording: "disturbs" or "touches" a gene, "close in the map", "more common where", never "causes"; no brand names;
+  countries by their rates only; no health advice. British spelling.
+
 ## The design room (`stories/design.js`) is built the same way
 
 `stories/design.js` (the props table) is generated from `tools/design/` (`node tools/design/build.mjs`, `--check` as

@@ -1,0 +1,49 @@
+{
+  "about": "Plain words for the Louvain communities, written by hand from terms.json (each community's enriched terms, FDR < 0.05, from the authors' Enrichr tables significant_enrichment_*_louvain_cluster_fdr.pickle). Keys are the authors' community ids (top: the 125 of the dendrogram's top level, numbered by size; mid: the 152; fine: the 456). Only what the terms support; 'mixed' where the terms are general (signalling, metabolism, disease) or absent. A community left out has no label: the app shows its top term instead. Check a label against terms.json before changing it.",
+  "top": {
+    "1": "mixed: cell signals and cell death",
+    "2": "mixed: signalling and metabolism",
+    "3": "the immune system and inflammation",
+    "4": "how the body breaks down drugs",
+    "5": "stress responses and steroid hormones",
+    "6": "growth signals and the immune system",
+    "7": "defence against oxidative stress",
+    "8": "moving bile and small molecules",
+    "9": "how the body handles fat",
+    "10": "detoxifying chemicals",
+    "11": "folate and other vitamins",
+    "12": "nerve signals: adrenaline and similar",
+    "13": "nerve signals: acetylcholine",
+    "14": "potassium channels",
+    "15": "enzymes that break down alcohols and sugars",
+    "16": "how the liver clears drugs",
+    "17": "acetylcholine receptors",
+    "18": "blood clotting",
+    "19": "mixed",
+    "20": "dopamine receptors",
+    "21": "serotonin and other receptors"
+  },
+  "mid": {
+    "5_1": "mixed: stress responses",
+    "5_2": "nuclear receptors and drug-breaking enzymes",
+    "7_1": "defence against oxidative stress",
+    "7_2": "oxidative stress and cell growth",
+    "7_3": "calcium channels",
+    "8_1": "moving bile and small molecules",
+    "9_1": "how the body handles fat",
+    "10_1": "detoxifying chemicals (glutathione)",
+    "10_2": "liver enzymes that oxidise chemicals",
+    "11_1": "blood clotting, loosely",
+    "11_2": "blood clotting",
+    "12_1": "how the body clears drugs; adrenaline receptors",
+    "13_1": "nerve signals: acetylcholine",
+    "13_2": "carbon dioxide and bicarbonate",
+    "15_1": "enzymes that break down alcohols and sugars",
+    "16_1": "how the liver clears drugs",
+    "17_1": "acetylcholine receptors",
+    "18_1": "blood clotting and fatty signals"
+  },
+  "fine": {
+    "11_2_1": "blood clotting"
+  }
+}
