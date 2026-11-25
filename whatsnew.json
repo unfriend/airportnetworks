@@ -1,22 +1,23 @@
 {
-  "version": "networks-v202",
+  "version": "networks-v203",
   "date": "2026-11-25",
   "new": [
-    "Sharp text in VR again: one VR session that closed by itself (or a reload in its first seconds) used to switch the sharp panels and menu off for good, in AR too. Now it takes two in a row, only VR, and an old switch-off is forgotten once.",
-    "The cards in a headset: the coloured bar along the top now follows the card's rounded corners (the Stories screen, Experiments and a room's station cards).",
-    "What is new: Later is now the main button; Got it is the quieter one on the right.",
-    "Moving with the sticks: Turn: smooth (the default) turns you as long as you push the right stick, up to about 90 degrees a second. Turn: steps keeps the 30-degree flicks. On the menu's Settings tab, under Moving with the sticks; the studio follows it too.",
-    "From v201 and v200, not yet tried: a studio character worn with any mix of devices, and the tracker guide."
+    "Studio tour: every table and plinth now holds what stands on it (the vases, bowls, cups, buttons, the music box, the shelf of motions), the Sequences stand's block is gone (each light on a post), the easel's front legs splay outwards and the keyboard faces the pad.",
+    "Studio tour and tracker guide: no more flickering floor strips. The strips are laid side by side, never one over another, and sit higher above the stage's floor; the shuttle's floor no longer flickers along its foot.",
+    "Screens: the player's bar and card stay still as you move your head (their pictures are now smoothed for distance).",
+    "VR goggles: no auto drive. Each grip is a throttle (one squeezed: half speed, both: full speed; let go and you coast to a stop) and either stick steers.",
+    "The shuttle has its game screen: everyone at the studio circle sees who is flying, what they scanned, the links they followed and where to next.",
+    "From v202, v201 and v200, not yet tried: sharp text in VR, the smooth turn, a studio character worn with any mix of devices, the tracker guide."
   ],
   "test": [
-    "In VR (a story, then the menu): is the text as sharp as in AR? The Settings tab's Sharp text line should say how many layers are shown. If not, take a note: its log now says what the session asked for and got.",
-    "The Stories screen in a headset: are the cards' top corners clean now?",
-    "Turn smoothly with the right stick in a story and in the studio. Is the speed comfortable? Then try Turn: steps.",
-    "v201: wear a studio character with a few mixes (a headset alone, a headset and foot trackers). Do the lines and the list look right, and do empty hands hang?",
-    "v200: Experiments, Tracker guide: walk the stands. Can you read the signs and the pucks' tags?"
+    "Studio tour in VR: walk the hall. Do all the tables fit, and is any floor strip still flickering (the band ends, by the shuttle)?",
+    "Screens stand: press play and point at the bar. Any shimmer left?",
+    "Put on the goggles: fly with the grips (one, then both) and steer with either stick. Is the speed right? Can you still open the menu with the left trigger?",
+    "With a second headset or a laptop at the same studio circle: does the shuttle's screen show the flight?",
+    "v202: is VR text as sharp as AR now? Turn smoothly with the right stick. v201 and v200: a character worn with a few mixes; the tracker guide's signs."
   ],
   "untested": [
-    "All of this on a headset: sharp text in VR (only a pretend headset was tried), the smooth turn's comfort and speed, the cards' corners at reading distance.",
-    "v201 and v200 with real trackers, a real headset and controllers; the tracker guide's spoken lines are still not rendered."
+    "All of this on a headset: the flicker fix (depth precision can only be judged there), the bar's shimmer, the throttles' feel, the left grip held back from the menu and the circles while flying, the screen seen from another device in a real room.",
+    "Tracked hands cannot wear the goggles (controllers are needed, as before). v202's sharp text in VR and smooth turn; v201 and v200 with real trackers."
   ]
 }

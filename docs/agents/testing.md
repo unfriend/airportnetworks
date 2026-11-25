@@ -270,7 +270,8 @@ notice and the listener goes (v198). Then the game
 on a page (`HOST.flight.debug.page`): as many proteins drawn as the ppicell data places, a scan (links and the guide
 drawn), flying to the next partner follows the link, at most 40 draw calls, the bubble (0.45 m: faded and paused; 0.6 m:
 gone, the clock stopped, the scene back; back at the seat: on again), the head's pose lost (`debug.lost`: faded out and
-paused within a second, back again when it returns, v198), off again.
+paused within a second, back again when it returns, v198), the throttles (v203: one grip half the thrust and a speed
+up to 1 m/s, both the whole and faster, the left stick turning; let go, no thrust and slowing), off again.
 
 ### smoke: spaceship
 
@@ -1216,7 +1217,9 @@ every sound decoded (mono, 11,025 Hz); its layout read with no bad items, every 
 sounds, cut-outs, groups, shapes, empties, sequences, screens, paintings) as the studio's own `norm` gives it back, its
 settings, the fields each stand shows used, the Scene pane's Examples listing it; and in Walk view the shuttle's cabin
 cube active inside it, the world outside shown and the hall hidden, and the other way round outside, the goggles there and
-`flight.js` loaded. After changing `tools/studio/tour/` (or `tools/studio/xp/kit.js`, which it loads), run
+`flight.js` loaded; the game screen (v203): the studio's picture on the shuttle's GameScreen material saying nobody flies,
+a flight heard from another device (the effect `gog`) shown with its counts and next protein, and *Last flight* once it
+ends. The layout's own checks (nothing overhangs its table, no floor faces closer than 1 cm) run in `make.mjs`. After changing `tools/studio/tour/` (or `tools/studio/xp/kit.js`, which it loads), run
 `node tools/studio/tour/make.mjs` and its `--check`.
 
 ### smoke: studio guide

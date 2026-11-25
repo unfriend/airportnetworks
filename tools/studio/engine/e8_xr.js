@@ -743,7 +743,8 @@ function stickScroll(c, gp, dt) {
 // there: stickScroll); a turn held there waits for the stick to come back to the middle. The studio's own sticks: not
 // while they move you (moving with the sticks: stickMove)
 function stickWalk(c, gp, dt) {
-  if (!XR.clear || APP.mode !== 'explore' || XR.stories || xrAway() || xrWalking() || XR.ctrls.some(k => k.grab) || !gp || gp.axes.length < 4) return;
+  // (v203: not while the VR goggles are on: both sticks steer their game, and you stay where you sit; e6z_goggles.js)
+  if (!XR.clear || APP.mode !== 'explore' || XR.stories || xrAway() || xrWalking() || gogOn() || XR.ctrls.some(k => k.grab) || !gp || gp.axes.length < 4) return;
   const ax = gp.axes[2], ay = gp.axes[3], hand = c.src.handedness;
   if (c.hover && c.hover.kind === 'panel') { if (hand === 'right' && Math.abs(ax) >= 0.3) XR.turnArm = false; return; }
   if (hand === 'left') {

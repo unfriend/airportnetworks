@@ -13285,6 +13285,17 @@ if (runs('studio tour')) {
     if (JSON.stringify(inside) !== '[true,true,false]' || JSON.stringify(outside) !== '[false,false,true]') errors.push(`studio tour: the cabin cube, inside [in, world, hall] ${JSON.stringify(inside)}, outside ${JSON.stringify(outside)}`);
     const g = await ss(`STUDIO.goggles()`);
     if (!g || g.on || g.items.length !== 1 || !g.loaded) errors.push('studio tour: the goggles\' state: ' + JSON.stringify(g));
+    // (v203) the shuttle's game screen: the studio's picture on its GameScreen material; nobody flying, then a flight heard
+    // from another device (the effect 'gog'), then that one off again
+    const gs0 = await ss(`STUDIO.goggles().screen`);
+    await ss(`(studioEffect('gog', { on: 1, pa: 0, sc: 3, fo: 1, bu: 0, cur: 'CDK5', pl: 'cytosol', nx: 'CDK5R1', np: 'plasma membrane', d: 12 }, 'peer-test'), 0)`);
+    await tp.waitForTimeout(500);
+    const gs1 = await ss(`STUDIO.goggles().screen`);
+    await ss(`(studioEffect('gog', { on: 0 }, 'peer-test'), 0)`);
+    await tp.waitForTimeout(500);
+    const gs2 = await ss(`STUDIO.goggles().screen`);
+    if (!gs0 || gs0.mats < 1 || gs0.shows !== 'nobody' || !gs1 || gs1.shows !== 'heard' || !/Scanned 3/.test(gs1.lines[1]) || !/CDK5R1/.test(gs1.lines[3]) || gs2.shows !== 'nobody' || !/Last flight/.test(gs2.lines[1]))
+      errors.push('studio tour: the game screen: ' + JSON.stringify([gs0, gs1, gs2]));
   });
   await tp.close();
 }
@@ -16486,7 +16497,7 @@ if (runs('goggles')) {
     if (hid.some(Boolean)) out.push('the scene or its panels still shown while the game is drawn: ' + hid);
     if (!await sp.evaluate(() => /Not while you wear the VR goggles/.test(HOST.ships.whyNot()))) out.push('the spaceship is not refused while they are on');
     if (!await sp.evaluate(() => HOST.flight.claims(window.__g.R))) out.push('the right controller is not the game\'s');
-    if (await sp.evaluate(() => HOST.flight.state().grip) !== 0) out.push('the grip that carried them brakes before it is let go');
+    if (await sp.evaluate(() => HOST.flight.state().grip) !== 0) out.push('the grip that carried them is a throttle before it is let go');
     // the same grip still held, pulled away: nothing (it must be let go first)
     await sp.evaluate(() => { const g = window.__g; g.hand(new THREE.Vector3(0.3, 1.2, 0.1)); g.tick(2); });
     if (!await sp.evaluate(() => HOST.flight.on())) out.push('the grip that put them on took them off without being let go');
@@ -16532,6 +16543,18 @@ if (runs('goggles')) {
     const s2 = await st();
     if (s2.game.followed !== 1 || s2.game.cur !== s1.game.next) out.push('flying to the next partner did not follow the link: ' + JSON.stringify(s2.game));
     await shot('goggles-follow');
+    // (v203) the grips: each a throttle (one squeezed half speed, both full), let go the ship coasts to a stop; either stick steers
+    await sp.evaluate(() => HOST.flight.debug.input({ grip: 1 }));
+    await sp.waitForTimeout(1500);
+    const th1 = await st();
+    await sp.evaluate(() => HOST.flight.debug.input({ grip: 1, lgrip: 1, lx: 1 }));
+    await sp.waitForTimeout(1500);
+    const th2 = await st();
+    await sp.evaluate(() => HOST.flight.debug.input({}));
+    await sp.waitForTimeout(800);
+    const th3 = await st();
+    if (th1.thrust !== 0.5 || !(th1.game.v > 0.2 && th1.game.v <= 1.001) || th2.thrust !== 1 || !(th2.game.v > th1.game.v) || th2.game.yaw === th1.game.yaw || th3.thrust !== 0 || !(th3.game.v < th2.game.v))
+      out.push('the throttles: ' + JSON.stringify([th1, th2, th3].map(s => [s.thrust, s.game.v, s.game.yaw])));
     const calls = await sp.evaluate(() => HOST.renderer.info.render.calls);
     if (calls > 40) out.push(calls + ' draw calls');
     // the bubble: faded half way at 0.4 m (and paused), gone at 0.6 m (the scene back), back at the seat

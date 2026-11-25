@@ -778,6 +778,27 @@ narration heard from out of the circle, the locks and the People toggle in use.
   comes to the performer (`fit`). The tracker guide's T-pose stand, its spoken lines and its try-it robot (one now, not
   two) were changed to match. No FORMAT bump: no room key or `state()` changed shape.
 
+### The studio tour and the VR goggles after the owner's headset notes (v203)
+- The owner, 25 November 2026, walking the tour on v199 in a Quest 3. "The cube the vases stand on is not larger ... left
+  and right are actually mid-air"; "lots of tables are too small ... check the table sizes and make them right sized":
+  the plinths' sizes had their along-the-hall and across-the-hall sides swapped. Every table was resized to what stands on
+  it, and `make.mjs` now fails when anything overhangs its table (`tools/studio/tour/checks.mjs`, 2 cm in at least).
+  "The cube is too small", "or actually we don't need a cube at all here" (the Sequences stand): the block went, each
+  light on a thin post. "The front legs here should go to the outside": the easel's front legs splay outwards.
+- "An ugly overlay effect where the blue and the green overlay here exactly", "some glitches where the shuttle stands":
+  two sections' floor bands overlapped at the same height, the strips lay 4 mm over the floor (and it 4 mm over the
+  stage's), and the shuttle's floor shared a plane with its hull. The floor is now tiles side by side, 12 mm up, pads
+  12 mm over it; both example scenes' builds fail when two faces facing up overlap less than a centimetre apart.
+- "If I enable the player here, I get these weird artifacts ... they move around while I move my head": the screen's bar
+  and card pictures had no mipmaps (the bar's 1,500 px drawn over 0.9 m), so the text sparkled; now mipmapped.
+- "The auto drive in the game is weird, so let's use the grip on both hands for throttle control" (the decision: each
+  grip its own throttle, both sticks steer): no drive of its own, the grips' sum the thrust, the sticks added. The left
+  grip is the game's while it runs (the shell's input guard may now claim one button of a controller).
+- "Why don't we have a screen here?" (the shuttle's sign said *still to come*): built as the screen of stage 2's plan, a
+  material named GameScreen that the studio draws; for the others in the room the wearer's device sends the game's status
+  (counts and protein names, never a pose) as an ephemeral effect, so "nothing sent" now has that one exception. No
+  FORMAT bump: no room key or `state()` changed shape, and older devices ignore the effect.
+
 ### Scene circles wait for their layout (v179)
 - The owner, 20 November 2026, on the open problem that a studio circle made for one scene could come up empty (v157's
   end-to-end round, five of eight runs): "fix this". A device that had opened the scene but not read its saved layout

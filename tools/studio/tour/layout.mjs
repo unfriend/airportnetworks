@@ -1,3 +1,4 @@
+import { STEP, rect, disc, yawOf, shapeTops, flatClashes, overhangs } from './checks.mjs';
 // The studio tour's layout.json and the words of its signs (tools/studio/tour/README.md).
 // A hall 7.6 m wide down -z from where you start (the scene's origin, facing -z): two boards at the entrance (welcome, and
 // what else the studio does that a scene cannot show), then 26 stands, odd numbers on the left and even on the right, two
@@ -16,6 +17,9 @@ const yawQ = a => [0, r4(Math.sin(a / 2)), 0, r4(Math.cos(a / 2))];
 const FLAT = [-0.7071, 0, 0, 0.7071];   // (a plane laid on the floor, facing up)
 const PITCH = 2, Z0 = -3, STAGGER = 1;   // (two metres between stands along a side; the right side a metre further on)
 const SHUTTLE_Z = -33.5;   // (the cabin's middle: the world outside it, 4.8 m round, keeps clear of every stand)
+// (v203) the floor's tiles have their tops FLOOR_Y up, over the stage's own floor (y = 0), and the pads PAD_Y, a centimetre
+// more: no two faces that overlap seen from above lie closer than checks.mjs's STEP, so none flickers in a headset
+const FLOOR_Y = 0.012, PAD_Y = 0.024;
 
 // ------------------------------------------------------------------ the words --
 // n, section, title (the studio's own name for it), what (one sentence or two), here (what to do here)
@@ -60,10 +64,11 @@ export const SIGNS = [
       'The output page: streams of movement to MIDI and OSC, loops on the beat.', 'Editing itself: the cards, Undo, Save, the colour picker, Copy to the relay.'] },
   { part: 'sign-shuttle', file: 'signs/27-the-shuttle.glb', section: 'shuttle', n: 27, title: 'The shuttle', mid: 1.55,
     what: 'Room for four. Its cabin is a trigger cube: inside it, for you alone, the hall goes and a world outside comes.', here: 'Walk in through the door and sit down. VR goggles are on the shelf.' },
-  { part: 'sign-goggles', file: 'signs/27-goggles.glb', section: 'shuttle', title: 'VR goggles', w: 0.66, h: 0.56, px: 512, post: false, mid: 1.62, size: 31, small: true,
-    what: 'Sit or stand still. Grab the goggles with the grip and bring them to your face: a flight through a cell.', here: 'Off: grip near your face and pull away, or Goggles off in the menu.' },
-  { part: 'sign-game', file: 'signs/27-game-screen.glb', section: 'board', title: 'Game screen', w: 1.3, h: 0.75, px: 640, post: false, mid: 1.45, size: 40,
-    what: 'The place for the shuttle\'s game screen, still to come.' },
+  { part: 'sign-goggles', file: 'signs/27-goggles.glb', section: 'shuttle', title: 'VR goggles', w: 0.66, h: 0.7, px: 512, post: false, mid: 1.62, size: 27, small: true,
+    what: 'Sit or stand still. Take them with the grip and bring them to your face: a flight through a cell.',
+    here: 'Each grip is a throttle (both: full speed), either stick steers, the trigger scans. Controllers, not hands. Off: grip at your face and pull away.' },
+  { part: 'sign-game', file: 'signs/27-game-screen.glb', section: 'shuttle', title: 'Game screen', w: 0.9, h: 0.34, px: 640, post: false, mid: 1.0, size: 30, small: true,
+    what: 'The goggles\' flight for everyone here: who flies, what they scanned, the links they followed, where to next.' },
 ];
 
 // ------------------------------------------------------------------ the stands --
@@ -126,7 +131,7 @@ export function makeLayout(parts, files) {
   // a pad on the floor (a flat plane, locked: it marks the cube) and its cube on it, floor to 2.2 m
   const pad = (n, id, name, w, colour, o = {}) => {
     const side = o.side || 0.9;
-    shape('pd' + id.slice(2), `Pad: ${name}`.slice(0, 60), 'plane', AT(n, 1.95, w, 0.01), [side, side, 0.01], colour, { q: FLAT, locked: true });
+    shape('pd' + id.slice(2), `Pad: ${name}`.slice(0, 60), 'plane', AT(n, 1.95, w, PAD_Y), [side, side, 0.01], colour, { q: FLAT, locked: true });
     return cube(id, name, AT(n, 1.95, w, 1.1), [side, 2.2, side], o);
   };
   const robot = (id, name, n, u, w, o) => obj(id, name, 'robot', AT(n, u, w), o.yaw !== undefined ? o.yaw : FACE(n), o);
@@ -140,11 +145,12 @@ export function makeLayout(parts, files) {
   // ---- the basics
   robot('rbt001', 'Robot (Models)', 1, 2.7, 0.75, { clip: 'Wave' });
   obj('esl002', 'Easel (Textures)', 'easel', AT(2, 2.7, 0.75), FACE(2));
-  shape('pl0003', 'Plinth (Tint)', 'cube', AT(3, 2.6, 0, 0.35), [0.5, 0.7, 1.2], '#4a5568', { yaw: FACE(3), locked: true });
+  // (a table's size [along the hall, height, across it]: its own x runs along the hall, FACE; checks below: nothing overhangs)
+  shape('pl0003', 'Plinth (Tint)', 'cube', AT(3, 2.6, 0, 0.35), [1.2, 0.7, 0.4], '#4a5568', { yaw: FACE(3), locked: true });
   obj('vas03a', 'Vase as it is', 'vase', AT(3, 2.6, -0.4, 0.7), FACE(3));
   obj('vas03b', 'Vase tinted blue, brighter', 'vase', AT(3, 2.6, 0, 0.7), FACE(3), { tint: '#5aa9ff', bright: 1.6 });
   obj('vas03c', 'Vase tinted orange, darker', 'vase', AT(3, 2.6, 0.4, 0.7), FACE(3), { tint: '#ff8a3d', bright: 0.6 });
-  shape('pl0004', 'Plinth (Faces)', 'cube', AT(4, 2.6, 0, 0.35), [0.5, 0.7, 1.2], '#4a5568', { yaw: FACE(4), locked: true });
+  shape('pl0004', 'Plinth (Faces)', 'cube', AT(4, 2.6, 0, 0.35), [1.1, 0.7, 0.5], '#4a5568', { yaw: FACE(4), locked: true });
   obj('bwl04a', 'Bowl as in the file', 'bowl', AT(4, 2.6, -0.3, 0.7), FACE(4));
   obj('bwl04b', 'Bowl with both sides', 'bowl', AT(4, 2.6, 0.3, 0.7), FACE(4), { faces: 'both' });
   shape('shp05a', 'Box', 'cube', AT(5, 2.5, -0.6, 0.15), [0.3, 0.3, 0.3], '#46d9ff', { yaw: FACE(5) });
@@ -152,7 +158,7 @@ export function makeLayout(parts, files) {
   shape('shp05c', 'Cylinder', 'cylinder', AT(5, 2.5, 0.3, 0.25), [0.25, 0.5, 0.25], '#c08cff');
   shape('shp05d', 'Plane (green panel)', 'plane', AT(5, 3.0, 0.55, 0.65), [0.6, 0.5, 0.01], '#3ee08f', { yaw: FACE(5) });
   shape('shp05e', 'Box that hides things', 'cube', AT(5, 2.85, 0.55, 0.65), [0.2, 0.2, 0.2], '#ffffff', { yaw: FACE(5), look: 'hide' });
-  shape('tbl006', 'Table', 'cube', AT(6, 2.6, 0, 0.3), [0.5, 0.6, 0.8], '#8a5a34', { yaw: FACE(6) });
+  shape('tbl006', 'Table', 'cube', AT(6, 2.6, 0, 0.3), [0.8, 0.6, 0.5], '#8a5a34', { yaw: FACE(6) });
   shape('cup06a', 'Cup 1', 'cylinder', AT(6, 2.5, -0.22, 0.65), [0.09, 0.1, 0.09], '#f1efe9');
   shape('cup06b', 'Cup 2', 'cylinder', AT(6, 2.65, 0.05, 0.65), [0.09, 0.1, 0.09], '#5aa9ff');
   shape('cup06c', 'Cup 3', 'cylinder', AT(6, 2.5, 0.25, 0.65), [0.09, 0.1, 0.09], '#ff8a3d');
@@ -183,19 +189,19 @@ export function makeLayout(parts, files) {
   pad(13, 'cub013', 'Starts things', 0, '#3ee08f', { plays: [run('rbt013', 'clip', 'once', { clip: 'Jump' }), run('snd013', 'sound'), run('top013', 'motion', 'loop')] });
   obj('esl014', 'Easel (Change textures)', 'easel', AT(14, 2.7, 0.75), FACE(14));
   pad(14, 'cub014', 'Day to night', 0, '#3ee08f', { tex: [{ on: 'esl014', mat: 0, slot: 'map', file: 'pictures/night.jpg' }] });
-  shape('dsk015', 'Button desk', 'cube', AT(15, 2.5, -0.65, 0.45), [0.3, 0.9, 0.55], '#5b6472', { yaw: FACE(15), locked: true });
+  shape('dsk015', 'Button desk', 'cube', AT(15, 2.6, -0.65, 0.45), [0.5, 0.9, 0.3], '#5b6472', { yaw: FACE(15), locked: true });
   shape('pst15b', 'Lamp post 2', 'cylinder', AT(15, 2.7, 0.45, 0.3), [0.06, 0.6, 0.06], '#5b6472', { locked: true });
   shape('lmp015', 'Lamp (pad switched on)', 'sphere', AT(15, 2.7, 0.45, 0.72), [0.24, 0.24, 0.24], '#3ee08f');
   const sw = pad(15, 'cub015', 'Switched pad', 0, '#3ee08f', { show: ['lmp015'] });
-  shape('btn15a', 'Green button: switch on', 'cylinder', AT(15, 2.5, -0.78, 0.92), [0.13, 0.05, 0.13], '#3ee08f', { press: { do: [{ on: sw.id, what: 'show' }] } });
-  shape('btn15b', 'Red button: switch off', 'cylinder', AT(15, 2.5, -0.52, 0.92), [0.13, 0.05, 0.13], '#ff5a4b', { press: { do: [{ on: sw.id, what: 'hide' }] } });
+  shape('btn15a', 'Green button: switch on', 'cylinder', AT(15, 2.6, -0.78, 0.92), [0.13, 0.05, 0.13], '#3ee08f', { press: { do: [{ on: sw.id, what: 'show' }] } });
+  shape('btn15b', 'Red button: switch off', 'cylinder', AT(15, 2.6, -0.52, 0.92), [0.13, 0.05, 0.13], '#ff5a4b', { press: { do: [{ on: sw.id, what: 'hide' }] } });
   shape('pst016', 'Ball stand', 'cylinder', AT(16, 2.45, -0.5, 0.4), [0.1, 0.8, 0.1], '#5b6472', { locked: true });
   shape('bal016', 'Red ball (anyone may carry it)', 'sphere', AT(16, 2.45, -0.5, 0.89), [0.18, 0.18, 0.18], '#ff5a4b', { grab: true });
   shape('bsk016', 'Basket', 'cylinder', AT(16, 2.7, 0.45, 0.12), [0.5, 0.24, 0.5], '#8a5a34', { locked: true });
   shape('str016', 'Star (the ball is in)', 'sphere', AT(16, 2.7, 0.45, 0.95), [0.16, 0.16, 0.16], '#ffd34d', { motion: { kind: 'pulse', speed: 60, amount: 0.3, axis: 'y', start: 'always' } });
   sound('snd016', 'Pop (basket)', 'sounds/pop.wav', AT(16, 2.7, 0.45, 0.4), { r: 2 });
   cube('cub016', 'Basket: reacts to the red ball', AT(16, 2.7, 0.45, 0.4), [0.6, 0.8, 0.6], { key: 'bal016', show: ['str016'], plays: [run('snd016', 'sound')] });
-  shape('pst017', 'Music box stand', 'cylinder', AT(17, 2.65, 0, 0.36), [0.1, 0.72, 0.1], '#5b6472', { locked: true });
+  shape('pst017', 'Music box stand', 'cylinder', AT(17, 2.65, 0, 0.36), [0.36, 0.72, 0.36], '#5b6472', { locked: true });
   shape('mbx017', 'Music box', 'cube', AT(17, 2.65, 0, 0.81), [0.24, 0.18, 0.18], '#8a5a34', { yaw: FACE(17) });
   obj('bee017', 'Bee', 'bee', AT(17, 2.65, 0, 1.0), FACE(17), { clip: 'Fly', motion: { kind: 'orbit', speed: 10, amount: 0.35, axis: 'y', start: 'always' } });
   sound('snd17a', 'Music box', 'sounds/music-box.wav', AT(17, 2.65, 0, 0.81), { vol: 0.6, r: 0.8, loop: true });
@@ -208,21 +214,22 @@ export function makeLayout(parts, files) {
     motion: { kind: 'pulse', speed: 90, amount: 0.15, axis: 'y', start: 'always' },
     press: { do: [run('snd018', 'sound'), run('spn018', 'motion')], hover: [run('btn018', 'motion', 'loop')] } });
   shape('pst019', 'Button stand 2', 'cube', AT(19, 2.5, -0.6, 0.45), [0.3, 0.9, 0.3], '#5b6472', { yaw: FACE(19), locked: true });
-  shape('bar019', 'Light bar', 'cube', AT(19, 2.8, 0.25, 0.35), [0.12, 0.7, 0.9], '#3d4b60', { yaw: FACE(19), locked: true });
   const LAMPS = [['lmp19a', 'Red light', '#ff5a4b', -0.05, 'snd19a', 'note-c'], ['lmp19b', 'Green light', '#3ee08f', 0.25, 'snd19b', 'note-e'], ['lmp19c', 'Blue light', '#46d9ff', 0.55, 'snd19c', 'note-g']];
-  for (const [id, name, c, w, sid, f] of LAMPS) { shape(id, name, 'sphere', AT(19, 2.72, w, 0.82), [0.18, 0.18, 0.18], c); sound(sid, `Note (${name.toLowerCase()})`, `sounds/${f}.wav`, AT(19, 2.72, w, 0.82), { r: 2 }); }
+  // (v203: each light on a thin post of its own, no block under them)
+  for (const [id, name, c, w, sid, f] of LAMPS) { shape('pst' + id.slice(3), `Post (${name.toLowerCase()})`, 'cylinder', AT(19, 2.72, w, 0.365), [0.05, 0.73, 0.05], '#5b6472', { locked: true }); shape(id, name, 'sphere', AT(19, 2.72, w, 0.82), [0.18, 0.18, 0.18], c); sound(sid, `Note (${name.toLowerCase()})`, `sounds/${f}.wav`, AT(19, 2.72, w, 0.82), { r: 2 }); }
   sequences.push({ id: 'seq019', name: 'Lights and notes', len: 3.5, ev: [
     ...LAMPS.flatMap(([id, , , , sid], i) => [{ t: i * 0.6, on: id, what: 'show' }, { t: i * 0.6, on: sid, what: 'sound', how: 'once' }]),
     ...LAMPS.map(([id]) => ({ t: 3, on: id, what: 'hide' }))] });
   shape('btn019', 'Button: play the sequence', 'cylinder', AT(19, 2.5, -0.6, 0.93), [0.2, 0.06, 0.2], '#3ee08f', { press: { do: [{ on: 'seq019', what: 'seq', how: 'once' }] } });
   shape('pl0020', 'Plinth (Screens)', 'cube', AT(20, 2.65, 0, 0.35), [0.4, 0.7, 0.6], '#4a5568', { yaw: FACE(20), locked: true });
-  screens.push({ id: 'scr020', name: 'Player with two tunes', p: AT(20, 2.65, 0, 0.92), q: yawQ(FACE(20)), w: 0.6, look: 'audio', list: ['sounds/tune-1.wav', 'sounds/tune-2.wav'], loop: 'all', vol: 0.8, r: 2, ctl: 'any' });
-  shape('pst021', 'Keyboard stand', 'cube', AT(21, 2.65, 0, 0.36), [0.3, 0.72, 0.8], '#5b6472', { yaw: FACE(21), locked: true });
-  shape('key021', 'Keys', 'cube', AT(21, 2.65, 0, 0.75), [0.7, 0.06, 0.22], '#f1efe9', { yaw: FACE(21) + Math.PI / 2 });
+  screens.push({ id: 'scr020', name: 'Player with two tunes', p: AT(20, 2.65, 0, 0.86), q: yawQ(FACE(20)), w: 0.6, look: 'audio', list: ['sounds/tune-1.wav', 'sounds/tune-2.wav'], loop: 'all', vol: 0.8, r: 2, ctl: 'any' });
+  // (the keys run along the hall, left to right for whoever stands on the pad)
+  shape('pst021', 'Keyboard stand', 'cube', AT(21, 2.65, 0, 0.36), [0.8, 0.72, 0.3], '#5b6472', { yaw: FACE(21), locked: true });
+  shape('key021', 'Keys', 'cube', AT(21, 2.65, 0, 0.75), [0.7, 0.06, 0.22], '#f1efe9', { yaw: FACE(21) });
   pad(21, 'cub021', 'Sends note 60', 0, '#3ee08f', { send: [{ on: 'enter', note: 60, val: 100, hold: true }] });
 
   // ---- what moves
-  shape('shf022', 'Shelf (Motions)', 'cube', AT(22, 2.65, 0, 0.3), [0.4, 0.6, 1.6], '#4a5568', { yaw: FACE(22), locked: true });
+  shape('shf022', 'Shelf (Motions)', 'cube', AT(22, 2.65, 0, 0.3), [1.5, 0.6, 0.4], '#4a5568', { yaw: FACE(22), locked: true });
   const MOT = [['spin', 'cube', { speed: 20, amount: 0 }], ['wobble', 'cylinder', { speed: 30, amount: 20 }], ['bob', 'sphere', { speed: 30, amount: 0.1 }],
     ['pulse', 'sphere', { speed: 40, amount: 0.3 }], ['orbit', 'sphere', { speed: 20, amount: 0.1 }], ['sway', 'cube', { speed: 30, amount: 30 }]];
   MOT.forEach(([k, kind, m], i) => {
@@ -247,11 +254,14 @@ export function makeLayout(parts, files) {
   // (the inside signs on the front wall's lining, their backs on it: the lining's face is at z = -1.9 + 0.08 + 0.011)
   const WALL_Z = -1.9 + 0.08 + 0.012;
   obj('sggogg', 'Sign: VR goggles', 'sign-goggles', X(0.85, 0, WALL_Z), 0);
-  obj('sggame', 'Game screen (to come)', 'sign-game', X(-0.45, 0, WALL_Z), 0);
+  // (v203: the game's screen, its picture the studio's own as it runs (a material named GameScreen: e6z_goggles.js), and
+  // its sign under it)
+  obj('gscr27', 'Game screen (the goggles\' flight)', 'game-screen', X(-0.45, 0, WALL_Z), 0, { locked: true });
+  obj('sggame', 'Sign: Game screen', 'sign-game', X(-0.45, 0, WALL_Z), 0);
   shape('gog027', 'VR goggles', 'goggles', X(0.85, 1.065, -1.69), [0.18, 0.09, 0.1], '#ffffff');
   sound('snd027', 'Whoosh (the shuttle starts)', 'sounds/whoosh.wav', X(0, 1.5, 0), { r: 3 });
   cube('cbn027', 'Shuttle cabin: somewhere else', X(0, 1.2, 0.05), [2.6, 2.3, 3.6], { show: ['elsew1'], hide: ['hall01', 'sg0027'], plays: [run('snd027', 'sound')] });
-  groups.push({ id: 'gshutl', name: 'Shuttle', items: ['shtl01', 'elsew1', 'sg0027', 'sggogg', 'sggame', 'gog027', 'snd027', 'cbn027'] });
+  groups.push({ id: 'gshutl', name: 'Shuttle', items: ['shtl01', 'elsew1', 'sg0027', 'sggogg', 'gscr27', 'sggame', 'gog027', 'snd027', 'cbn027'] });
 
   // ---- checks: ids, what cubes and groups name, the world outside the shuttle clear of every stand
   const ids = new Set(), all = [objects, cubes, sounds, cuts, groups, shapes, empties, sequences, screens, paintings].flat();
@@ -262,10 +272,56 @@ export function makeLayout(parts, files) {
   for (const c of cubes) for (const e of c.tex || []) if (!have.has(e.file)) errors.push(`${c.id}: ${e.file} is not in the scene`);
   for (const v of screens) for (const f of v.list) if (!have.has(f)) errors.push(`${v.id}: ${f} is not in the scene`);
   const R = 4.8;
-  for (const x of [...objects, ...shapes, ...sounds].filter(x => !['shtl01', 'elsew1', 'sg0027', 'sggogg', 'sggame', 'gog027', 'snd027', 'hall01'].includes(x.id))) if (Math.hypot(x.p[0], x.p[2] - SZ) < R + 0.5) errors.push(`${x.id} stands inside the world round the shuttle`);
+  for (const x of [...objects, ...shapes, ...sounds].filter(x => !['shtl01', 'elsew1', 'sg0027', 'sggogg', 'gscr27', 'sggame', 'gog027', 'snd027', 'hall01'].includes(x.id))) if (Math.hypot(x.p[0], x.p[2] - SZ) < R + 0.5) errors.push(`${x.id} stands inside the world round the shuttle`);
+  // ---- (v203) what stands where: nothing overhangs its table, no two faces facing up overlap closer than STEP in height
+  errors.push(...standChecks(parts, objects, shapes, screens));
   const layout = { studio: 1, scene: 'studio-tour', saved: '2026-11-24T12:00:00.000Z', objects, cubes, sounds, cuts, groups, shapes, empties, sequences, screens, paintings,
     settings: { others: 'shown', real: 'device', grid: 'hidden' } };
   return { layout, errors, partOf };
+}
+
+// ------------------------------------------------------------------ the floor and the checks --
+// (v203) the hall's floor as tiles that never overlap, all with their tops at FLOOR_Y: in x, a strip by each wall, the
+// sections' bands (their ends cut half way where two sections' bands would overlap), the floor and the walkway down the
+// middle (from 1 m in from the entrance's wall); each tile [x0, x1, z0, z1, colour: 'floor', 'walk' or a section]
+const HALL = { X: 3.8, Z0: 2.5, Z1: -38.5, walk: 1.3, band: [3.15, 3.65], walkZ: 1.5 };
+export const FLOOR = (() => {
+  const T = [], B = BANDS.map(b => b.slice()).sort((a, b) => b[0] - a[0]);
+  for (let i = 1; i < B.length; i++) if (B[i][0] > B[i - 1][1]) { const m = r3((B[i][0] + B[i - 1][1]) / 2); B[i][0] = B[i - 1][1] = m; }
+  for (const sx of [-1, 1]) {
+    const xs = (a, b) => (sx < 0 ? [-b, -a] : [a, b]);
+    T.push([...xs(HALL.band[1], HALL.X), HALL.Z0, HALL.Z1, 'floor'], [...xs(HALL.walk, HALL.band[0]), HALL.Z0, HALL.Z1, 'floor']);
+    let z = HALL.Z0;
+    for (const [z0, z1, c] of B) { if (z0 < z) T.push([...xs(...HALL.band), z, z0, 'floor']); T.push([...xs(...HALL.band), z0, z1, c]); z = z1; }
+    if (z > HALL.Z1) T.push([...xs(...HALL.band), z, HALL.Z1, 'floor']);
+  }
+  T.push([-HALL.walk, HALL.walk, HALL.Z0, HALL.walkZ, 'floor'], [-HALL.walk, HALL.walk, HALL.walkZ, HALL.Z1, 'walk']);
+  return T.map(t => t.map(v => (typeof v === 'number' ? r3(v) : v)));
+})();
+export { FLOOR_Y };
+// every item that stands on a table stands wholly on it; no two faces facing up (the floor's tiles, the stage's floor, the
+// pads, the tops of boxes and cylinders) overlap at heights closer than STEP
+function standChecks(parts, objects, shapes, screens) {
+  const items = [], supports = [];
+  for (const s of shapes) {
+    const [x, y, z] = s.p, [sx, sy, sz] = s.size, yaw = yawOf(s.q), m = s.motion, grow = m && m.kind === 'pulse' ? 1 + m.amount : 1, swing = m && m.kind === 'orbit' ? m.amount : 0;
+    if (s.shape === 'cube') { items.push({ id: s.id, foot: y - sy / 2, poly: rect(x, z, sx * grow + 2 * swing, sz * grow + 2 * swing, yaw) }); supports.push({ id: s.id, top: y + sy / 2, kind: 'rect', x, z, w: sx, d: sz, yaw }); }
+    else if (s.shape === 'cylinder') { items.push({ id: s.id, foot: y - sy / 2, poly: disc(x, z, sx / 2 * grow + swing) }); supports.push({ id: s.id, top: y + sy / 2, kind: 'disc', x, z, r: sx / 2 }); }
+  }
+  for (const o of objects) {
+    const P = parts[Object.keys(parts).find(n => parts[n].file === o.file)];
+    if (!P || !P.box) continue;
+    const [[x0, y0, z0], [x1, , z1]] = P.box, yaw = yawOf(o.q), c = Math.cos(yaw), sn = Math.sin(yaw), mx = (x0 + x1) / 2, mz = (z0 + z1) / 2;
+    items.push({ id: o.id, foot: o.p[1] + y0 * o.s, poly: rect(o.p[0] + (mx * c + mz * sn) * o.s, o.p[2] + (-mx * sn + mz * c) * o.s, (x1 - x0) * o.s, (z1 - z0) * o.s, yaw) });
+  }
+  for (const v of screens) {
+    const pw = v.look === 'audio' ? 0.3 : v.w, ph = v.look === 'audio' ? 0.3 : v.w * 9 / 16;
+    items.push({ id: v.id, foot: v.p[1] - ph / 2, poly: rect(v.p[0], v.p[2], pw, 0.01, yawOf(v.q)) });
+  }
+  const tops = [{ id: 'the stage\'s floor', y: 0, poly: rect(0, -18, 200, 200) },
+    ...FLOOR.map(([x0, x1, z0, z1, c], i) => ({ id: `the hall's floor (${c} ${i})`, y: FLOOR_Y, poly: rect((x0 + x1) / 2, (z0 + z1) / 2, x1 - x0, z0 - z1) })),
+    ...shapeTops(shapes)];
+  return [...overhangs(items, supports), ...flatClashes(tops, STEP)];
 }
 
 // ------------------------------------------------------------------ paths and strokes --

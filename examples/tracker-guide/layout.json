@@ -34,8 +34,9 @@
     {"id":"gtry07","name":"Try it yourself","items":["try001","dsc07a","sgn007"]}
   ],
   "shapes": [
-    {"id":"flr001","name":"Floor","shape":"plane","p":[0,0.004,-7.2],"q":[-0.7071,0,0,0.7071],"size":[8,18.4,0.01],"colour":"#252d3a","look":"colour","locked":true},
-    {"id":"wlk001","name":"Walkway","shape":"plane","p":[0,0.006,-7.2],"q":[-0.7071,0,0,0.7071],"size":[1,18.4,0.01],"colour":"#34414f","look":"colour","locked":true},
+    {"id":"flr001","name":"Floor (left)","shape":"plane","p":[-2.25,0.012,-7.2],"q":[-0.7071,0,0,0.7071],"size":[3.5,18.4,0.01],"colour":"#252d3a","look":"colour","locked":true},
+    {"id":"wlk001","name":"Walkway","shape":"plane","p":[0,0.012,-7.2],"q":[-0.7071,0,0,0.7071],"size":[1,18.4,0.01],"colour":"#34414f","look":"colour","locked":true},
+    {"id":"flr002","name":"Floor (right)","shape":"plane","p":[2.25,0.012,-7.2],"q":[-0.7071,0,0,0.7071],"size":[3.5,18.4,0.01],"colour":"#252d3a","look":"colour","locked":true},
     {"id":"dsc000","name":"Disc (welcome)","shape":"cylinder","p":[1.3,0.02,-1],"q":[0,0,0,1],"size":[1.2,0.04,1.2],"colour":"#3d4b60","look":"colour","locked":true},
     {"id":"ds0001","name":"Disc 1","shape":"cylinder","p":[-2.4,0.02,-3.5],"q":[0,0.7071,0,0.7071],"size":[1.6,0.04,1.6],"colour":"#3d4b60","look":"colour","locked":true},
     {"id":"ds0002","name":"Disc 2","shape":"cylinder","p":[2.4,0.02,-5.2],"q":[0,-0.7071,0,0.7071],"size":[2.9,0.04,1.5],"colour":"#3d4b60","look":"colour","locked":true},

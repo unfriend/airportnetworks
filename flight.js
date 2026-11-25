@@ -3,14 +3,18 @@
 // the cell of Back into the cell", scanning real proteins and following their links). The shell's own module, as ships.js
 // is, loaded on demand (HOST.flightLoad, index.html) by a page that offers goggles (the studio's kind 'goggles' shape,
 // tools/studio/engine/e6z_goggles.js). Stage 1: one player in a headset, sitting or standing still. Stage 2 (a shuttle with
-// a screen and a crew shared through the room) is not built; the parts are kept apart for it:
+// a screen and a crew shared through the room): its screen came in v203 as the game's status (status(), drawn by the
+// studio on a GameScreen material); a crew is not built; the parts are kept apart for it:
 //   - the world (WORLD below): built once from the ppicell package's own data file (its src/sets/data.js, read as JSON,
 //     never run), laid out from a fixed seed: the same on every device, no Math.random;
-//   - the rules (RULES): a game's state stepped by an input ({ turn, climb, brake, scan, aim }) and a time step, nothing
+//   - the rules (RULES): a game's state stepped by an input ({ turn, climb, thrust, scan, aim }) and a time step, nothing
 //     else; the drones move by the game's clock alone;
-//   - the input (sense, inputOf): this headset's right controller (a crew's station could give another);
+//   - the input (sense, inputOf): this headset's two controllers (v203: each grip a throttle, both sticks steer, the right
+//     trigger scans; a crew's station could give another);
 //   - the view (V): a cockpit round the wearer's head and the world drawn round it, in the story's scene.
-// Wearing is this device's own: never in state() or collab.state(), nothing sent, no FORMAT change.
+// Wearing is this device's own: never in state() or collab.state(), no room key, no FORMAT change. Since v203 the game's
+// status (status(): its counts and the names of two proteins, never a pose) goes out as the studio's ephemeral effect for
+// the shuttle's game screen (tools/studio/engine/e6z_goggles.js).
 HOST.flight = (function () {
   'use strict';
   const V3 = THREE.Vector3, Q4 = THREE.Quaternion, M4 = THREE.Matrix4;
@@ -26,12 +30,15 @@ HOST.flight = (function () {
   const BUBBLE = { fade0: 0.3, fade1: 0.5, pause: 0.4, lost: 300 };
   // (v198, failing safe: no head pose for lost ms counts as outside the bubble, faded out and paused; a head that is not a
   // number counts as far away; a recentre or any move of the origin takes them off, since the seat is no longer known)
-  // the stick (the spaceship's: a dead zone, then the push's share to a power), and the ship: always forward at cruise m/s
-  // (the right grip brakes it to a stop), turning at most turn deg/s about the vertical, climbing or diving at most climb
-  // m/s; the view stays level (no pitch, no roll, no loops: the owner's rule for the spaceships). Pushed right turns right,
-  // forward dives, back climbs, as the spaceship
+  // the stick (the spaceship's: a dead zone, then the push's share to a power), and the ship. v203 (the owner, 25 November
+  // 2026: "The auto drive in the game is weird, so let's use the grip on both hands for throttle control"): no drive of
+  // its own; each controller's grip is a throttle, the thrust their sum (each squeezed fully half of top m/s, both the
+  // whole; with one controller its grip alone the whole), speeding up at most accel m/s2 and, let go, coasting to a stop
+  // at coast m/s2; either stick steers (the two added): turning at most turn deg/s about the vertical, climbing or diving
+  // at most climb m/s; the view stays level (no pitch, no roll, no loops: the owner's rule for the spaceships). Pushed
+  // right turns right, forward dives, back climbs, as the spaceship
   const STICK = (HOST.ships && HOST.ships.STICK) || { dz: 0.15, expo: 1.5 };
-  const FLY = { cruise: 2.0, accel: 2.5, turn: 50, climb: 1.4, tau: 0.3 };
+  const FLY = { top: 2.0, accel: 2.5, coast: 1.0, turn: 50, climb: 1.4, tau: 0.3 };
   // the cell (m): the plasma membrane's radius, how far out the ship may go; where it starts (looking at the nucleus)
   const CELL = { R: 40, wall: 37, start: [0, 0, 30] };
   // scanning: the protein nearest the nose's line within cone degrees and reach m; following a link: flying within touch
@@ -183,7 +190,7 @@ HOST.flight = (function () {
   // protein scanned last (cur), its next partner (next), which have been seen, and the score. Deterministic: the same
   // world, inputs and steps give the same game
   function newGame(W) {
-    return { t: 0, p: CELL.start.slice(), yaw: 0, v: FLY.cruise, vy: 0, turn: 0, kick: 0, calm: 0, cur: -1, next: -1, seen: new Uint8Array(W.N),
+    return { t: 0, p: CELL.start.slice(), yaw: 0, v: 0, vy: 0, turn: 0, kick: 0, calm: 0, cur: -1, next: -1, seen: new Uint8Array(W.N),
       scanned: 0, followed: 0, bumps: 0, ev: [] };
   }
   // a drone's place at the game's time t, into out
@@ -223,7 +230,7 @@ HOST.flight = (function () {
     G.next = nextOf(W, G, i);
   }
   const _dp = new Float64Array(3);
-  // one step: I = { turn, climb (-1 to 1, shaped), brake (0 to 1), scan (pressed now), aim (a protein or -1) }; dt in s.
+  // one step: I = { turn, climb (-1 to 1, shaped), thrust (0 to 1), scan (pressed now), aim (a protein or -1) }; dt in s.
   // What happened goes into G.ev ('scan', 'follow', 'bump', 'end': no partner left)
   function step(W, G, I, dt) {
     G.ev.length = 0;
@@ -233,8 +240,8 @@ HOST.flight = (function () {
     const e = 1 - Math.exp(-dt / FLY.tau);
     G.turn += (I.turn * FLY.turn * DEG - G.turn) * e;
     G.yaw = wrapA(G.yaw - G.turn * dt);   // (pushed right: turns right)
-    const want = FLY.cruise * (1 - clamp(I.brake, 0, 1));
-    G.v += clamp(want - G.v, -FLY.accel * dt, FLY.accel * dt);
+    const want = FLY.top * clamp(I.thrust || 0, 0, 1);
+    G.v += clamp(want - G.v, -(want < G.v ? FLY.coast : FLY.accel) * dt, FLY.accel * dt);
     G.vy += (I.climb * FLY.climb - G.vy) * e;
     G.kick *= Math.exp(-dt / 0.5);
     const fx = -Math.sin(G.yaw), fz = -Math.cos(G.yaw), v = G.v - G.kick;
@@ -487,18 +494,19 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
   // ---------------------------------------------------------------------------------------------- wearing
   // S: worn here (on), by which page (owner) and its goggles (id), the anchor where they went on (in the renderer's space:
   // the head's place and its level turn), the fade and pause of the bubble, the game (G) and this frame's input (I)
-  const S = { on: false, want: '', owner: '', id: '', page: false, a: new V3(), ayaw: 0, aq: new Q4(), fade: 0, away: 0, paused: false, G: null, I: { turn: 0, climb: 0, brake: 0, scan: false, aim: -1 },
+  const S = { on: false, want: '', owner: '', id: '', page: false, a: new V3(), ayaw: 0, aq: new Q4(), fade: 0, away: 0, paused: false, G: null, I: { turn: 0, climb: 0, thrust: 0, scan: false, aim: -1 },
     trigWas: true, grips: new Map(), t: 0, sess: null, aimed: -1, saidPause: 0, poseAt: 0, ref: null };
   const HEAD = { ok: false, p: new V3(), q: new Q4() };
-  const CTRL = { ok: false, p: new V3(), sx: 0, sy: 0, grip: 0, trig: false };
+  const CTRL = { ok: false, p: new V3(), sx: 0, sy: 0, grip: 0, trig: false, left: false, lx: 0, ly: 0, lgrip: 0 };
   const immersive = () => !!HOST.session && (HOST.mode === 'immersive-vr' || HOST.mode === 'immersive-ar');
-  function rightSrc() {
+  function handSrc(h) {
     let list = null;
     try { list = HOST.session ? HOST.session.inputSources : null; } catch (e) { /* gone */ }
     if (!list) return null;
-    for (let i = 0; i < list.length; i++) { const x = list[i]; if (x && x.handedness === 'right' && !x.hand && x.gamepad && x.targetRayMode === 'tracked-pointer') return x; }
+    for (let i = 0; i < list.length; i++) { const x = list[i]; if (x && x.handedness === h && !x.hand && x.gamepad && x.targetRayMode === 'tracked-pointer') return x; }
     return null;
   }
+  const rightSrc = () => handSrc('right');
   // why they cannot go on here ('' they can)
   function whyNot() {
     if (!immersive()) return 'Only in a headset (VR or AR).';
@@ -508,7 +516,7 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     if (!rightSrc()) return 'They need a controller in your right hand: the right stick steers.';
     return '';
   }
-  const SAY_ON = 'Right stick: turn, climb and dive. Trigger: scan the protein in your sights. Grip: brake. To take them off, grip near your face and pull away.';
+  const SAY_ON = 'Squeeze a grip to fly (both grips: full speed; let go to coast to a stop). Either stick: turn, climb and dive. Right trigger: scan the protein in your sights. To take them off, grip near your face and pull away.';
   // put on (at the next frame, where the head is known): o = { owner, id }; false with a notice when they cannot go on
   function wear(o) {
     o = o || {};
@@ -580,7 +588,7 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
   const DBG = { in: null, head: new V3(), shift: false, lost: false };
   const shape = a => { a = Number.isFinite(a) ? clamp(a, -1, 1) : 0; const m = Math.abs(a); return m > STICK.dz ? Math.sign(a) * Math.pow((m - STICK.dz) / (1 - STICK.dz), STICK.expo) : 0; };
   function sense(f, ref) {
-    HEAD.ok = false; CTRL.ok = false; CTRL.sx = CTRL.sy = CTRL.grip = 0; CTRL.trig = false;
+    HEAD.ok = false; CTRL.ok = false; CTRL.sx = CTRL.sy = CTRL.grip = 0; CTRL.trig = false; CTRL.left = false; CTRL.lx = CTRL.ly = CTRL.lgrip = 0;
     let vp = null;
     try { vp = f.getViewerPose(ref); } catch (e) { /* not this frame */ }
     if (vp && !DBG.lost) { const p = vp.transform.position, o = vp.transform.orientation; HEAD.p.set(p.x, p.y, p.z); HEAD.q.set(o.x, o.y, o.z, o.w); HEAD.ok = true; S.poseAt = S.t; }
@@ -590,9 +598,18 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
       const gp = src.gamepad, b = gp.buttons || [], a = gp.axes || [], i = a.length >= 4 ? 2 : 0;
       CTRL.sx = +a[i] || 0; CTRL.sy = +a[i + 1] || 0;
       const gs = S.grips.get(src);
-      CTRL.grip = gs && gs.fresh ? 0 : b[1] ? +b[1].value || (b[1].pressed ? 1 : 0) : 0;   // (the grip that carried them to the face brakes only once let go)
+      CTRL.grip = gs && gs.fresh ? 0 : b[1] ? +b[1].value || (b[1].pressed ? 1 : 0) : 0;   // (the grip that carried them to the face is a throttle only once let go)
       CTRL.trig = !!(b[0] && (b[0].pressed || b[0].value > 0.5));
       CTRL.ok = true;
+    }
+    // (v203) the left controller: its stick steers too, its grip is the other throttle
+    const ls = handSrc('left');
+    if (ls) {
+      const gp = ls.gamepad, b = gp.buttons || [], a = gp.axes || [], i = a.length >= 4 ? 2 : 0;
+      CTRL.lx = +a[i] || 0; CTRL.ly = +a[i + 1] || 0;
+      const gs = S.grips.get(ls);
+      CTRL.lgrip = gs && gs.fresh ? 0 : b[1] ? +b[1].value || (b[1].pressed ? 1 : 0) : 0;
+      CTRL.left = true;
     }
     // the take-off gesture: either controller's grip pressed near the face, pulled away with it held
     if (!S.on || !HEAD.ok) return;
@@ -610,15 +627,17 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
       try { pose = f.getPose(x.gripSpace || x.targetRaySpace, ref); } catch (e) { /* not tracked */ }
       if (!pose) continue;
       const p = pose.transform.position, d = Math.hypot(p.x - HEAD.p.x, p.y - HEAD.p.y, p.z - HEAD.p.z);
-      if (!st.arm) { if (d <= WEAR.on) st.arm = true; else st.fresh = true; continue; }   // (a grip pressed away from the face is a brake, not the gesture)
+      if (!st.arm) { if (d <= WEAR.on) st.arm = true; else st.fresh = true; continue; }   // (a grip pressed away from the face is a throttle, not the gesture)
       if (d > WEAR.off) { off('gesture'); return; }
     }
   }
-  // this frame's input from the right controller (or a test's), and where the nose points
+  // this frame's input from the two controllers (or a test's: { x, y, grip, trig, lx, ly, lgrip, one }), and where the nose
+  // points: the sticks added (each shaped, the sum clamped), the grips' sum the thrust (with one controller, its grip alone)
+  const thrustOf = (r, l, two) => clamp(two ? (clamp(r, 0, 1) + clamp(l, 0, 1)) / 2 : clamp(r, 0, 1) + clamp(l, 0, 1), 0, 1);
   function inputOf() {
     const I = S.I, T = DBG.in;
-    if (T) { I.turn = shape(T.x || 0); I.climb = shape(T.y || 0); I.brake = clamp(T.grip || 0, 0, 1); I.scan = !!T.trig && !S.trigWas; S.trigWas = !!T.trig; }
-    else { I.turn = shape(CTRL.sx); I.climb = shape(CTRL.sy); I.brake = clamp(CTRL.grip, 0, 1); I.scan = CTRL.trig && !S.trigWas; S.trigWas = CTRL.trig; }
+    if (T) { I.turn = clamp(shape(T.x || 0) + shape(T.lx || 0), -1, 1); I.climb = clamp(shape(T.y || 0) + shape(T.ly || 0), -1, 1); I.thrust = thrustOf(T.grip || 0, T.lgrip || 0, !T.one); I.scan = !!T.trig && !S.trigWas; S.trigWas = !!T.trig; }
+    else { I.turn = clamp(shape(CTRL.sx) + shape(CTRL.lx), -1, 1); I.climb = clamp(shape(CTRL.sy) + shape(CTRL.ly), -1, 1); I.thrust = thrustOf(CTRL.grip, CTRL.lgrip, CTRL.ok && CTRL.left); I.scan = CTRL.trig && !S.trigWas; S.trigWas = CTRL.trig; }
     const G = S.G;
     _d3b[0] = -Math.sin(G.yaw); _d3b[1] = 0; _d3b[2] = -Math.cos(G.yaw);
     I.aim = aimAt(D.W, G.p, _d3b);
@@ -800,7 +819,7 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
       lines = [
         'Scanned ' + G.scanned + '   Links followed ' + G.followed + '   Drones hit ' + G.bumps + (S.paused ? '   PAUSED' : ''),
         a ? a.name + ' · ' + a.place : 'Point the nose at a protein and pull the trigger to scan it.',
-        a ? nOf(a.links, 'link') + ' in this map · ' + a.placed + ' to proteins with a place · ' + a.other + ' of them elsewhere in the cell' : 'Right stick: turn, climb, dive. Grip: brake.',
+        a ? nOf(a.links, 'link') + ' in this map · ' + a.placed + ' to proteins with a place · ' + a.other + ' of them elsewhere in the cell' : 'Grips: throttle (both: full speed). Sticks: turn, climb, dive.',
         nx ? 'Next: ' + nx.name + ' in ' + nx.place + ', ' + dn + ' m. Fly to the green light.' : a ? 'No partner left to visit from here: scan another protein.' : W.N.toLocaleString('en-GB') + ' proteins with a place in this map. Fly into the cell.',
       ];
     }
@@ -816,9 +835,11 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
 
   // ---------------------------------------------------------------------------------------------- the shell's side
   // the right controller while they are on belongs to the game (HOST.inputsGuard stops its presses; the spaceship's claim
-  // kept beside it, as the guard holds one test)
+  // kept beside it, as the guard holds one test); v203: the left controller's grip too (a throttle: it grabs nothing, moves
+  // no panel, circle or menu), its trigger left to the menu
   const claims = x => !!(S.on && x && x.handedness === 'right' && !x.hand && x.gamepad);
-  if (HOST.inputsGuard && HOST.inputsGuard.claim) HOST.inputsGuard.claim(x => claims(x) || !!(HOST.ships && HOST.ships.claims && HOST.ships.claims(x)));
+  const claimsGrip = x => !!(S.on && x && !x.hand && x.gamepad);
+  if (HOST.inputsGuard && HOST.inputsGuard.claim) HOST.inputsGuard.claim((x, kind) => claims(x) || (kind === 'squeeze' && claimsGrip(x)) || !!(HOST.ships && HOST.ships.claims && HOST.ships.claims(x)));
   // a session that ends takes them off
   function watch(s) {
     if (s === S.sess) return;
@@ -838,6 +859,15 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
     shown: () => S.on && S.fade > 0.002, fade: () => (S.on ? S.fade : 0), paused: () => S.paused,
     frame(s, t, f) { try { frame(s, t, f); } catch (e) { console.warn('VR goggles:', e); } },
     pageFrame(cam, dt) { try { pageFrame(cam, dt); } catch (e) { console.warn('VR goggles:', e); } },
+    // (v203) the game as the shuttle's screen shows it to everyone here: its counts, the protein scanned last and its place,
+    // the next partner and how far (m); null while off or loading (e6z_goggles.js sends it as an effect)
+    status() {
+      const W = D.W, G = S.G;
+      if (!S.on || !W || !G) return null;
+      const a = about(W, G.cur), nx = G.next >= 0 ? about(W, G.next) : null;
+      return { paused: S.paused, scanned: G.scanned, followed: G.followed, bumps: G.bumps, cur: a ? a.name : '', place: a ? a.place : '', next: nx ? nx.name : '',
+        nextPlace: nx ? nx.place : '', dist: nx ? Math.round(Math.hypot(W.pos[G.next * 3] - G.p[0], W.pos[G.next * 3 + 1] - G.p[1], W.pos[G.next * 3 + 2] - G.p[2])) : -1, v: Math.round(G.v * 10) / 10 };
+    },
     line() { return S.on ? 'on' + (S.paused ? ', paused' : '') + (S.G ? ' · scanned ' + S.G.scanned + ', links ' + S.G.followed : ' · loading') + ' · ' + Math.round(S.away * 100) + ' cm from the seat' : 'off'; },
     // for tests: where things stand
     state() {
@@ -845,7 +875,7 @@ void main() { if (dth() >= uFade) discard; gl_FragColor = vec4(texture2D(map, vU
       return { on: S.on, want: S.want, owner: S.owner, id: S.id, page: S.page, fade: S.fade, away: S.away, paused: S.paused, data: D.state, err: D.err,
         world: D.W ? { N: D.W.N, links: D.W.nb.length / 2, drones: D.W.drones.length, dots: D.dots ? D.dots.length / 4 : 0 } : null,
         game: G ? { t: G.t, p: G.p.slice(), yaw: G.yaw, v: G.v, cur: G.cur, next: G.next, curName: G.cur >= 0 ? D.W.sym[D.W.ids[G.cur]] : '', nextName: G.next >= 0 ? D.W.sym[D.W.ids[G.next]] : '', scanned: G.scanned, followed: G.followed, bumps: G.bumps } : null,
-        aim: S.I.aim, grip: CTRL.grip, drawn: V.made ? { root: V.root.visible, inScene: !!(V.root.parent && V.root.parent === storyScene()), prot: V.prot ? V.prot.geometry.attributes.position.count : 0, marks: V.marks.geometry.drawRange.count, links: V.links.geometry.drawRange.count / 2, drones: V.drones.count, guide: V.guide.visible, dash: V.dash.sig } : null };
+        aim: S.I.aim, grip: CTRL.grip, lgrip: CTRL.lgrip, thrust: S.I.thrust, drawn: V.made ? { root: V.root.visible, inScene: !!(V.root.parent && V.root.parent === storyScene()), prot: V.prot ? V.prot.geometry.attributes.position.count : 0, marks: V.marks.geometry.drawRange.count, links: V.links.geometry.drawRange.count / 2, drones: V.drones.count, guide: V.guide.visible, dash: V.dash.sig } : null };
     },
     debug: {
       // a page's preview: worn with the page's camera as the head (no headset)

@@ -1,0 +1,23 @@
+{
+  "version": "networks-v203",
+  "date": "2026-11-25",
+  "new": [
+    "Studio tour: every table and plinth now holds what stands on it (the vases, bowls, cups, buttons, the music box, the shelf of motions), the Sequences stand's block is gone (each light on a post), the easel's front legs splay outwards and the keyboard faces the pad.",
+    "Studio tour and tracker guide: no more flickering floor strips. The strips are laid side by side, never one over another, and sit higher above the stage's floor; the shuttle's floor no longer flickers along its foot.",
+    "Screens: the player's bar and card stay still as you move your head (their pictures are now smoothed for distance).",
+    "VR goggles: no auto drive. Each grip is a throttle (one squeezed: half speed, both: full speed; let go and you coast to a stop) and either stick steers.",
+    "The shuttle has its game screen: everyone at the studio circle sees who is flying, what they scanned, the links they followed and where to next.",
+    "From v202, v201 and v200, not yet tried: sharp text in VR, the smooth turn, a studio character worn with any mix of devices, the tracker guide."
+  ],
+  "test": [
+    "Studio tour in VR: walk the hall. Do all the tables fit, and is any floor strip still flickering (the band ends, by the shuttle)?",
+    "Screens stand: press play and point at the bar. Any shimmer left?",
+    "Put on the goggles: fly with the grips (one, then both) and steer with either stick. Is the speed right? Can you still open the menu with the left trigger?",
+    "With a second headset or a laptop at the same studio circle: does the shuttle's screen show the flight?",
+    "v202: is VR text as sharp as AR now? Turn smoothly with the right stick. v201 and v200: a character worn with a few mixes; the tracker guide's signs."
+  ],
+  "untested": [
+    "All of this on a headset: the flicker fix (depth precision can only be judged there), the bar's shimmer, the throttles' feel, the left grip held back from the menu and the circles while flying, the screen seen from another device in a real room.",
+    "Tracked hands cannot wear the goggles (controllers are needed, as before). v202's sharp text in VR and smooth turn; v201 and v200 with real trackers."
+  ]
+}

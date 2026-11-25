@@ -38,7 +38,9 @@ entrance facing down it (-z).
   in and sized as `fit` says, then the solved bones) and a countdown board in its pucks model; then a line from each puck to
   the part `match` tied it to (`ln_<id>`, lit with its puck in `match`'s order, gone as the character starts to follow).
 - `layout.mjs`: the signs' words (`signs()`), the stands' places and `layout.json` (`makeLayout`), every record in the
-  studio's own shape; the sizes come from the lining up (`GUIDE.info()`).
+  studio's own shape; the sizes come from the lining up (`GUIDE.info()`). The floor (v203) is three planes side by side
+  (left, walkway, right), 12 mm up, the pads 24 mm: the tour's `checks.mjs` fails the build when two faces facing up
+  overlap less than 1 cm apart (the walkway lay 2 mm over the floor and flickered).
 - `script.json`: the spoken lines. `voice.mjs` speaks them with Kokoro (`af_heart`, as `tools/voice/README.md` sets it up)
   into `voice/NN.mp3`; `make.mjs` then adds each as `sounds/voice-NN.mp3`, with a teal pad on the floor at each stand whose
   cube (each person's own) plays it once as you step on, and a press on each sign (for you alone) that plays it again.

@@ -884,7 +884,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 202, id: 'ab0b6cf12ae996e8', format: 'networks-56' },
+  shell: { n: 203, id: 'fbb13bdd95e1f13c', format: 'networks-56' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3253,8 +3253,9 @@ HOST.inputsGuard = (function () {
   const G = { s: null, seen: [], pend: null, known: new Set(), src: new Map(), watched: new WeakSet(), frames: 0, fixes: 0, hidden: false, visAt: 0, missed: 0, synth: 0, stray: 0, strayAt: 0, ms: 300, late: 250, stopped: 0,
     claim: null, claimed: 0 };
   // a source the shell has claimed for itself (the spaceship's right controller, ships.js): its presses reach neither
-  // three.js (the story) nor the shell's other listeners; nothing is given again for it
-  const claimed = x => { try { return !!(G.claim && x && G.claim(x)); } catch (e) { return false; } };
+  // three.js (the story) nor the shell's other listeners; nothing is given again for it. kind ('select' or 'squeeze'):
+  // a claim may take one button of a controller alone (v203: the VR goggles' left grip, a throttle; flight.js)
+  const claimed = (x, kind) => { try { return !!(G.claim && x && G.claim(x, kind)); } catch (e) { return false; } };
   const same = (a, b) => a.length === b.length && a.every((x, i) => x === b[i]);
   const log = (ev, o) => { try { if (HOST.collab && HOST.collab.log) HOST.collab.log(ev, o); } catch (e) { /* no log */ } };
   const pad = x => !!(x && !x.hand && x.targetRayMode === 'tracked-pointer' && x.gamepad && x.gamepad.buttons);
@@ -3328,7 +3329,7 @@ HOST.inputsGuard = (function () {
           // (claimed: heard here as ever, so its presses never count as missed, then stopped; but a press whose start
           // reached three.js and the shell before the claim (the trigger or grip that launched the ship) gets its end
           // through, or the story's controller would stay pressed or holding)
-          const mine = claimed(e.inputSource), n0 = G.stopped;
+          const mine = claimed(e.inputSource, KIND[i][0]), n0 = G.stopped;
           if (!e.synthetic) heard(e, type, i, start, end);
           const S = heardFor(s, e.inputSource), K = S && S.k[i];
           if (K && type === start) { if (G.stopped === n0) K.pass = !mine; else if (K.syn !== 2) K.pass = false; }   // (stopped as a second start of a given press: that one passed)
@@ -3396,9 +3397,9 @@ HOST.inputsGuard = (function () {
     const t = performance.now(), vis = s.visibilityState === 'visible';
     for (const x of now) {
       if (!pad(x)) continue;
-      const S = stateOf(x, 'event'), b = x.gamepad.buttons, cl = claimed(x);
+      const S = stateOf(x, 'event'), b = x.gamepad.buttons;
       for (let i = 0; i < KIND.length; i++) {
-        const K = S.k[i], bt = b[KIND[i][1]], down = !!(bt && bt.pressed);
+        const K = S.k[i], bt = b[KIND[i][1]], down = !!(bt && bt.pressed), cl = claimed(x, KIND[i][0]);
         if (cl) { K.wait = false; if (K.armed) disarm(x, S, i, 'claimed'); }   // (claimed: no press is missed, none given)
         if (down && !K.down && vis && !cl) {
           // (the session's own event comes with the press, or up to a frame before the gamepad shows it down)

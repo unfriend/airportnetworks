@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { STEP, rect, shapeTops, flatClashes } from '../tour/checks.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 export const SCRIPT = JSON.parse(fs.readFileSync(path.join(HERE, 'script.json'), 'utf8')).lines;
@@ -19,6 +20,7 @@ const D2R = Math.PI / 180;
 const yawQ = a => [0, r4(Math.sin(a / 2)), 0, r4(Math.cos(a / 2))];
 const FLAT = [-0.7071, 0, 0, 0.7071];   // (a plane laid on the floor, facing up)
 const Z0 = -3.5, PITCH = 3.4, STAGGER = 1.7, END = -14.6;
+const FLOOR_Y = 0.012, PAD_Y = 0.024;   // (v203: the floor's top and the pads', a centimetre apart: checks.mjs)
 
 // ------------------------------------------------------------------ the words --
 // n, title, what (paragraphs: the key points and exact numbers), here (what to look at)
@@ -91,15 +93,17 @@ export function makeLayout(parts, files, about) {
     if (!f) return null;
     const sid = 'vo' + String(n).padStart(4, '0');
     sounds.push({ id: sid, name: `Voice ${n}: ${SCRIPT[n].title}`.slice(0, 60), file: f, p: at.map(r3), vol: 1, r: 2.5, loop: false, start: 'always' });
-    shape('pv' + String(n).padStart(4, '0'), `Pad: hear stand ${n}`, 'plane', [pad[0], 0.01, pad[2]], [side[0], side[1], 0.01], '#178f86', { q: FLAT, locked: true });
+    shape('pv' + String(n).padStart(4, '0'), `Pad: hear stand ${n}`, 'plane', [pad[0], PAD_Y, pad[2]], [side[0], side[1], 0.01], '#178f86', { q: FLAT, locked: true });
     cubes.push({ id: 'cv' + String(n).padStart(4, '0'), name: `Speaks: stand ${n}`, p: [r3(pad[0]), 1.1, r3(pad[2])], yaw: 0, size: [r3(side[0]), 2.2, r3(side[1])], mode: 'while', show: [], hide: [],
       plays: [{ on: sid, what: 'sound', how: 'once' }] });
     return sid;
   };
 
   // ---- the floor and the walkway (locked)
-  shape('flr001', 'Floor', 'plane', [0, 0.004, -7.2], [8, 18.4, 0.01], '#252d3a', { q: FLAT, locked: true });
-  shape('wlk001', 'Walkway', 'plane', [0, 0.006, -7.2], [1.0, 18.4, 0.01], '#34414f', { q: FLAT, locked: true });
+  // (v203: side by side, never one over another, 12 mm over the stage's floor: planes a few millimetres apart flickered)
+  shape('flr001', 'Floor (left)', 'plane', [-2.25, FLOOR_Y, -7.2], [3.5, 18.4, 0.01], '#252d3a', { q: FLAT, locked: true });
+  shape('wlk001', 'Walkway', 'plane', [0, FLOOR_Y, -7.2], [1.0, 18.4, 0.01], '#34414f', { q: FLAT, locked: true });
+  shape('flr002', 'Floor (right)', 'plane', [2.25, FLOOR_Y, -7.2], [3.5, 18.4, 0.01], '#252d3a', { q: FLAT, locked: true });
 
   // ---- the welcome: the robot waving on the right, its sign on the left, both turned to you
   const v0 = speak(0, [1.3, 1.6, -1.0], [0, 0, -0.9], [1.0, 0.8]);
@@ -138,6 +142,8 @@ export function makeLayout(parts, files, about) {
   for (const c of cubes) for (const e of c.plays || []) if (!ids.has(e.on)) errors.push(`${c.id}: names ${e.on}, not in the scene`);
   for (const g of groups) for (const k of g.items) if (!ids.has(k)) errors.push(`${g.id}: names ${k}, not in the scene`);
   for (const s of sounds) if (!have.has(s.file)) errors.push(`${s.id}: ${s.file} is not in the scene`);
+  // (v203) no two faces facing up overlap closer than a centimetre in height (the stage's floor at 0 too)
+  errors.push(...flatClashes([{ id: 'the stage\'s floor', y: 0, poly: rect(0, -7, 200, 200) }, ...shapeTops(shapes)], STEP));
   const layout = { studio: 1, scene: 'tracker-guide', saved: '2026-11-25T12:00:00.000Z', objects, cubes, sounds, cuts: [], groups, shapes, empties: [], sequences: [], screens: [], paintings: [],
     settings: { others: 'shown', real: 'device', grid: 'hidden' } };
   return { layout, errors, partOf };

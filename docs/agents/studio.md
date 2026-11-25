@@ -443,7 +443,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   moment about twice a second (0.25 s off, 0.35 s in a headset) and working out the end of an entry alike; `sync: 'own'`
   each person's own. The bar under it (previous, play, next, time, seek, the entry and *n of m*, volume, *Everyone* or
   *Just you*) shows when pointed at, or while editing with it selected, to those allowed: `ctl: 'any'` lets anyone use it
-  without editing, a visitor too, unless the circle's story is locked. A press writes `play` with no Undo step, and
+  without editing, a visitor too, unless the circle's story is locked. The bar's and the card's pictures are mipmapped
+  (v203, `scrTex`: unmipmapped, the bar's 1,500 px over 0.9 m sparkled as the head moved; a video's picture is not, as
+  ever). A press writes `play` with no Undo step, and
   `layout.json` keeps no `play` (a scene opens paused at its first entry). Hidden by a cube or not shown here: paused and
   silent, back at the play state's moment when shown. At most 2 playing videos in a headset, 4 on a page (the nearest).
   The relay lists `.mp4 .m4v .mov .mkv` as kind `video` (`.webm` stays audio; a screen takes either); the Upload pane puts
@@ -1399,11 +1401,26 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   output page's streams and loops, editing itself), and 26 stands in a teaching order (the basics, what reacts, what
   moves); a cube's stand has a locked pad on the floor where its cube stands. At the end a shuttle (one object, `shtl01`,
   and the group *Shuttle*) whose cabin is a personal trigger cube: inside it the hall goes and a world round the shuttle
-  comes (a dome drawn from inside, 4.8 m round, no stand within it), with the VR goggles on a shelf and a blank panel for
-  the game screen to come. All our own and seeded; about 1.75 MB, 11,000 triangles and 72 draws of models as placed plus
-  66 shapes. No studio code changed for it. `node tools/smoke.mjs --only 'studio tour'`. Untested on a headset: the walk
-  itself (its length, about 35 m, with the sticks), the signs' reading distance, the shuttle's cube and world as you sit
-  inside, the goggles taken from its shelf, the sounds' levels (unheard).
+  comes (a dome drawn from inside, 4.8 m round, no stand within it), with the VR goggles on a shelf and the game screen
+  (v203, below). All our own and seeded; about 1.8 MB, 11,200 triangles and 74 draws of models as placed plus 68 shapes.
+  `node tools/smoke.mjs --only 'studio tour'`. Untested on a headset: the walk itself (its length, about 35 m, with the
+  sticks), the signs' reading distance, the shuttle's cube and world as you sit inside, the goggles taken from its shelf,
+  the sounds' levels (unheard).
+  - v203 (the owner's headset notes of 25 November 2026): every table sized to what stands on it (a table's size is
+    [along the hall, height, across], its own x along the hall); the Sequences stand's block gone (a post under each
+    light); the easel's front legs splayed outwards; the keyboard along the hall. The floor is tiles side by side
+    (`layout.mjs` `FLOOR`, its tops 12 mm up; pads 24 mm), the shuttle's floor inside its hull. The build fails
+    (`tools/studio/tour/checks.mjs`, also the tracker guide's) when anything overhangs its table (2 cm in at least) or
+    two faces facing up (the floor's tiles, the stage's floor at 0, pads, tops of boxes and cylinders) overlap less than
+    1 cm apart in height: such pairs flickered in a headset.
+- **Game screens** (v203). A model's material named `GameScreen` (the studio tour's `models/game-screen.glb` on the
+  shuttle's front wall; any model of the owner's may have one) shows the VR goggles' flight (`e6z_goggles.js`,
+  `gogScreens`): this device's own while it wears them, else the newest flight heard at this station, else *Nobody is
+  flying now* and the last flight. The wearer's device sends the game's status (`HOST.flight.status()`: counts, the
+  protein scanned last and the next with their places, how far; never a pose) as the ephemeral effect `gog`, on a change
+  at most twice a second and every 3 s while on, `{ on: 0 }` as they come off; one silent for 8 s is gone. Never in
+  `state()` or the layout; older versions ignore the effect (no FORMAT bump). One mipmapped 1,024 x 512 picture on this
+  device for every such material, drawn again only when its words change. `STUDIO.goggles().screen` for tests.
 - **The tracker guide (example scene)** (v200; `tools/studio/tracker-guide/README.md`). `examples/tracker-guide/`, made by
   `node tools/studio/tracker-guide/make.mjs` (`--check`; never edit it by hand; headless Chromium loading the XP room's
   `kit.js`, the tour's `parts.js` for its signs, `ik.js` and `bodies.js`): a walkway with the welcome, six stands of ways

@@ -2026,4 +2026,5 @@ function studioEffect(type, data, by) {
   if (type === 'beh') behaveHeard(data, by);   // (a behaviour's driver's samples: e6g_behave.js)
   else if (type === 'anim') animHeard(data, by);   // (a timeline's hold at this circle: e6m_anim.js)
   else if (type === 'send') { loopHeard(data); sendHeard(data, by); }   // (and recorded as an event on the beat, v158: e6w_loops.js)   // (a person walked into a cube or pointed at an item with sends: only the output page listens, e6u_send.js)
+  else if (type === 'gog') gogHeard(data, by);   // (v203: someone's VR goggles' flight, for the game screens here: e6z_goggles.js)
 }

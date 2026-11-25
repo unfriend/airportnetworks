@@ -74,14 +74,14 @@
   TOUR.signs = list => { for (const s of list) signPart(s); return list.length; };
 
   // ------------------------------------------------------------------ the hall --
-  // A floor 7.6 m wide from z = +2.5 to -38.5 (its top 4 mm up, over the stage's floor), a pale walkway down the middle,
-  // a band of each section's colour along its edges where that section's stands are, and walls 3.2 m high at x = +-3.8
-  // and at both ends; no roof. One lit draw.
+  // A floor 7.6 m wide from z = +2.5 to -38.5, a pale walkway down the middle, a band of each section's colour along its
+  // edges where that section's stands are, and walls 3.2 m high at x = +-3.8 and at both ends; no roof. One lit draw.
+  // (v203) The floor is tiles side by side (layout.mjs FLOOR: TOUR.floor), never one over another, their tops all
+  // TOUR.floorY (12 mm) over the stage's floor: faces that overlap a few millimetres apart flickered in a headset.
   XP.part('hall', { file: 'models/hall.glb', view: { dir: [0.6, 0.9, 0.5] }, build() {
-    const L = [], X = 3.8, Z0 = 2.5, Z1 = -38.5, H = 3.2, len = Z0 - Z1, mz = (Z0 + Z1) / 2;
-    L.push(box(2 * X, 0.024, len, '#3b4350', 0, -0.008, mz));
-    L.push(box(2.6, 0.004, len - 1, '#59626f', 0, 0.006, mz - 0.5));
-    for (const [z0, z1, c] of TOUR.bands || []) for (const sx of [-1, 1]) L.push(box(0.5, 0.004, z0 - z1, TOUR.SECTION[c], sx * (X - 0.4), 0.006, (z0 + z1) / 2));
+    const L = [], X = 3.8, Z0 = 2.5, Z1 = -38.5, H = 3.2, len = Z0 - Z1, mz = (Z0 + Z1) / 2, top = TOUR.floorY || 0.012, bot = -0.02;
+    const C = { floor: '#3b4350', walk: '#59626f' };
+    for (const [x0, x1, z0, z1, c] of TOUR.floor || []) L.push(box(x1 - x0, top - bot, z0 - z1, C[c] || TOUR.SECTION[c], (x0 + x1) / 2, (top + bot) / 2, (z0 + z1) / 2));
     for (const sx of [-1, 1]) {
       L.push(box(0.16, H, len, '#aab3c0', sx * (X + 0.08), H / 2, mz));
       L.push(box(0.02, 0.24, len, '#7c8698', sx * (X - 0.01), 0.12, mz));
@@ -197,8 +197,10 @@
     const W = '#8a5a34', L = [
       box(w + 0.08, 0.04, 0.03, W, 0, 0.72 + h / 2 + 0.01, 0.01, -8 * D2R), box(w + 0.08, 0.04, 0.03, W, 0, 0.72 - h / 2 - 0.01, 0.04, -8 * D2R),
       box(0.04, h, 0.03, W, -w / 2 - 0.02, 0.72, 0.025, -8 * D2R), box(0.04, h, 0.03, W, w / 2 + 0.02, 0.72, 0.025, -8 * D2R),
-      box(0.04, 1.0, 0.04, W, -0.24, 0.5, 0.05, -6 * D2R, 0, 6 * D2R), box(0.04, 1.0, 0.04, W, 0.24, 0.5, 0.05, -6 * D2R, 0, -6 * D2R), box(0.04, 1.0, 0.04, W, 0, 0.48, -0.2, 16 * D2R),
-      box(0.62, 0.03, 0.06, W, 0, 0.49, 0.06)];
+      // (v203: the front legs splay outwards, their feet wider than their tops, as an easel's do)
+      // (their tops where they were, beside the frame; the shelf under the picture reaches both)
+      box(0.04, 1.0, 0.04, W, -0.34, 0.5, 0.05, -6 * D2R, 0, -6 * D2R), box(0.04, 1.0, 0.04, W, 0.34, 0.5, 0.05, -6 * D2R, 0, 6 * D2R), box(0.04, 1.0, 0.04, W, 0, 0.48, -0.2, 16 * D2R),
+      box(0.72, 0.03, 0.06, W, 0, 0.49, 0.06)];
     return { root: XP.group('easel', P, mesh(L, lit(), 'frame')), clips: [] };
   } });
   // a low wall, 1.6 m wide, 1 m high, 12 cm thick (a cut-out opens a window in it)
@@ -216,7 +218,8 @@
   XP.part('shuttle', { file: 'models/shuttle.glb', view: { dir: [0.8, 0.45, 0.9] }, build() {
     const L = [], C = { hull: '#dfe4eb', in: '#7d889a', stripe: '#ff8a3d', floor: '#3a4250', bench: '#3f6fc0', dark: '#2a303b', glow: '#ff7a2a', metal: '#8a95a8' };
     const X = 1.4, Z = 1.9, H = 2.5, t = 0.08;
-    L.push(box(2 * X, 0.06, 2 * Z, C.floor, 0, 0.03, 0));
+    // (the floor a centimetre inside the hull's outer faces: their faces in one plane flickered along the foot, v203)
+    L.push(box(2 * X - 0.02, 0.06, 2 * Z - 0.02, C.floor, 0, 0.03, 0));
     L.push(box(2 * X + 0.1, 0.12, 2 * Z + 0.1, C.dark, 0, H + 0.06, 0));
     // the sides: below and above the windows, pillars between (windows z -1.5..-0.5 and 0..1, y 1.05..1.65)
     for (const sx of [-1, 1]) {
@@ -250,6 +253,29 @@
       L.push(at(XP.cyl(0.28, 0.32, 0.6, 12), C.metal, sx * (X + 0.25), 0.9, Z - 0.2, Math.PI / 2), at(XP.cyl(0.22, 0.22, 0.02, 12), C.glow, sx * (X + 0.25), 0.9, Z + 0.11, Math.PI / 2));
     }
     return { root: XP.group('shuttle', mesh(L, lit(), 'shuttle')), clips: [] };
+  } });
+
+  // ------------------------------------------------------------------ the game's screen --
+  // (v203; the owner, 25 November 2026: "why don't we have a screen here?") The shuttle's game screen: a dark frame on the
+  // cabin's front wall (its back at z = 0) and in it a screen 1.1 x 0.55 m, its middle 1.55 m up, whose material is named
+  // GameScreen: the studio draws the VR goggles' flight on it as it runs, for everyone here (e6z_goggles.js). In the file
+  // its picture is the card for nobody flying, so any viewer shows something sensible.
+  TOUR.gameCard = () => {
+    const { cv, g } = XP.canvas(1024, 512);
+    g.fillStyle = XP.grad(g, 0, 0, 1024, 512, [[0, '#1b2740'], [1, '#0a101c']]); g.fillRect(0, 0, 1024, 512);
+    g.fillStyle = TOUR.SECTION.shuttle; g.fillRect(0, 0, 1024, 70);
+    XP.text(g, 'VR goggles: the flight through the cell', 32, 47, { size: 34, weight: 'bold', color: '#ffffff', font: XP.F.title });
+    XP.text(g, 'Nobody is flying now.', 48, 190, { size: 50, weight: 'bold', color: '#f2f6fc', font: XP.F.ui });
+    XP.text(g, 'Put on the goggles from the shelf:', 48, 290, { size: 36, color: '#b8c6dc', font: XP.F.ui });
+    XP.text(g, 'your flight shows here for everyone in the room.', 48, 340, { size: 36, color: '#b8c6dc', font: XP.F.ui });
+    return cv;
+  };
+  XP.part('game-screen', { file: 'models/game-screen.glb', view: { dir: [0.15, 0.1, 1] }, build() {
+    const w = 1.1, h = 0.55, y = 1.55;
+    const frame = mesh([box(w + 0.08, h + 0.08, 0.04, '#20262f', 0, y, 0.02)], lit(), 'frame');
+    const pic = new T.PlaneGeometry(w, h); pic.translate(0, y, 0.045);
+    const mat = new T.MeshBasicMaterial({ map: XP.tex(TOUR.gameCard()) }); mat.name = 'GameScreen';
+    return { root: XP.group('game-screen', frame, XP.mesh(pic, mat, 'GameScreen')), clips: [] };
   } });
 
   // ------------------------------------------------------------------ somewhere else --
@@ -292,7 +318,7 @@
       push(pt(a0, 0), ground, c); push(pt(a1, h1), ground, c); push(pt(a1, 0), ground, c); push(pt(a0, 0), ground, c); push(pt(a0, h0), ground, c); push(pt(a1, h1), ground, c);
     }
     // the ground: rings of the dome's radius, rusty with darker patches, facing up
-    const rings = 5, gy = 0.008;
+    const rings = 5, gy = 0.012;   // (v203: as the hall's floor, 12 mm over the stage's)
     const gc = (a, rr) => { const n = Math.sin(a * 37.7 + rr * 5.1) * Math.cos(a * 13.3 - rr * 3.7); return col(n > 0.35 ? '#8a4b2e' : n < -0.4 ? '#d79a68' : '#b8683f'); };
     for (let j = 0; j < rings; j++) for (let i = 0; i < seg; i++) {
       const a0 = i / seg, a1 = (i + 1) / seg, r0 = j / rings * R, r1 = (j + 1) / rings * R;

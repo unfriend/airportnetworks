@@ -11,6 +11,8 @@
 //             byte for byte; the models and pictures, made in the browser, within 2 % of their size), then scan.mjs
 //             --check; exits 1 when not
 //   --sheet   also writes a contact sheet of the models' pictures
+// Checks (layout.mjs, checks.mjs; v203): nothing overhangs the table it stands on, and no two faces facing up that overlap
+// seen from above lie less than a centimetre apart in height (they would flicker in a headset); a failure writes nothing.
 // Budgets (it stops when one is passed): every model under 10,000 triangles and the scene under 60,000 as placed, its
 // pictures at most 1,024 px, the folder under 2 MB.
 // Needs Playwright with a Chromium build (as tools/smoke.mjs; PLAYWRIGHT_MODULE and CHROMIUM_PATH as there).
@@ -21,7 +23,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { layoutText } from '../../../relay/scenes.mjs';
 import { makeSounds } from './sounds.mjs';
-import { makeLayout, SIGNS, BANDS } from './layout.mjs';
+import { makeLayout, SIGNS, FLOOR, FLOOR_Y } from './layout.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url)), REPO = path.resolve(HERE, '../../..');
 const SCENE = 'studio-tour', EXAMPLES = path.join(REPO, 'examples');
@@ -50,7 +52,7 @@ try {
   await page.goto('http://tour.local/tools/studio/tour/page.html');
   await page.waitForFunction(() => window.XP && window.TOUR && XP.ready, null, { timeout: 30000 });
   await page.evaluate(() => XP.ready);
-  await page.evaluate(([S, B]) => { TOUR.bands = B; return TOUR.signs(S); }, [SIGNS, BANDS]);
+  await page.evaluate(([S, F, Y]) => { TOUR.floor = F; TOUR.floorY = Y; return TOUR.signs(S); }, [SIGNS, FLOOR, FLOOR_Y]);
   const list = await page.evaluate(() => XP.list().map(p => Object.assign(p, { sign: !!XP.parts[p.name].sign })));
   for (const p of list) {
     let r;

@@ -1471,7 +1471,9 @@ drawn opaque over everything, in the same AR or VR session; the cell of *Back in
   the menu's Settings *Exit*, which reads *Goggles off* while they are on and takes them off without ending the session
   (`shared.js`), the session's end (`HOST.xr.watch`), a story change (`HOST.teardown` -> `detach`, before the story is
   disposed: its view leaves the scene) and the owner (the studio: its goggles gone, editing on, the studio gone).
-  Wearing is this device's own: never in `state()` or `collab.state()`, nothing sent, no room key. `on()`, `owner()`,
+  Wearing is this device's own: never in `state()` or `collab.state()`, no room key; the one thing sent (v203) is the
+  game's status for the shuttle's game screen (`status()`: counts and protein names, never a pose; the studio's effect
+  `gog`, "Game screens" in `docs/agents/studio.md`). `on()`, `owner()`,
   `id()`, `shown()` (drawn now: the owner hides its scene, its panels and pointing, and asks the shell for no real-world
   occlusion while it is: `HOST.occlusion.scene('off')`, which never pauses depth sensing), `fade()`, `paused()`.
 - **The bubble** (`BUBBLE`): in AR the headset shows no boundary, so the game is for sitting or standing still. The head's
@@ -1485,14 +1487,22 @@ drawn opaque over everything, in the same AR or VR session; the cell of *Back in
   the seat as it is. The
   fade: the cover's alpha (in AR the passthrough shows through), the glows' colour, a fixed screen-door on the opaque
   parts (they stay opaque and sorted).
-- **Controls** (the spaceship's stick: `HOST.ships.STICK`, its dead zone and curve). The right stick: right turns right
-  (at most `FLY.turn`, 50 degrees a second, eased), forward dives and back climbs (at most `FLY.climb`, 1.4 m/s); the
-  view stays level (no pitch, no roll, no loops: the spaceships' rule). Always forward at `FLY.cruise`, 2 m/s; the right
-  grip brakes to a stop (not the grip that carried them to the face, until it is let go: v198). The right trigger scans. Nothing reads A or X (`buttons[4]`): the spaceship cannot launch while
-  they are on (`HOST.ships.whyNot`), and one flying lands as they go on. The right controller is the game's
-  (`HOST.inputsGuard.claim`, chained with the spaceship's claim; `HOST.collab.ray` answers for its ray as for a ship's;
-  a stick click while it steers counts only near the middle, as a ship's). Moving with the sticks rests while they are
-  on (`index.html`'s travel and the studio's own sticks); the left hand keeps the menu.
+- **Controls** (the spaceship's stick: `HOST.ships.STICK`, its dead zone and curve). v203 (the owner: "The auto drive in
+  the game is weird, so let's use the grip on both hands for throttle control"): no drive of its own (a game starts at
+  rest). Each controller's grip is a throttle (analog): the thrust is their sum, each fully squeezed half of `FLY.top`
+  (2 m/s), both the whole; with only one controller its grip alone gives the whole. Speeding up at most `FLY.accel`
+  (2.5 m/s2); let go, it coasts to a stop at `FLY.coast` (1 m/s2). Either stick steers, the two added and clamped: right
+  turns right (at most `FLY.turn`, 50 degrees a second, eased), forward dives and back climbs (at most `FLY.climb`,
+  1.4 m/s); the view stays level (no pitch, no roll, no loops: the spaceships' rule). The grip that carried them to the
+  face is no throttle until it is let go (v198). The right trigger scans. Nothing reads A or X (`buttons[4]`): the
+  spaceship cannot launch while they are on (`HOST.ships.whyNot`), and one flying lands as they go on. The right
+  controller is the game's and, v203, the left one's grip (`HOST.inputsGuard.claim(fn(x, kind))`: a claim may name one
+  button, `'select'` or `'squeeze'`; chained with the spaceship's claim), so a grip grabs nothing, moves no panel, circle
+  or menu while they are on; `HOST.collab.ray` answers for the right ray as for a ship's (a stick click while it steers
+  counts only near the middle, as a ship's). The left trigger and ray keep the menu. Moving with the sticks rests while
+  they are on (`index.html`'s travel, the studio's own moving and, v203, its stick walk and turn). Tracked hands alone
+  cannot wear them (a right controller is needed, as before: `whyNot`). The take-off gesture (a grip at the face pulled
+  away) is unchanged: a throttle squeezed away from the face never counts as it.
 - **The world** (`world()`, `rules.buildWorld`): the ppicell package's own data file, `packages/ppicell/src/sets/data.js`
   (`PPI_DATA`, generated, derived numbers only), fetched as text and read as JSON (never run; never copied; the address
   carries the package's fingerprint, which changes when its `main.js` is built from it, as `src/` is not in the index's
@@ -1521,12 +1531,13 @@ drawn opaque over everything, in the same AR or VR session; the cell of *Back in
   M to proteins with a place · K of them elsewhere in the cell*, the next partner and how far.
 - **Sounds** (`HOST.sfx.play`, through `HOST.audio.fx()`; nothing continuous): `enter` on, `close` off, `ping` a scan,
   `link` a link followed, `bump` a drone, `notice` no partner left.
-- **Stage 2, not built** (a shuttle with a screen and a crew shared through the room): the world and rules are apart
-  from the view and the input, so a second view (a render target on the shuttle's screen) and room sharing (the game's
-  state, its clock and the crew's inputs through the room) can build on them; the aim is an input, so a scanner's station
-  can aim its own way.
-- For tests: `state()`, `line()`, `debug.page(on)` (worn on a page with the page's camera as the head: the studio's
-  `gogStep` steps it with `pageFrame`), `debug.input({ x, y, grip, trig })`, `debug.head([dx, dy, dz])` (the head shifted:
+- **Stage 2, in part** (a shuttle with a screen and a crew shared through the room): v203 built the screen as the game's
+  status (`status()`, sent by the studio as an effect and drawn on a model's GameScreen material), not a live view (a
+  second render of the cell a frame would cost a headset dearly, and only the others could see it). Still to come: a
+  crew sharing one game (its state, its clock and the crew's inputs through the room); the world and rules are apart from
+  the view and the input for it, and the aim is an input, so a scanner's station can aim its own way.
+- For tests: `state()` (v203: `thrust`, `grip`, `lgrip` too), `status()`, `line()`, `debug.page(on)` (worn on a page with the page's camera as the head: the studio's
+  `gogStep` steps it with `pageFrame`), `debug.input({ x, y, grip, trig, lx, ly, lgrip, one })` (`one`: as with one controller), `debug.head([dx, dy, dz])` (the head shifted:
   the bubble), `debug.lost(on)` (the head's pose lost), `debug.place(p, yaw)`, `debug.visit(i)`, `debug.find(name)`. `node tools/smoke.mjs --only goggles`.
 - Untested on a headset: the grab to the face and the gesture off, the fade and pause at the bubble's edge, comfort
   (the turn rate, the level view, the cockpit), the stick's feel, the frame rate with 15,800 points, the cover in AR,

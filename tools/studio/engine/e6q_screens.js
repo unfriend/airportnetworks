@@ -141,11 +141,21 @@ function barLayout(Wd) {
 }
 // the seek bar's width in design units asks for a bar of at least 0.6 m and at most 2.4 m
 const scrBarW = r => clamp(r.look === 'audio' ? 0.9 : r.w, 0.6, 2.4);
+// (v203, the owner's headset note of 25 November 2026: "weird artifacts ... they move around while I move my head" on the
+// audio player's bar) the card's and the bar's pictures are drawn much finer than a headset shows them (the bar 1,500 px
+// over 0.9 m): without mipmaps every small move of the head picked other pixels of the text, so it sparkled. With mipmaps
+// (made again only when the picture is redrawn: at most twice a second) and some anisotropy they hold still
+function scrTex(cv) {
+  const t = new THREE.CanvasTexture(cv);
+  t.generateMipmaps = true; t.minFilter = THREE.LinearMipmapLinearFilter; t.magFilter = THREE.LinearFilter;
+  try { t.anisotropy = Math.min(4, GL.renderer.capabilities.getMaxAnisotropy()); } catch (e) { /* none */ }
+  return t;
+}
 function screenLook(id) {
   const body = new THREE.Group(), deco = new THREE.Group(), col = LOOKS.colOf(id);
   // (the panel: a unit plane, its height set from the video's shape each frame; a card of its own while no picture is drawn)
   const cardCv = document.createElement('canvas'); cardCv.width = 640; cardCv.height = 360;
-  const cardTex = new THREE.CanvasTexture(cardCv); cardTex.minFilter = THREE.LinearFilter; cardTex.generateMipmaps = false;
+  const cardTex = scrTex(cardCv);
   const mat = new THREE.MeshBasicMaterial({ map: cardTex, toneMapped: false });
   const panel = new THREE.Mesh(SCR_PLANE, mat);
   const back = new THREE.Mesh(SCR_PLANE, new THREE.MeshBasicMaterial({ color: 0x0c1118 })); back.rotation.y = Math.PI; back.position.z = -0.003;
@@ -155,7 +165,7 @@ function screenLook(id) {
   const name = LOOKS.tag(30); deco.add(name);
   // (the bar: apart in the items' frame, so the holder's scale (the width) never stretches it; opaque, depth-tested)
   const barCv = document.createElement('canvas'); barCv.width = 64; barCv.height = 64;
-  const barTex = new THREE.CanvasTexture(barCv); barTex.minFilter = THREE.LinearFilter; barTex.generateMipmaps = false;
+  const barTex = scrTex(barCv);
   const bar = new THREE.Mesh(SCR_PLANE, new THREE.MeshBasicMaterial({ map: barTex, toneMapped: false })); bar.visible = false; bar.userData.bar = true;
   const L = { body, deco, name, panel, back, hit, line, bar, barCv, barTex, cardCv, cardTex, mat, col, ext: [1.6, 0.9], barSig: '', cardSig: '', transp: false, lastA: -1,
     // hot: the pointer on it, selected, editing, hid: a cube hides it from you (not drawn: its edges show where it is while editing)
