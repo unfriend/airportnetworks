@@ -1,23 +1,18 @@
 {
-  "version": "networks-v212",
-  "date": "2026-11-25",
+  "version": "networks-v213",
+  "date": "2026-11-26",
   "new": [
-    "A new story on the Experiments set: Invisible threads, the chemical exposome (Lombardo, Hütter, Unterlass, Menche, Nature Communications 2026). Nearly 10,000 substances all around you, sorted first by chemistry and then by the genes they disturb (the authors' own 3D layout), the blood-clotting group close up, the model cell from Back into the cell and its proteins sorted with hubs in the middle, asthma and ozone, and Europe on the airports globe. About ten minutes, with a synthetic voice.",
-    "Its explore mode has four tabs: Substances (search any of 9,764), Groups (three levels, in plain words), Diseases and Countries.",
-    "All numbers come from the authors' data deposit (Zenodo, CC BY 4.0); only derived numbers ship. Where the deposit differs from the paper's text is in docs/questions-for-authors.md.",
-    "Still untried: v211's wwiznet export, v210's two voices, v209 to v200 (shared networks, the Network tab, worn characters, the mirror robot)."
+    "The app's font (B612) now comes with the app itself, from its own fonts folder: no browser contacts Google any more, and the first load at an event no longer depends on it. The font files are the same ones as before, so text should look and measure the same.",
+    "The documentation was checked against the code (26 November 2026): HANDOVER.md has a current list of open points.",
+    "Still untried: v212's Invisible threads in a headset, and v211 to v200."
   ],
   "test": [
-    "In a headset: Experiments, Invisible threads. Do you stand inside the cloud in chapter 1 and at the end? Is anything ever closer than a forearm to your face (the cell, the sorted proteins, asthma close up)?",
-    "Can a lay person follow it? Listen for the blood-clotting chapter (heparin, the pill, an X-ray dye, a sedative) and the Italy example with its caveat.",
-    "Explore: search cadmium or caffeine under Substances, open its group, then Diseases (asthma) and Countries (pick one on the globe). On a phone too.",
-    "Is the globe a comfortable size and place in the headset, and can you pick a country with the ray?",
-    "v211 to v200: the wwiznet export, both voices, sharing a network with a room."
+    "Open the app on a phone and in a headset: does the text look as it did (panels, the headset menu, subtitles, the notes page)?",
+    "With the browser's network panel on a laptop: no request to fonts.googleapis.com or fonts.gstatic.com.",
+    "v212: Invisible threads on the Experiments set, in a headset."
   ],
   "untested": [
-    "Nothing of this story has been in a headset: standing inside, the keep-clear guard, the panes on the panel, picking with the ray, frame rate with 9,764 points and 45,000 threads.",
-    "The voice is unheard (benzo-a-pyrene, caspase and endrin were respelt for it; pace and level unknown), and so are its sound cues.",
-    "Not run in a shared room; the full suites run before main moves.",
-    "Before main: the non-commercial terms of DisGeNET and the Global Burden of Disease study (docs/data-and-permissions.md)."
+    "Not seen on a real phone or headset; an installed copy taking the update (the update test from v212 ran here headlessly and passed: the new page, its stories and the offline copy).",
+    "v212 and earlier as before: nothing since v200 has been in a headset; every synthetic voice is unheard."
   ]
 }

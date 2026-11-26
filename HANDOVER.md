@@ -59,18 +59,19 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **26 November 2026: `dev` is networks-v212 (FORMAT networks-59), `main` is still networks-v135 (FORMAT networks-41).**
-  What this file can know: `sw.js` says `networks-v212`, `shared.js` `networks-59`; `git fetch origin main` on 26
+- **26 November 2026: `dev` is networks-v213 (FORMAT networks-59), `main` is still networks-v135 (FORMAT networks-41).**
+  What this file can know: `sw.js` says `networks-v213`, `shared.js` `networks-59`; `git fetch origin main` on 26
   November shows `origin/main` at `7c32b37` (v135, 11 November) and `origin/dev` at `237e16c` (so `main` has not
   moved since v135; this checkout is shallow, so no commit count); v212's `whatsnew.json` is dated 25 November. Twenty stories are on `dev` (the table above). The long
-  entries below stop at v180 (v189 and v190 have theirs); v181 to v212 are one line each in "The releases from v181 to
-  v212" below, with more in `docs/history.md` and `whatsnew/`. v200 to v211 (one session, 25 November) are: the tracker
+  entries below stop at v180 (v189 and v190 have theirs); v181 to v213 are one line each in "The releases from v181 to
+  v213" below, with more in `docs/history.md` and `whatsnew/`. v200 to v211 (one session, 25 November) are: the tracker
   guide (`examples/tracker-guide`, the Experiments set's link cards), a studio
   character worn with any mix of devices tied by nearness (`rig: 'any'`), the mirror robot, the owner's headset notes
   (sharp text in VR, the cards' corners, *Later* first, a smooth turn; the studio tour's tables and floor, the goggles'
   grip throttles and game screen), and Back into the cell with membrane sides, complexes, a new chapter, the Network
   tab's live limits, a network of your own (pairs or wwiznet's files), sharing through the relay (`relay/nets.mjs`) and
-  the export for wwiznet; v212 is a new story, Invisible threads (`exposome`), on the Experiments set. None of it has been
+  the export for wwiznet; v212 is a new story, Invisible threads (`exposome`), on the Experiments set; v213 serves the
+  font, B612, from the app's own `fonts/` instead of Google Fonts. None of it has been
   tried on a headset, with trackers or on the owner's relays.
   - *Developer notes (26 November 2026)*: `node tools/notes/notes.mjs list` says "No new notes."
   - *Open with the owner before `main` moves*:
@@ -121,11 +122,13 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     `shared.js`), tracker names (last writer wins), a take from a model in centimetres, the solver's twist with six
     trackers (all under "Open points the reviews found"); everything a device alone can show (the list "Open with the
     owner before `main` moves" and each entry's *Untested*).
+  - *Closed on 26 November 2026 (v213)*: the web font loading from Google Fonts: B612 is served with the app from
+    `fonts/` (the same files, SIL OFL 1.1 in `fonts/OFL.txt`), so no page contacts Google (`docs/data-and-permissions.md`).
   - *Blanks to fill*: who holds each account and key ("What the next person needs from the owner"), who to ask (item 6),
     the licence's holder (item 1), the CDK5 row and the exposome row in `docs/data-and-permissions.md`, and the answers of
     the authors (`docs/questions-for-authors.md`: C1 and C3 to C10, S1 to S9, MM1, MM5, MM6, T5, P4 to P11).
 
-- **The releases from v181 to v212, one line each** (from `whatsnew/networks-v<n>.json`; v189 and v190 are told in full
+- **The releases from v181 to v213, one line each** (from `whatsnew/networks-v<n>.json`; v189 and v190 are told in full
   below; FORMAT networks-55 up to v196, 56 from v197, 57 at v205, 58 at v207, 59 at v208; all on `dev` only, none tried on
   a headset unless said):
   - v181 (21 November): the tutorial's robot guide is never quite still (breathing, shifting weight, swaying on a walk).
@@ -165,6 +168,8 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   - v211 (25 November): Back into the cell exports the network on show for wwiznet and opens a wwiznet dataset.
   - v212 (25 November): Invisible threads (`exposome`), the chemical exposome, on the Experiments set: about ten minutes
     (9:48), explore with four tabs (Substances, Groups, Diseases, Countries); its terms to check before `main`.
+  - v213 (26 November): the font, B612, comes with the app (`fonts/`), no longer from Google Fonts; HANDOVER.md's open
+    points checked against the code.
 
 - **At the handover (13 November 2026, brought up to date on 20 November): where each branch is and what comes next.**
   - *The branches.* `dev` is networks-v180 (FORMAT networks-55, shell 178; the v180 to v140 entries below; v139 and v136

@@ -190,8 +190,9 @@ undone for clones and forks made before (GitHub showed no forks on 22 October 20
   non-commercial terms), among others. Check that showing derived numbers from them on the public site is allowed
   before `main` moves with the story.
 - [x] **A project licence** (below): MIT and CC BY 4.0 since 20 November 2026; the holder still to clarify.
-- [ ] **The web font.** `index.html` loads B612 from Google Fonts, so every visitor's browser contacts Google's
-  servers. Decide whether that is acceptable for an Institute site, or serve the font with the app.
+- [x] **The web font.** Until v212 `index.html` loaded B612 from Google Fonts, so every visitor's browser contacted
+  Google's servers. Closed at v213 (26 November 2026): the font is served with the app from `fonts/` (the same files
+  Google served, copied unchanged, with the SIL Open Font License 1.1 in `fonts/OFL.txt`); no page contacts Google.
 
 ### Who sees what in a peer-to-peer room
 
@@ -281,7 +282,7 @@ Third-party material:
 | --- | --- | --- |
 | three.js r128 | `three.min.js` | MIT; the notice is `three.LICENSE.txt` and must ship with it |
 | PeerJS 1.5.5 | `peerjs.min.js` (loaded only for a peer-to-peer room) | MIT; the notice is `PEERJS-LICENSE.txt` and must ship with it |
-| B612 font | loaded from Google Fonts (`index.html`), cached by `sw.js` | Google Fonts lists it under the SIL Open Font License; the repository does not say so |
+| B612 font | `fonts/` (since v213; until then loaded from Google Fonts), in `sw.js` `SHELL` | SIL Open Font License 1.1, the B612 Project Authors; the licence ships with it (`fonts/OFL.txt`) |
 | App icons | `icons/` | the project's own, CC BY 4.0 (the owner, 20 November 2026: "icons are fine under cc 4.0") |
 | OpenFlights routes, 2014 | embedded in `packages/airports/main.js`; positions reused in `packages/lbi/main.js` | ODbL: credit OpenFlights (the story does), and a database adapted from it and used in public, such as the embedded routes, has to be offered under the ODbL too. Check how this fits the project licence |
 | Natural Earth coastlines | `packages/airports/main.js` | public domain |

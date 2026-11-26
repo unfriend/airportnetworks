@@ -1,8 +1,9 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v212';
+const VERSION = 'networks-v213';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/design.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
-  './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png'];
+  './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
+  './fonts/B612-Regular.woff2', './fonts/B612-Bold.woff2', './fonts/B612-Italic.woff2'];
 
 const AUDIO = [];
 // The narrations (about 60 MB together, and seldom changed) keep a cache of their own that outlives the releases. A
@@ -192,14 +193,6 @@ self.addEventListener('fetch', e => {
     if (rest === null || !/^(index\.html|proteins\.html|spatial\.html)?$/.test(rest)) return;
     const m = /\/(proteins|spatial)\.html$/.exec(url.pathname), page = m ? './' + m[1] + '.html' : './index.html';
     e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), page));
-    return;
-  }
-  // web font (Google Fonts): cache whatever we get, use the cache when offline
-  if (/fonts\.(googleapis|gstatic)\.com$/.test(url.hostname)) {
-    e.respondWith(caches.open(VERSION).then(c => c.match(req).then(hit => {
-      const net = fetch(req).then(res => { c.put(req, res.clone()); return res; }).catch(() => hit);
-      return hit || net;
-    })));
     return;
   }
   // the studio's scenes (the relay's --scenes, or a static folder of them): the owner's own models, sounds and layouts,

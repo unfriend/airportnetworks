@@ -77,6 +77,10 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `narration-<key>.mp3` for the others, such as `narration-lbi.mp3`);
   missing files are fine.
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
+- `fonts/` - the app's font, B612 (v213; until then from Google Fonts): `B612-Regular.woff2`, `B612-Bold.woff2`,
+  `B612-Italic.woff2` (the Latin subset Google served, copied unchanged), `OFL.txt` (SIL Open Font License 1.1) and a
+  `README.md`. `index.html` and `notes/index.html` name them in `@font-face` rules with Google's `unicode-range` and
+  `font-display: swap`; the three files are in `sw.js` `SHELL` and the relay's `APP_DIRS`.
 - `LICENSE`, `NOTICE.md` - the licences (20 November 2026): MIT for the code (`LICENSE`, the holder named for now, still to
   clarify with the employer); `NOTICE.md` puts the stories' words, the narrations (the airports' recording too, its
   speaker the owner), the documentation and the icons under CC BY 4.0, and lists the data's and the third-party parts'

@@ -47,7 +47,7 @@ The authors' source files are not in the repository, only numbers derived from t
 | meshoptimizer 1.3.0 (its simplifier) | `tools/studio/vendor/`, pasted into `stories/studio.js` | MIT |
 | fflate | `tools/studio/vendor/`, pasted into `stories/studio.js` | MIT |
 | Basis Universal (KTX2 encoder and transcoder) | `basis/` | Apache License 2.0, [basis/LICENSE.txt](basis/LICENSE.txt) |
-| The B612 font | loaded from Google Fonts | SIL Open Font License |
+| The B612 font (regular, bold, italic), by the B612 Project Authors | `fonts/` (served with the app since v213, copied unchanged) | SIL Open Font License 1.1, [fonts/OFL.txt](fonts/OFL.txt) |
 | Kokoro-82M v1.0 (hexgrad), voice `af_heart` | made the English synthetic narrations (not shipped) | Apache License 2.0; the recordings it made are the project's (CC BY 4.0, above) |
 | Piper's German voice Thorsten (`de_DE-thorsten-high`) | made the pass story's German narration (not shipped) | its data CC0 (Thorsten-Voice); fine-tuned from Piper's English lessac voice, whose data is under a research licence: see docs/data-and-permissions.md |
 | EndotypY | used offline to make the endotype story's data (not shipped) | MIT |

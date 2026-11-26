@@ -71,6 +71,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
 - `docs/narration-timings.txt` - the chapter timings (v190; until then `audio/PUT-narration.mp3-HERE.txt`, and `audio/`
   is gone); each story's narration is `packages/<key>/audio/narration.mp3` (the pass story's German `narration-de.mp3`).
 - `manifest.webmanifest`, `icons/` - PWA install metadata.
+- `fonts/` - the app's font, B612 (regular, bold, italic; SIL OFL 1.1, `fonts/OFL.txt`), v213: no page loads it from Google.
 - `LICENSE` (MIT, the code) and `NOTICE.md` (CC BY 4.0 for words, narrations, docs and icons; the data's and
   others' parts' own terms) - served with the app by the relay (`docs/data-and-permissions.md`, "Licence").
 - `shared.js` - the shared-room client (`HOST.collab`, `HOST.room`), loaded between `index.html`'s two scripts
@@ -348,8 +349,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   rule, from the feedback on the PET story (October 2026).
 - External scripts: none beyond the vendored three.js and PeerJS (the latter
   loaded only for a peer-to-peer room; three.js r128's own add-ons and meshoptimizer's simplifier for the studio are
-  pasted into its built file). Fonts come from Google Fonts (cached by
-  the service worker).
+  pasted into its built file). The font, B612, is the app's own (`fonts/`, v213: in `sw.js` `SHELL`); no page
+  loads anything from Google.
 
 ## Things that are easy to forget
 

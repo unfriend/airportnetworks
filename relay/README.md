@@ -1347,7 +1347,7 @@ With `--static <dir>`, every other path may be a file of the app, and only that:
 `spatial.html`, `README.txt`, `peerjs.min.js`, `PEERJS-LICENSE.txt`, `output.js` (the output page's), `version.json` (the release's version file, for
 live updates: sent with `Cache-Control: no-store`), `whatsnew.json` (developer mode's box), `LICENSE` and `NOTICE.md`,
 `lowpoly.js` (the shell's miniatures), and the files directly in `stories/` (`audio/` until v190),
-`icons/`, `whatsnew/` (what is new, older releases), `basis/` (the studio's KTX2 encoder and transcoder), `room-test/`, `notes/` (the developer notebook's page, at `/notes/`; `/notes` moves there) and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`), and
+`icons/`, `fonts/` (the app's font, B612, v213), `whatsnew/` (what is new, older releases), `basis/` (the studio's KTX2 encoder and transcoder), `room-test/`, `notes/` (the developer notebook's page, at `/notes/`; `/notes` moves there) and `p2p/` (the peer-to-peer test page, at `/p2p/`: a path ending in `/` is that folder's `index.html`), and
 `examples/` with its scene folders as deep as a scene's files go (the studio's example scenes, v137: `examples/<scene>/`
 and at most four folders under it, `APP_DEEP`), and `packages/` likewise (the story packages, v185: each one's `main.js`,
 `minis.js`, narration and data)

@@ -4,6 +4,13 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 
 ## How the shell and stories fit together
 
+- The font (v213): B612 is the app's own, `fonts/` (regular, bold, italic: the Latin subset Google Fonts served, copied
+  unchanged; SIL OFL 1.1). `index.html` and `notes/index.html` declare it with `@font-face` (family `B612`, Google's
+  `unicode-range` and `font-display: swap`, so text measures as before and other glyphs fall back as they did); the
+  three files are in `sw.js` `SHELL` (network first, like every app file) and the relay's `APP_DIRS`. No page loads
+  anything from Google, and `sw.js` has no rule for Google's font hosts any more. Canvas text (the story panels, the
+  headset menu, the subtitles) names `B612` in its font string and waits for it with `document.fonts.load(...)`
+  (`vfont`, `XR.fontOK`), unchanged.
 - `HOST.list` comes from `stories/list.js` and the app's own story packages, in `packages/order.json`'s order (v185,
   `docs/agents/packages.md`; since v187 every story is a package and `STORY_LIST` is empty, so the boot waits for the
   index: 1.5 s, 4 s when the address names a key, then up to 30 s more while there is no card at all, and with none the

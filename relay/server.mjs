@@ -1565,11 +1565,11 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // files are: examples/<scene>/<at most 4 folders>/<file>. basis/ holds Basis Universal's encoder and transcoder, v151:
 // the studio's KTX2 textures, written in its pages' workers and transcoded as a model loads; tools/studio/engine/ktx2.js.
 // packages/ holds the story packages, served deep as examples/ is: packages/<key>/<at most 4 folders>/<file>, and their
-// index; tools/packages/SPEC.md. Like every app folder it is only ever read here: no endpoint writes to it)
+// index; tools/packages/SPEC.md. fonts/ holds the app's font, B612, v213. Like every app folder it is only ever read here: no endpoint writes to it)
 const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js', 'output.js',
   'LICENSE', 'NOTICE.md']);   // (the project's licence and notices go with every copy of the app it serves)
-const APP_DIRS = new Set(['stories', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis', 'packages']), APP_DEEP = new Set(['examples', 'packages']);
+const APP_DIRS = new Set(['stories', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis', 'packages', 'fonts']), APP_DEEP = new Set(['examples', 'packages']);
 const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0]));
 
 async function serve(req, res, url) {
