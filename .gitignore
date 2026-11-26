@@ -1,18 +1,11 @@
 node_modules
 .claude/worktrees/
-packages/lbi/src/shots/
+.claude/settings.local.json
+packages/*/src/shots/
 packages/lbi/src/data/*.json
 packages/lbi/src/data/airports_*
-packages/nmd/src/shots/
-packages/endo/src/shots/
-packages/flock/src/shots/
-packages/robots/src/shots/
-packages/tutorial/src/shots/
 relay/.lan/
 relay/logs/
-packages/pet/src/shots/
-packages/micro/src/shots/
-packages/qubits/src/shots/
 # inputs that must never be committed: the authors' files kept out on purpose (the microanatomy network, the endotype
 # run and seed table, the tissue topology story's cohort of cells) and any medical image (the PET authors' Network_VR
 # holds a patient's scan); see docs/data-and-permissions.md
@@ -29,11 +22,7 @@ Network_VR*/
 *.nii.gz
 *.dcm
 *.nrrd
-packages/pass/src/shots/
 packages/pass/src/gen/
-packages/ovary/src/shots/
-packages/mutation/src/shots/
-packages/topo/src/shots/
 
 # the owner's own scenes, linked in for local checks only (never committed)
 tools/studio/test/local

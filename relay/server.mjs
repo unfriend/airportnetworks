@@ -98,7 +98,8 @@ const HELP = `usage: node relay/server.mjs [options]
                    logs kept in relay/logs/
   --watch [<dir>]  while developing: watch the app's files (the --static folder, or <dir>, then also served); the
                    pages it serves swap a changed story in place and reload, their place kept, when a shell file changes
-  --build          with --watch: run a built story's build (tools/<key>/build.mjs) when its sources change
+  --build          with --watch: run a built story's build (packages/<key>/src/build.mjs, then the packages' scan) when
+                   its sources change
   --scenes <dir>   the studio's scenes (or COLLAB_SCENES): each subfolder of <dir> is one scene (models, their textures,
                    sounds, layout.json), listed at /api/scenes, its files at /scenes/<name>/<file>, its layout saved
                    there by the studio (the old one kept in its .history/, the newest 20); with a password, they need it

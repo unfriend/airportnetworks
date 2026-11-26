@@ -2,13 +2,13 @@
 // version.json at the app's root and stamps the shell's release into index.html (HOST.shell). Run it as the last step of
 // a release, after bumping VERSION in sw.js (docs/setup-and-release.md), and commit both files.
 // usage (from the repository root): node tools/release.mjs          -> writes version.json (and index.html's stamp, and
-//                                                                      sw.js's story files and narrations)
+//                                                                      sw.js's SHELL story files)
 //                                   node tools/release.mjs --check  -> exits 1 if either is not current, or if
 //                                                                      whatsnew.json does not name this release
 //                                   --root <dir>: another copy of the app (the live test's)
 // version.json: { app, version (sw.js VERSION), format (shared.js FORMAT), shell: { n, id }, list, stories: { <key>:
-// { fp, needs } } }. The shell is index.html, shared.js, three.min.js, peerjs.min.js, output.js, sfx.js, occlusion.js, ships.js, notes.js, ik.js and
-// bodies.js (people's bodies, v164: loaded on demand, as output.js is); its id is their fingerprint
+// { fp, needs } } }. The shell is index.html, shared.js, three.min.js, peerjs.min.js, output.js, sfx.js, occlusion.js, ships.js, notes.js, ik.js,
+// flight.js and bodies.js (people's bodies, v164: loaded on demand, as output.js is); its id is their fingerprint
 // (index.html without its stamp and its head's title and link-preview lines, which a running page never shows), and n
 // the release in which they last changed (VERSION's number: a new shell needs a new VERSION). sw.js is not part of it:
 // the service worker updates itself, and adding a story changes its list of files. list: the fingerprint of the list of
@@ -20,8 +20,8 @@
 // The app's own story packages (v185, docs/packages-migration.md: the stories named in packages/order.json that have
 // moved into packages/<key>/): packages: { <key>: { fp, needs } }, the index's fp (packages/index.json) and the oldest
 // shell it works with, its story.json's needs (which each must have: the release that moved it, at least; the shell
-// refuses a package that needs a newer one, HOST.packages). STORY_LIST may shrink as stories move, to nothing once all
-// have. --check also runs node tools/packages/scan.mjs --check.
+// refuses a package that needs a newer one, HOST.packages). STORY_LIST is empty since v187 (every story moved).
+// --check also runs node tools/packages/scan.mjs --check.
 // whatsnew.json (developer mode's box, HOST.dev: { version, date, new, test, untested }, lists of short sentences) is
 // written by hand at every release; this script only checks it: a file that does not name sw.js's VERSION (or is not in
 // that shape) is a warning, and --check fails on it, so a release does not go out with an old box. Each release's file is
@@ -101,19 +101,15 @@ for (const k of pkgs) {
 }
 const out = JSON.stringify({ app: 'networks', version, format, shell: { n, id }, list: fingerprint(JSON.stringify(list)), stories, ...(pkgs.length ? { packages } : {}) }, null, 2) + '\n';
 
-// sw.js's lists, written from what is there (v171): SHELL's story files from stories/list.js (its stories and
-// STORY_EXTRA, in that order), AUDIO from the narrations in audio/ (the airports' narration.mp3, then each story's in the
-// list's order, its other languages after it). So adding or removing a story is its entry in stories/list.js, and a
-// file that is gone never stays in SHELL, where one missing file fails the whole offline install.
+// sw.js's SHELL story files, written from stories/list.js (v171): its STORY_LIST's files (empty since v187: every story is a
+// package, whose files are its own) and STORY_EXTRA's (the studio), in that order. So adding or removing a page is its
+// entry in stories/list.js, and a file that is gone never stays in SHELL, where one missing file fails the whole offline
+// install. (The narrations' AUDIO list went with audio/ at v190: each story's is in its package.)
 const swText = read('sw.js');
 const storyFiles = ['./stories/list.js', ...list.concat(extra).map(m => `./stories/${m.key}.js`)].map(f => `'${f}'`).join(', ');
-const narrs = (fs.existsSync(path.join(root, 'audio')) ? fs.readdirSync(path.join(root, 'audio')) : []).filter(f => /^narration(-[a-z]+)*\.mp3$/.test(f));
-const keyOrder = list.concat(extra).map(m => m.key), narrKey = f => (/^narration-([a-z]+)/.exec(f) || [])[1];
-const rank = f => f === 'narration.mp3' ? -1 : keyOrder.includes(narrKey(f)) ? keyOrder.indexOf(narrKey(f)) : keyOrder.length;
-narrs.sort((a, b) => rank(a) - rank(b) || a.length - b.length || (a < b ? -1 : 1));
-const STORY_RUN = /'\.\/stories\/[^']+\.js'(, '\.\/stories\/[^']+\.js')*/, AUDIO_LIST = /const AUDIO = \[[^\]]*\];/;
-if (!STORY_RUN.test(swText) || !AUDIO_LIST.test(swText)) fail("sw.js has no SHELL story files or no AUDIO list for tools/release.mjs to keep");
-const swOut = swText.replace(STORY_RUN, () => storyFiles).replace(AUDIO_LIST, () => `const AUDIO = [${narrs.map(f => `'./audio/${f}'`).join(', ')}];`);
+const STORY_RUN = /'\.\/stories\/[^']+\.js'(, '\.\/stories\/[^']+\.js')*/;
+if (!STORY_RUN.test(swText)) fail('sw.js has no SHELL story files for tools/release.mjs to keep');
+const swOut = swText.replace(STORY_RUN, () => storyFiles);
 const stamped = index.replace(STAMP, `shell: { n: ${n}, id: '${id}', format: '${format}' },`).replace(LISTTAG, `<script src="stories/list.js?v=${fingerprint(read('stories/list.js'))}"></script>`);
 
 // what is new in this release (whatsnew.json, by hand): it names this release, and its lists are sentences
@@ -150,12 +146,12 @@ if (check) {
   const ok = hadOut === out && stamped === index && scanOk, ws = wstale(), swOk = swOut === swText;
   console.log(hadOut === out && stamped === index ? `version.json and index.html's stamp are current (${version}, shell ${n})` :
     `${hadOut !== out ? 'version.json' : "index.html's stamp"} is out of date: run node tools/release.mjs`);
-  console.log(swOk ? "sw.js's story files and narrations are current" : "sw.js's SHELL story files or AUDIO list are out of date (stories/list.js, audio/): run node tools/release.mjs");
+  console.log(swOk ? "sw.js's story files are current" : "sw.js's SHELL story files are out of date (stories/list.js): run node tools/release.mjs");
   console.log(ws.length ? `whatsnew/ is out of date (${ws.join(', ')}): run node tools/release.mjs` : `whatsnew/ is current (${wlist.length} releases)`);
   warn();
   process.exit(ok && swOk && !news && !ws.length ? 0 : 1);
 }
-if (swOut !== swText) { fs.writeFileSync(path.join(root, 'sw.js'), swOut); console.log("wrote sw.js's story files and narrations (from stories/list.js and audio/)"); }
+if (swOut !== swText) { fs.writeFileSync(path.join(root, 'sw.js'), swOut); console.log("wrote sw.js's story files (from stories/list.js)"); }
 if (stamped !== index) fs.writeFileSync(path.join(root, 'index.html'), stamped);
 if (hadOut !== out) fs.writeFileSync(path.join(root, 'version.json'), out);
 if (wstale().length) {

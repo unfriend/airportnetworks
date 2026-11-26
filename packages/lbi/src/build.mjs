@@ -6,8 +6,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { expand } from '../../../tools/engine/parts.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../..');
-// (a shared source, '../<dir>/...', from tools/<dir>/, where shared sources stay; this story's own from here)
-const src = f => (f.startsWith('../') ? path.join(here, '../../../tools/lbi', f) : path.join(here, f));
+// (a path starting '../' is read from tools/: '../engine/kit.js' the shared kit, '../../packages/<key>/src/...' another
+// story's shared set; this story's own from here)
+const src = f => (f.startsWith('../') ? path.join(root, 'tools', f.slice(3)) : path.join(here, f));
 const read = f => fs.readFileSync(src(f), 'utf8');
 // the sets in the order the story uses them (crowd and sankey share sets/clinic.js)
 const SET_FILES = ['int', 'mac', 'web', 'dna', 'atp', 'clinic', 'scale', 'body', 'tissue'];

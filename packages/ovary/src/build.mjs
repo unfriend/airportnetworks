@@ -9,8 +9,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { expand } from '../../../tools/engine/parts.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../..');
-// (a shared source, '../<dir>/...', from tools/<dir>/, where shared sources stay; this story's own from here)
-const src = f => (f.startsWith('../') ? path.join(here, '../../../tools/ovary', f) : path.join(here, f));
+// (a path starting '../' is read from tools/: '../engine/kit.js' the shared kit, '../../packages/<key>/src/...' another
+// story's shared set; this story's own from here)
+const src = f => (f.startsWith('../') ? path.join(root, 'tools', f.slice(3)) : path.join(here, f));
 const read = f => fs.readFileSync(src(f), 'utf8');
 // the data and the shared look (OVARY_TREND, OVARY_LOOK) first, then the sets in the order the story uses them
 const SET_FILES = ['sets/data', 'sets/look', '../../packages/lbi/src/sets/body', 'sets/organ', 'sets/section', 'sets/charts'];

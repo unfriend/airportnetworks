@@ -8,8 +8,9 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { expand } from '../../../tools/engine/parts.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../../..');
-// (a shared source, '../<dir>/...', from tools/<dir>/, where shared sources stay; this story's own from here)
-const src = f => (f.startsWith('../') ? path.join(here, '../../../tools/pet', f) : path.join(here, f));
+// (a path starting '../' is read from tools/: '../engine/kit.js' the shared kit, '../../packages/<key>/src/...' another
+// story's shared set; this story's own from here)
+const src = f => (f.startsWith('../') ? path.join(root, 'tools', f.slice(3)) : path.join(here, f));
 const read = f => fs.readFileSync(src(f), 'utf8');
 // the data, the organ icons and the microanatomy story's 3D organs (ORGAN3D, for the vision row's network; without its
 // harness gallery, which would be a second SETS.organs) first, then the sets in the order the story uses them (body:

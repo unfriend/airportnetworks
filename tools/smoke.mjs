@@ -29,7 +29,22 @@
 // --only 'studio live': the room's live sound heard (Opus frames encoded in the test, decoded by the shell) and a studio item set to Live sound, v162;
 // --only 'talk': Talk between people in a room (the words, the dialog's row, talkers heard from frames encoded in the test, from their heads in a pretend headset), v178;
 // --only 'studio screens': video and audio players with a playlist (WebM clips made with ffmpeg), v143)
+// A step that throws fails with its message and the run goes on (v218); --only that matches no block or step fails.
+// --skip-missing: what this machine lacks (ffmpeg for the studio's screens, a shell without HOST.collab.trkIn) is skipped
+// and stays green; without it, a missing one fails (v218).
+// --list: print every block and step name (read from this file's text, the step names as written) and exit.
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
+const SKIP_MISSING = ARGS.includes('--skip-missing');
+if (ARGS.includes('--list')) {
+  const fs = await import('node:fs'), { fileURLToPath } = await import('node:url');
+  const text = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'), q = /\bstep\((['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+  for (const line of text.split('\n')) {
+    const b = /^if \(runs\((['"])(.*?)\1\)/.exec(line);
+    if (b) console.log('block ' + b[2]);
+    for (const m of line.matchAll(q)) console.log((/^\s/.test(line) ? '  step ' : 'step ') + m[2]);
+  }
+  process.exit(0);
+}
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // (a block of steps runs when --only names it, a step of it or nothing)
 const runs = tag => !ONLY || tag.startsWith(ONLY) || ONLY.startsWith(tag);
@@ -54,7 +69,8 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 const errors = [];
 page.on('pageerror', e => errors.push(e.stack || e.message));
 page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
-const step = async (name, fn, always) => { if (ONLY && !always && !name.startsWith(ONLY)) return; const n = errors.length; await fn(); console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); if (errors.length > n && process.env.SMOKE_SHOW) console.log(errors.slice(n).map(e => '     ' + String(e).slice(0, 1500)).join('\n')); };
+let stepsRun = 0;
+const step = async (name, fn, always) => { if (ONLY && !always && !name.startsWith(ONLY)) return; stepsRun++; const n = errors.length; try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); if (errors.length > n && process.env.SMOKE_SHOW) console.log(errors.slice(n).map(e => '     ' + String(e).slice(0, 1500)).join('\n')); };
 const smokeStep = step;
 
 await page.goto(base + 'index.html');
@@ -11471,7 +11487,7 @@ if (runs('studio screens')) {
     bytes[p] = fs.readFileSync(out);
   }
   fs.rmSync(dir, { recursive: true, force: true });
-  if (!have) console.log('skip studio screens: ffmpeg could not make the test clips');
+  if (!have) { if (SKIP_MISSING) console.log('skip studio screens: ffmpeg could not make the test clips'); else { errors.push('studio screens: ffmpeg could not make the test clips (install ffmpeg, or --skip-missing)'); console.log('FAIL studio screens: no ffmpeg'); } }
   else {
     // a page of its own at the test scene with the clips in its listing and served (byte ranges, as a relay's files are)
     const mk = async (extra = '') => {
@@ -12448,9 +12464,9 @@ if (runs('studio trackers')) {
   // the shell's own test hook, where this shell has it: a tracker fed as the relay sends it (@trk), read back through the
   // shell's stream, and a shape following it there
   await step('studio trackers: fed through the shell\'s HOST.collab.trkIn (where the shell has it), a shape following it within 5 mm', async () => {
-    const r = await kp.evaluate(async () => {
+    const r = await kp.evaluate(async skip => {
       const E = window.__E, K = window.__tk, o = [];
-      if (!HOST.collab.trkIn) { (window.__log = window.__log || []).push('studio trackers: this shell has no HOST.collab.trkIn: skipped'); return o; }
+      if (!HOST.collab.trkIn) { if (skip) (window.__log = window.__log || []).push('studio trackers: this shell has no HOST.collab.trkIn: skipped'); else o.push('this shell has no HOST.collab.trkIn (--skip-missing to skip)'); return o; }
       const sleep = ms => new Promise(res => setTimeout(res, ms));
       // (the shell takes @trk only in a room: one on this device, never peer to peer; the pretend station stays)
       HOST.collab.autoAll(false); HOST.collab.autoGuide(false); if (HOST.collab.autoWelcome) HOST.collab.autoWelcome(false);
@@ -12470,7 +12486,7 @@ if (runs('studio trackers')) {
       HOST.collab.trackers = () => window.__tk.list.map(x => Object.assign({}, x));
       HOST.collab.leave();
       return o;
-    });
+    }, SKIP_MISSING);
     bad(r); await said(kp);
   });
   // others told why not: a rigged model that is not Mixamo's (the rig scene's dancer), and a model with no bones offers nothing
@@ -18871,5 +18887,6 @@ await step('old links forward to the app', async () => {
   await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'spatial', null, { timeout: 30000 });
 });
 await browser.close();
+if (ONLY && !stepsRun) errors.push('--only ' + JSON.stringify(ONLY) + ' matched no block or step (node tools/smoke.mjs --list names them)');
 if (errors.length) { console.log('\n' + errors.join('\n\n')); process.exit(1); }
 console.log('\nall good');

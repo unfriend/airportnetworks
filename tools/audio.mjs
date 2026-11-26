@@ -404,11 +404,11 @@ await step('sound effects: turned off and on in Sound check, with a volume', asy
 // sounds as is, all other background noise can go"); the machines' hum went too, the robots' vacuum stays
 await step('backgrounds: only the flock and the pass story', async () => {
   const lib = await page.evaluate(() => {
-    const L = window.SFX_LIB, keys = HOST.list.map(s => s.key).concat((self.STORY_EXTRA || []).map(s => s.key));
+    const L = window.SFX_LIB, keys = HOST.stories().map(s => s.key).concat((self.STORY_EXTRA || []).map(s => s.key));
     return { with: keys.filter(k => L.bedOf(k)).map(k => k + ':' + L.bedOf(k)).join(), beds: Object.keys(L.BEDS).join(), drones: Object.keys(L.DRONES).join(), n: keys.length };
   });
   if (lib.with !== 'pass:sea,flock:dusk' || lib.beds !== 'dusk,sea' || lib.drones !== 'vacuum') throw new Error(JSON.stringify(lib));
-  await page.click('#picker .card[data-story="flock"]');
+  await page.evaluate(() => HOST.go('flock'));   // (the flock is on the Experiments set since v188, not the main cards)
   await page.waitForFunction(() => HOST.curKey === 'flock' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 90000 });
   const b = await fxUntil('the flock\'s background', s => s.bed === 'flock' && s.bedKind === 'dusk', 8000);
   await page.evaluate(() => { HOST.audio.state().pmuted = true; });   // (as the Sound button sets the page's mute, without saving it)

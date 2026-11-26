@@ -3,7 +3,7 @@
 // to 127.0.0.1; this keeps each device's latest reading with the relay's time it came, answers GET /api/trackers and
 // /api/trackers/still for the pages' Trackers section, and sends every room that uses the trackers (its key trk: on, and
 // m, the two points taken by hand on spot A and spot B) their poses in room coordinates, 60 times a second, as the fx
-// '@trk'. Node 18 or newer, no packages. Also imported by relay/test.mjs (frameOf, toRoom, quatToRoom, parseDatagram).
+// '@trk'. Node 18 or newer, no packages. Also imported by relay/test.mjs (frameOf, toRoom, quatToRoom, TRK_FLOOR).
 import dgram from 'node:dgram';
 
 export const TRK_PORT = 47800;   // the bridge's default (--trackers with no port)

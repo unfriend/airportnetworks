@@ -29,7 +29,8 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
 await page.goto(base + 'index.html');
 await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.list && (!HOST.packages || HOST.packages.state().read), null, { timeout: 30000 });
-const list = (await page.evaluate(() => HOST.list.map(s => s.key))).filter(k => !only.length || only.includes(k));
+const list = (await page.evaluate(() => HOST.stories().map(s => s.key)))   // both sets of cards
+  .filter(k => !only.length || only.includes(k));
 // (where each story's recording and story text are: tools/stories.mjs, a story package's in its folder)
 const STORIES = stories(), storyAt = k => STORIES.get(k) || { narration: () => `audio/narration-${k}.mp3`, src: null, file: `stories/${k}.js` };
 const fileOf = k => storyAt(k).narration();

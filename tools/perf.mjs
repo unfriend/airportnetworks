@@ -13,7 +13,8 @@
 // bytes, program links and compiles, mipmaps, readPixels), the see-through layers in the scene (transparent, depthWrite off or
 // additive meshes; large: bounding sphere over 0.5 m) as a fill-rate proxy, scene objects and how many still have
 // matrixAutoUpdate on, the JS heap allocated per frame and renderer.info.memory before and after. Exits 0 always (a measuring
-// tool, not a test); scenes that cannot be set up are reported with why.
+// tool, not a test); scenes that cannot be set up are reported with why. The stories are both sets of cards (HOST.stories(), the
+// Experiments too, not hello); before a story's chapters are measured, every set that builds in slices is finished (finish()).
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -380,7 +381,7 @@ async function group(ids, fn) {   // a page shared by several scenes: runs when 
   try { await fn(); } catch (e) { for (const id of ids) if (wanted(id) && !results.some(r => r.id === id)) add(id, null, { note: 'failed: ' + String(e.message).split('\n')[0].slice(0, 300) }); }
 }
 
-const keys = await (async () => { const { page, close } = await open('fp'); await page.goto(base + 'index.html'); await page.waitForFunction(() => !!(typeof HOST !== 'undefined' && HOST.list && HOST.list.length && (!HOST.packages || HOST.packages.state().read)), null, { timeout: 60000 }); const k = await page.evaluate(() => HOST.list.map(s => s.key)); await close(); return k; })();
+const keys = await (async () => { const { page, close } = await open('fp'); await page.goto(base + 'index.html'); await page.waitForFunction(() => !!(typeof HOST !== 'undefined' && HOST.list && HOST.list.length && (!HOST.packages || HOST.packages.state().read)), null, { timeout: 60000 }); const k = await page.evaluate(() => HOST.stories().map(s => s.key).filter(k => k !== 'hello')); await close(); return k; })();   // both sets of cards (the Experiments too), not the example
 if (flag('--list')) { console.log('stories: ' + keys.join(', ')); await browser.close(); if (srv) srv.close(); process.exit(0); }
 
 // ---- every story: story mode at 25, 50 and 75 % (playing), explore mode
@@ -390,6 +391,9 @@ for (const key of keys) {
     const { page, close } = await open('fp');
     try {
       await gotoPage(page, key + '&slides=off', key); await session(page);
+      // sets that build in slices between frames: finish them first, as a story's src/sweep.mjs does, so a background build is not measured as a chapter's cost
+      const fin = await pk(page, '(() => { let n = 0; if (typeof GL !== "undefined" && GL.sets) for (const k in GL.sets) if (GL.sets[k] && GL.sets[k].finish) { GL.sets[k].finish(); n++; } return n; })()');
+      if (fin) console.log('  ' + key + ': finished ' + fin + ' set' + (fin === 1 ? '' : 's') + ' building in the background before measuring');
       const T = await pk(page, 'typeof T_END === "number" ? T_END : 0');
       for (const f of [0.25, 0.5, 0.75]) {
         const id = 'story:' + key + ':' + Math.round(f * 100) + '%';

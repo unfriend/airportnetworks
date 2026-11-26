@@ -34,7 +34,7 @@ for (const s of list) {
       let last = null;
       for (let n = walk.nextNode(); n; n = walk.nextNode()) {
         const p = n.parentElement;
-        if (!p || p.closest('svg, script, style, button')) continue;
+        if (!p || p.closest('svg, script, style, button, .bars')) continue;   // (a chart's values and labels are no line to read)
         const txt = n.textContent.replace(/\s+/g, ' ');
         if (!txt.trim()) { if (last) last.text += ' '; continue; }
         const at = p.closest('[data-at]'), cue = at && sec.contains(at) ? at : sec;
@@ -86,9 +86,9 @@ const toRec = (sync, t) => {
   }
   return t;
 };
-// (a story in two languages: the first language's file, and audio/narration-<key>-<lang>.mp3 for another; a story
-// package's in its folder, packages/<key>/audio/narration[-<lang>].mp3: tools/stories.mjs)
-const STORIES = stories(), storyAt = k => STORIES.get(k) || { narration: l => `audio/narration-${k}${l ? '-' + l : ''}.mp3`, file: `stories/${k}.js` };
+// (each story's recording is in its package, packages/<key>/audio/narration[-<lang>].mp3, a second language's with its
+// suffix: tools/stories.mjs)
+const STORIES = stories(), storyAt = k => { const s = STORIES.get(k); if (!s) throw new Error('no story ' + k + ' in tools/stories.mjs'); return s; };
 const fileOf = (k, l) => storyAt(k).narration(l);
 // how a story is narrated: a recording, a synthetic voice (made by tools/voice/narrate.mjs, which the story's file names
 // beside its NARRATION_SYNC), or nothing yet
@@ -108,8 +108,8 @@ stay as they are (they come from the data).
 
 How to record and fit a narration: see "Recording a narration" in \`docs/narration-timings.txt\`. In short, put the
 MP3 at the file named under each story; if your chapters start at other times, change NARRATION_SYNC (pairs of
-[time in the recording, story time]) in the story's source (\`tools/<story>/engine/e3_story.js\`, then rebuild; in
-\`stories/<story>.js\` for the airports, proteins and spatial stories) and run the smoke test.
+[time in the recording, story time]) in the story's source (\`packages/<key>/src/engine/e3_story.js\`, then rebuild; in
+\`packages/<key>/main.js\` for the airports, proteins and spatial stories) and run the smoke test.
 
 `;
 md += '| Story | File | Narration | Length |\n| --- | --- | --- | --- |\n';
