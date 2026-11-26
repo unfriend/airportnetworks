@@ -1,22 +1,16 @@
 {
-  "version": "networks-v220",
+  "version": "networks-v221",
   "date": "2026-11-26",
   "new": [
-    "This release repairs v219, which went out before its review: the start page fetched every story after 30 seconds, and a first story that failed to load left a headset on the loading card.",
-    "Every story is fetched again when the app installs or updates; only the files that changed are downloaded, and a slow network no longer holds the update back.",
-    "A story file caught half way through a deploy is no longer kept on the device.",
-    "In a shared room the limited headset menu has Calibrate (Stop calibrating while it runs) and Room setup.",
-    "A room you left on purpose is offered again when you stand in its place."
+    "In a shared room, a control changed by two people at nearly the same time could keep flipping back and forth on a slow device. Now each change is sent once."
   ],
   "test": [
-    "Enter VR or AR from the start page: the trigger works at once, in the menu and when calibrating.",
-    "The limited menu in a room: Calibrate, Stop calibrating and Room setup; Room setup offers no Fresh shared space and no new area.",
-    "An installed copy taking this update, then a story opened offline that was never opened before.",
-    "Leave a room on purpose, then stand in its place again: it is offered, not joined by itself."
+    "In a shared room, two people change different controls of the same story at nearly the same time: both changes stay, and nothing flips back.",
+    "The shared-room rounds of the Networks for everyone, Invisible threads and Robot gang stories, twice, and the relay's own tests."
   ],
   "untested": [
-    "Everything in a headset: nothing in this release has been tried in one.",
-    "The calibration fault you saw (after the second cross both crosses were gone and the room was not lined up) could not be reproduced without a headset. One cause was found and fixed: from the start page the trigger reached nothing. Whether that was your fault is not known: it may not be fixed.",
+    "Everything in a headset: nothing in this release or in v220 has been tried in one.",
+    "The calibration fault you saw (after the second cross both crosses were gone and the room was not lined up) could not be reproduced without a headset. One cause was found and fixed in v220: from the start page the trigger reached nothing. Whether that was your fault is not known: it may not be fixed.",
     "The install's download of every story on a Quest's storage and wifi, and a real host's deploy.",
     "Every synthetic voice is unheard."
   ]

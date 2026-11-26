@@ -8995,10 +8995,11 @@ try {
       const sn = T.sound ? await Promise.all([B, C].map(p => peek(p, 'typeof SFXQ !== "undefined" ? SFXQ.n : -1'))) : null;
       await peek(A, E.send);
       check(`${key}: its effect plays at the others`, calm && await until(B, s => HOST.cur.peek(s), E.seen, 5000));
-      // (sound effects: the others hear it too, as it arrives: each page's own live sounds)
+      // (sound effects: the others hear it too, as it arrives: each page's own live sounds. The count and the log read in
+      // one evaluate: a sound logged between two reads, the robots' nom, shifted the window off the patter)
       if (T.sound) {
         await sleep(1200);
-        const heard = await Promise.all([B, C].map(async (p, i) => sn[i] < 0 ? 'no SFXQ' : (await peek(p, `SFXQ.log.slice(-${Math.max(1, Math.min(64, (await peek(p, 'SFXQ.n')) - sn[i]))}).map(e => e[0])`)).join(' ')));
+        const heard = await Promise.all([B, C].map(async (p, i) => sn[i] < 0 ? 'no SFXQ' : (await peek(p, `SFXQ.log.slice(-Math.max(1, Math.min(64, SFXQ.n - ${sn[i]}))).map(e => e[0])`)).join(' ')));
         check(`${key}: sound effects: the others play its sounds (${T.sound.join(', ')})`, heard.every(h => T.sound.every(nm => h.split(' ').includes(nm))), JSON.stringify(heard));
       }
     }

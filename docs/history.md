@@ -394,6 +394,18 @@ limited menu. What a headset shows by itself (the room setup guide, the check by
 up?*, the questions, *Getting around*) still comes; the first time in an empty room the menu no longer opens by itself
 on a limited headset (it has no Arrange all).
 
+### One send per change (v221)
+
+Until v221 `publish()` sent a value again at every poll for as long as its acknowledgement had not come back, each time
+with a new `cid`, and only the newest `cid`'s acknowledgement counted. On a slow page (frames over about 190 ms) the
+acknowledgement of one send came after the next was out, so the re-sends never ended; when someone else then changed the
+same station's explore state, a late re-send landed after theirs and the two pages merged each other's writes back and
+forth (the whole suite on v220: pass and exposome "comes back the other way" failed). Suspected first, the relay's
+corking and set log (c8aad49) were not the cause: the same failures came with v219's relay. Since v221 a value equal to
+the one still pending is not sent again. Nothing is lost by that: on one socket the relay (or a peer-to-peer host, or a
+room on this device) answers every set with its broadcast or a refusal naming the keys, a slow reader's socket is closed
+rather than skipped, and every new socket's welcome clears what was pending and takes the room's values.
+
 ### Getting around (v124)
 
 (v124; the owner, 8 November 2026: "a little popup toast at the beginning after alignment that tells

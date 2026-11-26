@@ -940,7 +940,12 @@
     const out = [];
     for (const [k, v] of pairs) {
       const s = sig(k, v);
-      if (!force && C.synced.get(k) === s && !C.pending.has(k)) continue;   // echo suppression by value
+      // echo suppression by value; also while our own write of this same value waits for its acknowledgement (v221: before,
+      // sent again at every poll, a busy page's ack for one cid came after the next was sent, so it never ended, and a resend
+      // landing after someone else's change started a merge war between the two pages). Nothing is lost: on one socket every
+      // set is acknowledged or refused, and a new socket's welcome clears what was pending
+      const p = C.pending.get(k);
+      if (!force && C.synced.get(k) === s && (!p || sig(k, p.v) === s)) continue;
       if (v === null) C.synced.delete(k); else C.synced.set(k, s);
       out.push([k, v]);
     }

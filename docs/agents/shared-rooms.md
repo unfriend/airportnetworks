@@ -142,7 +142,11 @@ The plan is `docs/shared-space-plan.md`.
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
   writes acknowledged by the relay, apply order stations > clock > state >
-  panel; a moving thing's value compared without its `ts` and `h`), members, the relay's clock (ping/pong), presence
+  panel; a moving thing's value compared without its `ts` and `h`; each write carries a `cid` and stays in `C.pending`
+  until the relay's broadcast with that `cid` comes back or a refusal names its keys; since v221 a value equal to the one
+  still pending is not sent again: on one socket every set is acknowledged or refused, and a new socket's welcome clears
+  `C.pending`, so a re-send could deliver nothing new, and on a slow page re-sends with fresh `cid`s never ended and a
+  late copy started a merge war over a station's explore state), members, the relay's clock (ping/pong), presence
   (`p.<member>` at 15 Hz, with `ts`) and effects (`e.<station>`); it reconnects with backoff and brings the
   room back after a relay restart; its pump runs from a timer and from
   animation frames (long frames starve timers). Log: `window.__collabLog` (and
