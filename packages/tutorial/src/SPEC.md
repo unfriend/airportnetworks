@@ -796,7 +796,7 @@ Built (section B, the shell builder, 20 November 2026), where it differs from or
     channel. Comparing with the previous release in the same page (its `bodies.js` evaluated beside the new one) was
     done once by hand: the people's set and a story's set both gave the previous release's pixels exactly (largest
     difference 0), the triangle counts unchanged (2,470 and the halo's 840).
-22. Open (for the integrator, not done in section B): the headset Stories screen's title does not use `HOST.count()`.
+22. *Done by note 38, then overtaken (checked in the code, 26 November 2026, v212): the headset title is now `HOST.menu.title()` ("Network stories", `e6_panels.js` `xrLandTitle`), with no count of stories anywhere a user reads it.* Was open (for the integrator, not done in section B): the headset Stories screen's title does not use `HOST.count()`.
     `drawLandHead` (`tools/engine/e6_panels.js` ~l.275, `tools/studio/engine/e9_panels.js`, and the hand-written copies
     in `packages/airports/main.js`, `proteins.js`, `spatial.js`; built into every story) says
     `[...][HOST.list.length - 1] stories`, so with the tutorial in the list a headset would say "seventeen stories".

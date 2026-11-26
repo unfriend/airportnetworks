@@ -17,8 +17,8 @@ Decisions (2026-10-17, from the owner): a **new relay in this repository** (Node
 wins); participants mostly Quest 3 in one room, sometimes **remote VR** people and **remote desktop operators**.
 
 **Status (2026-10-17):** phase 0 is built: the relay, the client in the shell and the hooks in all seven stories
-(all sixteen now), tested headlessly (`relay/test.mjs`, `tools/collab.mjs` with pretend headsets) but not yet on
-headsets. Section 10 says what was built and where it differs from this plan.
+(all sixteen now), tested headlessly (`relay/test.mjs`, `tools/collab.mjs` with pretend headsets) and since tried on two Quest 3s
+in October 2026 (`shared-spaces.md` section 9; `quest-shared-space-findings.md`). Section 10 says what was built and where it differs from this plan.
 
 ## 1. Phases
 
@@ -313,7 +313,8 @@ Differences from the plan:
   rests at a station).
 - **Room format**: `FORMAT` in `shared.js` is the room's version; a room refuses clients of another format, so it
   is bumped whenever the keys or a story's `state()` change shape.
-- Not built: phases 1 to 3 (one live station per headset; simulations still run per device). Untested until
+- Not built when this was written: phases 1 to 3 (one live station per headset; simulations still run per device).
+  Since then the flock's phase 2 is built (phase 2 above); the rest is as here. Untested until
   headsets are in a room again: whether they line up now, shared-space ids and accuracy, persistent anchors
   restored, whether a recentre fires a reset, sound zones heard, comfort, frame rate with presence drawn, and
   whether the socket keeps running inside an immersive session.

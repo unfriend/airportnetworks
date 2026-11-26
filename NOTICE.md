@@ -14,8 +14,8 @@ Chiettini): the app (`index.html`, the scripts beside it, `stories/`, `packages/
 ## Words, narrations, documentation and icons: CC BY 4.0
 
 The stories' words (their narration scripts, captions and panels, in English and, for the pass story, German), the
-narrations in `audio/` (the airports story's recorded by Martin Chiettini, `narration.mp3`, and the others' synthetic,
-`narration-<story>.mp3`), the documentation (`docs/`, the READMEs, `HANDOVER.md`) and
+narrations in `packages/<key>/audio/` (the airports story's recorded by Martin Chiettini, `narration.mp3`, and the others'
+synthetic, also `narration.mp3`; the pass story's German `narration-de.mp3`), the documentation (`docs/`, the READMEs, `HANDOVER.md`) and
 the app's icons (`icons/`) are under the Creative Commons Attribution 4.0 International licence
 (https://creativecommons.org/licenses/by/4.0/). Credit them as "Networks, by Martin Chiettini".
 
@@ -31,8 +31,9 @@ The data in the stories is not relicensed by this project. Each keeps its source
 | Buljan, Bago-Horvath, Rendeiro, bioRxiv 2025 (the microanatomy story) | `packages/micro/src/`, `packages/micro/main.js` | CC BY-NC: credit the authors; no commercial use |
 | HistoPLUS cells on GTEx slides (the tissue topology story) | `packages/topo/src/`, `packages/topo/main.js` | CC BY 4.0: credit the authors |
 | Lombardo, Hütter, Unterlass, Menche, Nat Commun 2026 (the exposome story): their Zenodo deposit (record 18793297, concept doi 10.5281/zenodo.10829456) | `packages/exposome/src/sets/data.js`, `packages/exposome/data/`, `packages/exposome/main.js` | the deposit CC BY 4.0 (its code MIT, github.com/menchelab/Exposome): credit the authors. It is built on the Comparative Toxicogenomics Database, DisGeNET, the NORMAN network's list, the European Environment Agency's industrial reporting (E-PRTR) and the Global Burden of Disease study (IHME), each under its own terms (DisGeNET's and IHME's non-commercial terms still to be checked: docs/data-and-permissions.md). Only derived numbers are in the repository |
+| The interactome of Menche et al., Science 2015 (Data S1), the Human Protein Atlas's subcellular locations, NCBI Gene, UniProt (membrane sides) and the Complex Portal (the *Back into the cell* story, from v205) | `packages/ppicell/src/sets/`, `packages/ppicell/main.js` | the interactome: shown with the authors' permission (a published paper's supplement); the Atlas: CC BY-SA as far as we know, **to be confirmed**; NCBI Gene: public domain; UniProt: CC BY 4.0; the Complex Portal: **terms to be confirmed** (docs/data-and-permissions.md). Only derived numbers are in the repository |
 | Protein locations and interactions (the proteins and cell map stories, the pass story's cell) | `packages/proteins/main.js`, `packages/spatial/main.js`, `packages/pass/main.js` | curated by hand from the literature, the Human Protein Atlas and UniProt; see their terms |
-| The authors' own data, figures and posters (the muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology and soil stories and the tour) | `tools/<story>/`, `stories/<story>.js` | no licence: shown with the authors' permission, not for reuse; ask the authors |
+| The authors' own data, figures and posters (the muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology and soil stories and the tour); the CDK5 story's data from the Menche lab's CDK5_data repository (public on GitHub; no licence stated in that repository); Gene Ontology release files (CC BY 4.0) for its process names | `packages/<key>/src/`, `packages/<key>/main.js` | no licence: shown with the authors' permission, not for reuse; ask the authors |
 
 The authors' source files are not in the repository, only numbers derived from them.
 

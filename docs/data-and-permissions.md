@@ -2,7 +2,7 @@
 
 What each story shows, where it comes from, what may not go into the app or the repository, and what still has to be
 agreed before anything is shown more widely. The stories' own credits are in [README.md](../README.md) ("Data") and in
-each `tools/<story>/README.md`; the open questions on the sources are in
+each `packages/<key>/README.md`; the open questions on the sources are in
 [questions-for-authors.md](questions-for-authors.md). Blanks the owner has to fill are marked **TO FILL (owner)**.
 
 ## Rules
@@ -17,7 +17,7 @@ decides on data and privacy questions.
 | Never use the PET authors' `Network_VR` repository or anything from it: never fetch, copy, publish or commit it. | It holds a real patient's CT surface and PET/CT volume. Its ideas (organs as a network in the body, an organ as a network of patches) were redrawn from scratch. | `packages/pet/src/README.md` |
 | The PET poster's patients only as group summaries. | Single points are single patients. (The story no longer shows the poster's population; its readings stay in `figures.json`, unused.) | `packages/pet/src/data/figures.json` |
 | Never the GTEx slide images: slides, sections and tiles are drawn. No GTEx sample or donor ids and no donor details either: the tissue topology story numbers its slides. | They are images and records of real donors' tissue; the stories need only the preprint's and the posters' numbers (and, for the tissue topology story, the cells' positions and types). | `packages/micro/src/SPEC.md`, `packages/micro/src/README.md`, `packages/ovary/src/SPEC.md`, `packages/topo/src/SPEC.md`, `packages/topo/src/README.md` |
-| Inputs kept out of the repository stay out; only the numbers a story needs go in (`tools/<story>/sets/data.js`). | They are the authors' unpublished work, shared for this app. A pickle (the endotype run) can run code, so its generator only unpickles the classes it expects. | headers of `packages/endo/src/data/gen_data.py`, `packages/micro/src/data/gen_data.mjs` `packages/topo/src/data/gen_data.py`, `packages/soil/src/data/gen_data.py` and `packages/cdk5/src/data/gen_data.py` (its pickles hold only dicts, lists and strings; its unpickler refuses every class) |
+| Inputs kept out of the repository stay out; only the numbers a story needs go in (`packages/<key>/src/sets/data.js`). | They are the authors' unpublished work, shared for this app. A pickle (the endotype run) can run code, so its generator only unpickles the classes it expects. | headers of `packages/endo/src/data/gen_data.py`, `packages/micro/src/data/gen_data.mjs` `packages/topo/src/data/gen_data.py`, `packages/soil/src/data/gen_data.py` and `packages/cdk5/src/data/gen_data.py` (its pickles hold only dicts, lists and strings; its unpickler refuses every class) |
 | topocyte (GPL-3) is only run, offline, to make the tissue topology story's numbers; none of its code goes into the app or the repository. | Its code copied into the app would bring the GPL's terms with it. The app only looks up the numbers it wrote. | header of `packages/topo/src/data/gen_data.py`, `packages/topo/src/SPEC.md` |
 | Say "in this map" for statistics computed on the curated sets. | The sets are small and chosen by hand: their statistics are not facts about the whole interactome. | `AGENTS.md` ("Conventions") |
 | Only well-documented interactions and locations (complexes, textbook pathways, Human Protein Atlas / UniProt). | The content is illustrative but must be correct. | `AGENTS.md` ("Conventions") |
@@ -51,11 +51,12 @@ decides on data and privacy questions.
 | Invisible threads (`exposome`) | 9,887 substances with human genes in the Comparative Toxicogenomics Database and their 573,673 curated substance-gene links; the authors' network of 9,764 substances and 736,470 links (their 3D layout) and its Louvain communities at three levels; the human interactome (18,815 proteins, 482,935 contacts) placed in *Back into the cell*'s model cell and sorted by contacts; four patterns of where a substance hits and NORMAN hazard scores; 6,177 DisGeNET diseases and the substance-disease proximity (176,259 pairs with z below −5 shipped, with PubMed co-citations); 32 European countries' elevated releases (E-PRTR 2007 to 2020), the authors' risk scores and close against distant diseases; endrin in Italy and colon and rectum cancer (two ratios the authors printed from the Global Burden of Disease) | Lombardo, Hütter, Unterlass and Menche, Nat Commun 17, 5754 (2026), doi 10.1038/s41467-026-72402-y; their deposit (Zenodo record 18793297, concept doi 10.5281/zenodo.10829456, CC BY 4.0; code github.com/menchelab/Exposome, MIT), built on the Comparative Toxicogenomics Database, DisGeNET, the NORMAN network, the European Environment Agency (E-PRTR) and the Global Burden of Disease study (IHME) | real (the authors'): every count, the network and its layout, the communities, the patterns, the hazard scores, the proximities and co-citations, the countries' selections, scores and tests (recomputed from Source Data Fig4E/F), the two GBD ratios. Ours, said so: the chemical shelves (chapter 1) and their colours, the sorted interactome (most contacts in the middle), a disease's proteins drawn together, the plain words for the communities (`src/data/labels.json`, from their enriched terms), the samples drawn (45,000 of the network's links, 30,000 contacts, at most 7,000 threads, the flashing pairs, the many substances in the cell), the countries' map centres; two printed values cited, not derived (the correlation 0.005 and 42 million PubMed records). Where the deposit differs from the paper's text: `packages/exposome/src/SPEC.md`, "Numbers" |
 | Flock (`flock`) | 200 starlings | after Ballerini et al., PNAS 2008; Procaccini et al., Animal Behaviour 2011; Cavagna et al., PNAS 2010 | a live simulation, not data |
 | Robot gang (`robots`) | 6 to 24 robot vacuums | after Olfati-Saber, Fax and Murray, Proceedings of the IEEE 2007 | a live simulation, not data; speeds tuned to look right |
+| Your guide (`tutorial`, the introduction, last in the order) | a robot guide, seven practice tasks and a small network | none: the guide's moves and words are the app's own (written by Claude, the credits say so); the figure is the app's own `bodies.js` armour figure | the project's own; no data |
 | Back into the cell (`ppicell`, a package; on the main cards since v188) | the interactome of 13,460 proteins and 141,296 links put back into the cell map's model cell; each link judged possible, through a gate or impossible from the proteins' places | Menche et al., Science 347, 1257601 (2015), Data S1; the Human Protein Atlas's subcellular locations; NCBI Gene (gene numbers to ids); since v205 UniProt (membrane sides, CC BY 4.0) and the EBI Complex Portal (complexes; its terms to confirm before `main`) | real: the links, their kinds, the places (the Atlas's 49 locations onto the cell map's 13, `packages/ppicell/src/data/gen_data.py`); the judgement is the story's own method; the model cell and the layout are illustrative |
 
 ### Rebuilding and rights
 
-After regenerating a story's data, rebuild it (`node tools/<story>/build.mjs`, then `--check`), bump `VERSION` in
+After regenerating a story's data, rebuild it (`node packages/<key>/src/build.mjs`, then `--check` and `node tools/packages/scan.mjs`), bump `VERSION` in
 `sw.js` and run the smoke test ([docs/agents/testing.md](agents/testing.md), "Testing"). Never edit a `sets/data.js` by hand.
 
 | Story | Regenerate the data | Inputs not in the repository | Licence or terms, where the repository states one | Permission to show publicly |
@@ -78,6 +79,7 @@ After regenerating a story's data, rebuild it (`node tools/<story>/build.mjs`, t
 | `exposome` | `node packages/exposome/src/data/gen_cell.mjs > cell.json`, then `python3 -I packages/exposome/src/data/gen_data.py <deposit>/Exposurome_withfiles cell.json` (numpy, pandas, openpyxl; a few minutes; the pickles read by a restricted unpickler), then `node packages/exposome/src/test-data.mjs` | the authors' deposit (the unpacked zip of Zenodo record 18793297) | the deposit CC BY 4.0, its code MIT; its sources' own terms (CTD's; DisGeNET's and IHME's non-commercial terms) | the lab's own published work (the owner's group), the deposit public; **open (owner, before `main`):** whether DisGeNET's and IHME's non-commercial terms allow showing the derived numbers on the public site |
 | `flock` | nothing to regenerate | none | the project's own code | no third-party data |
 | `robots` | nothing to regenerate | none | the project's own code | no third-party data |
+| `tutorial` | nothing to regenerate | none | the project's own code; its synthetic voice as in "Licence" | no third-party data |
 | `ppicell` | `packages/ppicell/src/data/gen_data.py <folder>` | `DataS1_interactome.tsv`, `subcellular_location.tsv`, `Homo_sapiens.gene_info.gz` | the interactome: the authors' permission (below); the Atlas: its licence, **TO FILL:** confirm the current terms (CC BY-SA as far as we know: the derived places in `sets/data.js` carry it); NCBI Gene: public domain | see below |
 | `ppicell` (v207, the Network tab's lookup) | `packages/ppicell/src/data/gen_lookup.py <atlas folder> <folder>` | the Atlas's `subcellular_location.tsv.zip` (its download page, public), and gen_sides.py's UniProt, Complex Portal and NCBI Gene files | the Atlas: the same terms as above (**TO FILL:** confirm; the derived places and reliability of its 3,665 genes outside the map in `data/lookup.json` carry them); UniProt CC BY 4.0; the Complex Portal to confirm; NCBI Gene public domain. Loaded by the page only when a person chooses a network of their own; that network never leaves their browser unless they share it (next row) | see `packages/ppicell/README.md` |
 | `ppicell` (v208, a network shared through the relay) | made by a person on a page from their own file, on their press of *Share with this room* or *Put on the relay* | what that person read: protein symbols, links, kinds of evidence (words), scores, the file's name; nothing else (no patient or variant data is read) | the person's own; kept by the relay they chose (`relay/nets.mjs`: its scenes' folder or R2 bucket, `.nets/`) under an id made from its content, until removed with *Remove from the relay*; readable by anyone who can use that relay's API (its password's holders; anyone who can reach a relay without one), as the page says beside the button; never in the repository, a log line or a developer note | `packages/ppicell/src/SPEC.md` ("Stage 3"), [relay/README.md](../relay/README.md) ("Shared networks") |
@@ -106,7 +108,11 @@ narration is recorded so far (20 November 2026).
 | `soil` | the slides and the field trial's data (16S read counts, taxonomy, field metadata), unpublished | the authors (Marina Montserrat Díez and colleagues, Christa Schleper's group, University of Vienna), through the project's owner | 29 October 2026, as the owner relayed it: permission to use the slides and the data; for anything unknown, illustrative values, said so | **TO FILL (owner):** whether the story may be public (on GitHub Pages) before the work is published, or only served at the Drucker Forum from the local relay | only derived numbers in the repository; kinds numbered, no ASV ids or sequences; no pictures or photos from the slides; the raw files out of the repository | **TO FILL (owner)** |
 | `cdk5` | the CDK5_data repository (public, github.com/menchelab/CDK5_data) | the Menche lab (Christiane Hütter), the owner's group | 18 November 2026: the owner asked for the story from the repository's data, scene descriptions and representations | public | only derived numbers in the repository; the clone stays out; its pickles read by an unpickler that refuses every class | **TO FILL (owner)** |
 | `exposome` | the Zenodo deposit (public, CC BY 4.0) and the paper (Nat Commun 2026, open access) | the Menche lab (Lombardo, Hütter, Unterlass, Menche), the owner's group | 25 November 2026: the owner asked for the story from the paper and its deposit | public, CC BY 4.0 (the deposit); DisGeNET's and IHME's terms to check | only derived numbers in the repository; the deposit stays out | **TO FILL (owner)** |
+| `flock`, `robots`, `tutorial` | the project's own code and, for the tutorial, words and moves written for it; the flock and robot rules after published papers (above) | the project's owner | the project's own | yes | none | not needed (no third-party data) |
 | `ppicell` | the interactome of Menche et al. (2015), Data S1 | Jörg Menche (an author; LBI for Network Medicine) | by 22 November 2026, as the owner relayed it; **TO FILL (owner):** how | yes (a published paper's supplement) | only derived numbers in the repository (gene symbols, gene numbers in the file's order, kinds of evidence); the file itself kept out | Jörg Menche |
+
+`hello` (the example package) and `cellstress` (a frame-rate test) hold no data of anyone's: made-up numbers only; they are
+on the Experiments set and not in `packages/order.json`, so they need no row above.
 
 ## Inputs not in the repository
 
@@ -123,7 +129,7 @@ narration is recorded so far (20 November 2026).
 | `Soil_ASVs.csv`, `ASV_Identifiers.csv`, `Field_Metadata.csv` (the BNI wheat trial's 16S read counts, their taxonomy and the field metadata), the slides `BNI-Japan-shortened.pptx` and the authors' notes on the data | `soil` | `packages/soil/src/data/gen_data.py <folder>` (the CSVs); the slides read by hand (their charts' readings in `packages/soil/src/data/figures.json`) | the authors (Marina Montserrat Díez, Christa Schleper's group, University of Vienna) | **TO FILL (owner)** | The story still builds from the committed `packages/soil/src/sets/data.js`; `SOIL_DATA` cannot be regenerated and no number in it can be checked again. |
 | The CDK5_data repository's `CDK5_analytics/` textures and `input/` files (public on GitHub) | `cdk5` | `packages/cdk5/src/data/gen_data.py <folder>` | the Menche lab (github.com/menchelab/CDK5_data) | GitHub (public); clone it to regenerate | The story still builds from the committed `packages/cdk5/src/sets/data.js`. The two feature pickles its notebook needs (GO processes, diseases by gene) are on the lab's Drive, not in the repository; the layouts they gave are in the textures, which is what the generator reads. |
 | The exposome deposit (`Exposurome_withfiles/`, the unpacked zip of Zenodo record 18793297) | `exposome` | `packages/exposome/src/data/gen_data.py <folder> <cell.json>` | the authors (Zenodo, public) | Zenodo; download and unpack it to regenerate | The story still builds from the committed `packages/exposome/src/sets/data.js` and `packages/exposome/data/*.bin`. |
-| The posters, talks and slides behind the stories (muscle talk, endotype poster, PET poster and vision slide, microanatomy poster and talk, the LBI welcome talk) | `nmd`, `endo`, `pet`, `micro`, `lbi` | read by hand; the readings are in `tools/*/data/figures.json` and the story specs | their authors | Google Drive folders the owner shared: ask the owner for the link | The stories are unaffected; you cannot re-check a reading or answer a question about a figure. |
+| The posters, talks and slides behind the stories (muscle talk, endotype poster, PET poster and vision slide, microanatomy poster and talk, the LBI welcome talk) | `nmd`, `endo`, `pet`, `micro`, `lbi` | read by hand; the readings are in `packages/*/src/data/figures.json` and the story specs | their authors | Google Drive folders the owner shared: ask the owner for the link | The stories are unaffected; you cannot re-check a reading or answer a question about a figure. |
 | The OpenFlights 2014 files and the script that made `NET_B64` | `airports`, `lbi` | not in the repository | OpenFlights (public); script: **TO FILL (owner):** whether it still exists and where | | The routes cannot be updated or rebuilt. |
 | Curation notes for the proteins and the cell map (which paper backs each interaction and place) | `proteins`, `spatial`, `lbi` | not in the repository | **TO FILL (owner):** whether such notes exist, and who has them | | An interaction cannot be traced to its source except by searching the literature again. |
 | `DataS1_interactome.tsv` (Menche et al. 2015), `subcellular_location.tsv` (the Human Protein Atlas), `Homo_sapiens.gene_info.gz` (NCBI Gene) | `ppicell` | `packages/ppicell/src/data/gen_data.py <folder>` | the paper's supplement; the Atlas's and NCBI's download pages (public) | **TO FILL (owner):** the owner's shared folder | The story still builds from the committed `packages/ppicell/src/sets/data.js`; `PPI_DATA` cannot be regenerated (the public files can be downloaded again; a newer Atlas release may give other places). |
@@ -146,6 +152,9 @@ undone for clones and forks made before (GitHub showed no forks on 22 October 20
   names and contents include people's first names and room codes. Keep a copy where the team keeps such logs
   (**TO FILL (owner):** where), then delete the branches on GitHub. [relay/README.md](../relay/README.md) ("Logs")
   already says never to push logs to a public repository: keep to that.
+  *Checked 26 November 2026:* `git ls-remote --heads origin` lists no `logs-*` branch any more (only `main`, `dev`,
+  `claude/trusting-hypatia-ca5qv0`, `copilot/assess-code-quality-security` and `unity-importer`), so they were deleted;
+  whether a copy was kept, and where, is still **TO FILL (owner)**.
 - [x] **`ikerdata/`.** 17 TSV files, 88 MB, the muscle story's authors' analysis files, committed in full (commit
   `4d7aacc`, 16 October 2026). Removed from the repository on 3 November 2026 (the owner: "do we actually need the
   ikerdata for the stories? if not simply remove it so it is not served anymore"; the app never read it, only the
@@ -156,23 +165,30 @@ undone for clones and forks made before (GitHub showed no forks on 22 October 20
 - [ ] **Screenshots in the history.** `packages/micro/src/shots/*.png` were committed in `d7c7862`, `e548fa0` and `e3f6b4f`
   and removed in `bdc8a8e`. They show drawn content only. Decide whether to leave them.
 - [ ] **Ignored folders stay ignored**: `relay/logs/` (names, room codes) and `relay/.lan/` (the relay's certificate
-  and private key) in `.gitignore` and `.dockerignore`; `tools/*/shots/` in `.gitignore`.
+  and private key) in `.gitignore` and `.dockerignore`; `packages/<key>/src/shots/` (each in `.gitignore`).
 - [ ] **No kept-out input in any branch.** On 22 October 2026 no GraphML, `.pkl`, `.xlsx` or `Network_VR` file was in
   the history of any branch. To check again (reads only):
   `git log --all --name-only --format= | grep -i -E 'graphml|\.pkl$|\.xlsx$|network_vr' | sort -u`
-- [ ] **The microanatomy story** goes onto the site when `main` is next moved forward; its sources are already public
-  on the work branch. Have its authors' agreement first.
-- [ ] **The authors' permissions** recorded for `lbi`, `nmd`, `endo`, `pet` and `micro` (record above).
+- [ ] **The microanatomy story** is already on `main` (the local copy of `origin/main`, v135 of 11 November 2026, has
+  `stories/micro.js`; checked 26 November 2026, v212), so it is public; its sources are public on `dev`. The authors'
+  agreement is still not recorded (record above).
+- [ ] **The authors' permissions** recorded for `lbi`, `nmd`, `endo`, `pet`, `micro`, `qubits`, `mutation` and `pass`
+  (the rows still blank in the record above; `topo`, `soil`, `cdk5`, `exposome` and `ppicell` have rows with a blank
+  still marked TO FILL).
+- [ ] **Back into the cell's sources.** The Human Protein Atlas's current licence terms (CC BY-SA as far as we know) and
+  the Complex Portal's terms ("we will confirm the terms later", the owner; `packages/ppicell/src/SPEC.md`) are not
+  confirmed; both are in the story since v205. Confirm before `main` carries the story's v205 or later. The gene-set
+  libraries behind the wwiznet export (KEGG never to ship) are outside the app.
 - [x] **The narration's speaker** agreed to `packages/airports/audio/narration.mp3` being published (record above): the owner, its speaker,
   under CC BY 4.0 (20 November 2026).
 - [ ] **The German synthetic voice.** Piper's Thorsten voice (the pass story's German narration) is CC0 by its own data,
+  but finetuned from Piper's English lessac voice, whose data is under a research licence (no commercial use; see the
+  table). The app is non-commercial outreach; decide whether that is enough before `packages/pass/audio/narration-de.mp3` goes
+  on the site, or ask for a Thorsten voice trained without lessac.
 - [ ] **The exposome story's sources' terms.** Its numbers come from the authors' CC BY 4.0 deposit, which is built on
   DisGeNET (a non-commercial licence for its academic edition) and the Global Burden of Disease study (IHME's
   non-commercial terms), among others. Check that showing derived numbers from them on the public site is allowed
   before `main` moves with the story.
-  but finetuned from Piper's English lessac voice, whose data is under a research licence (no commercial use; see the
-  table). The app is non-commercial outreach; decide whether that is enough before `packages/pass/audio/narration-de.mp3` goes
-  on the site, or ask for a Thorsten voice trained without lessac.
 - [x] **A project licence** (below): MIT and CC BY 4.0 since 20 November 2026; the holder still to clarify.
 - [ ] **The web font.** `index.html` loads B612 from Google Fonts, so every visitor's browser contacts Google's
   servers. Decide whether that is acceptable for an Institute site, or serve the font with the app.

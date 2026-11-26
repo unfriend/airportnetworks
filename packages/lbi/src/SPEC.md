@@ -23,7 +23,7 @@ where real data would be too much, but whatever the science says must be correct
 - Your file `sets/<name>.js` defines `SETS.<key> = function (K) { ... }` (one or more sets per file). It will be
   pasted inside the story's closure, so define nothing global besides the `SETS.<key>` assignments, and keep
   every helper inside the function.
-- `K` is the shared kit in `kit.js` (read it; it is short). It gives `THREE`, `smooth`, `clamp`, `lerp`, `prog`,
+- `K` is the shared kit in `tools/engine/kit.js` (read it; it is short). It gives `THREE`, `smooth`, `clamp`, `lerp`, `prog`,
   `rng`, `gauss`, `v3`, `unit`, `rgb`, `ramp`, shared uniforms `K.U` (`uPx`, `uTime`), materials `K.points`, `K.lines`,
   `K.rim`, `K.fade` (for built-in lit materials), `K.newSet`, geometry helpers `pointsGeo`, `linesGeo`, `tube`,
   `merge`, `paint`. Write custom `THREE.ShaderMaterial`s where you need them, but then: include `uA: set.uA` in the

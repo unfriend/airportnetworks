@@ -87,6 +87,10 @@ answers the menu's *Are you in the same room as the others?* before it talks or 
 - [ ] Kiosk headsets: install the app from the live copy ([README.md](../README.md), "Installing"; address in
   [setup-and-release.md](setup-and-release.md), "Deploying"). Shared-room headsets: use a bookmark of the relay's
   address instead; the live copy cannot reach a relay with a self-signed certificate.
+- [ ] **Take all stories** on each device once online (v185; the Stories screen's row, with a percentage, until *All stories
+  on this device*): about 85 MB, narrations included; an installed app also does it by itself in the background. Without
+  it a story never opened on that device cannot play offline. Do it from the address the headset will use (the live
+  copy and the relay are different origins: the relay's pages have no offline copy of the live copy's files).
 
 **The relay laptop**
 
@@ -129,7 +133,7 @@ answers the menu's *Are you in the same room as the others?* before it talks or 
   corners: spots on a table would put the room's floor on the table).
   Every headset calibrates on them as it starts and checks on them; the first headset's calibration makes them the
   room's. Label them A and B: a headset that touches them the other way round stands the room the other way round.
-- [ ] Floor for **Arrange all**: sixteen stations in two rows, eight and eight behind them, about 17 m by 4 m starting 1.2 m in front of you.
+- [ ] Floor for **Arrange all**: fifteen stations (the main set's cards, the tutorial among them; the Experiments set is placed with **Add here**, v188) in two rows, eight and seven behind them, about 17 m by 4 m starting 1.2 m in front of you.
   Less room: place a few with **Add here** (headset) or **Add a station** (page).
 
 ## 2. Setting up

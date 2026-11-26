@@ -2,7 +2,7 @@
 
 A robot guide stands in your room and shows you how the app works in a headset: pointing, playing a story, explore mode,
 the menu, Recenter, shared rooms (about three and a half minutes), then explore mode is practice: seven small tasks the
-guide reacts to. It is first in `stories/list.js` with `intro: true`: an introduction, not one of the sixteen stories
+guide reacts to. It is a package, last in `packages/order.json`, with `intro: true`: an introduction, not one of the stories
 (the shell skips it for the default start, Repeat all and `HOST.count()`). The plan is `SPEC.md`; built like the flock:
 edit the sources here, then
 

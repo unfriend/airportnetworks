@@ -10,4 +10,4 @@ made with cartoGRAPHs), and brought into the app as a story package at v189 (on 
 has been tried on a headset). Its sources, its build and its notes are in `src/` (`src/README.md`, `src/SPEC.md`):
 `node packages/cdk5/src/build.mjs` writes `main.js`, then `node tools/packages/scan.mjs`. Narrated with a synthetic voice
 (`audio/narration.mp3`, 8:27). Its data and the permission to show it: `docs/data-and-permissions.md`; open questions
-for the authors: `docs/questions-for-authors.md` (C1 to C7).
+for the authors: `docs/questions-for-authors.md` (C1 to C10).

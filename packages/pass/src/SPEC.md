@@ -1,6 +1,6 @@
 # "Pass it on" (`pass`): the sets and their contract
 
-The twelfth story, for the lab's outreach (school classes, open days; about 12 and up): how things spread through
+The twelfth story built (v187: a package), for the lab's outreach (school classes, open days; about 12 and up): how things spread through
 networks, at three scales. About 5 minutes of story time before pacing, six chapters, then explore mode. English and
 German. Read with `packages/lbi/src/SPEC.md` (the set contract) and the manifests `sets/fish.md`, `sets/globe.md`,
 `sets/cell.md` (each set's params, API, anchors, labels, views and science). The owner's decisions:

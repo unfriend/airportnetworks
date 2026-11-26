@@ -10,7 +10,7 @@ node packages/lbi/src/build.mjs --check   # exits 1 if packages/lbi/main.js is o
 
 | Path | What it is |
 | --- | --- |
-| `kit.js` | `makeKit(THREE)`: the shared helpers and materials every set uses |
+| (the kit) | `makeKit(THREE)`: the shared helpers and materials every set uses, pasted in from `tools/engine/kit.js` at build time |
 | `sets/<name>.js` | one 3D set each (`crowd` and `sankey` share `clinic.js`); `sets/<name>.md` is its manifest: params, anchors, labels, views, controls, sources, what a narrator may say |
 | `sets/demo.js` | a tiny example set |
 | `engine/e1_head.js` ... `e7_app.js` | the story engine: scene and camera, story text and keyframes (`e3_story.js`), explore mode, headset code, headset panels, narration and the frame loop; the start in steps that yield, each set built (`buildSet`) and its shaders compiled (`warm`) on its own, reported to the shell's loading bar (`LOAD` in `e7_app.js`, the same lines in every engine; docs/agents/shell.md "Inside a story") |

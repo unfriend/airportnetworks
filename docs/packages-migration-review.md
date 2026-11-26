@@ -1,5 +1,9 @@
 # Review of docs/packages-migration.md (23 November 2026, v184)
 
+*Note (26 November 2026, v212): this review is a record. Its verdict and "go with changes" were taken in the owner's "Decided
+route" in `docs/packages-migration.md` (23 November); every story has been a package since v187. Paths below are those of
+v184 (`tools/<key>/`, `stories/<key>.js`).*
+
 Verdict: **go with changes**. The mechanism is sound (both forms already run side by side; a story moves in one commit).
 The plan is too big: roughly half of it (G4, G5, G6 proper, R1 to R3) is not needed to move a single story, and some of
 it adds risk (a `FORMAT` bump, rewrites of three stories).

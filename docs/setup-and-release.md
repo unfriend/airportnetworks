@@ -174,7 +174,7 @@ tests use headless Chromium, which draws in software here and is slow, so run th
 Worked examples of `shot.mjs` and `sweep.mjs` are in [packages/lbi/src/README.md](../packages/lbi/src/README.md) ("Changing
 something"). After changing a story's text, also run `node tools/voice/narrate.mjs <key>` (every story but the airports
 has a synthetic narration: it speaks the changed lines again and re-times the story from the recording; update its length
-in `stories/list.js` from what it prints; then `node tools/voice/check.mjs <key>`; see
+in `packages/<key>/story.json` (`len`) from what it prints; then `node tools/voice/check.mjs <key>`; see
 [tools/voice/README.md](../tools/voice/README.md)) and then `node tools/narration.mjs http://127.0.0.1:8123/`. Neither is a
 test: they write the story's recording, `NARRATION_SYNC` and [narration.md](narration.md) again from the running stories.
 `node tools/pace.mjs http://127.0.0.1:8123/ --write <key>` paces a new story from its words until it is narrated.
@@ -216,7 +216,7 @@ is GitHub Pages' custom domain for `main`.
 
    | Source | Stories built from it |
    | --- | --- |
-   | `tools/engine/kit.js` | all thirteen built stories, the design room, the studio |
+   | `tools/engine/kit.js` | every built package (19 with a `src/build.mjs`: all but airports, proteins and spatial), the design room, the studio |
    | `tools/lowpoly/kit-a.js`, `kit-b.js` | every `packages/<key>/minis.js` of that kit, `lowpoly.js` (kit b) |
    | `packages/lbi/src/sets/body.js` | lbi, pet, micro, ovary, topo |
    | `packages/lbi/src/sets/tissue.js` | lbi, micro |
@@ -228,14 +228,16 @@ is GitHub Pages' custom domain for `main`.
 
    Rebuilding all of them takes a few seconds:
    `node tools/engine/all.mjs && node tools/studio/build.mjs`
-4. **Bump `VERSION` in `sw.js`** (`networks-v139` on `dev` and `networks-v135` on `main` now, so `networks-v140` next) after any change to a file the app
+4. **Bump `VERSION` in `sw.js`** (`networks-v212` on `dev` and `networks-v135` on `main` on 26 November 2026, so `networks-v213` next; a change to
+   one package's files alone needs no new `VERSION` since v193: `node tools/release.mjs` with the same one updates
+   `version.json`, `docs/agents/packages.md`) after any change to a file the app
    serves: `index.html`, `sfx.js`, `occlusion.js`, `ships.js`, `notes.js`, `shared.js`, `sw.js`, `manifest.webmanifest`, `three.min.js`, `three.LICENSE.txt`,
    `proteins.html`, `spatial.html`, `README.txt`, `lowpoly.js`, and anything in `stories/`, `packages/` or `icons/`. For a new
    file the app needs, add it to `SHELL` in `sw.js` (`node tools/release.mjs` writes its story files); a package's files
    are its own (`packages/`, its own cache) and a story's narration is in its package (`packages/<key>/audio/`) since
    v187. If the new file is not directly inside `stories/` or `icons/` (or in `packages/`), also add it to `APP_FILES` in
    `relay/server.mjs`. A new story is a package since v187 (`tools/packages/SPEC.md`) and a key in `packages/order.json`.
-5. **Bump `FORMAT` in `shared.js`** (`networks-43` on `dev` and `networks-41` on `main` now) when the shared keys, or the shape of a story's
+5. **Bump `FORMAT` in `shared.js`** (`networks-59` on `dev` and `networks-41` on `main` on 26 November 2026) when the shared keys, or the shape of a story's
    `collab.state()`, change. A room refuses pages that have another format, so every device in a room has to update
    together. A new story alone no longer needs it: a device that does not know it yet shows its station as needing an
    update.
@@ -245,7 +247,7 @@ is GitHub Pages' custom domain for `main`.
    minute and take the release: new and changed stories by themselves (a changed story on show at a quiet moment),
    a new shell or format after asking (Reload now or Later). It refuses a changed shell without a new `VERSION`. A
    story that only works with the new shell gets it as its `needs` by itself; give a story an older `needs` in
-   `stories/list.js` only when you know it runs on older shells.
+   its `story.json` only when you know it runs on older shells.
 5c. **Write what is new:** rewrite `whatsnew.json` by hand for the new `VERSION`: `{ "version": "networks-vNNN",
    "date": "...", "new": [...], "test": [...], "untested": [...] }`, short plain sentences (what changed, what the owner
    should try on a headset and a phone, what nobody could check here; a handful each, so the headset's page stays
@@ -256,7 +258,7 @@ is GitHub Pages' custom domain for `main`.
 6. **Update the docs.**
    - AGENTS.md first: it is the single source of truth for structure; the details by area are in `docs/agents/`.
    - README.md and README.txt: they hold the same notes, so keep them in step.
-   - The story's `tools/<key>/README.md`, its `SPEC.md` and the set manifests.
+   - The story's `packages/<key>/README.md` and `src/README.md`, its `SPEC.md` and the set manifests.
    - The chapter timings in `docs/narration-timings.txt`.
    - [narration.md](narration.md) (with `tools/narration.mjs`) if a story's text changed.
 7. **Run the tests** before `main` moves (for `dev`, only `node --check` on the changed files, the build check and
@@ -421,10 +423,11 @@ or in the repository (see "Decisions for the owner" in [HANDOVER.md](../HANDOVER
 | --- | --- |
 | `main` | the live copy (GitHub Pages at `https://stories.lbi-netmed.com/`, and the main site's relay on Coolify) |
 | `dev` | the test place, `https://stories.lab.lbi-netmed.com/`, deployed by Coolify on every push; work goes here before `main` (section 4) |
-| `claude/trusting-hypatia-ca5qv0` | the agents' working branch up to the handover (the same commit as `dev` on 9 November 2026) |
-| `claude/affectionate-pasteur-stzjl3` | an older agent branch; its last commit, `28ce276` of 22 October 2026, is already in `main` and `dev` |
-| `logs-2026-10-17` to `logs-2026-10-20-new4` (seven branches) | headset alignment logs pushed for analysis ([relay/README.md](../relay/README.md), "Logs"). Their file names and contents hold people's first names and room codes. Whether to keep or delete them is the owner's decision |
-| `copilot/assess-code-quality-security` | its last commit is already in main |
+| `claude/trusting-hypatia-ca5qv0` | the agents' working branch up to the handover (the same commit as `dev` on 9 November 2026; on 26 November it is on another commit) |
+| `unity-importer` | on GitHub on 26 November 2026 (`git ls-remote`); not described here: **TO FILL (owner):** what it is for |
+| `claude/affectionate-pasteur-stzjl3` | gone from GitHub by 26 November 2026 (`git ls-remote --heads origin`); it was an older agent branch already in `main` and `dev` |
+| `logs-2026-10-17` to `logs-2026-10-20-new4` (seven branches; **not on GitHub any more** on 26 November 2026) | headset alignment logs pushed for analysis ([relay/README.md](../relay/README.md), "Logs"). Their file names and contents hold people's first names and room codes. Whether to keep or delete them is the owner's decision |
+| `copilot/assess-code-quality-security` | its last commit is already in main (still on GitHub, 26 November 2026) |
 
 - **TO FILL (owner):** the institute organisation the repository moves to, and when.
 - **TO FILL (owner):** who gets admin rights and who gets write access.

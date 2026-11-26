@@ -1,6 +1,9 @@
 # Questions for the authors
 
-Open items found while building the nine stories that rest on colleagues' work: places where the sources disagree,
+Open items found while building the twelve stories that rest on colleagues' work (each has its own section below:
+PET, microanatomy, ovarian aging, qubits, muscle and heart, endotypes, the mutation machine, tissue topology, soil, CDK5,
+the exposome and the pass story; the tour, Back into the cell and the others have none; counted on 26 November 2026,
+v212): places where the sources disagree,
 and stand-ins waiting for the authors' own values. Each item says where it is in the source, what the story shows now
 and where that is in the code or data. Whether the authors agreed to their material being shown at all is a separate
 matter: see [data-and-permissions.md](data-and-permissions.md).
@@ -8,9 +11,10 @@ matter: see [data-and-permissions.md](data-and-permissions.md).
 **Until an author answers, the story keeps what it shows now.** Do not "fix" a number in the code on your own: the PET
 story deliberately shows the paper's printed values, and the microanatomy story the preprint's. When an answer comes:
 
-1. change the generator (`tools/<story>/data/gen_data.*`) or the figures' readings (`tools/<story>/data/figures.json`),
-   never `sets/data.js` by hand;
-2. regenerate the data, rebuild with `node tools/<story>/build.mjs` (then `--check`), bump `VERSION` in `sw.js` and run
+1. change the generator (`packages/<key>/src/data/gen_data.*`) or the figures' readings
+   (`packages/<key>/src/data/figures.json`), never `sets/data.js` by hand;
+2. regenerate the data, rebuild with `node packages/<key>/src/build.mjs` (then `--check`, and
+   `node tools/packages/scan.mjs`), bump `VERSION` in `sw.js` and run
    the smoke test ([docs/agents/testing.md](agents/testing.md), "Testing");
 3. set the item's status here to `answered`, with the date and the answer in a few words.
 
@@ -194,11 +198,11 @@ project and the notebook that made it (`CDK5_BioStory_NEW.ipynb`), and since v19
 | C3 | p35 and p39 in the subunits scene | the notebook compares a protein with the list of both (`node == subunits_entrezIDs`), so they keep their degree colour in the texture | the map's points as the texture has them; the close-up colours them light green | open: was green meant? |
 | C4 | p39 at the centre in the NTRK2 and Alzheimer's scenes | their layouts start from scene 1's, which pulled p39 in | p39 left at the centre, faint and unnamed, as in the textures | open: keep, or send p39 home? |
 | C5 | The interactome's and the Disease Ontology associations' sources and dates | cartoGRAPHs' `load_graph('human')`, `input/d_gene_do.pkl` | "the human interactome" and "the Disease Ontology" in the credits, no version | open |
+| C6 | The over-representation counts | not in the repository: computed for the story (`CDK5_DATA.diseases`), within the proteins with a disease | "more than chance would give", with the numbers, "in this map" | open: the authors' preferred background and test |
 | C7 | The GO matrix behind the map of processes | `Features_GO_BiolProc_Dataframe_human.pickle`, on the lab's Drive, not in the repository | the map's knots named from a current GO release (14 small knots); the big dense clouds left unnamed, as today's GO finds no single process in them | open: with the authors' matrix the big clouds could be named |
 | C8 | Scene 7: why hyperactive CDK5 moves into the cell's interior and nucleus | the colleague's scene document: "due to this conformational change, the molecule can now translocate into the nucleoplasm" | no mechanism named: "With p25, it is not [kept in its place]" | open (the owner is asking): a change of shape, or p25 losing p35's membrane anchor (p35's myristoylated N-terminal part, cut off as p10)? |
 | C9 | NPAS4 and the body's clock | the scene document calls the NPAS4 pathway "circadian rhythm associated"; Reactome's list holds CDK5, but no link of the interactome joins it to the others, so the authors drew CDK5 - NPAS4 | "this route has been tied to the body's clock" (spoken); small print "reported, not shown here"; the drawn line said so | open: a reference for the circadian link and for CDK5 acting on NPAS4 |
 | C10 | The interactome's source | the scene document: "the HIPPIE database to retrieve protein interactions" | small print "Interactions as the authors collected them (HIPPIE)" | open: confirm HIPPIE (and its version) for cartoGRAPHs' `load_graph('human')` |
-| C6 | The over-representation counts | not in the repository: computed for the story (`CDK5_DATA.diseases`), within the proteins with a disease | "more than chance would give", with the numbers, "in this map" | open: the authors' preferred background and test |
 
 ## Invisible threads (`exposome`)
 
@@ -221,9 +225,11 @@ The lab's own outreach story, so the questions are for the owner and whoever che
 outside authors. Its globe and cell are the airports and cell map stories' own (their sources are theirs); the fish and
 the outbreak are simulations. Contact person: **TO FILL (owner)**.
 
+(Numbered PS1 to PS4 since 26 November 2026; they were P1 to P4, the same as the PET story's. No file cites the old numbers.)
+
 | # | Item | Where | What the story shows now | Status |
 | --- | --- | --- | --- | --- |
-| P1 | The German text: written for a 12-year-old ("du"), not a word-for-word translation. Should a German speaker at the institute read it through? | `STR` in `packages/pass/src/engine/e2_text.js`; the sets' own words (`packages/pass/src/sets/*.js`) | every word in both languages | open |
-| P2 | In German, the cell's protein names and the airports' city and country names stay as in their stories (English; scientific and OpenFlights names); about 35 well-known cities are given in German (Wien, München, Peking ...), and every protein's role is in German (`ROLE_DE`). Translate the rest of the names, or keep them? | `CITY_DE` in `packages/pass/src/sets/globe.js`; the cell map's `PROTEINS` | English names, said so in the Cell tab's note | open |
-| P3 | The credit line: "An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed)". Is that how the institute wants to be named, and should a person be named? | the first and last chapters' small print | as written | open |
-| P4 | The outbreak's numbers (spread chances 0.025 / 0.06 / 0.14 a day, incubation 5 and infectious 7 days in the story) are chosen to look right, not taken from any disease; the story says "a simple model, not a forecast". Enough? | `packages/pass/src/sets/globe.js` | from Vienna: 47 cities by day 10, 676 by day 20, 1,673 by day 30 | open |
+| PS1 | The German text: written for a 12-year-old ("du"), not a word-for-word translation. Should a German speaker at the institute read it through? | `STR` in `packages/pass/src/engine/e2_text.js`; the sets' own words (`packages/pass/src/sets/*.js`) | every word in both languages | open |
+| PS2 | In German, the cell's protein names and the airports' city and country names stay as in their stories (English; scientific and OpenFlights names); about 35 well-known cities are given in German (Wien, München, Peking ...), and every protein's role is in German (`ROLE_DE`). Translate the rest of the names, or keep them? | `CITY_DE` in `packages/pass/src/sets/globe.js`; the cell map's `PROTEINS` | English names, said so in the Cell tab's note | open |
+| PS3 | The credit line: "An outreach story of the Ludwig Boltzmann Institute for Network Medicine (LBI-NetMed)". Is that how the institute wants to be named, and should a person be named? | the first and last chapters' small print | as written | open |
+| PS4 | The outbreak's numbers (spread chances 0.025 / 0.06 / 0.14 a day, incubation 5 and infectious 7 days in the story) are chosen to look right, not taken from any disease; the story says "a simple model, not a forecast". Enough? | `packages/pass/src/sets/globe.js` | from Vienna: 47 cities by day 10, 676 by day 20, 1,673 by day 30 | open |

@@ -3,6 +3,10 @@
 **Status: parked** (20 November 2026). Nothing is built. The owner asked for it, then stopped it to rethink it together
 with the survey data the studies need. Start here when it comes back.
 
+Checked 26 November 2026 (v212): still parked, still nothing built (no `study=` link, no analytics code in `index.html`,
+`shared.js` or `relay/server.mjs`). The only measuring there is the developer mode's *Record a run* (frame times to the
+relay's `/api/logs`, `tools/notes/SPEC.md`), which is not this. Every decision below is still unanswered by the owner.
+
 ## The request
 
 The owner, 20 November 2026: "Add analytics? Like who looks at what, where do people spend most time, how long per

@@ -13,7 +13,7 @@ the diseases close to them in that network, and the substances released in Europ
   CC BY 4.0; their code: github.com/menchelab/Exposome (MIT).
 - **The model cell**: *Back into the cell* (`packages/ppicell`): its cell run in Node puts each protein where that story
   draws it (`src/data/gen_cell.mjs`).
-- **The story**: the app's authors. The narration will be a synthetic voice (Kokoro).
+- **The story**: the app's authors. The narration is a synthetic voice (Kokoro, `audio/narration.mp3`, made for v212; unheard by the owner).
 
 ## Where its numbers come from
 

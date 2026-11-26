@@ -159,11 +159,21 @@ spot checks it (docs/agents/shared-rooms.md, "The room setup guide and Touch the
 
 ## 8. Open questions (from that test)
 
-1. Does enhanced spatial services give both headsets the same shared-space id?
-2. Does the query string count as part of the page for the shared space?
-3. How long does a second headset take to get the first one's id?
-4. How accurate is the shared space compared with tape marks?
-5. Is a reset with a transform on `local-floor` right at session start related to the shared space?
+Answered by the tests of section 9 (checked 26 November 2026) except number 2.
+
+1. Does enhanced spatial services give both headsets the same shared-space id? *Answered (section 9):* yes, both
+   reported the same id, but the id does not prove one space: with different Quest Browser versions they were in two
+   spaces.
+2. Does the query string count as part of the page for the shared space? *Still open:* every test used the same full
+   address (section 5 keeps the advice to keep it identical, query string included).
+3. How long does a second headset take to get the first one's id? *Answered (section 9):* the id came at once, but the
+   second headset's space was just its own floor for about 40 s before it jumped into place.
+4. How accurate is the shared space compared with tape marks? *Answered (section 9):* 0.84 to 0.90 m and 18 to 19
+   degrees out on two browser versions; with one version on both it lined them up "perfectly" by eye (fifth test, no
+   tape, so no number).
+5. Is a reset with a transform on `local-floor` right at session start related to the shared space? *Answered
+   (section 9):* no. The id came with a reset without a transform at the start; resets with a transform came on waking
+   from standby (fourth test).
 
 ## 9. Measured on two Quest 3s (this app's relay logs, October 2026)
 

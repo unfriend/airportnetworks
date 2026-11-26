@@ -4,6 +4,13 @@
 > the flock's (`dusk`) and the pass story's (`sea`) are gone; `vacuum` is the only continuous sound left. The `machine`
 > spans and beds below are history: a story that asks for them now hears nothing. docs/agents/shell.md ("Sound effects") is current.
 
+> **Status (26 November 2026, v212): built.** Phase 2 shipped with v99 and v100 (effects on by default: `sfx.js` has
+> `S.on = get('sfxOn') !== 'off'`); every story package (all 22, the later ones too) has its `sfxCue` lines, and
+> `tools/sfx-cues.mjs`, `tools/sfx-render.mjs` and `tools/sfx.html` exist. What follows is the plan as written: its
+> counts ("sixteen stories"), `tools/<key>/` paths, split between builders and estimates are history, and the
+> decisions in section 0 were taken as their defaults. Open still: how it sounds on a Quest's speakers and ten headsets
+> at one station (untested), and each new story's cues (unheard until the owner listens).
+
 Written by builder A, 29 October 2026. The references are **the flock** (`tools/flock/engine/`, built engines) and **the
 airports** (`packages/airports/main.js`, hand-written). Copy the lines below **character for character**; only `sfxPos` of
 the hand-written three, the cue calls, the explore action lines and `sfxLive` are each story's own. The plan

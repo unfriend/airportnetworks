@@ -250,6 +250,11 @@ three hand-written stories wrapped (`git mv stories/<key>.js packages/<key>/main
 
 ## 1. Decisions in this plan
 
+*Where this table and the later sections differ from "Decided route" and "Status", those win:* no `FORMAT` bump and
+no per-station copy record (G4 dropped), shared sources stay where their owners put them (G3 deferred, v187: `packages/
+lbi/src/sets/body.js` and so on, no `tools/lib/`), the three hand-written stories wrapped, not rewritten; the other rows
+stand and were built (v185 to v190).
+
 | Question | Recommendation |
 | --- | --- |
 | Which stories move | All sixteen, the tutorial included. The studio and the design room stay (below). |
@@ -637,13 +642,22 @@ red results is not in these numbers (100k to 1M each time, by the record in AGEN
 
 ## 12. Questions for the owner
 
+All five were answered on 23 November 2026 ("Decided route" at the top of this file); each line below says where. Nothing
+here is waiting for the owner.
+
 1. The rewrites will make airports, proteins and spatial look like the built stories in a headset (the shared panels,
    menus and framing). Is that wanted, or must each keep its own look where they differ (more work, and a weaker test of
    the format)?
+   *Answered:* not now. They were wrapped, not rewritten (R1 to R3 dropped, v187); a rewrite is "Left for later" (b).
 2. *Take all stories*: is about 85 MB per headset acceptable, and should a device that took all keep itself current in
    the background on every visit (section 5), or only when the button is pressed again?
+   *Answered:* decided as G6 ("Decided route", "Offline"): about 85 MB is taken; an installed app takes all stories by
+   itself in the background, and the *Take all stories* row does it on request (v185).
 3. Sources in `packages/<key>/src/` are served by the host (GitHub Pages, the relay) like ppicell's. Fine for the data
    generators and READMEs to be reachable there, or keep the sources in `tools/<key>/` and only the built files in
    `packages/<key>/`?
+   *Answered:* sources are served alongside each package (`packages/<key>/src/`), as ppicell's ("Decided route", Sources).
 4. The order of the Stories screen in one `packages/order.json`: fine, or a number in each `story.json`?
+   *Answered:* one hand-written `packages/order.json` ("Decided route", Order; v185).
 5. May the design room stay in the shell (section 1), or should it also become a package now?
+   *Answered:* it stays in the shell, with the studio ("Decided route"; `STORY_EXTRA` in `stories/list.js`).

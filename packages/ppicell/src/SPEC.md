@@ -1,9 +1,9 @@
 # Back into the cell (`ppicell`): the spec
 
 A story package (`tools/packages/SPEC.md`): an interactome put back into a cell, and why a spatial interactome that is
-true to a real cell is so hard to build. About nine minutes of story, then explore mode. For a biological audience,
+true to a real cell is so hard to build. About nine minutes of story at first, 15 minutes 8 seconds since v205 and its voice (v210), then explore mode. For a biological audience,
 kept as simple as possible: short sentences, every term glossed once. British English. Synthetic narration (Kokoro,
-`tools/voice/`) once the text is settled. The method was tried out on made-up data in `packages/cellstress` (its
+`tools/voice/`; made at v210). The method was tried out on made-up data in `packages/cellstress` (its
 `README.md`, "The method"); this story applies it to real data.
 
 ## The data (`PDATA`, `src/sets/pdata.js`)
@@ -164,7 +164,7 @@ in living cells), the kinds compared, the two readings, the proteins without a p
 ## Open questions
 
 - The Atlas's current licence terms (to confirm; credit in the panel and README either way).
-- Whether the story is listed for everyone when done (then the shell lists packages before the tutorial, one line).
+- Whether the story is listed for everyone when done: *answered*, yes: on the main cards since v188 (`story.json` `list: "stories"`).
 - Examples (the owner, 22 November 2026: agreed, and TP53 added): GRB2 the hub, TP53 the famous one (hub and shuttle),
   STAT3 the shuttle, RELA the amber example. TP53 is also the explore mode's first pick in the address examples.
 
@@ -213,7 +213,7 @@ files: UniProtKB/Swiss-Prot release 2026_04 (4 November 2026; reviewed human ent
 script, no sequences), the EBI Complex Portal's curated human complexes (release 2026-11-20, `complextab/9606.tsv`, 2,533
 complexes) and NCBI Gene's human table (25 November 2026: `data.js` keeps symbols, so the gene numbers are found again
 from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it over `PDATA` and judges with sides;
-`node src/data/test-sides.mjs` recomputes every count below in JavaScript. Not yet in `build.mjs` (stage B).
+`node src/data/test-sides.mjs` recomputes every count below in JavaScript. In `build.mjs` since stage B (v205: `sides`, `psides`).
 
 - **Mapping**: 13,202 of the 13,460 proteins have a reviewed UniProt entry (13,074 by gene number, 126 by symbol, 2 by a
   synonym). 4,010 proteins have a place with a membrane (4,359 such protein-places of the 17,935).
@@ -482,7 +482,7 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   in the generated `src/sets/sides.js` on `dev` with credit in the panel and the README; to be confirmed before the
   story moves to `main`.
 - **A new chapter** *Machines* (complexes) between *Can they meet?* and *Why red?*; the script is the main
-  conversation's (25 November 2026) and is in `src/engine/e3_story.js` once stage B is built.
+  conversation's (25 November 2026) and is in `src/engine/e3_story.js` (stage B, v205).
 
 ### Stage B, the story (done, v205, 25 November 2026)
 
@@ -503,9 +503,10 @@ from them, in gene number order). `src/sets/psides.js` (`PSIDES`) decodes it ove
   their verdicts' colours; listed apart, a disk per space (the nucleoplasm and cytosol parts facing each other across
   the envelope) and an amber (one gate) or red (no way) tie between. The mitochondria's gap is space 9 (judged, with
   its gates) and drawn between the two skins.
-- **The voice**: not made on the cloud machine (no Kokoro); the v204 recording (old words) is kept unserved as
-  `src/narration-v204-old.mp3`, and the story runs on subtitles with a table laid out by `narrate.mjs --dry` on
-  estimated durations; `node tools/voice/narrate.mjs ppicell` and `check.mjs ppicell` where Kokoro is (README.md).
+- **The voice**: at v205 not made on the cloud machine (no Kokoro): the v204 recording (old words) is kept unserved as
+  `src/narration-v204-old.mp3`, and the story ran on subtitles with a table laid out by `narrate.mjs --dry` on
+  estimated durations. Since v210 `audio/narration.mp3` is a new synthetic recording of the v205 words (15 min 8 s, the
+  real timings; `story.json` `len` 15:08); still unheard by the owner until played.
 
 ## Export for wwiznet (v211; the owner's brief, 25 November 2026)
 

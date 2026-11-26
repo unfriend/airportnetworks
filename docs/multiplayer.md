@@ -97,7 +97,8 @@ The headset side (one room frame for everybody, Quest shared spaces, calibration
 
 - Do WebSocket messages and timers keep arriving during an immersive session on Quest Browser? (One report saw a
   drop on entering VR; if so, drain the queue in the XR frame loop.) The other project's relay worked during AR
-  sessions in practice.
+  sessions in practice, and so did ours: the two Quest 3s sent their logs to the relay every 5 s during AR sessions
+  (`shared-spaces.md`, section 9). Still untested in VR.
 - The cost on a Quest of applying remote changes (coalesce them).
 - Scripted bot clients (a test hook on `window`) make repeatable two-client tests without headsets; two desktop
   tabs cover most logic; only alignment needs two headsets.

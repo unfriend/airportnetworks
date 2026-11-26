@@ -1,6 +1,6 @@
 # Holding on to nitrogen: 3D sets, data and engine spec
 
-The sixteenth story of the app: `packages/soil/main.js`, built from `packages/soil/src/` like the tissue topology story is built from
+The sixteenth story built (the app now has more: `packages/order.json`): `packages/soil/main.js`, built from `packages/soil/src/` like the tissue topology story is built from
 `packages/topo/src/`. It is made for the Global Peter Drucker Forum in Vienna (a lay, business audience), from the slides
 **"Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter
 Wheat"** by **Marina Montserrat Díez**, Tadashi Yoshihashi, Guntur Subbarao Ventaka, Eleftheria Bachtsevani, Dimitrios
@@ -324,6 +324,10 @@ about -0.25) while the hop (`hop_a`, `hop_t` 0..1) draws its arc from Vienna to 
 Japan and the field fades in. `web_globe` must be 1 while the hop shows (it does not scale with the globe's growth).
 
 ## The engine (`packages/soil/src/engine/`, copied from the tissue topology story's; builder B)
+
+*Overtaken (checked 26 November 2026, v212): the paragraph below is the hand-over note from builder A to builder B. The story
+is finished (chapters, explore, panels, narration; `story.json` `len` 11:03) and no `TODO(soil B)` is left in
+`src/engine/`; read it as the list of what the engine was copied from.*
 
 Done: `e1_head.js` (header, `HOST.register('soil', ...)`), `e2_scene.js` (`SET_ORDER = ['soil', 'web', 'field', 'net']`,
 `FRAME = { net: 'field' }`, the hop), in `e3_story.js` the chapters (`CH`), a placeholder `NARRATION_SYNC`, the engine's

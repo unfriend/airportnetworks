@@ -315,7 +315,7 @@ placeholder `NARRATION_SYNC` and `NARRATION_ENDS` until the integrator narrates 
 identical** (the headset code in `e5_xr.js`, the shared-room hooks, the slideshow, `fitTitle`, the landing screen, the
 headset settings, the panels setting, captions, the loading step queue, the sound-effect lines: `AGENTS.md`, "Shared
 rooms", "Sounds inside the stories" and "Inside a story"); before finishing, diff the shared parts against the
-then-current `packages/soil/src/engine/` and `tools/flock/engine/` and take any changes. `FACTS` holds every number the text
+then-current `packages/soil/src/engine/` and `packages/flock/src/engine/` and take any changes. `FACTS` holds every number the text
 shows, from `CDATA`; none is typed in.
 
 **Chapters** (about 7.5 minutes before narration; `CH` keys and story times; the first key is `title`). Every chapter:
@@ -420,7 +420,7 @@ the signal (`pulse`), the cut (`snap`, then `spark`), CDK5 turning red (`knock`)
   (CC BY 4.0), labelled as predicted, the low-confidence stretches cut or drawn as a thread (Tau and other disordered
   proteins); only the coarsest level, loaded per subnetwork; shown in a subnetwork's close view only, since the layout
   is the authors' and is never laid out again; the nodes counted first; Christiane Hütter (the story's author) asked.
-- **Status**: not started.
+- **Status**: not started (checked 26 November 2026, v212: `packages/cdk5/models/` holds only the nine models of the centre).
 
 ### Counted and estimated (25 November 2026; the owner: "count the nodes and estimate the filesize / total triangle count, do not start yet, wait for my go")
 
