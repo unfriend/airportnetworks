@@ -49,6 +49,10 @@ covers the app's packages too.
 
 ## The smoke test (`tools/smoke.mjs`)
 
+Since v218: a step that throws fails with its message and the run goes on; `--only` that matches no block or step fails;
+`--list` prints every block and step name (read from the file's text) and exits; what this machine lacks (`ffmpeg` for the
+studio's screens, a shell without `HOST.collab.trkIn`) fails unless `--skip-missing` is given.
+
 The smoke test (serve the folder, then run it) loads every story (and the studio, below; the design room's block went when the room was parked, v217: one step,
 *parked*, checks that it is not offered and that `#design`, `HOST.go('design')` and `HOST.start('design')` start nothing), scrubs through it, plays it as a slideshow
 (a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
@@ -1056,7 +1060,7 @@ cube's ignored), the state and `layout.json`.
 ### smoke: studio screens
 
 Its *studio screens* steps (`--only 'studio screens'`, a few minutes; needs `ffmpeg` to make its WebM clips, else
-skipped with a note, since Playwright's Chromium has no H.264 or AAC): adding a screen, an audio player and one from a
+a failure, or skipped with a note under `--skip-missing` (v218), since Playwright's Chromium has no H.264 or AAC): adding a screen, an audio player and one from a
 video's card; its picture and its sound through an HRTF panner, silent when muted; the bar shown and pressed by ray and by
 pointer (play, pause, previous, next, seek and a seek drag, volume), each writing `play` with no Undo step; loop all, one
 and off, shuffle's order; a cube hiding it; the 4 and 2 limits; sync own; who may use the bar (editing, anyone, a locked
@@ -1126,7 +1130,7 @@ locked, no new tracker; the empty's tracker chosen on the headset's card and an 
 bad ids, offsets and turns, a cube's and a sound's dropped), the state both ways (a bad `trk` from the room ignored) and
 `layout.json` both ways; a copy and a group's copies on no tracker; a GLB switch's turn (the model where it was on its
 tracker, within 1e-3); where the shell has its test hook `HOST.collab.trkIn`, a tracker fed through it as the relay sends
-`@trk` and a shape following it within 5 mm (skipped, and said, where it has none); and the rig scene's dancer refused in
+`@trk` and a shape following it within 5 mm (where it has none a failure, or skipped and said under `--skip-missing`); and the rig scene's dancer refused in
 words (*Not a Mixamo rig...*, *Wear it* greyed), a box with no bones offering nothing.
 
 ### smoke: studio puppet
@@ -1325,7 +1329,9 @@ studio scene made in a temporary folder, only without a url), drives each scene'
 reshaping them breaks the tool. Per frame it records script ms (less render submit ms), draw calls, triangles, WebGL calls
 (texture and buffer bytes, links, mipmaps, readPixels), the see-through layers as a fill-rate proxy, scene objects with
 `matrixAutoUpdate` on, heap allocated and `renderer.info.memory`. **GPU time cannot be measured here** (software drawing), so
-a result is script and counts, never milliseconds on a Quest. Ids like `room:lobby`, `story:qubits`, `pass:75%`; run groups of
+a result is script and counts, never milliseconds on a Quest. The stories are both sets of cards (`HOST.stories()`, the
+Experiments too, not hello, v218), and each set a story builds in slices is finished (`finish()`) before its chapters are
+measured. Ids like `room:lobby`, `story:qubits`, `pass:75%`; run groups of
 scenes (a full run of about 90 exceeds a background limit). A baseline from before v145 and the after run are compared by
 `--from`; known worse after v145: the design room (the miniatures built inside the window; its scene `design:room` gone since v217, parked), the robots' 0.4 s floor-map
 send, and a few stories' script means within noise.
