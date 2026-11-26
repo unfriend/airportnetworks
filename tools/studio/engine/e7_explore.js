@@ -1065,6 +1065,7 @@ function paneStep(now) {
   animStep2();   // (a timeline's hold let go where it no longer applies, told at the circle; a page's card follows the clip)
   if (GL.tc && GL.tc.object && (!editOn() || (!X.tcDrag && lockWhy(STU.items.get(STU.sel))))) tcAttach();   // (a lock, the end of editing or an item locked in place: the arrows go)
   liteStep();   // (Fewer triangles' and Change texture's previews follow their object)
+  PSIG.on = false;   // (set again below; a frame that threw before frame() cleared it leaves no stale signature)
   if (APP.mode !== 'explore') return;
   const s = PSIG.s = paneSig();
   PSIG.on = true;

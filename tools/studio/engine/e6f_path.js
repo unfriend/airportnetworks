@@ -461,7 +461,7 @@ function recFinish(it, R, prep, keep) {
   const path = normPath(Object.assign({ k, play, start, speed }, bs));
   if (!path) return { why: 'The recording could not be kept (longer than 120 s?).' };
   // (a room's station holds the whole state as one value, at most 256 KB at the relay: kept well under it)
-  const st = roomState();
+  const st = Object.assign({}, roomState());   // (a copy: roomState hands out its memo, e6_items.js)
   st[it.kind + '.' + it.id] = Object.assign({}, it.rec, { path });
   const n = JSON.stringify(st).length;
   if (n > PATH_MAX.state) return { why: `With this movement the scene would be ${Math.ceil(n / 1024)} KB to share in a room, more than its ${PATH_MAX.state >> 10} KB: delete a recording, or record a shorter movement.` };

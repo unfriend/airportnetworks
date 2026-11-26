@@ -13,7 +13,8 @@
     "In a shared room with two devices at the studio circle, move, add and delete items on one: the other follows within a moment.",
     "Turn on Edit in a scene with moving models: their grey copies show where they are placed, also when you turn round to look at them again.",
     "On a laptop, check the names over the items still follow them while you orbit and walk round the scene.",
-    "Hold a tracker or a controller tracked by the PC at the studio circle: a prop that follows it moves as before."
+    "Hold a tracker or a controller tracked by the PC at the studio circle: a prop that follows it moves as before.",
+    "With Edit on, turn your head quickly so a moving model's grey copy leaves the view and comes back: it shows again at once."
   ],
   "untested": [
     "Everything in a headset: nothing since v220 has been tried in one.",

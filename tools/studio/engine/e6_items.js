@@ -1943,7 +1943,7 @@ function collabState() { exLeave(); return freshWait() ? undefined : roomState()
 // while every value in it is the same one (v223, audit row E: the shell polls it every frame and a scene's records reach
 // 2 MB; it turns into text only a new object, or the same one once a second: shared.js statePoll). Records, settings and
 // the qr, pr, sw and bt values are never changed in place, only replaced (putItem, collabApply, the setters), so the same
-// values mean the same text. Never change what it returns
+// values mean the same text. Never change what it returns (a caller that adds a key copies it first: recFinish)
 const RSM = { refs: [], n: 0, s: null };
 function roomState() {
   exLeave();   // (an example open here as this device came to the circle: back to the relay first, so what the shell polls is

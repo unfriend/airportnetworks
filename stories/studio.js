@@ -23934,7 +23934,7 @@ function collabState() { exLeave(); return freshWait() ? undefined : roomState()
 // while every value in it is the same one (v223, audit row E: the shell polls it every frame and a scene's records reach
 // 2 MB; it turns into text only a new object, or the same one once a second: shared.js statePoll). Records, settings and
 // the qr, pr, sw and bt values are never changed in place, only replaced (putItem, collabApply, the setters), so the same
-// values mean the same text. Never change what it returns
+// values mean the same text. Never change what it returns (a caller that adds a key copies it first: recFinish)
 const RSM = { refs: [], n: 0, s: null };
 function roomState() {
   exLeave();   // (an example open here as this device came to the circle: back to the relay first, so what the shell polls is
@@ -25694,7 +25694,7 @@ function recFinish(it, R, prep, keep) {
   const path = normPath(Object.assign({ k, play, start, speed }, bs));
   if (!path) return { why: 'The recording could not be kept (longer than 120 s?).' };
   // (a room's station holds the whole state as one value, at most 256 KB at the relay: kept well under it)
-  const st = roomState();
+  const st = Object.assign({}, roomState());   // (a copy: roomState hands out its memo, e6_items.js)
   st[it.kind + '.' + it.id] = Object.assign({}, it.rec, { path });
   const n = JSON.stringify(st).length;
   if (n > PATH_MAX.state) return { why: `With this movement the scene would be ${Math.ceil(n / 1024)} KB to share in a room, more than its ${PATH_MAX.state >> 10} KB: delete a recording, or record a shorter movement.` };
@@ -35105,6 +35105,7 @@ function paneStep(now) {
   animStep2();   // (a timeline's hold let go where it no longer applies, told at the circle; a page's card follows the clip)
   if (GL.tc && GL.tc.object && (!editOn() || (!X.tcDrag && lockWhy(STU.items.get(STU.sel))))) tcAttach();   // (a lock, the end of editing or an item locked in place: the arrows go)
   liteStep();   // (Fewer triangles' and Change texture's previews follow their object)
+  PSIG.on = false;   // (set again below; a frame that threw before frame() cleared it leaves no stale signature)
   if (APP.mode !== 'explore') return;
   const s = PSIG.s = paneSig();
   PSIG.on = true;

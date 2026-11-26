@@ -1252,6 +1252,11 @@ The plan is `docs/shared-space-plan.md`.
     the acknowledgement's compare (`onSet`, keys that are not moves) do not turn the value into text again: the studio's
     whole scene record was turned into text up to three times a poll (5 a second). The studio's own `state()` still builds
     and the poll still turns it into text once (row E of the audit).
+  - v223 (row E): `statePoll` turns a story's `state()` into text only when it returns another object, or once a second
+    (`SPOLL`; `publish`'s optional third pair element is that text). The same object means the same value, so a story
+    that hands back one object (the studio's `roomState` memo) must replace what changes, never edit it in place: an
+    in-place change goes out up to a second late. The cached text does not depend on the station's key (`sig` changes
+    only `SM_RE` keys).
   - `member(id)`: a `Map` made again only when `C.members` is another array or another length (the relay's welcome and
     members messages replace it whole; the smoke test's bodies block pushes into it).
   - `drawPeople`: each person's smoothed pose is mixed into that person's own scratch (`personMixer`, `o.mix`: the same

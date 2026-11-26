@@ -1199,7 +1199,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     shell, `trkPose` fills the trackers' drawing pose into the arrays it is given (`keep`). Measured headless (a 39-item
     scene, pretend headset, 120 frames): the signature 2 to 1 a frame, `updateMatrix` calls 1,951 to 1,512 viewing and 2,189
     to 1,734 editing, a cube walked into on the Scene tab 1 full redraw and 4.9 MB to none (the Items tab still 1 and 4.9 MB),
-    `roomState` plus its text 0.022 ms to 0.003 ms for a 4.8 KB scene (text grows with the scene, to 2 MB). Left as they
+    `roomState` plus its text 0.022 ms to 0.003 ms for a 4.8 KB scene (text grows with the scene, to 2 MB: that saving for large scenes is reasoned, not measured, as is
+    the ghost culling, every ghost being in view in the test scene). Left as they
     were: `LOOKS.fill`'s walk (0.02 to 0.14 ms a frame measured, a registry would change the lines' order), sequences (a
     kind check per item when there are none), the room scan (counts once a second), `placeSync`'s and `drawPreviews`'
     small allocations in `shared.js`. Untested on a headset: all of it there, ghosts culled at the edge of view.
