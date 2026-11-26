@@ -70,4 +70,4 @@ Range read in full: smoke.mjs 3131-3930, 3931-4630, 4631-4960, 4961-5290, 5291-5
  - Confirmed: step() has no try/catch; talk shadows it (5267); only talk's TALK_INIT sets the full test settings; studio blocks use their own pages (leak between blocks contained).
  - Add to its waitForTimeout list: 4276, 4294, 4938, 5005, 5037 (small).
  - Correction: the 'while UNDO.length undo()' repeats in my range are mostly Node-side loops, not in-page; the 'studio' pages are closed only by the last step of each block, so a failed/early-returned block leaves its page open (harmless, browser closes at end).
-Files: /home/user/airportnetworks/tools/smoke.mjs; notes /tmp/claude-0/-home-user-airportnetworks/d3fa415a-d304-5531-b3f1-7d363fea03c2/scratchpad/audit/findings-31b.md
+Files: /home/user/airportnetworks/tools/smoke.mjs; notes /tmp/claude-0/-home-user-airportnetworks/d3fa415a-d304-5531-b3f1-7d363fea03c2/scratchpad/audit/findings-31b.md (gone with that session's machine)

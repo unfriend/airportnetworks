@@ -25,7 +25,7 @@ Read: packages/pass/src/sets/globe.md (76 lines)
 Read: packages/pet/README.md (7 lines)
 Read: packages/pet/src/README.md (36 lines)
 Read: packages/pet/src/SPEC.md (372 lines)
-<!-- pet SPEC notes: l.3-22 a 20-line change log before anything else; l.24-27 "ninth story ... /home/user/airportnetworks ... five-and-a-half-minute" vs l.21 6:33; l.160 dead absolute path to another session's scratchpad (/tmp/claude-0/.../8bba4ed7-.../scratchpad/s9/vision.png); l.108-120 + l.34-38 + l.129-131 the poster's facts/palette "no longer shown" (about 25 lines), with `git show b7053fb^:tools/pet/...`; l.146 "Until the real icons arrive, a stub"; l.51-53 server/playwright how-to; l.367-372 Deliverables (builder brief, same text in nmd SPEC l.219-224). -->
+<!-- pet SPEC notes: l.3-22 a 20-line change log before anything else; l.24-27 "ninth story ... /home/user/airportnetworks ... five-and-a-half-minute" vs l.21 6:33; l.160 dead absolute path to another session's scratchpad (/tmp/claude-0/.../8bba4ed7-.../scratchpad/s9/vision.png (gone with that session's machine)); l.108-120 + l.34-38 + l.129-131 the poster's facts/palette "no longer shown" (about 25 lines), with `git show b7053fb^:tools/pet/...`; l.146 "Until the real icons arrive, a stub"; l.51-53 server/playwright how-to; l.367-372 Deliverables (builder brief, same text in nmd SPEC l.219-224). -->
 Read: packages/pet/src/sets/icons.md (101 lines)
 Read: packages/pet/src/sets/liver.md (146 lines)
 Read: packages/pet/src/sets/organs.md (261 lines)
