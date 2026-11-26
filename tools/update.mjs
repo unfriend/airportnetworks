@@ -148,7 +148,8 @@ const unchanged = oldHeld.find(f => newAll.includes(f) && f !== changed && fs.re
 if (changed) report('narrations: one re-recorded since is held in its new form', await size(changed) === fs.statSync(path.join(newDir, 'audio', changed)).size, JSON.stringify({ changed, held: await size(changed), new: fs.statSync(path.join(newDir, 'audio', changed)).size }));
 else console.log('note no narration the older version held was re-recorded since: the refreshed copy is not checked here');
 if (unchanged) report('narrations: one unchanged is kept as it was', await size(unchanged) === fs.statSync(path.join(newDir, 'audio', unchanged)).size, JSON.stringify({ unchanged, held: await size(unchanged) }));
-// (the new worker installed first: it takes every listed package's main.js, about 13 MB since every story is a package,
+// (the new worker installed first: its install takes every listed package's main.js and miniatures, about 17 MB since
+// every story is a package (sw.js takeMains: at install until v218 and again since v220; v219 only when its page asked),
 // which can outlast the two visits above; offline before it is active would test the older worker's copy)
 const NEWV = (/const VERSION = '([^']+)'/.exec(fs.readFileSync(path.join(newDir, 'sw.js'), 'utf8')) || [])[1];
 // (the browser looks for a new worker as pages load, not always at once: asked here, as a later visit would)
@@ -165,6 +166,23 @@ for (let i = 0; i < 360 && !(await settled(NEWV)); i++) await wait(250);
     !!kept && cur.every(f => kept.includes(f)) && kept.every(f => cur.includes(f) || (f === fresh && newAll.includes(f))), JSON.stringify({ held: kept, before: oldHeld, current: newAll }));
   if (old.length) report('narrations: old copies at addresses that are no longer narrations are dropped at activate', !!kept && old.every(f => !kept.includes(f)), JSON.stringify({ held: kept, dropped: old }));
 }
+// (and waited for explicitly: every listed package's main.js and miniatures in the packages' cache, at the addresses the
+// page asks for; up to a minute more, so an older worker's slower take is not what is measured)
+{
+  const mains = () => page.evaluate(async () => {
+    const ix = await (await fetch('packages/index.json', { cache: 'no-store' })).json(), c = await caches.open('networks-packages'), miss = [];
+    let n = 0;
+    for (const p of (ix.packages || []).filter(p => p.list !== 'hidden')) for (const f of ['main.js', p.minis]) {
+      if (typeof f !== 'string' || !p.files[f]) continue;
+      n++;
+      if (!(await c.match(new URL(`packages/${p.key}/${f}?v=${f === 'main.js' ? p.fp : p.files[f]}`, location.href).href))) miss.push(p.key + '/' + f);
+    }
+    return { n, miss };
+  }).catch(e => ({ n: 0, miss: [String(e)] }));
+  let m = await mains();
+  for (let i = 0; i < 60 && (!m.n || m.miss.length); i++) { await wait(1000); m = await mains(); }
+  report('the new worker\'s install took every listed story\'s main.js and miniatures', m.n > 0 && !m.miss.length, JSON.stringify(m));
+}
 await stop(srv);
 await page.reload().catch(() => {});
 const v = await versions();
@@ -174,8 +192,8 @@ await page.evaluate(() => HOST.go('lbi'));
 await page.waitForFunction(() => HOST.curKey === 'lbi' && HOST.cur, null, { timeout: 30000 }).catch(() => {});
 report('offline: another story loads', await page.evaluate(() => HOST.curKey === 'lbi' && !!HOST.cur));
 // a story moved into a story package (v185: packages/order.json names it, its folder is there): its main.js was taken by
-// the worker (sw.js takeMains: at install until v218, since v219 when the page asks, after its first story), so it opens
-// offline though this page never played it
+// the worker's install (sw.js takeMains; v219 only when the page asked), so it opens offline though this page never
+// played it
 {
   let moved = '';
   try { moved = (JSON.parse(fs.readFileSync(path.join(newDir, 'packages', 'order.json'), 'utf8')).order || []).find(k => k !== 'airports' && k !== 'lbi' && fs.existsSync(path.join(newDir, 'packages', k, 'main.js'))) || ''; } catch (e) { /* none yet */ }

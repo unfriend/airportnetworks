@@ -78,7 +78,12 @@ const startReqs = [];
 const onStartReq = r => startReqs.push(r.url());
 page.on('request', onStartReq);
 await page.goto(base + 'index.html');
-await page.waitForTimeout(4000);
+// (v220: watched until the service worker is active, two minutes at most, and 4 s at least: its install takes every
+// listed story's main.js and miniatures, sw.js takeMains, in the worker; the page itself still asks for none. v219 watched
+// 4 s, and the page's own ask came after 30 s)
+const startT0 = Date.now();
+const startSW = await page.evaluate(() => Promise.race([navigator.serviceWorker ? navigator.serviceWorker.ready.then(r => !!(r && r.active)) : false, new Promise(r => setTimeout(() => r(false), 120000))])).catch(() => false);
+await page.waitForTimeout(Math.max(0, 4000 - (Date.now() - startT0)));
 page.off('request', onStartReq);
 // the stories (HOST.list as the page has it: stories/list.js's STORY_LIST and the app's own story packages, those named in
 // packages/order.json, so a story added, removed or moved into a package needs no change here; v171, v185; the steps that
@@ -93,11 +98,25 @@ await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
 // v219 (the owner, 26 November 2026: "the start page should load nothing in the background, just have the cards there"):
-// no story started, built or fetched (no packages/<key>/main.js, no narration) until a card is picked; the loading line
-// gone, nothing to play; closing the Stories screen (Escape, a top-bar button) leaves it open over nothing
+// no story started, built or fetched by the page (no packages/<key>/main.js, no narration) until a card is picked, while
+// the worker's install takes every story's main.js and miniatures (v220, the owner: "just fetch all stories at install");
+// the loading line gone, nothing to play; closing the Stories screen (Escape, a top-bar button) leaves it open over nothing
 await step('start page: the cards only, no story fetched or built', async () => {
   const bad = startReqs.filter(u => /\/packages\/[^/]+\/main\.js|\.mp3(\?|$)/.test(u));
   if (bad.length) errors.push('the start page fetched ' + bad.map(u => u.replace(base, '')).join(', '));
+  // the worker's install has put every listed story's main.js and miniatures into the packages' cache (v220)
+  const mains = startSW ? await page.evaluate(async () => {
+    const ix = await (await fetch('packages/index.json', { cache: 'no-store' })).json(), c = await caches.open('networks-packages'), miss = [];
+    let n = 0;
+    for (const p of ix.packages.filter(p => p.list !== 'hidden')) for (const f of ['main.js', p.minis]) {
+      if (typeof f !== 'string' || !p.files[f]) continue;
+      n++;
+      if (!(await c.match(new URL(`packages/${p.key}/${f}?v=${f === 'main.js' ? p.fp : p.files[f]}`, location.href).href))) miss.push(p.key + '/' + f);
+    }
+    return { n, miss };
+  }) : null;
+  if (!mains) errors.push('the start page: no service worker active within two minutes');
+  else if (!mains.n || mains.miss.length) errors.push(`the worker's install left out of ${mains.n} stories' files: ${mains.miss.join(', ')}`);
   const st = await page.evaluate(() => ({ key: HOST.curKey, cur: !!HOST.cur, r: !!HOST.renderer, gone: document.getElementById('loading').classList.contains('gone'),
     nostory: document.body.classList.contains('nostory'), mode: getComputedStyle(document.getElementById('btnMode')).display }));
   if (st.key || st.cur || st.r) errors.push('a story or the renderer was made on the start page: ' + JSON.stringify(st));
@@ -14124,7 +14143,7 @@ function FPS_FAKE() {
 // packages order (v190; docs/packages-migration.md): the Stories screens follow packages/order.json. The main set (the
 // page's cards, HOST.list, which the headset's Stories screen and Arrange all read) is its keys whose package is on the
 // main set, in its order, the tutorial (intro) last; the Experiments set is the index's experiments in the index's order
-// (order.json's first, then other packages by key), then the card back
+// (order.json's first, then other packages by key), then its link cards (HOST.menu's LINKS), then the card back
 if (runs('packages order')) {
   await step('packages order: both sets of cards in packages/order.json\'s order, the tutorial last', async () => {
     const fs = await import('fs');
@@ -14139,6 +14158,7 @@ if (runs('packages order')) {
       const main = { dom: dom(), list: HOST.list.map(s => s.key), intro: HOST.list.filter(s => s.intro).map(s => s.key) };
       HOST.menu.open('experiments'); await new Promise(r => setTimeout(r, 100));
       const exp = { dom: dom(), list: HOST.packages.experiments().map(s => s.key) };
+      exp.links = exp.dom.filter(k => HOST.menu.link(k));   // (the link cards, HOST.menu's LINKS: the studio and the tracker guide)
       HOST.menu.open(was === 'experiments' ? 'experiments' : 'main');
       return { main, exp };
     });
@@ -14146,7 +14166,8 @@ if (runs('packages order')) {
     if (J(got.main.list) !== J(wantMain)) errors.push(`packages order: HOST.list ${J(got.main.list)}, order.json's main set ${J(wantMain)}`);
     if (J(got.main.dom) !== J(wantMain.concat(wantExp.length ? ['experiments'] : []))) errors.push(`packages order: the main set's cards ${J(got.main.dom)}`);
     if (got.main.list[got.main.list.length - 1] !== 'tutorial' || J(got.main.intro) !== '["tutorial"]') errors.push(`packages order: the tutorial is not last (intro ${J(got.main.intro)})`);
-    if (J(got.exp.list) !== J(wantExp) || J(got.exp.dom) !== J(wantExp.concat(['stories']))) errors.push(`packages order: the Experiments set ${J(got.exp)}, want ${J(wantExp)} then the card back`);
+    // (v220: the Experiments set ends with its link cards, then the card back; since v218 the test had left them out)
+    if (J(got.exp.list) !== J(wantExp) || J(got.exp.dom) !== J(wantExp.concat(got.exp.links, ['stories']))) errors.push(`packages order: the Experiments set ${J(got.exp)}, want ${J(wantExp)} then the link cards and the card back`);
   });
 }
 // take all (v190; sw.js takeAll, HOST.offline): in a page of its own (its own service worker and caches), *Take all

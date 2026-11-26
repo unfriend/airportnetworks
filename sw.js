@@ -1,6 +1,7 @@
 // Offline support: the app shell is cached on install, so the installed app opens without a network connection; each
 // story package's files are cached as it is first opened (PKG). Bump VERSION when you change any shell file (a change
-// to one package's files alone needs none: its fingerprint in packages/index.json reaches the pages, v193).
+// to one package's files alone needs none: its fingerprint in packages/index.json reaches the pages, v193). Every listed
+// story's main.js and miniatures are taken at install too (takeMains), its other files as it is first opened.
 const VERSION = 'networks-v219';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
@@ -31,27 +32,65 @@ async function pkgIndex() {
   const hit = await caches.open(PKG).then(c => c.match(u));
   return hit ? hit.json().catch(() => null) : null;
 }
+// a file's fingerprint, as tools/packages/scan.mjs computes it for the index (index.html's HOST.fingerprint of the text)
+function fingerprint(s) {
+  let a = 0xdeadbeef, b = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) { const c = s.charCodeAt(i); a = Math.imul(a ^ c, 2654435761); b = Math.imul(b ^ c, 1597334677); }
+  a = Math.imul(a ^ (a >>> 16), 2246822507) ^ Math.imul(b ^ (b >>> 13), 3266489909);
+  b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
+  return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
+}
+// whether a text file fetched is the one the index names (v220): a deploy that puts the new index up a moment before the
+// new main.js gives the old file under the new address, and a cache that kept it would answer that address with it for
+// ever (HOST.loadSrc takes the index's fingerprint for it, so no live update would notice). Such a body is used once
+// and not kept; the next ask fetches again. No fingerprint to compare with: kept
+async function pkgTrue(res, want) {
+  if (!want) return true;
+  try { return fingerprint((await res.clone().text()).replace(/^\uFEFF/, '')) === want; } catch (e) { return false; }
+}
+const IDX = () => new URL('packages/index.json', self.registration.scope).href;
+const cachedIndex = c => c.match(IDX()).then(h => (h ? h.json() : null)).catch(() => null);
+// a story's main.js fetched on a miss (the fetch handler): kept only when its text is what the cached index names for
+// that address (the page read that index just before; an address the index does not name is kept as before)
+async function pkgKeep(u, res) {
+  const c = await caches.open(PKG), a = new URL(u), k = /\/packages\/([^/]+)\/main\.js$/.exec(a.pathname), v = a.searchParams.get('v');
+  if (k && v) {
+    const m = listedPkgs(await cachedIndex(c), true).find(x => x.key === k[1] && x.fp === v);
+    if (m && !(await pkgTrue(res, m.files['main.js']))) return;
+  }
+  await pkgPut(c, u, res);
+}
 // Every listed package's main.js (the story itself) and its miniatures' file (story.json's minis: its stations' icon),
-// so an installed copy opens every story offline (silent until its narration is taken) and its rooms show every
-// station's icon. Asked for by the page (HOST.offline: { type: 'mains' }) once a page load, after its first story is
-// built or half a minute after the start, never at install (v219: about 43 files at once, 17 MB, while the first story
-// loaded); two at a time, files already held passed by, a failure taken when the file is first asked for
+// at install (as before v219; the owner, 26 November 2026: "just fetch all stories at install"), so an installed copy
+// opens every story offline (silent until its narration is taken) and its rooms show every station's icon. Only what
+// is missing or changed is fetched (v219's gain kept): an address carries its version, so a file held is passed by,
+// and a main.js whose text is the same as before (another file of its package changed, so its address did) is the copy
+// held, moved to its new address (the index this device held says so). Four at a time; a body that is not the one the
+// index names, or a failure, is left to be taken when the story is first opened; never fails the install. Also asked
+// for by the page (HOST.offline.again: a package changed while it ran) and by a v219 page ({ type: 'mains' })
 let MAINS = null;
 function takeMains() {
   if (MAINS) return MAINS;
   return (MAINS = (async () => {
-    const j = await pkgIndex(), c = await caches.open(PKG);
-    const want = [];
-    for (const m of listedPkgs(j)) for (const f of ['main.js', m.minis]) if (typeof f === 'string' && m.files[f]) want.push(pkgAddr(m, f));
+    const c = await caches.open(PKG), was = await cachedIndex(c), j = await pkgIndex();
+    const before = new Map(listedPkgs(was, true).map(m => [m.key, m])), want = [];
+    for (const m of listedPkgs(j)) for (const f of ['main.js', m.minis]) if (typeof f === 'string' && m.files[f]) want.push({ m, f, u: pkgAddr(m, f) });
     let i = 0;
     const lane = async () => {
       while (i < want.length) {
-        const u = want[i++];
-        if (await c.match(u)) continue;
-        try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await pkgPut(c, u, r); } catch (e) { /* taken when first asked for */ }
+        const { m, f, u } = want[i++], o = before.get(m.key);
+        try {
+          // (a copy held is checked too: one a v219 worker kept from a deploy half done is fetched again)
+          const held = await c.match(u);
+          if (held && await pkgTrue(held, m.files[f])) continue;
+          const h = !held && o && o.files && o.files[f] === m.files[f] ? await c.match(pkgAddr(o, f)) : null;
+          if (h && await pkgTrue(h, m.files[f])) { const b = await h.blob(); await pkgPut(c, u, new Response(b, { status: 200, headers: h.headers })); continue; }
+          const r = await fetch(u, { cache: 'no-cache' });
+          if (r.ok && await pkgTrue(r, m.files[f])) await pkgPut(c, u, r);
+        } catch (e) { /* taken when first asked for */ }
       }
     };
-    await Promise.all([lane(), lane()]);
+    await Promise.all([lane(), lane(), lane(), lane()]);
   })().catch(() => {}).finally(() => { MAINS = null; }));
 }
 // Take all stories (v185, docs/packages-migration.md "Decided route"): every file of every listed package (main.js,
@@ -73,7 +112,7 @@ function takeAll(hidden) {
     // count is close enough)
     for (const m of listedPkgs(j, hidden)) {
       const size = (+m.bytes || 0) / Math.max(1, Object.keys(m.files).length);
-      for (const f of Object.keys(m.files)) { const u = pkgAddr(m, f); if (!(await pc.match(u))) want.push({ u, c: pc, size }); }
+      for (const f of Object.keys(m.files)) { const u = pkgAddr(m, f); if (!(await pc.match(u))) want.push({ u, c: pc, size, f, want: m.files[f] }); }
     }
     const need = want.reduce((n, w) => n + w.size, 0), total = want.length;
     try {
@@ -86,7 +125,8 @@ function takeAll(hidden) {
       for (let k = 0; k < 2; k++) {
         try {
           const r = await fetch(w.u, { cache: 'no-cache' });
-          if (r.status === 200) {
+          // (a text file whose body is not the one the index names: a deploy half done; not kept, counted as failed)
+          if (r.status === 200 && await pkgTrue(r, /\.(js|mjs|json)$/i.test(w.f) ? w.want : '')) {
             // (counted from the index's share, not by reading the whole file into memory again)
             await pkgPut(w.c, w.u, r);
             bytes += w.size;
@@ -130,13 +170,14 @@ async function rangeResponse(req, cached, key) {
 // from the network first, checked with the server each time (hosts such as GitHub Pages let the
 // browser keep files for ten minutes), and the cache is only the copy for offline use.
 // At install each shell file is asked of the server past the browser's HTTP cache (which may still hold the old
-// version); a copy an older release's cache holds goes with its ETag (or date), and an unchanged file (304) is that copy
-// again, so a release no longer downloads the whole shell (5.5 MB) whatever changed (v219). A file the server cannot
+// version); a copy an older release's cache holds goes with its ETag, and an unchanged file (304) is that copy again, so a
+// release no longer downloads the whole shell (5.5 MB) whatever changed (v219). A copy with only a date is fetched whole
+// (v220: If-Modified-Since let a redeploy of an older file answer 304 and keep the newer copy). A file the server cannot
 // give fails the install, as before
 async function shellTake(c, u) {
   const a = new URL(u, self.registration.scope).href, old = await caches.match(a), h = {};
-  const et = old && old.headers.get('ETag'), lm = old && old.headers.get('Last-Modified');
-  if (et) h['If-None-Match'] = et; else if (lm) h['If-Modified-Since'] = lm;
+  const et = old && old.headers.get('ETag');
+  if (et) h['If-None-Match'] = et;
   const r = await fetch(new Request(a, { cache: 'no-store', headers: h }));
   if (r.status === 304 && old) return c.put(a, old);
   if (!r.ok) throw new Error(a + ': ' + r.status);
@@ -144,6 +185,9 @@ async function shellTake(c, u) {
 }
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => Promise.all(SHELL.map(u => shellTake(c, u))))
+    // every listed story's main.js and miniatures, only those missing or changed (takeMains), never failing it: so an
+    // upgrade from any release (a v219 worker took them only when its page asked) ends with them on the device
+    .then(() => takeMains())
     .then(() => self.skipWaiting()));
 });
 // the network's answer (and a fresh copy in the cache: this release's, or the one named); the cached copy when the
@@ -211,13 +255,13 @@ self.addEventListener('fetch', e => {
       // for a newer address; storing a version drops that file's others. A fresh fetch (HOST.load's &fresh=<time>: a
       // package changed while the page ran) is kept without its fresh, at the address an offline start asks for (v193:
       // it was kept under its one-off address, and the package then had no copy offline), and is never answered from
-      // the cache while the network is slow
+      // the cache while the network is slow. A main.js not the one the index names is used but not kept (pkgKeep, v220)
       const bare = new URL(url.href), fresh = bare.searchParams.has('fresh');
       bare.searchParams.delete('fresh');
       const vkey = url.origin + url.pathname + bare.search, hit = () => caches.open(PKG).then(c => c.match(vkey));
       const go = () => {
         const net = fetch(req, { cache: 'no-cache' }).then(res => {
-          if (res.ok) { const copy = res.clone(); e.waitUntil(caches.open(PKG).then(c => pkgPut(c, vkey, copy)).catch(() => {})); }
+          if (res.ok) { const copy = res.clone(); e.waitUntil(pkgKeep(vkey, copy).catch(() => {})); }
           return res;
         });
         const safe = net.catch(() => hit().then(h => h || Response.error()));

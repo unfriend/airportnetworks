@@ -3019,7 +3019,7 @@ HOST.packages = (function () {
       let j = null;
       try { const r = await fetch('packages/index.json', { cache: 'no-store' }); if (r.ok) j = await r.json(); } catch (e) { /* no packages here */ }
       P.reading = null;
-      const was = P.all, all = [];
+      const was = P.all, all = [], reread = P.read;
       if (j && typeof j === 'object' && Array.isArray(j.order)) P.order = j.order.filter(k => typeof k === 'string' && KEY.test(k));
       if (j && typeof j === 'object' && Array.isArray(j.packages)) for (const o of j.packages) { const m = entry(o); if (m && !all.some(x => x.key === m.key)) all.push(m); }
       // (a package on show that left the index keeps its entry until another story starts)
@@ -3029,7 +3029,9 @@ HOST.packages = (function () {
       for (const m of all) if (P.ran[m.key] && P.ran[m.key] !== m.fp && HOST.live && HOST.live.changed) HOST.live.changed(m.key);
       const changed = merge() || JSON.stringify(was) !== JSON.stringify(all);
       if (changed && HOST.cards) { HOST.cards(); HOST.chrome(HOST.picking); }
-      if (changed && HOST.offline) HOST.offline.again();   // (all stories taken here: a changed package's new files too)
+      // (a package changed since this page read the index: all stories taken here, its new files too, else its new main.js;
+      // never at the first read, which the start page makes: it asks for nothing)
+      if (changed && reread && HOST.offline) HOST.offline.again();
       return changed;
     })());
   }
@@ -3592,6 +3594,9 @@ HOST.start = async function (key, keepHash, place) {
     this.loading.fail(e.message); this.busy = false; this.queued = '';
     // (v219: from the start page there is no story behind the loading line: it says why for a while, then the cards again)
     if (!this.curKey) setTimeout(() => { if (!this.curKey && !this.busy) document.getElementById('loading').classList.add('gone'); }, 4000);
+    // (v220: the first story asked for by Enter VR or AR on the start page, HOST.bare: no story will take the session
+    // over, so it ends here, not left on the loading card; the start page shows again and says why)
+    if (!this.cur && this.session) this.bare.failed(meta, e.message);
     return;
   }
   if (typeof keepHash === 'string') this.hist.replace(keepHash);
@@ -5808,9 +5813,14 @@ HOST.bare = (function () {
     try {
       const r = HOST.makeRenderer({ canvas: el('gl'), antialias: true, alpha: true, powerPreference: 'high-performance' });
       s = await HOST.xr.request(mode);
-      HOST.mode = mode; HOST.landingVR = true;
+      HOST.mode = mode; HOST.landingVR = !(HOST.collab && HOST.collab.joined);   // (in a shared room: the stations, as #top's click says)
       HOST.session = s;
       r.xr.setReferenceSpaceType('local');
+      // (v220: three.js r128 hands a select or squeeze only to a controller it mapped on inputsourceschange, and maps only
+      // the controllers it has; Quest announces the controllers a moment after the session starts, long before the first
+      // story makes its controllers (getController), so the trigger reached nothing until the next change of controllers:
+      // no menu, no calibration marks. Made here first, as a story change finds them; the story takes the same ones)
+      for (let i = 0; i < 2; i++) r.xr.getController(i);
       await r.xr.setSession(s);
       // (the controllers that come before the story listens: handed over as a story change hands them, HOST.inputs)
       const take = () => { if (!HOST.curKey && HOST.session === s) HOST.inputs = Array.from(s.inputSources || []).slice(0, 2); };
@@ -5832,12 +5842,22 @@ HOST.bare = (function () {
     B.busy = false;
     HOST.start(key);
   }
+  // HOST.start: the first story did not load inside the session started here
+  function failed(meta, why) {
+    const s = HOST.session;
+    if (!s || HOST.cur) return;
+    HOST.session = null; HOST.mode = null; HOST.landingVR = false; HOST.inputs = [];
+    if (HOST.renderer) HOST.renderer.setAnimationLoop(null);
+    s.end().catch(() => {});
+    if (!HOST.picking) HOST.openPicker();
+    say(`${why || `Could not load the ${meta.title} story`}. The headset view ended: try again.`);
+  }
   const q = HOST.quiet; HOST.quiet = true;
   try {
     el('btnVR').addEventListener('click', () => enter('immersive-vr'));
     el('btnAR').addEventListener('click', () => enter('immersive-ar'));
   } finally { HOST.quiet = q; }
-  return { offer, enter, state: () => ({ busy: B.busy }) };
+  return { offer, enter, failed, state: () => ({ busy: B.busy }) };
 })();
 (function boot() {
   const pk = document.getElementById('picker');
@@ -5877,7 +5897,8 @@ HOST.bare = (function () {
   document.getElementById('top').addEventListener('click', ev => {
     if (ev.target.closest('#fcMore, #fcMenu')) return;   // (More and its menu: an item passes the click on to its button)
     // in a shared room the headset goes straight to the stations, not to the Stories menu
-    if (ev.target.closest('#btnVR, #btnAR')) { if (HOST.picking) { if (HOST.collab.joined) HOST.closePicker(); else HOST.landingVR = true; } return; }
+    // (with no story only when the start page's own enter went ahead, HOST.bare: never when it bailed)
+    if (ev.target.closest('#btnVR, #btnAR')) { if (HOST.picking && (HOST.curKey || HOST.bare.state().busy)) { if (HOST.collab.joined) HOST.closePicker(); else HOST.landingVR = true; } return; }
     if (ev.target.closest('[data-open-shared]')) { HOST.collab.dialog(true); return; }
     if (ev.target.closest('button') && !ev.target.closest('#btnOther')) HOST.closePicker();
   });
@@ -6031,19 +6052,17 @@ HOST.offline = (function () {
     setTimeout(() => { if (on() || installed()) take(true); }, 20000);
     // (a take the browser broke off, its worker stopped: asked again, and it carries on where it was)
     setInterval(() => { if (O.want && O.msg && O.msg.state === 'run' && Date.now() - O.at > 45000) take(); }, 15000);
-    // every listed story's main.js and miniatures (sw.js takeMains, v219: no longer at install), once a page load: 5 s
-    // after its first story is built, or half a minute after the start (the start page builds none)
-    const t0 = Date.now();
-    let builtAt = 0;
-    const mi = setInterval(() => {
-      if (!builtAt && HOST.cur && HOST.loading.built()) builtAt = Date.now();
-      if (!(builtAt && Date.now() - builtAt > 5000) && Date.now() - t0 < 30000) return;
-      clearInterval(mi);
-      SW.ready.then(r => { const w = (r && r.active) || SW.controller; if (w) w.postMessage({ type: 'mains' }); }).catch(() => {});
-    }, 1000);
+    // (every listed story's main.js and miniatures come with the worker's install, sw.js takeMains, v220: the page asks
+    // for nothing itself; v219 asked from the start page after half a minute)
     show();
   }
-  return { take, on, installed, label, again: () => { if (on() && O.want) take(); }, state: () => O };
+  // a package changed while the page ran (HOST.packages): all stories taken here, its new files; else its new main.js and
+  // miniatures, as an install would take them (only what changed)
+  function again() {
+    if (on() && O.want) { take(); return; }
+    if (SW) SW.ready.then(r => { const w = (r && r.active) || SW.controller; if (w) w.postMessage({ type: 'mains' }); }).catch(() => {});
+  }
+  return { take, on, installed, label, again, state: () => O };
 })();
 let installPrompt = null;
 window.addEventListener('beforeinstallprompt', ev => {
