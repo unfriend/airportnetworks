@@ -11,13 +11,13 @@ Design room: parked = out of the app, sources kept (tools/design/), nothing dele
 | 2 | docs | CLAUDE.md + AGENTS.md slimmed | DONE pushed (66bd2ee) |
 | C | v219 | delivery + start page | PUSHED unreviewed-at-push (f79e1dd, ee25e69, f55f2b5) because tokens ran out and the machine may be reclaimed. Review came after: fix round DONE as v220 (list below; committed on dev, not pushed) |
 | C2 | v221 | shared-room re-send fix | DONE committed on dev, not pushed. The shared-room failures seen only on v220 (pass and exposome "comes back the other way", robots patter) were not the relay commit c8aad49: publish() re-sent an unacknowledged value at every poll with a new cid, so on a slow page the re-sends never stopped and a late copy started a merge war; the robots one was the test reading SFXQ.n and SFXQ.log in two evaluates. Both fixed in v221 |
-| D | v222 (v220 and v221 became fix rounds; the later rows move up) | step 4a shared.js room costs (mirror/locFlush, stationsChanged, viewSync, drawPeople, presence, panelSig, subtitles, trkKey) + bodies culling | |
-| E | v221 | step 4b studio (roomState memo, paneSig, cube panel repaint, matrix walks, LOOKS.fill, ghosts, unused-feature steps) | |
-| F | v222 | step 4c engine + stories (pick on ray move, compileLate helper, idle path on a page, placeLabels, ovary stain, nmd heart/tower, airports slider, per-story small ones) | |
+| D | v222 (v220 and v221 became fix rounds; the later rows are renumbered) | step 4a shared.js room costs (mirror/locFlush, stationsChanged, viewSync, drawPeople, presence, panelSig, subtitles, trkKey) + bodies culling | |
+| E | v223 | step 4b studio (roomState memo, paneSig, cube panel repaint, matrix walks, LOOKS.fill, ghosts, unused-feature steps) | |
+| F | v224 | step 4c engine + stories (pick on ray move, compileLate helper, idle path on a page, placeLabels, ovary stain, nmd heart/tower, airports slider, per-story small ones) | |
 | G | docs | step 5a generated: --list in tests -> testing.md, TOC script for shared-rooms/shell, release.mjs writes state lines + meta | |
 | H | docs | step 5b archive: HANDOVER 287->55 KB, plans to docs/history/plans (stubs left), setup, data, README.md | PART DONE pushed de5f484; still: package SPECs, studio SPEC vs studio.md, relay README, README.txt, code headers pointing at stubs |
-| I | v223 | step 6a load: ppicell models lazy, exposome data lazy, lbi buffers, shared sets scaffolding, precomputed layouts, airports binary data | |
-| J | v224 | step 6b: studio.js split + comment strip, shell modules on demand, headset canvases only in XR, examples KTX2 | |
+| I | v225 | step 6a load: ppicell models lazy, exposome data lazy, lbi buffers, shared sets scaffolding, precomputed layouts, airports binary data | |
+| J | v226 | step 6b: studio.js split + comment strip, shell modules on demand, headset canvases only in XR, examples KTX2 | |
 | K | tests | step 7: tools/lib kit, --list/--only ids, node-only greps, real test bugs, sleeps, ports, split smoke by block | |
 
 ## Owner's decisions since the plan

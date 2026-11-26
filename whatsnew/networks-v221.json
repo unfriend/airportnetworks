@@ -6,7 +6,7 @@
   ],
   "test": [
     "In a shared room, two people change different controls of the same story at nearly the same time: both changes stay, and nothing flips back.",
-    "The shared-room rounds of the Networks for everyone, Invisible threads and Robot gang stories, twice, and the relay's own tests."
+    "The same on the slowest device you have, in Networks for everyone or Invisible threads: change a control back and forth with someone else. It settles and stays."
   ],
   "untested": [
     "Everything in a headset: nothing in this release or in v220 has been tried in one.",
