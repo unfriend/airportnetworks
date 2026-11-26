@@ -13,7 +13,7 @@
 // the release in which they last changed (VERSION's number: a new shell needs a new VERSION). sw.js is not part of it:
 // the service worker updates itself, and adding a story changes its list of files. list: the fingerprint of the list of
 // stories (stories/list.js's STORY_LIST), as the page computes it. Each story (and each page in STORY_EXTRA, such as the
-// design room, so live updates reach it too): its file's fingerprint and the oldest shell it needs
+// studio, so live updates reach it too; a page taken out of the list, as the design room at v217, is no longer listed): its file's fingerprint and the oldest shell it needs
 // (its entry's own needs, else the shell of the release in which its file last changed). A page compares: another shell
 // or format, or a story that needs a newer shell, is asked about (Reload now or Later); a new or changed story is taken.
 // The fingerprint is index.html's HOST.fingerprint (and relay/server.mjs's), so the three agree.

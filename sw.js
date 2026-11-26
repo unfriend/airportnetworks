@@ -1,7 +1,7 @@
 // Offline support: the app shell is cached on install, so the installed app
 // opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v216';
-const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/design.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
+const VERSION = 'networks-v217';
+const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
   './fonts/B612-Regular.woff2', './fonts/B612-Bold.woff2', './fonts/B612-Italic.woff2'];
 
@@ -53,7 +53,7 @@ async function pkgIndex() {
   return hit ? hit.json().catch(() => null) : null;
 }
 // At install, every listed package's main.js (the story itself, as SHELL takes each stories/<key>.js) and its
-// miniatures' file (story.json's minis: its stations' icon and its props on the design room's table), so an installed
+// miniatures' file (story.json's minis: its stations' icon, and its props, which the design room's table showed until v217), so an installed
 // copy opens every story offline, moved into a package or not (silent until its narration is taken), and its rooms show
 // every station's icon; never fails the install
 async function takeMains() {

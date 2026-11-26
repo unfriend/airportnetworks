@@ -109,14 +109,10 @@ Experiments set (list "experiments"), or hidden (list "hidden": only in develope
 mode and by their address, #<key>). node tools/packages/scan.mjs lists them in
 packages/index.json; tools/packages/SPEC.md says how to write one.
 
-Besides the stories, the design room (#design, stories/design.js; not on the
-Stories screen) is a table with a small model of every prop of the stories,
-a plate per story: point at one for its name, put it on the stage for its card
-(what it shows, its params, views and source), and in a headset pick it up.
-In a headset, Design room in the menu (click a stick to open it) opens it;
-in a shared room, Design room here puts the table at your feet as a circle
-(Add a station on the page offers it too; Arrange all leaves it alone), and
-over every circle its story's small model turns, so circles tell apart.
+The design room (a table with a small model of every prop of the stories) is
+put away for now (v217): it is no longer in the app; its sources stay in
+tools/design/. In a shared room, over every circle its story's small model
+turns, so circles tell apart.
 
 The studio (#studio, stories/studio.js; not on the Stories screen either) is
 for your own scenes: your models (textured, some animated), placed life size
@@ -638,7 +634,7 @@ so the story's controls are at hand even when its panels are hidden or out of
 sight), Settings (Exit, which leaves VR or AR, as the story panels have none;
 Recenter; Anchor; Slideshow and Repeat for every story; four headset settings
 for every story; Frame rate, My body, Developer mode, My menu and Real world hides, this headset's own; Sound, this headset's own on or
-off; the sound switches; the design room and the studio), Circles (the shared
+off; the sound switches; the studio), Circles (the shared
 room: rooms to join, a room by its code, Room setup, the stations, the locks,
 Show all rings, circles walked into or asked first, the people, your name) and Debug (calibration and alignment, Check here, People, Bodies, Sound check, Trackers, Refresh rate, Foveation and Resolution, What is new, the version,
 the connection and the frame rate). With hand tracking a fingertip presses its
@@ -1030,7 +1026,7 @@ crumbs. Speeds and cleaning times are tuned to look right, not measured.
 
 Files: index.html (the app), packages/ (every story and the tutorial, each a story package since v187: main.js,
 story.json, its narration in audio/, its sources in src/; order.json their order, index.json written by
-node tools/packages/scan.mjs), stories/ (the design room, the studio and list.js),
+node tools/packages/scan.mjs), stories/ (the studio and list.js; design.js, the design room's, unused since v217),
 version.json (the latest release: running copies pick up new and changed stories from it, written by
 tools/release.mjs), proteins.html and
 spatial.html (forward to the app), manifest.webmanifest, sw.js (offline cache), audio/,
@@ -1060,11 +1056,11 @@ packages/pass/src/build.mjs writes packages/pass/main.js from them and from the 
 packages/airports/, proteins/ and spatial/ are hand-written: main.js is their source), packages/flock/src/ (sources of the flock; node packages/flock/src/build.mjs
 writes packages/flock/main.js), packages/robots/src/ (sources of the robot gang,
 a story package: node packages/robots/src/build.mjs writes packages/robots/main.js), packages/tutorial/src/ (sources of the tutorial; node
-packages/tutorial/src/build.mjs writes packages/tutorial/main.js, node packages/tutorial/src/test-script.mjs checks the guide's script), tools/design/ (sources of the design room; node
+packages/tutorial/src/build.mjs writes packages/tutorial/main.js, node packages/tutorial/src/test-script.mjs checks the guide's script), tools/design/ (sources of the design room, parked since v217; node
 tools/design/build.mjs writes stories/design.js), tools/studio/ (sources of the studio; node tools/studio/build.mjs
 writes stories/studio.js; its README is the formats guide), tools/lowpoly/ (the miniatures' kits; node tools/lowpoly/build.mjs writes
-lowpoly.js, the shell's own miniatures, and each package's minis.js from its src/minis.js: the miniatures the design
-room and the stations' icons use), tools/voice/ (a
+lowpoly.js, the shell's own miniatures, and each package's minis.js from its src/minis.js: the miniatures the stations'
+icons use), tools/voice/ (a
 synthetic narration: node tools/voice/narrate.mjs <story>; German with Piper), tools/release.mjs (writes version.json), tools/live.mjs
 (headless test of live updates), tools/icons.html (the stations' icons side by side),
 icons/, three.min.js (three.js r128, MIT licence, see three.LICENSE.txt), LICENSE and NOTICE.md (the licences).

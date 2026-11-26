@@ -5,7 +5,7 @@
 //   const S = stories(root);   // root: the app's folder (default: this file's parent's parent)
 //   S.list    the stories in the Stories screen's order (packages/order.json, else stories/list.js's, then the app's
 //             packages): { key, pkg, file, src, build, narrations, narration(lang), meta }
-//   S.extra   the pages that are not stories (STORY_EXTRA: the design room, the studio), the same shape
+//   S.extra   the pages that are not stories (STORY_EXTRA: the studio; the design room until v217, parked), the same shape
 //   S.all     both; S.get(key) one of them (or a package of anyone's, by its folder), or null
 //   S.keys    S.list's keys; S.order: packages/order.json's list (empty when there is none)
 // file: the story's built or hand-written file (stories/<key>.js or packages/<key>/main.js), relative to root;

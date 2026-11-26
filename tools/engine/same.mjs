@@ -17,7 +17,7 @@ const ARGS = process.argv.slice(2), opt = n => { const i = ARGS.indexOf(n); retu
 const dirs = ARGS.filter((a, i) => !a.startsWith('--') && !['--keys', '--shots', '--wait', '--views'].includes(ARGS[i - 1]));
 if (!dirs.length) { console.log('usage: node tools/engine/same.mjs <before dir> [<after dir>] [--keys a,b] [--views desk,phone] [--shots dir] [--wait ms]'); process.exit(1); }
 const A = path.resolve(dirs[0]), B = path.resolve(dirs[1] || root), SHOTS = opt('--shots'), WAIT = +(opt('--wait') || 2500);
-const KEYS = (opt('--keys') || 'lbi,nmd,endo,pet,micro,ovary,qubits,mutation,topo,soil,pass,flock,robots,tutorial,design').split(',');
+const KEYS = (opt('--keys') || 'lbi,nmd,endo,pet,micro,ovary,qubits,mutation,topo,soil,pass,flock,robots,tutorial').split(',');   // (the design room's 'design' until v217: parked)
 const LIVE = new Set(['flock', 'robots', 'pass']);
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json', '.css': 'text/css',
   '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json', '.mp3': 'audio/mpeg', '.wasm': 'application/wasm' };

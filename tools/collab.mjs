@@ -42,8 +42,7 @@
 // reached as a room is joined makes it peer to peer; a headset that hosts hands the room to the first screen that
 // joins. --shots also saves pictures (the Shared dialog on a desktop and a phone, eight pretend headset views). --quick
 // runs only the last story of STORIES in the per-story part (for a quicker run while working on the rest); --p2p runs
-// only the peer-to-peer part; --design only the design room in a room (its station from the page's dialog and the
-// headset menu's button, the lock, Arrange all, the icons from the miniatures; with --shots its pictures); --follow only
+// only the peer-to-peer part (--design, the design room in a room, is gone since v217: the design room is parked); --follow only
 // following a person (a room of its own with two stations; with --shots the people list with Follow and the dialog
 // following someone); --circles only the ten-headset round (headsetRound: a room of its own with three stations; rings
 // only in a circle and a ring's card on pointing, people at your circle, the two locks; with --shots its pictures);
@@ -396,7 +395,8 @@ const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv
 const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KEY];   // (peer to peer: the station followed there)
 const NAMES_ONLY = argv.includes('--names');   // (only room names: namesRound, a relay of its own with --proxy)
 const NEAR_ONLY = argv.includes('--near');   // (only rooms on this network)
-const DESIGN_ONLY = argv.includes('--design');   // (only the design room in a room: designOnly)
+// (--design ran the design room in a room until v217: the design room is parked, tools/design/README.md)
+if (argv.includes('--design')) { console.error('--design: the design room is parked since v217 (tools/design/README.md): there is no such round'); process.exit(2); }
 const FOLLOW_ONLY = argv.includes('--follow');   // (only following a person: personFollow, in a room of its own)
 const CIRCLES_ONLY = argv.includes('--circles');   // (only the ten-headset round: headsetRound, in a room of its own)
 const SMOOTH_ONLY = argv.includes('--smooth');   // (only others' moves drawn smoothly: smoothRound, in a room of its own)
@@ -797,54 +797,6 @@ async function walk(page, s, story, yaw, ms) {
   return ok && !early;
 }
 
-// ---- the design room in a room (not a story): the Shared dialog's station picker lists it after the stories, and adding
-// it there makes a station every page sees; refused while the layout is locked (Add, and the headset menu's Design room
-// button through HOST.collab.design); Arrange all leaves it where it is, never moving or removing it. Removed at the end
-// (the rest counts one station per story). The headset's button is checked with the pretend headset (headsetDesign)
-async function designRoom(A, B, C) {
-  const n0 = await A.evaluate(() => HOST.collab.stations().length);
-  const dsg = await A.evaluate(async () => {
-    HOST.collab.dialog(true); await new Promise(r => setTimeout(r, 300));
-    const sel = document.querySelector('#shAdd'), opts = [...sel.options].map(o => o.value), last = sel.options[HOST.stories().length];   // (then All stories and Back to the lobby)
-    sel.value = 'design'; document.querySelector('[data-sh="add"]').click();
-    for (let k = 0; k < 20 && !HOST.collab.stations().some(x => x.story === 'design'); k++) await new Promise(r => setTimeout(r, 100));
-    const st = HOST.collab.stations().find(x => x.story === 'design');
-    HOST.collab.dialog(false);
-    return { opts, n: HOST.stories().length, extra: (self.STORY_EXTRA || []).map(m => m.key), last: last && last.textContent, st };
-  });
-  const id = dsg.st && dsg.st.id, same = (p, want) => until(p, w => { const s = HOST.collab.station(w.id); return !!s && s.story === 'design' && Math.abs(s.x - w.x) < 1e-6 && Math.abs(s.z - w.z) < 1e-6 && Math.abs(s.yaw - w.yaw) < 1e-6; }, want, 5000);
-  const seen = !!id && await same(B, dsg.st) && await same(C, dsg.st);
-  // (the pages that are not stories, STORY_EXTRA's design room and studio, after the stories, the Experiments set's
-  // included: HOST.stories(); then the shell's two circles)
-  check('the design room: the Shared dialog\'s station picker lists it after the stories (then the studio, All stories and Back to the lobby), and Add makes its station for every page',
-    dsg.opts.slice(dsg.n).join() === dsg.extra.concat('all', 'lobby').join() && dsg.extra[0] === 'design' && dsg.opts.indexOf('design') === dsg.n && /design room/i.test(dsg.last) && seen, JSON.stringify(dsg));
-  // locked: Add and the menu's button (HOST.collab.design) refused; nothing added or moved
-  await A.evaluate(() => HOST.collab.lock(true));
-  await until(B, () => HOST.collab.locked, null, 3000);
-  const lk = await B.evaluate(async () => {
-    const a = HOST.collab.add('design', { x: 1, z: 1, yaw: 0 }), d = HOST.collab.design({ x: -1, z: 2, yaw: 1 });
-    await new Promise(r => setTimeout(r, 400));
-    return { a, d, n: HOST.collab.stations().length };
-  });
-  const lkSame = !!id && await same(A, dsg.st);
-  await A.evaluate(() => HOST.collab.lock(false));
-  await until(B, () => !HOST.collab.locked, null, 3000);
-  check('the design room: while the layout is locked neither Add nor the Design room button places it (nothing added or moved)', lk.a === '' && lk.d === '' && lk.n === n0 + 1 && lkSame, JSON.stringify(lk));
-  // Arrange all: the stories in their rows as before, the design room's table left where it is
-  await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
-  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
-  await sleep(300);
-  const arr = await B.evaluate(() => ({ n: HOST.collab.stations().length, stories: HOST.collab.stations().filter(s => HOST.list.some(m => m.key === s.story)).length }));
-  check('the design room: Arrange all leaves its station where it is (never part of Arrange all)', !!id && await same(B, dsg.st) && arr.n === n0 + 1 && arr.stories === n0,
-    JSON.stringify(arr));
-  // the menu's button in a room when the room has a table: it moves that one to your feet (one table, not a pile)
-  const mv = await B.evaluate(async id => { const d = HOST.collab.design({ x: 3.5, z: 1.25, yaw: 0.5 }); await new Promise(r => setTimeout(r, 400)); return { d, n: HOST.collab.stations().length, s: HOST.collab.station(id) }; }, id);
-  const moved = await same(A, { id, x: 3.5, z: 1.25, yaw: 0.5 });
-  check('the design room: with a table in the room, the Design room button moves it to your feet for everyone (no second table)', mv.d === id && mv.n === n0 + 1 && moved, JSON.stringify(mv));
-  await A.evaluate(id => HOST.collab.remove(id), id);
-  await until(B, id => !HOST.collab.station(id), id, 5000); await until(C, id => !HOST.collab.station(id), id, 5000);
-}
-
 // a pretend headset's head put at (x, y, z) in room coordinates, looking along yaw (room)
 const goRoom = (p, x, y, z, yaw) => p.evaluate(([x, y, z, yaw]) => {
   const X = window.__xr, R = HOST.room.internals(), v = new THREE.Vector3(x, y, z).applyMatrix4(R.m).applyMatrix4(X.W.local);
@@ -889,15 +841,11 @@ async function headView(H, file, yawRoom, pitch, size, pre) {
   fs.writeFileSync(file, Buffer.from(url.split(',')[1], 'base64'));
 }
 
-// ---- the design room in a headset in a room (after designRoom, with a pretend headset H aligned in the room; S any
-// station, to find a spot away from them all): every station's icon built from its story's miniature (its package's
-// minis.js since v190, the entry's icon), in its colour and turning (hidden but built when the headset is in a circle already); with the circles
-// locked the menu's Design room button is greyed and places nothing; pressed, it puts the props table at the headset's
-// feet as a circle facing its way, which every page sees; the headset standing in it, it becomes its station and the
-// design room opens there, its icon gone over it; walked out, the headset stays at the design room (its icon still gone,
-// built from the table's miniature); Add here lists the design room after the stories. The station is removed at the
-// end. shots: pictures of the menu and the table at its station (design-*.png)
-async function headsetDesign(A, B, H, S, shots) {
+// ---- the stations' icons in a headset in a room (with a pretend headset H aligned in the room; S any station, to find a
+// spot away from them all): every station's icon built from its story's miniature (its package's minis.js since v190, the
+// entry's icon), in its colour and turning (hidden but built when the headset is in a circle already); the menu's Add here
+// lists the pages that are not stories (STORY_EXTRA: the studio since the design room was parked, v217) after the stories
+async function headsetIcons(H, S) {
   const step = n => frames(H, n);
   const press = id => H.evaluate(async id => {
     const X = window.__xr; X.step(); X.step();
@@ -924,115 +872,17 @@ async function headsetDesign(A, B, H, S, shots) {
   let i1 = [];
   for (let k = 0; k < 12; k++) { await step(400); i1 = await icons(); if (i1.every((x, j) => x.id === own || angle(x.a, i0[j].a) > 0.05)) break; }
   const bad = i1.filter((x, k) => !(x.model && x.model === x.want && x.col === x.wcol && x.tris > 300 && (x.id === own ? !x.on : x.on && angle(x.a, i0[k].a) > 0.05)));
-  check(`design room: every station's icon is built from its story's miniature (its package's minis.js), in its colour and turning${own ? ' (but its own station\'s: the headset is in its circle)' : ''}`,
+  check(`icons: every station's icon is built from its story's miniature (its package's minis.js), in its colour and turning${own ? ' (but its own station\'s: the headset is in its circle)' : ''}`,
     built && i1.length > 5 && !bad.length, JSON.stringify({ built, n: i1.length, bad }));
-  // locked: the button greyed, nothing placed
-  const n0 = await H.evaluate(() => HOST.collab.stations().length);
-  await A.evaluate(() => HOST.collab.lock(true));
-  await until(H, () => HOST.collab.locked, null, 3000);
+  // Add here lists the pages that are not stories after the stories
   await H.evaluate(() => HOST.collab.panelOpen(true));
-  const lockedIds = await ids(), lockedPress = await press('design');
-  await step(300);
-  const nL = await H.evaluate(() => HOST.collab.stations().length);
-  await A.evaluate(() => HOST.collab.lock(false));
-  await until(H, () => !HOST.collab.locked, null, 3000);
-  check('design room: with the circles locked the menu\'s Design room button is greyed and places nothing', !lockedIds.includes('design') && !lockedPress && nL === n0,
-    JSON.stringify({ lockedIds: lockedIds.slice(0, 12), lockedPress, nL, n0 }));
-  // Add here lists it after the stories
   await press('addpage');
   const addIds = (await ids()).filter(x => x.startsWith('add:'));
   await press('add:cancel');
   const [nStories, extra] = await H.evaluate(() => [HOST.stories().length, (self.STORY_EXTRA || []).map(m => m.key)]);
-  check('design room: the menu\'s Add here lists the design room after the stories (then the studio, All stories and Back to the lobby)',
-    addIds.slice(nStories).join() === extra.concat('all', 'lobby', 'cancel').map(k => 'add:' + k).join() && addIds[nStories] === 'add:design', addIds.join());
-  // pressed: the props table at its feet, facing its way, for every page
-  const at = await H.evaluate(() => { window.__xr.step(); const R = HOST.room.internals(); return { x: R.hr.x, z: R.hr.z, yaw: R.hyaw }; });
-  const menuShot = shots && await H.evaluate(() => { const S = HOST.collab.overlay().panel, c = document.createElement('canvas'); c.width = S.w; c.height = S.vis; c.getContext('2d').drawImage(S.cv, 0, 0); return c.toDataURL('image/png'); });
-  if (menuShot) fs.writeFileSync(path.join(shots, 'design-menu.png'), Buffer.from(menuShot.split(',')[1], 'base64'));
-  const pd = await press('design');
-  let id = '';
-  for (let k = 0; k < 30 && !id; k++) { await step(100); id = await H.evaluate(() => (HOST.collab.stations().find(s => s.story === 'design') || {}).id || ''); }
-  const st = id && await H.evaluate(id => HOST.collab.station(id), id);
-  const seen = !!id && await until(A, id => !!HOST.collab.station(id), id, 5000) && await until(B, id => !!HOST.collab.station(id), id, 5000);
-  check('design room: the menu\'s Design room button in a room puts the props table at its feet as a circle, facing its way, for every page',
-    pd && !!st && Math.hypot(st.x - at.x, st.z - at.z) < 0.02 && angle(st.yaw, at.yaw) < 0.02 && seen, JSON.stringify({ pd, at, st, seen }));
+  check('icons: the menu\'s Add here lists the studio after the stories (then All stories and Back to the lobby; no design room since v217)',
+    addIds.slice(nStories).join() === extra.concat('all', 'lobby', 'cancel').map(k => 'add:' + k).join() && addIds[nStories] === 'add:studio' && !addIds.includes('add:design'), addIds.join());
   await H.evaluate(() => HOST.collab.panelOpen(false));
-  // standing in it: its station, the design room opens there, its own icon gone
-  let inD = false;
-  for (let k = 0; k < 40 && !inD; k++) { await step(300); inD = await H.evaluate(() => HOST.curKey === 'design'); }
-  inD = inD && await ready(H, 'design', 60000);
-  if (inD) {
-    await H.evaluate(() => HOST.cur.peek('xrAdopt()'));
-    // (the table's miniatures, built a few a frame)
-    await until(H, () => { window.__xr.step(); return HOST.cur.peek('GL.sets.table.built() === GL.sets.table.total()'); }, null, 60000);
-    await step(600);
-  }
-  const there = await H.evaluate(id => { HOST.cur.peek('xrUpdate(XS)'); const o = HOST.collab.overlay().rings.get(id);
-    return { mine: HOST.collab.mine() === id, key: HOST.curKey, away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), mode: HOST.cur.peek('APP.mode'),
-      icon: !!o && o.icon.g.visible && o.icon.k > 0.9, card: HOST.collab.overlay().cards.has(id), table: HOST.cur.peek('GL.sets.table.built() + "/" + GL.sets.table.total()'),
-      ready: HOST.collab.internals().ready }; }, id);
-  check('design room: standing in it the headset takes it as its station and the design room opens there at its table (explore mode; its icon and card gone)',
-    inD && there.mine && there.key === 'design' && !there.away && there.world && there.mode === 'explore' && !there.icon && !there.card, JSON.stringify({ inD, there }));
-  if (shots && inD) {
-    // (a left controller held low, out of the way)
-    const lowClock = () => H.evaluate(() => {
-      const X = window.__xr, V = THREE.Vector3, R = HOST.room.internals(), Y = R.hyaw + R.yaw;
-      const hp = new V().setFromMatrixPosition(X.W.head).applyMatrix4(X.W.local.clone().invert());
-      const lp = hp.add(new V(-Math.sin(Y), 0, -Math.cos(Y)).multiplyScalar(0.3)).add(new V(-Math.cos(Y), -9, Math.sin(Y)).multiplyScalar(0.06));
-      X.aim(1, new THREE.Matrix4().compose(lp, new THREE.Quaternion().setFromAxisAngle(new V(0, 1, 0), Y), new V(1, 1, 1)));
-    });
-    await lowClock(); await step(300);
-    await headView(H, path.join(shots, 'design-station.png'), st.yaw, -0.42, [1280, 800]);
-    // from outside its circle (behind it and to one side), looking at its ring, card and icon among the others
-    const back = [st.x + 2.6 * Math.sin(st.yaw) + 0.8 * Math.cos(st.yaw), st.z + 2.6 * Math.cos(st.yaw) - 0.8 * Math.sin(st.yaw)];
-    const look = Math.atan2(-(st.x - back[0]), -(st.z - back[1]));
-    await goRoom(H, back[0], 1.6, back[1], look);
-    await step(900); await lowClock(); await step(300);
-    await headView(H, path.join(shots, 'design-circle.png'), look, 0.02, [1280, 800]);
-    await H.evaluate(() => { const c = HOST.cur.peek('XR.ctrls')[1]; c.g.visible = false; c.src = null; window.__xr.session.inputSources.length = 0; });
-  }
-  // walked out: still at the design room (a story is left only by walking into another circle), its icon still gone,
-  // built from the table's miniature all the same
-  const sp2 = await awaySpot(H, st);
-  await goRoom(H, sp2[0], 1.6, sp2[1], 0);
-  await step(1500);
-  const out = await H.evaluate(id => { window.__xr.step(); HOST.cur.peek('xrUpdate(XS)'); const o = HOST.collab.overlay().rings.get(id);
-    return { mine: HOST.collab.mine() === id, key: HOST.curKey, away: HOST.room.away(), world: HOST.cur.peek('GL.world.visible'), model: o && o.icon.model, k: o && +o.icon.k.toFixed(2) }; }, id);
-  check('design room: walked out of its circle the headset stays at the design room (its station, shown; its icon still gone, built from the props table\'s miniature)',
-    out.mine && out.key === 'design' && !out.away && out.world && out.model === 'design.table' && out.k < 0.05, JSON.stringify(out));
-  await A.evaluate(id => HOST.collab.remove(id), id);
-  await until(H, id => !HOST.collab.station(id), id, 5000);
-}
-
-// ---- --design: only the design room in a room (a quicker run while working on it): three pages and Arrange all,
-// designRoom, then a pretend headset aligned as in the main run, and headsetDesign; --shots also saves its pictures
-async function designOnly() {
-  const A = await open('#stories');
-  await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
-  await until(A, () => HOST.collab.status === 'open', null, 10000);
-  const code = await A.evaluate(() => HOST.collab.code);
-  await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
-  const all = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === HOST.list.length, null, 20000);
-  await all(A);
-  const B = await open('#s=' + code), C = await open('#s=' + code);
-  await all(B); await all(C);
-  await designRoom(A, B, C);
-  const H = await open('#s=' + code);
-  await all(H);
-  await ready(H, 'airports');
-  const aId = await A.evaluate(() => HOST.collab.id);
-  await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
-  await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
-  await H.evaluate(() => HOST.room.sharedAlign(true));
-  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
-  await H.evaluate(() => window.__xr.begin());
-  await frames(H, 400);
-  await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
-  await frames(H, 300);
-  check('design room: the pretend headset aligns in the room', await H.evaluate(() => HOST.room.aligned && HOST.room.src === 'adopted'));
-  if (shots) fs.mkdirSync(shots, { recursive: true });
-  await headsetDesign(A, B, H, (await H.evaluate(() => HOST.collab.stations()))[0], shots);
-  await H.evaluate(() => window.__xr.end());
 }
 
 // ---- peer to peer: pages whose relay calls go nowhere (as on GitHub Pages), introduced by the relay's own
@@ -4656,7 +4506,7 @@ async function allRound() {
   await sleep(300);
   const [opts, extra] = await A.evaluate(() => [[...document.querySelectorAll('#shAdd option')].map(o => o.value), (self.STORY_EXTRA || []).map(m => m.key)]);
   await A.evaluate(() => HOST.collab.dialog(false));
-  check('all: the page\'s Add lists All stories and Back to the lobby after the design room and the studio', opts.slice(-2 - extra.length).join() === extra.concat('all', 'lobby').join() && extra[0] === 'design', opts.join());
+  check('all: the page\'s Add lists All stories and Back to the lobby after the studio', opts.slice(-2 - extra.length).join() === extra.concat('all', 'lobby').join() && extra[0] === 'studio' && !opts.includes('design'), opts.join());
   const SP = { x: 3, z: -3.2, yaw: 0 };   // (the room's circle of the story picked later: for the switch)
   const SPid = await H.evaluate(([k, b]) => HOST.collab.add(k, b), [PK, SP]);
   const conv = await until(A, ([id, sp]) => !HOST.collab.arc() && !!HOST.collab.station(sp) && HOST.collab.val('st.' + id).arc === false, [AID, SPid], 5000) &&
@@ -8796,7 +8646,6 @@ try {
   main: {   // (--p2p: only the peer-to-peer part, after this block; --near: only rooms on this network)
   if (P2P || NEAR_ONLY) break main;
   if (NAMES_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await namesRound(shots); break main; }
-  if (DESIGN_ONLY) { await designOnly(); break main; }
   if (FOLLOW_ONLY) { await followOnly(); break main; }
   if (CIRCLES_ONLY) { await circlesOnly(); break main; }
   if (SMOOTH_ONLY) { await smoothRound(); break main; }
@@ -8915,7 +8764,6 @@ try {
     mapT.locked.kept && mapT.locked.arrOff && mapT.locked.label === 'Unlock circles' && !mapT.locked.followed && mapT.locked.unlocked, JSON.stringify(mapT.locked));
   await A.evaluate(() => { HOST.collab.dialog(false); HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
   await st7(B); await st7(C);
-  await designRoom(A, B, C);
 
   // ----------------------------------------- the headsets' settings --
   // labels (the scenes' small ones) and cards (the story panels, station cards and name tags), each on top, in 3D or
@@ -10306,9 +10154,9 @@ try {
   check('headset: at the other station its own panels (shown), the first station\'s kept (hidden)', hp3 === `${HEADSET_STORY},shown,main,foot` &&
     await A.evaluate(id => HOST.collab.stationPanels(id), S2.id) === 'hidden', hp3);
   await A.evaluate(id => HOST.collab.setStationPanels(id, 'shown'), S2.id);
-  // the design room: the menu's button in a room, its station, the icons from the miniatures (then back to S1)
-  await headsetDesign(A, B, H, S1, '');
-  check('headset: back at its station after the design room', await walk(H, S1, HEADSET_STORY, 0));
+  // the stations' icons from the miniatures and the menu's Add here list (then back to S1)
+  await headsetIcons(H, S1);
+  check('headset: back at its station after the icons', await walk(H, S1, HEADSET_STORY, 0));
   // Remove on the headset panel asks first: the first press only arms it (for 3 s), the station stays
   await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 150);
@@ -11201,8 +11049,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await p2p();
-  if (!P2P && !DESIGN_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
+  if (!NEAR_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await p2p();
+  if (!P2P && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');

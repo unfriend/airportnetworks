@@ -49,9 +49,8 @@ covers the app's packages too.
 
 ## The smoke test (`tools/smoke.mjs`)
 
-The smoke test (serve the folder, then run it) loads every story (and the design room: every listed package's miniatures built, 52 since v190, from the packages'
-`minis.js`, a click putting one on the stage with its card as the catalogue has it (`tools/design/props.json` and each
-package's `src/props.json`), a pretend headset's grip, its shared state, Tidy; and the studio, below), scrubs through it, plays it as a slideshow
+The smoke test (serve the folder, then run it) loads every story (and the studio, below; the design room's block went when the room was parked, v217: one step,
+*parked*, checks that it is not offered and that `#design`, `HOST.go('design')` and `HOST.start('design')` start nothing), scrubs through it, plays it as a slideshow
 (a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
 last one, the voice finishing the chapter there where a story has a recording,
 Next on the page, in the bar and on the headset panel beside the chapter arrows,
@@ -108,7 +107,7 @@ no row on the Stories screen (its panels staying), each value in story and
 explore mode (controls only: the foot bar alone, the text panel neither drawn
 nor pointable; hidden: neither, A or X doing nothing and the Story tab's copy of the foot bar playing), cards hidden still
 hiding both and labels hidden neither, each story its own (the qubits, the flock, the airports, the
-design room), kept per story across a reload, set by a link for the story it
+soil story; the design room until v217), kept per story across a reload, set by a link for the story it
 opens, the panels and cards lines in all sixteen and every page in `STORY_EXTRA`; the frame-rate read-out (off by
 default with nothing drawn, on through the menu's Frame rate row, the story's frames drawn through `HOST.perf` from the
 pretend head giving a second's triangles, draw calls and code time, the read-out showing them with the frames a second and
@@ -117,8 +116,7 @@ the frame times, 22 degrees down and 14 to the left 1 m away and staying so as t
 its notice, of Y off again, one press, two 0.6 s apart and a B held as its controller appeared doing nothing); the keypad (`HOST.collab.keypad`: the menu opening with its
 keys, OK and Delete greyed while empty, *atelier 22*, Delete and OK giving *atelier 2* and closing the menu again, Back
 giving null, another tab giving null, and null at once on a page without a headset session); the menu's Design room
-button outside a room opening the design room, the menu closing and the button
-greyed there), the stories' sound effects (per story: its cue table, names the
+button's step is gone with the room, v217), the stories' sound effects (per story: its cue table, names the
 shell knows, places that resolve, times within the story; a paused scrub across
 cues playing none; a stretch played asking for exactly the cues it crosses; one
 explore action's sound, `SFX_PICK`; a pretend headset's press on a story panel
@@ -215,9 +213,7 @@ where they were; away again and the session ending while idle: the walk given ba
 `--only uploads`, a page of their own with WebGL2's calls counted, a minute or two): the tissue topology story paused at
 212 s (the tower), the qubits at 267 s and the mutation story at 253 s sending no buffer in six frames (they sent 186,
 102 and 258 before), and playing on; the robots in explore mode with 12 robots for four seconds: their cleaned floor
-sent as boxes through `copyTextureToTexture` and no whole map. The design room's *few draws* step (with its other
-steps, `--only design`): every miniature in one or two meshes of the two shared materials, static and with `aMat`, at
-most 110 meshes shown on the table and 110 draws for it (337 and 334 before).
+sent as boxes through `copyTextureToTexture` and no whole map. The design room's *few draws* step went with its block (parked since v217).
 
 ### smoke: stick moving
 
@@ -343,7 +339,7 @@ asking for 90 Hz and logging it (`frame rate`, `frame rate change`); the Debug t
 80, 90 Hz and asking each again; 100 asking 90 and 60 asking 72; nothing in `HOST.xr.sig()`; 120 kept across a reload and
 asked; `#hz=72`; a session without the API asking nothing, the row greyed, logged; the read-out's words (*NN fps of 90
 Hz*) and colour at 90, 88 (green), 86, 72 (amber), 71 and 40 (red), and without a rate as before. In a room on this device
-with every story's station, the design room, the studio, All stories and Back to the lobby, the headset lined up on its
+with every story's station, the studio, All stories and Back to the lobby (the design room's until v217), the headset lined up on its
 floor: every card that shows drawn once, at most one a frame (drawn and sent to the GPU), the nearest first (their
 distances never falling), each drawn once, saying its look, kicker, title and *Nobody here* (an All stories circle *All
 stories*), no back face or edge shown or pointable; every story's station playing for 2.6 s, then paused at 1:03,
@@ -1331,7 +1327,7 @@ reshaping them breaks the tool. Per frame it records script ms (less render subm
 `matrixAutoUpdate` on, heap allocated and `renderer.info.memory`. **GPU time cannot be measured here** (software drawing), so
 a result is script and counts, never milliseconds on a Quest. Ids like `room:lobby`, `story:qubits`, `pass:75%`; run groups of
 scenes (a full run of about 90 exceeds a background limit). A baseline from before v145 and the after run are compared by
-`--from`; known worse after v145: the design room (the miniatures built inside the window), the robots' 0.4 s floor-map
+`--from`; known worse after v145: the design room (the miniatures built inside the window; its scene `design:room` gone since v217, parked), the robots' 0.4 s floor-map
 send, and a few stories' script means within noise.
 
 ## `tools/audio.mjs` (narration and sound effects)
@@ -1348,7 +1344,7 @@ after the session; the menu's Sound row the session's mute, `xrMuted`, its Narra
 and a controller's press on the story panel's button turning the narration off and on), the sound
 off by default (a fresh device, also one with the sound on under the old key,
 showing *Sound off*, a tap playing the story silently, no narration and no
-effects, until Sound is pressed; a page without a recording (the design room) having the button
+effects, until Sound is pressed; a page without a recording (the studio; the design room until v217) having the button
 too; the choice kept across a reload, on and off; `#sound=on` and `#sound=off`),
 that the narration plays after a click, after a story change with no tap (as in the
 headset's Stories menu), through pause, jumps, the Sound button, the Stories
@@ -1386,10 +1382,8 @@ track).
 ## `tools/sfx-cues.mjs` and `tools/sfx-render.mjs`
 
 After changing a story's sound cues, run `node tools/sfx-cues.mjs
-http://127.0.0.1:8123/ <key>` (seconds; `all` for every story and the design
-room; the app's own stories on either set of cards, the Experiments set's too since v189): every name a sound the shell knows, every place finite, every time within
-the story, 6 to 60 cues (the tour up to 80, the tutorial up to 70; the flock, the robots and the design
-room at least 1), at most 4 onsets in 3 s outside a marked sequence, no two of
+http://127.0.0.1:8123/ <key>` (seconds; `all` for every story and the studio; the app's own stories on either set of cards, the Experiments set's too since v189): every name a sound the shell knows, every place finite, every time within
+the story, 6 to 60 cues (the tour up to 80, the tutorial up to 70; the flock, the robots and the studio at least 1), at most 4 onsets in 3 s outside a marked sequence, no two of
 one sound closer than its gap, at most 6 cue voices and 2 continuous sounds at
 once; then render the story's track for the owner (`node tools/sfx-render.mjs
 http://127.0.0.1:8123/ <out> --story <key>`) and report how it sounds as unheard.
@@ -1558,7 +1552,7 @@ here, one elsewhere does, and the talker saying it is elsewhere sends a new list
 leave and reconnect (lists without the talker, no frames to a new socket before its `talk-sub`); the log's lines with no
 name or cfg.
 
-### collab.mjs main run (per story, then the rounds `codeRound`, `allRound`, `guideRound`, `placesRound`, `areasRound`, `reloadRound`, the design room, settings, follow, pretend headset, peer to peer, rooms on this network)
+### collab.mjs main run (per story, then the rounds `codeRound`, `allRound`, `guideRound`, `placesRound`, `areasRound`, `reloadRound`, settings, follow, pretend headset, peer to peer, rooms on this network)
 
 `node tools/collab.mjs` (about a quarter of an hour; it starts its own relay with
 `--static .`, so no server is needed). For every story in its `STORIES` table,
@@ -1597,7 +1591,7 @@ to the cards, the keys gone; the grip on its cards carrying it for everyone (hel
 was let go, swung round, still the arc); the room map moving it and the headset's cards gliding there; the circles lock
 refusing the grip, with its notice; Move here putting it at the headset; Add from the headset turning it into a circle
 where it stands (`arc` false), the headset still at it with its cards and now its ring (it stands 1.5 m off), the pages
-still following; the dialog's Add listing All stories and Back to the lobby after the design room; then as any All stories
+still following; the dialog's Add listing All stories and Back to the lobby after the studio; then as any All stories
 circle: the menu's switch row turning sync on, and with a circle of that story in the room the headset joining its
 session: explore state and clock both ways with a page following that circle, its presence still the All stories
 circle's; the dialog's toggle turning it off, its own keys seeded (the clock, state and the linked circle's moved scene)
@@ -1715,10 +1709,7 @@ hand; (4) the relay restarted between press and reloads: the presser bringing th
 order from a guest, everyone back on the new id, one host, every station; (6) a v135 page in a room with a page of this
 code ignoring the order, an order older than 2 minutes ignored, two presses at once giving one order and one reload per
 device, and a reload that comes back with a stale `index.html` (`page.route`) reloading twice more and then saying so),
-the design room (the Shared dialog's picker listing it after
-the stories, its station added there for every page, refused while locked from
-Add and the Design room button, left where it is by Arrange all, the button
-moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches
+(the design room's round, `designRoom`, went when the room was parked, v217), the headsets' four settings and the two sound switches
 as the room's (labels on top, cards in 3D, no subtitles, sound effects and narration on for pages that have them on, in a room without them; v215: one page's
 own subtitles staying its own with no key written, the room's default turned on putting every page on; set on one
 page (the labels from one, the cards from another, each leaving the other), or in another's Shared dialog (both pickers)
@@ -1756,13 +1747,8 @@ and the lock, a station's panels set on a page reaching the headset at its
 circle (controls only: the foot bar alone; the station it is not at keeping its
 own) and set from its menu's Panels row for everyone there with the story
 locked (hidden), its own station's back again (shown) when it walks there, the
-design room in the headset (every station's icon built from its story's
-miniature, in its colour, hidden in a circle; the menu's Design room button
-greyed while the circles are locked; Add here listing the design room after the
-stories; the button putting the props table at its feet facing its way for
-every page; standing in it, its station, the design room open there at its
-table in explore mode, its icon and card gone; walked out, still at the design
-room, its icon still gone and built from the table's miniature),
+stations' icons in the headset (`headsetIcons`: every station's icon built from its story's miniature, in its colour,
+hidden in a circle; Add here listing the studio after the stories; the design room's part gone since v217, parked),
 the station's clock and state, rays and head in room coordinates, another
 person at its circle drawn (one at another circle or at none not; all with
 People: everyone), the sound zone, the trigger on
@@ -2069,9 +2055,7 @@ drag (it moves), and the camera's key is not touched (`mapGrab` tests circles fi
 
 ### collab.mjs --design
 
-`--design` runs only the design room
-in a room (three pages and a pretend headset, a minute or two; with `--shots` its pictures: `design-menu.png`, the menu's
-canvas, `design-station.png`, the table at its circle, `design-circle.png`, its ring, card and icon among the others).
+Gone since v217 (the design room is parked, `tools/design/README.md`): `--design` now says so and exits.
 
 ### collab.mjs --token
 
@@ -2167,8 +2151,8 @@ and its picture, each copy's `x-amz-copy-source` signed in the header; placed, i
 half their life read again, the Upload pane making a scene and sending the test originals straight into it (the long
 sound made MP3 by the relay's `ffmpeg` from its original there), an upload the bucket refuses sent through the relay
 (and the next without trying the bucket), the pretend headset opening the scene from it, and the password in neither
-the bucket's requests nor a link, the relay's lines or a page. With `--shots`: `studio-*.png`. The design and All
-stories rounds expect `STORY_EXTRA`'s pages (the design room, then the studio) after the stories in the pickers.
+the bucket's requests nor a link, the relay's lines or a page. With `--shots`: `studio-*.png`. The All stories
+round and `headsetIcons` expect `STORY_EXTRA`'s pages (the studio since v217) after the stories in the pickers.
 
 ### collab.mjs --follow
 
@@ -2562,8 +2546,7 @@ second), `#lbi&explore&scene=atp&view=network&now=1` (a scene with its controls)
 figure), `#robots&explore&rule=chain&robots=12&trails=on&links=on&view=low`
 (`&crumbs` spills a pile, `&walk=1.5,1.2` walks you there), `#airports&repeat=all` (a kiosk that plays
 every story in turn), `#airports&slides=on` (every story as a slideshow), `#anchor=on` (anchored headset placement), `#qubits&panels=controls` (that story's panels in the headset: only the foot bar), `#stories&net=home` (pretend to be on a network, without a relay: rooms on this network in tests),
-`#design` (the design room's table), `#design&pick=lbi.atp&view=stage` (a prop on the stage, its card; `view=above`,
-`view=group:pet` a story's plate, `&tab=all`, `&now`), `#studio` (the studio: the last scene used here, else the only
+(`#design`, the design room's table, parked since v217: a key like any unknown one), `#studio` (the studio: the last scene used here, else the only
 one, else the list), `#studio&scene=atelier` (a scene), `#studio&scenes=tools/studio/test/scenes&scene=textures&edit` (the textures test
 scene: place its models to see the ladder and the cards), `&edit` (editing on), `&visit` (a visitor's kiosk: no editing
 and no uploads at all), `&upload` (the Upload pane, where the relay's `/upload` sends people; `&relay=wss://...` with

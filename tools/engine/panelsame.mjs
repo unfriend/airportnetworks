@@ -7,7 +7,7 @@
 import fs from 'fs'; import http from 'http'; import path from 'path'; import crypto from 'crypto';
 const ARGS = process.argv.slice(2), opt = n => { const i = ARGS.indexOf(n); return i >= 0 ? ARGS[i + 1] : null; };
 const A = path.resolve(ARGS[0]), B = path.resolve(ARGS[1]);
-const KEYS = (opt('--keys') || 'lbi,nmd,endo,pet,micro,ovary,qubits,mutation,topo,soil,pass,flock,robots,tutorial,design').split(',');
+const KEYS = (opt('--keys') || 'lbi,nmd,endo,pet,micro,ovary,qubits,mutation,topo,soil,pass,flock,robots,tutorial').split(',');   // (the design room's 'design' until v217: parked)
 const OUT = opt('--out');
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm' };
 const serve = dir => new Promise(res => { const s = http.createServer((q, r) => {

@@ -189,7 +189,7 @@ if (sj && typeof sj.icon === 'string' && mini(sj.icon)) {
   const other = sj.icon.split('.')[0];
   if (other === name && minisText && !named.includes(sj.icon) && !minisText.includes(`LOWPOLY_MODELS[${JSON.stringify(sj.icon)}]`)) fail(sjf, `icon ${sj.icon} is not one of its miniatures (${named.join(', ') || 'none'})`);
   else if (other === name && !minisText) fail(sjf, `icon ${sj.icon} is its own, but it names no minis file`);
-  else if (other !== name) warn(sjf, `icon ${sj.icon} is ${other}'s: its stations show it where ${other === 'design' || other === 'studio' || other === 'all' ? 'the shell has it' : `${other} is listed (else the plain shape)`}`);
+  else if (other !== name) warn(sjf, `icon ${sj.icon} is ${other}'s: its stations show it where ${other === 'studio' || other === 'all' ? 'the shell has it' : `${other} is listed (else the plain shape)`}`);
 }
 if (minisText && (ARGS.includes('--build') || ARGS.includes('--load'))) {
   const L = await import('../lowpoly/minis.mjs');

@@ -4,7 +4,7 @@
 // xrFreshStart, xrEnded; nmd, endo and pet once more life size) and compares the recorded state, value by value.
 // Written for step 1b of the packages plan (docs/agents/stories.md, "Shared engine parts"); a real headset is still the
 // only test of controllers, comfort and sessions. Not covered: xrStart/xrAdopt (a real session), the thumbsticks,
-// two-hand resize, robots' room capture, pass's fingertip, the design room's carrying.
+// two-hand resize, robots' room capture, pass's fingertip (the design room's carrying until it was parked, v217).
 // usage: node tools/engine/xrsame.mjs <before dir> <after dir> [--keys a,b] [--out dir]
 import fs from 'fs';
 import http from 'http';
@@ -12,7 +12,7 @@ import path from 'path';
 const ARGS = process.argv.slice(2), opt = n => { const i = ARGS.indexOf(n); return i >= 0 ? ARGS[i + 1] : null; };
 const A = path.resolve(ARGS[0]), B = path.resolve(ARGS[1]);
 const OUT = opt('--out');
-const KEYS = (opt('--keys') || 'lbi,nmd,endo,pet,micro,ovary,qubits,mutation,topo,soil,pass,flock,robots,tutorial,design').split(',');
+const KEYS = (opt('--keys') || 'lbi,nmd,endo,pet,micro,ovary,qubits,mutation,topo,soil,pass,flock,robots,tutorial').split(',');   // (the design room's 'design' until v217: parked)
 const PRE = { nmd: 'X.room = true; X.scene = "tower";', endo: 'X.gap = true; X.scene = "syn";', pet: 'X.life = true; X.scene = "scan";' };
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.png': 'image/png', '.svg': 'image/svg+xml', '.wasm': 'application/wasm' };
 const serve = dir => new Promise(res => {

@@ -1,5 +1,16 @@
 # The design room (`stories/design.js`)
 
+> **Parked since v217** (the owner, 26 November 2026: "remove the whole design room for now"). It is out of the app: no
+> entry in `STORY_EXTRA`, not precached by `sw.js`, not served by the relay (`PARKED` in `relay/server.mjs`), not built
+> or checked by `node tools/engine/all.mjs` or the relay's `--build`, and its smoke block, shared-room round
+> (`tools/collab.mjs --design`) and perf scene are gone. These sources stay, and `node tools/design/build.mjs` still
+> works by hand. To bring it back: put its entry back into `STORY_EXTRA` in `stories/list.js` (the first, before the
+> studio; the entry is in that file at v216, commit `ef4db56`), put its icon `design.table` back into
+> `tools/lowpoly/shell.js` (also there at v216) and run `node tools/lowpoly/build.mjs`, take `stories/design.js` out of
+> `PARKED` in `relay/server.mjs`, give the headset menu's Settings tab its Design room button again (`shared.js`
+> `PAGE_ROW`, `pageRow`, `HOST.collab.design`, all at v216), rebuild, bump `VERSION` and run `node tools/release.mjs`;
+> its tests are in `tools/smoke.mjs`, `tools/collab.mjs` and `tools/perf.mjs` at v216.
+
 A table standing in the room with a small low-poly model of every prop (3D set) of the sixteen stories, a plate per
 story, and a stage where the one you pick stands bigger and turns, its card on the panel. Not one of the stories: it is
 in `STORY_EXTRA` in `stories/list.js` (not on the Stories screens), opened by `#design` or `HOST.go('design')`. Built

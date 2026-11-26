@@ -14,7 +14,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 - `HOST.list` comes from `stories/list.js` and the app's own story packages, in `packages/order.json`'s order (v185,
   `docs/agents/packages.md`; since v187 every story is a package and `STORY_LIST` is empty, so the boot waits for the
   index: 1.5 s, 4 s when the address names a key, then up to 30 s more while there is no card at all, and with none the
-  design room opens behind the Stories screen; `index.html` loads `stories/list.js?v=<its fingerprint>`, stamped by
+  studio (the first page in `STORY_EXTRA`; the design room until v217) opens behind the Stories screen; `index.html` loads `stories/list.js?v=<its fingerprint>`, stamped by
   `tools/release.mjs`, so a browser's held copy never gives a new page an old list; always the same array, changed in
   place when the list is read again; `HOST.listRev` counts the changes), so a
   story's code may keep it (`XR_STORIES`). No count of stories is shown anywhere since v188 (the owner, 23 November
@@ -50,7 +50,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   counts only the entries without it, the default start (no `#key`) builds the first entry without it behind the
   Stories screen, and Repeat all skips it (from the tutorial itself it goes on to the first story).
 - `HOST.start(key)` loads the story's file if needed (`packages/<key>/main.js?v=<fp>`, or `stories/<key>.js` for the
-  design room and the studio; `HOST.load`: fetched as
+  studio (the design room's too until v217, parked); `HOST.load`: fetched as
   text, its fingerprint noted in `HOST.fp`, run as a script; a file that
   registers no story is refused), calls the old story's `dispose()`, removes
   every listener the old story added, then runs the new story's factory
@@ -772,7 +772,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 - Panels per story (`HOST.panels` in `index.html`; an independent toggle per story): `'shown'` (as ever), `'controls'` (only the foot bar,
   `XR.foot`: play and pause, the chapter arrows, the clock, Next; good with
   subtitles on) or `'hidden'` (no story panel; play and pause on the menu's Story tab: A and X do nothing).
-  Each story keeps its own value, the design room too: `get(key)`,
+  Each story keeps its own value, the studio too: `get(key)`,
   `set(key, v)`, `next(key)`, `sig(key)`. Outside a shared room it is the
   device's (`xrPanels` in `localStorage`, `{ key: value }`, shown left out); at a
   station in a room the station's, for everyone at that circle (key
@@ -882,7 +882,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
     runs on its own clock with its subtitles, as with the Narration switch off.
     The bar's button says *Sound off* (title *Turn the sound on*); a press turns
     it on (it is a tap, so it starts the engines too); with no recording (a
-    story without one, the design room) it stays, for the effects (*Sound off*,
+    story without one, the studio) it stays, for the effects (*Sound off*,
     *Sound on* or *Play sound*). `#sound=on|off` in a link sets it (saved).
     *Play sound* (and any press while loading with the sound on) only starts the
     engines; it never mutes. Reset in Sound check turns both mutes off. The Narration switch (`HOST.xr.voice()`, the narration that applies now; see "The two sound
@@ -1662,7 +1662,7 @@ the same path through their index, read again at every check: `docs/agents/packa
   fresh next time on the others; the list is read again (cards appear or change,
   no reload); a shell file (`index.html`, `sfx.js`, `occlusion.js`, `ships.js`, `shared.js`, `sw.js`, `three.min.js`,
   `peerjs.min.js`, `output.js`) reloads the page with its place kept. `--build` also runs a
-  built story's build (`packages/<key>/src/build.mjs`, `tools/<key>/build.mjs` for the design room and the studio)
+  built story's build (`packages/<key>/src/build.mjs`, `tools/<key>/build.mjs` for the studio; a page no longer in `stories/list.js`, as the design room since v217, is not built)
   when its sources change (its own folder, the folders its build names, `tools/engine/`, another story's
   `packages/<owner>/src/` whose shared set it reads, and the story files it cuts from; not
   `shots/`, `gen/`, `data/`), one build at a time, a moment after the last
@@ -1720,7 +1720,7 @@ the same path through their index, read again at every check: `docs/agents/packa
   story*, "Update needed" (`shared.js`'s `meta` takes `HOST.unknown`), cannot be
   run here (`HOST.start` asks instead), and the question offers the update;
   Arrange all on such a device leaves that station where it is. So a new story
-  no longer needs a new `FORMAT`, nor does a new page in `STORY_EXTRA` (the studio came without one). `HOST.live` knows a key by `HOST.meta` (`known`: a story, or a page in `STORY_EXTRA`, the design room or the studio), never the stories alone (else a station of the design room asks every page and headset to update, and a page on its Stories screen reloads itself).
+  no longer needs a new `FORMAT`, nor does a new page in `STORY_EXTRA` (the studio came without one). `HOST.live` knows a key by `HOST.meta` (`known`: a story, or a page in `STORY_EXTRA`, the studio; the design room until v217), never the stories alone (else a station of the design room asks every page and headset to update, and a page on its Stories screen reloads itself).
 - Untested on a headset: a swap in place in a session (the story's `xrAdopt` as
   for a story change), the question's panel and its buttons, *Enter VR to
   continue*, `EventSource` in Quest Browser.

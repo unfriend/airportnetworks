@@ -1,45 +1,9 @@
-// The shell's own miniatures (lowpoly.js): the station icons of the two pages that are not stories (the design room's
-// table, the studio's stage) and of the shell's own circles (All stories, Back to the lobby: shared.js's KINDS). Not
-// props: the design room's table leaves them out (tools/design/build.mjs, ICONS). Built with tools/lowpoly/kit-b.js
+// The shell's own miniatures (lowpoly.js): the station icon of the page that is not a story (the studio's stage) and of
+// the shell's own circles (All stories, Back to the lobby: shared.js's KINDS). Not props: the design room's table leaves
+// them out (tools/design/build.mjs, ICONS). The design room's own icon, design.table, went with the room when it was
+// parked (v217): it is in this file at v216 (tools/design/README.md). Built with tools/lowpoly/kit-b.js
 // into lowpoly.js by node tools/lowpoly/build.mjs; a story's miniatures are its package's (packages/<key>/src/minis.js).
 // kit: b
-  // ================================================================== the design room (its station icon, not a prop)
-  def('design.table', 'Props table', 'The design room\'s round table: a plate in each story\'s colour round the rim, small props standing on them, and the stage in the middle where the picked prop turns.', 1129, (M, g) => {
-    const TOP = 0.56, R = 1.0;
-    M.add('gloss', g.cyl(0.36, 0.42, 0.05, 12), NAVY, [0, 0.025, 0]);   // the foot, the pedestal and the top with its gold rim
-    M.add('gloss', g.cyl(0.11, 0.16, TOP - 0.1, 8, true), NAVY, [0, 0.05 + (TOP - 0.1) / 2, 0]);
-    M.add('gloss', g.cyl(R, R * 0.97, 0.06, 20), '#16203a', [0, TOP - 0.03, 0]);
-    M.add('glow', g.tor(R, 0.014, 3, 20), '#f0d58c', [0, TOP, 0], [PI / 2, 0, 0]);
-    // eight plates round the rim in the stories' colours, each with a small prop on it: a globe, a cell, a tower, a
-    // scanner's ring, a cube, a helix of beads, a slide on its stand and a school of beads
-    const COLS = ['#46d9ff', '#ff5fd2', '#ffb43b', '#ffe066', '#7d74ff', '#4d8dff', '#ff9ec4', '#5fe0c8'], N = COLS.length;
-    COLS.forEach((c, i) => {
-      const a = (i + 0.5) / N * 2 * PI, span = 2 * PI / N - 0.07, x = Math.sin(a) * 0.7, z = Math.cos(a) * 0.7, y = TOP + 0.008;
-      M.add('flat', g.cyl(0.95, 0.95, 0.012, 3, false, a - span / 2, span), c, [0, TOP + 0.002, 0]);
-      M.frame([x, y, z], [0, a, 0]);
-      if (i === 0) { M.add('gloss', g.ball(0.11, 0), '#1f5f9a', [0, 0.12, 0]); M.add('glow', g.tor(0.13, 0.008, 3, 10), c, [0, 0.12, 0], [1.2, 0, 0.3]); }
-      else if (i === 1) { M.add('glass', g.ball(0.12, 0), c, [0, 0.12, 0]); M.add('glow', g.ball(0.045, 0), '#ffffff', [0.02, 0.12, 0]); }
-      else if (i === 2) for (let k = 0; k < 4; k++) M.add('gloss', g.cyl(0.1 - 0.015 * k, 0.1 - 0.015 * k, 0.04, 6), k % 2 ? '#e7eef8' : c, [0, 0.025 + 0.055 * k, 0]);
-      else if (i === 3) { M.add('gloss', g.tor(0.1, 0.035, 4, 8), '#f4f6fa', [0, 0.14, 0]); M.add('gloss', g.box(0.06, 0.03, 0.26), '#8a96a3', [0, 0.06, 0.04]); }
-      else if (i === 4) M.add('gloss', g.box(0.15, 0.15, 0.15), c, [0, 0.1, 0], [0.5, 0.6, 0]);
-      else if (i === 5) for (let k = 0; k < 5; k++) { const t = k * 1.25; for (const s of [-1, 1]) M.add('glow', g.oct(0.022), s > 0 ? c : '#f0e442', [s * 0.06 * Math.cos(t), 0.03 + k * 0.05, s * 0.06 * Math.sin(t)]); }
-      else if (i === 6) { M.add('gloss', g.box(0.2, 0.012, 0.09), '#e8eef6', [0, 0.06, 0], [-0.9, 0, 0]); M.add('mat', g.box(0.12, 0.004, 0.06), c, [0, 0.067, 0.004], [-0.9, 0, 0]); M.add('gloss', g.box(0.16, 0.05, 0.04), NAVY, [0, 0.025, 0.02]); }
-      else for (let k = 0; k < 7; k++) { const t = k * 0.9; M.add('glow', g.cone(0.018, 0.06, 3), c, [0.08 * Math.cos(t), 0.06 + 0.015 * (k % 3), 0.08 * Math.sin(t)], [PI / 2, 0, -t]); }
-      M.frame();
-    });
-    // the stage in the middle: a dark disc with a gold ring and the picked prop standing on it (here a lit protein
-    // cloud: a hub and its partners)
-    M.add('gloss', g.cyl(0.3, 0.32, 0.05, 14), '#0f1828', [0, TOP + 0.025, 0]);
-    M.add('glow', g.tor(0.31, 0.01, 3, 14), '#f0d58c', [0, TOP + 0.05, 0], [PI / 2, 0, 0]);
-    const C0 = [0, TOP + 0.3, 0];
-    M.add('glow', g.ball(0.07, 0), '#fff2c8', C0);
-    for (let k = 0; k < 9; k++) {
-      const yv = 1 - (k + 0.5) / 9 * 2, s = Math.sqrt(1 - yv * yv), t = k * 2.39996, p = add3(C0, [0.19 * s * Math.cos(t), 0.17 * yv, 0.19 * s * Math.sin(t)]);
-      M.add('glow', g.oct(0.032), COLS[k % N], p);
-      M.add('glow', g.rod(C0, p, 0.006, 3), '#c4d3f0');
-    }
-  });
-
   // ================================================================== the studio (its station icon, not a prop)
   // stories/studio.js: your own models placed life size, trigger cubes that show and hide them, sounds placed in the room.
   // A low stage with the studio's floor grid, a small figure on it (a placed model), a see-through trigger cube's
@@ -86,7 +50,7 @@
 
   // ================================================================== the shell's own circles (their station icons, not props)
   // shared.js's two kinds of circle that are not stories (KINDS: their entries name these as their icons); story 'all'
-  // is no story, so the design room's table leaves them out (tools/design/build.mjs)
+  // is no story, so the design room's table (parked since v217) leaves them out (tools/design/build.mjs)
   def('all.stories', 'All stories', 'The All stories circle: the Stories screen in miniature, sixteen cards in two rows on an arc, one in each story\'s colour, under its header, on a small stand.', 620, (M, g) => {
     // the stories' colours (stories/list.js) round the colour wheel, so the cards read as every story
     const COLS = ['#ff5c5c', '#ff7a59', '#ffb43b', '#ffe066', '#b0a83c', '#c3e85a', '#3ee08f', '#5fe0c8', '#46d9ff', '#4d8dff', '#9db4ff', '#7d74ff', '#c08cff', '#ff5fd2', '#ff9ec4', '#ff6f91'];

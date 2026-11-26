@@ -970,6 +970,9 @@ nine minutes and fifty seconds (`NARRATION_SYNC` provisional until the voice is 
 
 ## The design room (`stories/design.js`) is built the same way
 
+Parked since v217 (`tools/design/`, its `README.md`; the owner, 26 November 2026): out of the app, no longer in
+`STORY_EXTRA`, built only by hand. What follows describes it as it was.
+
 `stories/design.js` (the props table) is generated from `tools/design/` (`node tools/design/build.mjs`, `--check` as
 for the tour): the shared kit (`tools/engine/kit.js`), the shell's own props' cards (`DESIGN_CARDS`, made at build time
 from `tools/design/props.json` and `tools/lowpoly/shell.js`: none yet), one set (`sets/table.js`) and engine parts
@@ -1027,7 +1030,7 @@ These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word
   `packages/flock/main.js` likewise from `packages/flock/src/` (`node packages/flock/src/build.mjs`),
   and `packages/robots/main.js` from `packages/robots/src/` (`node packages/robots/src/build.mjs`; a story package
   since v185).
-  `stories/design.js` (the design room, not one of the sixteen: `STORY_EXTRA`) likewise from `tools/design/`
+  `stories/design.js` (the design room, parked since v217, out of the app) likewise from `tools/design/`
   (`node tools/design/build.mjs`), its models and cards from the packages' `minis.js`, built from their `src/minis.js`
   and `src/props.json` (`node tools/lowpoly/build.mjs`; every miniature under 1,200 triangles, its `tris` exact).
   `packages/endo/main.js` likewise from `packages/endo/src/` (`node packages/endo/src/build.mjs`; data

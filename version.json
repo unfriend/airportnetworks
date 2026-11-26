@@ -1,17 +1,13 @@
 {
   "app": "networks",
-  "version": "networks-v216",
+  "version": "networks-v217",
   "format": "networks-61",
   "shell": {
-    "n": 216,
-    "id": "f1226e99a7d184d5"
+    "n": 217,
+    "id": "73013186ce12f0ce"
   },
   "list": "d095202279b28c9e",
   "stories": {
-    "design": {
-      "fp": "c6c190ae7864a9ab",
-      "needs": 202
-    },
     "studio": {
       "fp": "0f43b8f6628a3c66",
       "needs": 216

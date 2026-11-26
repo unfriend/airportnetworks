@@ -406,11 +406,7 @@ for (const key of keys) {
   });
 }
 
-// ---- the design room and the studio
-await group(['design:room'], async () => {
-  const { page, close } = await open('fp');
-  try { await gotoPage(page, 'design', 'design'); await session(page); await warm(page, 800); add('design:room', await meas(page)); } finally { await close(); }
-});
+// ---- the studio (the design room's design:room is gone: parked since v217)
 async function studioScenes(prefix, hash, ready, label) {
   const ids = [prefix + ':viewing', prefix + ':editing'];
   await group(ids, async () => {
@@ -450,8 +446,8 @@ await group(['room:lobby', 'room:station', 'room:station+6people'], async () => 
   try {
     await gotoPage(page, 'airports&s=LCL&peer=off', 'airports');
     await page.waitForFunction(() => !!(HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open'), null, { timeout: 60000 });
-    await page.evaluate(() => { const c = HOST.collab; c.arrange({ x: 0, z: 0, yaw: 0 }); c.add('design', { x: -3.2, z: 1.0, yaw: 0 }); c.add('studio', { x: 3.2, z: 1.0, yaw: 0 }); c.add('all', { x: -1.6, z: 2.2, yaw: Math.PI }); c.add('lobby', { x: 8, z: 8, yaw: 0 }); });
-    await page.waitForFunction(() => !!(HOST.collab.stations().length === HOST.list.length + 4 && !HOST.collab.internals().pending.size), null, { timeout: 30000 });
+    await page.evaluate(() => { const c = HOST.collab; c.arrange({ x: 0, z: 0, yaw: 0 }); c.add('studio', { x: 3.2, z: 1.0, yaw: 0 }); c.add('all', { x: -1.6, z: 2.2, yaw: Math.PI }); c.add('lobby', { x: 8, z: 8, yaw: 0 }); });
+    await page.waitForFunction(() => !!(HOST.collab.stations().length === HOST.list.length + 3 && !HOST.collab.internals().pending.size), null, { timeout: 30000 });
     await session(page);
     await page.waitForFunction(() => { window.__perf.observe(300); return !!HOST.room.aligned; }, null, { timeout: 60000, polling: 500 }).catch(() => 0);
     await page.evaluate(() => window.__perf.observe(2500));

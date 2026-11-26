@@ -13,8 +13,8 @@ test checks them in every `STORY_EXTRA` page). `tools/studio/SPEC.md` is the con
 formats guide and the upload page; `relay/README.md` the relay's side.
 
 - **What it is**: a room where the owner's own models (FBX and other formats, textured, some animated) are placed and
-  their places saved, with trigger cubes that show and hide them by where people go and spatial sound emitters. Not one of the stories: its entry is in `STORY_EXTRA` after the
-  design room (kick *Studio*, title *Your own scenes*, colour `#e6d3b8`, icon `studio.stage`, `life: true`), so it is on
+  their places saved, with trigger cubes that show and hide them by where people go and spatial sound emitters. Not one of the stories: its entry is in `STORY_EXTRA` (alone since the
+  design room was parked, v217; kick *Studio*, title *Your own scenes*, colour `#e6d3b8`, icon `studio.stage`, `life: true`), so it is on
   no Stories screen and not counted; `#studio`, the menu's *Studio* (Settings tab), a station or the relay's `/upload`
   open it. No narration: one short intro (5 s: the scene from a little way off, then the walk up to it) for a new
   wearer or Replay, then explore mode, the scene; its end never starts Repeat. The two files the owner sent as examples

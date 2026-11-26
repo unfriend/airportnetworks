@@ -1,4 +1,4 @@
-// Headless smoke test for every story (the main set and the Experiments set), the design room and the studio.
+// Headless smoke test for every story (the main set and the Experiments set) and the studio (the design room is parked since v217).
 //   node tools/smoke.mjs [base-url] [--only <words>]     (default http://127.0.0.1:8123/)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
@@ -63,7 +63,7 @@ await page.waitForTimeout(4000);
 // packages/order.json, so a story added, removed or moved into a package needs no change here; v171, v185; the steps that
 // test one story by name are that story's own; a story's file is HOST.meta(k)'s: stories/<k>.js or packages/<k>/main.js),
 // and the pages that are not stories (STORY_EXTRA:
-// the design room, the studio), which keep the same hook lines as every story: each check of those lines covers both
+// the studio since v217, when the design room was parked), which keep the same hook lines as every story: each check of those lines covers both
 // (v188: the Experiments set's own stories too, HOST.stories; a card there is clicked after its set is opened, HOST.menu)
 const STORY_KEYS = await page.evaluate(() => HOST.stories().filter(s => !s.pkg || s.app).map(s => s.key));
 if (STORY_KEYS.length < 2) { console.log('FAIL the page gives no list of stories (stories/list.js)'); process.exit(1); }
@@ -1216,134 +1216,16 @@ if (runs('headset')) {
   await hp.close();
   await page.evaluate(() => { HOST.cur.peek('GL.renderer.setAnimationLoop(frame)'); HOST.closePicker(); });
 }
-// The design room (#design, not one of the stories: not on the Stories screen): every miniature built on the table (each
-// listed package's, from its minis.js, v190), a click putting one on the stage with its card as the catalogue has it
-// (tools/design/props.json and each package's src/props.json), the shared state (a miniature moved by a pretend
-// headset's grip, both grips sizing it, apply(state()) giving the same state back, Tidy), the headset panels
-const DESIGN_MINIS = await (async () => {   // (every miniature of the packages not hidden: 52 in v190, 51 of the stories and the example's)
-  const fs = await import('fs'), ix = JSON.parse(fs.readFileSync(new URL('../packages/index.json', import.meta.url), 'utf8'));
-  return ix.packages.filter(m => m.minis && m.list !== 'hidden').reduce((n, m) => n + (fs.readFileSync(new URL(`../packages/${m.key}/${m.minis}`, import.meta.url), 'utf8').match(/^    "[a-z0-9-]+\.[a-z0-9-]+": \{"story"/gm) || []).length, 0);
-})();
-await step(`design: not on the Stories screen; #design opens the table and all ${DESIGN_MINIS} miniatures are built`, async () => {
-  if (await page.$('#picker [data-story="design"]')) errors.push('design: the design room has a card on the Stories screen');
-  if (await page.evaluate(() => HOST.stories().some(s => s.key === 'design') || /\d|sixteen/.test(document.getElementById('pickTitle').textContent))) errors.push('design: the design room is in the list of stories');
-  await page.evaluate(() => HOST.start('design'));
-  await page.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && GL.sets.table.built() === GL.sets.table.total()'), null, { timeout: 60000 });
-  const n = await page.evaluate(() => [HOST.cur.peek('GL.sets.table.total()'), HOST.cur.peek('APP.mode'), location.hash, document.title]);
-  if (n[0] !== DESIGN_MINIS || n[1] !== 'explore' || n[2] !== '#design' || !/design room/i.test(n[3])) errors.push('design: ' + JSON.stringify(n) + ` (not ${DESIGN_MINIS} miniatures in explore mode at #design)`);
-});
-// few draws (v136: 235 an eye before, a mesh per material of every miniature): each miniature in at most two meshes of
-// the two materials every miniature shares, the plates, edges, cards and homes one mesh each, what never moves its
-// matrices kept; the meshes drawn in a frame counted by the renderer
-await step('design: every miniature in at most two meshes of two shared materials; about 70 draws for the table', async () => {
-  const r = await page.evaluate(() => HOST.cur.peek(`(() => {
-    const T = GL.sets.table, mats = new Set(), out = [];
-    for (const k of T.keys()) {
-      const m = T.mini(k), ms = [];
-      if (!m.model) { out.push(k + ': not built'); continue; }
-      m.model.traverse(o => { if (o.isMesh) ms.push(o); });
-      if (!ms.length || ms.length > 2 || ms.some(o => o.matrixAutoUpdate || !o.geometry.attributes.aMat)) out.push(k + ': ' + ms.length + ' meshes');
-      for (const o of ms) mats.add(o.material);
-    }
-    let shown = 0;
-    T.group.traverse(o => { if (o.isMesh && o.material.visible !== false) shown++; });
-    const I = GL.renderer.info, ar = I.autoReset; I.autoReset = false; I.reset(); GL.renderer.render(GL.scene, GL.camera); const calls = I.render.calls; I.autoReset = ar;
-    return { out, mats: mats.size, shown, calls };
-  })()`));
-  if (r.out.length || r.mats !== 2 || r.shown > 110 || r.calls > 110) errors.push('design: few draws: ' + JSON.stringify(r));
-});
-await step('design: a click on a miniature puts it on the stage, its card matching the catalogue (props.json)', async () => {
-  const fs = await import('fs');
-  // (the shell's catalogue and each package's src/props.json, as tools/lowpoly/minis.mjs reads them)
-  const props = JSON.parse(fs.readFileSync(new URL('./design/props.json', import.meta.url), 'utf8'));
-  for (const k of fs.readdirSync(new URL('../packages/', import.meta.url))) {
-    const f = new URL(`../packages/${k}/src/props.json`, import.meta.url);
-    if (!fs.existsSync(f)) continue;
-    const o = JSON.parse(fs.readFileSync(f, 'utf8'));
-    props.sets.push(...(o.sets || [])); if (o.handwritten) props.handwrittenStories.push(o.handwritten);
-  }
-  await page.evaluate(() => HOST.cur.peek('(showView("default"), orbit.cur = orbit.to, orbit.to = null, 0)'));
-  await page.waitForTimeout(400);
-  // a miniature the mouse can reach (clear of the side panel), found by the same ray as the click
-  const at = await page.evaluate(() => HOST.cur.peek(`(() => { const pr = $('#panel').getBoundingClientRect();
-    for (const k of GL.sets.table.keys()) { const m = GL.sets.table.mini(k), v = m.holder.getWorldPosition(new THREE.Vector3()); v.y += 0.05; v.project(GL.camera);
-      const x = (v.x * 0.5 + 0.5) * innerWidth, y = (-v.y * 0.5 + 0.5) * innerHeight;
-      if (x > pr.right + 30 && x < innerWidth - 30 && y > 80 && y < innerHeight - 80 && miniAt(x, y) === k && GL.sets.table.plateOf(DESIGN_CARDS[k].story)) return [k, x, y]; }
-    return null; })()`));
-  if (!at) { errors.push('design: no miniature to click in view'); return; }
-  await page.mouse.move(at[1], at[2]); await page.waitForTimeout(150);
-  if (await page.evaluate(() => HOST.cur.peek('GL.sets.table.hovered()')) !== at[0]) errors.push('design: the mouse over ' + at[0] + ' did not light it');
-  await page.mouse.click(at[1], at[2]); await page.waitForTimeout(300);
-  const got = await page.evaluate(() => { const c = document.querySelector('#pane-prop .dz-card'); return { pick: HOST.cur.peek('X.pick'), tab: HOST.cur.peek('X.tab'), stage: HOST.cur.peek('!!GL.sets.table.stageModel()'),
-    card: c && { key: c.dataset.key, params: +c.dataset.params, views: +c.dataset.views, text: c.textContent, rows: c.querySelectorAll('.dz-params tr').length, li: c.querySelectorAll('.dz-views li').length } }; });
-  if (got.pick !== at[0] || got.tab !== 'prop' || !got.stage || !got.card || got.card.key !== at[0]) errors.push('design: the click did not put ' + at[0] + ' on the stage with its card: ' + JSON.stringify(got).slice(0, 300));
-  // every card against the catalogue: params, views and the source file (the hand-written stories: none, their file)
-  const bad = await page.evaluate(() => HOST.cur.peek(`(() => { const out = []; for (const k of CARD_KEYS) { pickProp(k); const c = document.querySelector('#pane-prop .dz-card');
-    out.push([k, +c.dataset.params, +c.dataset.views, c.querySelectorAll('.dz-params tr').length, c.querySelectorAll('.dz-views li').length, c.textContent.includes(DESIGN_CARDS[k].file)]); } return out; })()`));
-  for (const [k, np, nv, rows, li, file] of bad) {
-    const [st, key] = k.split('.'), e = props.sets.find(x => x.story === st && x.key === key), hw = props.handwrittenStories.find(x => x.story === st);
-    const want = e ? [e.params.length, e.views.length, e.file] : hw ? [0, 0, hw.file] : null;
-    if (!want || np !== want[0] || nv !== want[1] || rows !== np || li !== nv || !file) errors.push(`design: ${k}'s card has ${np} params (${rows} rows), ${nv} views (${li}), file shown ${file}; props.json: ${JSON.stringify(want)}`);
-  }
-  await page.evaluate(k => HOST.cur.peek(`pickProp('${k}')`), at[0]);
-});
-await step('design: a pretend headset picks a miniature up, both grips size it; shared state, apply and Tidy', async () => {
-  const bad = await page.evaluate(() => HOST.cur.peek(`(() => {
-    const out = [], T = GL.sets.table, k = 'pet.scan', m = T.mini(k), same = () => { const a = JSON.stringify(collabState()); collabApply(JSON.parse(a)); return JSON.stringify(collabState()) === a; };
-    T.tidy(); for (let i = 0; i < 200; i++) T.update(XS, 0, 0.05);
-    if (Object.keys(collabState()).join() !== 'pick' || !same()) out.push('at rest the state is not just the pick, or apply changed it: ' + JSON.stringify(collabState()));
-    XR.on = true; GL.world.updateMatrixWorld(true);
-    const ctl = (c, p) => { c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true; c.g.matrix.compose(new THREE.Vector3(...p), new THREE.Quaternion(), new THREE.Vector3(1, 1, 1)); c.o.setFromMatrixPosition(c.g.matrix); };
-    const [a, b] = XR.ctrls, w0 = m.holder.getWorldPosition(new THREE.Vector3());
-    ctl(a, [w0.x, w0.y + 0.2, w0.z + 0.3]); a.hover = { kind: 'mini', key: k }; xrGrab(a, true);
-    if (!a.grab || a.grab.key !== k) out.push('the grip did not take the miniature');
-    ctl(a, [w0.x + 0.3, w0.y + 0.4, w0.z + 0.3]); carry(a, 0.016);
-    const w1 = m.holder.getWorldPosition(new THREE.Vector3());
-    if (Math.abs(w1.x - w0.x - 0.3) > 1e-3 || Math.abs(w1.y - w0.y - 0.2) > 1e-3) out.push('the miniature did not follow the hand: moved ' + w1.clone().sub(w0).toArray().map(v => v.toFixed(3)));
-    const s1 = collabState()[k];
-    if (!s1 || !same()) out.push('a miniature in the hand is not in the state, or apply changed it: ' + JSON.stringify(s1));
-    // the other hand takes it too: both size it with the distance between them
-    ctl(b, [w1.x + 0.1, w1.y, w1.z]); b.hover = { kind: 'mini', key: k }; xrGrab(b, true);
-    ctl(a, [w1.x - 0.1, w1.y, w1.z]); carry(a, 0.016); carry(b, 0.016);
-    ctl(b, [w1.x + 0.2, w1.y, w1.z]); ctl(a, [w1.x - 0.2, w1.y, w1.z]); carry(a, 0.016); carry(b, 0.016);
-    if (Math.abs(m.s - 2) > 0.01) out.push('both grips did not size it twice as big: ' + m.s);
-    xrGrab(b, false); xrGrab(a, false);
-    const r = m.rec;
-    if (!r || Math.abs(r[7] - 2) > 0.01 || m.carry) out.push('let go, it did not stay where it was put: ' + JSON.stringify(r));
-    for (let i = 0; i < 30; i++) T.update(XS, 0, 0.05);
-    if (!same() || JSON.stringify(collabState()[k]) !== JSON.stringify(r)) out.push('the moved miniature: its state does not come back the same');
-    // from the room: another miniature moved, and back home
-    const st = collabState(); st['flock.flock'] = [0.5, 1.2, 0.4, 0, 0, 0, 1, 1.5]; collabApply(st);
-    if (JSON.stringify(collabState()['flock.flock']) !== '[0.5,1.2,0.4,0,0,0,1,1.5]' || !same()) out.push('a miniature moved in the room was not taken');
-    collabApply({ pick: 'lbi.atp' });
-    if (collabState().pick !== 'lbi.atp' || 'flock.flock' in collabState() || k in collabState()) out.push('a state from the room without the moved miniatures did not send them home: ' + JSON.stringify(collabState()));
-    collabApply(st); tidyTable();
-    if (Object.keys(collabState()).join() !== 'pick') out.push('Tidy left moved miniatures in the state');
-    // bad values are ignored
-    const was = JSON.stringify(collabState());
-    collabApply({ pick: 'nope.nope', 'pet.scan': [1, 2, 3], 'lbi.int': [0, 0, 0, 0, 0, 0, 0, 9] });
-    if (JSON.stringify(collabState()) !== was) out.push('bad values were taken: ' + JSON.stringify(collabState()));
-    for (const c of XR.ctrls) { c.src = null; c.g.visible = false; c.hover = null; c.grab = null; }
-    XR.on = false; setHover(null);
-    return out;
-  })()`));
-  if (bad.length) errors.push(...bad.map(b => 'design: ' + b));
-});
-await step('design: explore mode and headset panels', () => page.evaluate(L => HOST.cur.peek(`(() => {
-  APP.enterExplore();
-  document.querySelectorAll('.tabs button').forEach(b => b.click());
-  XR.on = true;
-  for (const tab of ['prop', 'all']) { pickTab(tab); for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); } }
-  if (XR.main.regions.some(r => r.id === 'exit')) throw new Error('Exit is on the story panel (it belongs in the menu on the left wrist)');
-  if (!XR.main.regions.some(r => r.id === 'pick:lbi.int') && !XR.main.regions.some(r => r.id.startsWith('pick:'))) throw new Error('no props to pick on the headset panel');
-  const was = XR.inStory; XR.stories = true; XR.inStory = true; xrUpdate(storyState(0));
-  for (const P of XR.panels) { P.last = ''; P.t = -1e9; panelTick(P, performance.now() + 1e6); }
-  ${L}
-  XR.inStory = was; XR.stories = false; XR.on = false;
-  APP.enterStory(0); APP.seek(T_END - 0.1); APP.playing = true;
-})()`), LAND_CHECK));
-await step('design: the intro ends at the table', async () => {
-  await page.waitForFunction(() => HOST.cur.peek('APP.mode') === 'explore', null, { timeout: 20000 }).catch(() => errors.push('design: the intro did not end in explore mode'));
+// The design room is parked since v217 (tools/design/README.md; the owner, 26 November 2026): not in STORY_EXTRA, no card,
+// and #design, HOST.go('design') and HOST.start('design') behave as any key this device does not know (nothing starts)
+await step('parked: the design room is not offered, and asking for it starts nothing', async () => {
+  const r = await page.evaluate(async () => {
+    const was = HOST.curKey;
+    HOST.start('design'); HOST.go('design');
+    await new Promise(res => setTimeout(res, 600));
+    return { meta: !!HOST.meta('design'), extra: (self.STORY_EXTRA || []).map(m => m.key).join(), card: !!document.querySelector('#picker [data-story="design"]'), stories: HOST.stories().some(s => s.key === 'design'), was, now: HOST.curKey, busy: !!HOST.busy };
+  });
+  if (r.meta || r.extra !== 'studio' || r.card || r.stories || r.now !== r.was || r.busy) errors.push('parked design room: ' + JSON.stringify(r));
   await page.evaluate(() => HOST.openPicker());
 });
 // The studio (#studio, not one of the stories: STORY_EXTRA), on a page of its own: the test scene
@@ -6495,8 +6377,8 @@ if (runs('studio shapes')) {
     await until(`STU.listing === 'ok'`, 30000);
     await ss(`(setSetting('real:never'), 0)`);
     await hk(3);
-    await sp.evaluate(() => HOST.go('design'));
-    await sp.waitForFunction(() => HOST.curKey === 'design', null, { timeout: 60000 }).catch(() => {});
+    await sp.evaluate(() => HOST.go('flock'));   // (another page: the design room until v217, parked)
+    await sp.waitForFunction(() => HOST.curKey === 'flock', null, { timeout: 60000 }).catch(() => {});
     const got = await sp.evaluate(() => JSON.stringify(window.__hk));
     if (!/\["hide",false\],\["occ",null\]\]$/.test(got)) bad(['the hooks when the studio went: ' + got]);
     await sp.close();
@@ -13883,7 +13765,7 @@ if (!ONLY) {
     await sp.evaluate(() => HOST.xr.setSubs(false));
     if (bad.length) errors.push(...bad.map(b => 'subtitles: ' + b));
   });
-  // the All stories circle's hook lines (v104): the same in all sixteen stories and the design room (its cards as the
+  // the All stories circle's hook lines (v104): the same in every story and the studio (its cards as the
   // Stories screen, a card picking for the circle, the story panel's Stories button back to its cards)
   await step('every story keeps the All stories hook lines', async () => {
     const lines = ['const xrCards = () => !!(HOST.room && HOST.room.cards && HOST.room.cards());', 'const xrAllHere = () => !!(HOST.room && HOST.room.allHere && HOST.room.allHere());',
@@ -13905,7 +13787,7 @@ if (!ONLY) {
   });
   // panels per story, the menu's row for the story on show: shown (as ever), controls only (the foot bar alone: the text
   // and explore panel neither drawn nor pointable) or hidden (neither; A or X does nothing, the menu's Story tab plays), in story and explore mode;
-  // each story its own (the design room too), kept across a reload, set by a link for the story it opens; cards hidden
+  // each story its own, kept across a reload, set by a link for the story it opens; cards hidden
   // still hides both, labels hidden neither; no row on the Stories screen, whose panels stay
   await step('panels per story in the headset: shown, controls only, hidden through the menu; each story its own, kept, set by a link; cards hidden hides both', async () => {
     const bad = [];
@@ -13968,18 +13850,19 @@ if (!ONLY) {
     if (fl !== want.shown || fl2.join(' ') !== 'hidden,controls,shown -,-') bad.push(`each story its own: the flock at first ${fl}, after two presses ${fl2.join(' ')} (flock, qubits, airports)`);
     // kept across a reload, per story
     await sp.reload(); await ready('flock');
-    const kept = await sp.evaluate(() => ['qubits', 'flock', 'airports', 'design'].map(k => HOST.panels.get(k)).join());
+    const kept = await sp.evaluate(() => ['qubits', 'flock', 'airports', 'soil'].map(k => HOST.panels.get(k)).join());
     if (kept !== 'controls,hidden,shown,shown') bad.push('not kept per story across a reload: ' + kept);
-    // a link sets it for the story it opens (a hand-written story and the design room read it as the others do)
+    // a link sets it for the story it opens (a hand-written story and a built one read it as the others do; the design
+    // room here until v217, parked)
     await openXR('airports', '&panels=controls');
     const al = [await sp.evaluate(() => ['airports', 'qubits', 'flock'].map(k => HOST.panels.get(k)).join()), await vis()];
     if (al.join(' ') !== 'controls,controls,hidden -,foot') bad.push('#airports&panels=controls gave ' + al.join(' '));
-    await openXR('design', '&panels=hidden');
-    const dl = [await sp.evaluate(() => ['design', 'airports'].map(k => HOST.panels.get(k)).join()), await vis()];
-    if (dl.join(' ') !== 'hidden,controls -,-') bad.push('#design&panels=hidden gave ' + dl.join(' '));
-    await sp.evaluate(() => HOST.panels.set('design', 'shown'));
-    if (await vis() !== want.shown) bad.push('the design room shown again: ' + await vis());
-    // the same lines in all sixteen stories and the design room
+    await openXR('soil', '&panels=hidden');
+    const dl = [await sp.evaluate(() => ['soil', 'airports'].map(k => HOST.panels.get(k)).join()), await vis()];
+    if (dl.join(' ') !== 'hidden,controls -,-') bad.push('#soil&panels=hidden gave ' + dl.join(' '));
+    await sp.evaluate(() => HOST.panels.set('soil', 'shown'));
+    if (await vis() !== want.shown) bad.push('the soil story shown again: ' + await vis());
+    // the same lines in every story and the studio
     const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => { const s = await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text();
       return s.includes("const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';") && s.includes('HOST.panels.sig(XR_HERE)') &&
         s.includes("const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());") && s.includes("XR.lm = xrLabelMode(); XR.cm = xrCardMode();") &&
@@ -13989,8 +13872,6 @@ if (!ONLY) {
     await sp.evaluate(() => { try { localStorage.removeItem('xrPanels'); } catch (e) { /* storage blocked */ } });
     if (bad.length) errors.push(...bad.map(b => 'panels: ' + b));
   });
-  // the menu's Design room button outside a shared room opens the design room (the props table) in the headset: the menu
-  // closes, the table opens in explore mode, and the button greys while you are there (nothing to press)
   // the frame-rate read-out (HOST.xr.fps, this headset's own): off by default; on through the menu's Settings row, kept
   // across a reload, set by a link; while on, drawn low in the view and a little to the left (fixed to the head, over the
   // story), with the frame rate and, from the story's frames drawn through the shell's measure (HOST.perf), its triangles
@@ -14109,28 +13990,6 @@ if (!ONLY) {
     const v4 = await page.evaluate(() => HOST.collab.keypad({ title: 'x' }));
     if (v4 !== null) bad.push('without a headset session it gave ' + JSON.stringify(v4));
     if (bad.length) errors.push(...bad.map(b => 'keypad: ' + b));
-  });
-  await step('the headset menu\'s Design room button opens the design room outside a room', async () => {
-    const bad = [];
-    const btn = () => sp.evaluate(() => { const r = HOST.collab.menuFind('design'); return r && r.fn ? 'on' : 'off'; });   // (a greyed button has no region)
-    await openXR('qubits');
-    await sp.evaluate(() => HOST.collab.panelOpen(true));
-    for (let k = 0; k < 40 && await btn() !== 'on'; k++) { await sp.waitForTimeout(50); await tick(1); }
-    const was = await btn();
-    // (the story all built first: a story asked for while one still builds is dropped outside a room, HOST.start's busy,
-    // and on a slow machine openXR can return while its last steps still run)
-    await sp.waitForFunction(() => !HOST.busy, null, { timeout: 60000 }).catch(() => {});
-    await sp.evaluate(() => { const r = HOST.collab.menuFind('design'); if (r && r.fn) r.fn(); });
-    const opened = await sp.waitForFunction(() => HOST.curKey === 'design' && HOST.cur && HOST.cur.peek('typeof GL !== "undefined" && !!XR.panelGroup && typeof ST !== "undefined" && ST.items.length > 0'), null, { timeout: 60000 })
-      .then(() => true, () => false);
-    if (opened) { await sp.evaluate(() => HOST.cur.peek('xrAdopt()')); await tick(3); }   // (as a story adopts a real session: the pretend one is not presenting)
-    const after = opened && await sp.evaluate(() => ({ menu: HOST.collab.menu, mode: HOST.cur.peek('APP.mode'), stories: HOST.cur.peek('XR.stories'), world: HOST.cur.peek('GL.world.visible'), hash: location.hash }));
-    await sp.evaluate(() => HOST.collab.panelOpen(true)); await tick(3);
-    const there = await btn();
-    await sp.evaluate(() => HOST.collab.panelOpen(false));
-    if (was !== 'on' || !opened || !after || after.menu || after.stories || !after.world || after.hash !== '#design' || there !== 'off')
-      bad.push(JSON.stringify({ was, opened, after, there }));
-    if (bad.length) errors.push(...bad.map(b => 'design button: ' + b));
   });
   await sp.close();
 }
@@ -14395,14 +14254,14 @@ if (runs('frame rate')) {
     await fp.evaluate(() => { window.__fp.o.api = true; });
     if (bad.length) errors.push(...bad.map(b => 'frame rate: ' + b));
   });
-  // a room on this device with every story's station (Arrange all), the design room, the studio, All stories and Back to
+  // a room on this device with every story's station (Arrange all), the studio, All stories and Back to
   // the lobby; the headset lined up on its floor, in no circle
   await step('frame rate: station cards: each drawn once, at most one a frame, the nearest first, saying only their title and how many people are there; playing, pausing, pointing at one and carrying it draw nothing (its edge lit instead); someone walking into a circle draws its card once more; back faces hidden while the head is known', async () => {
     const bad = [];
     await open('airports&s=LCL&peer=off');
     await fp.waitForFunction(() => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.status === 'open', null, { timeout: 30000 });
-    await fp.evaluate(() => { const c = HOST.collab; c.arrange({ x: 0, z: 0, yaw: 0 }); c.add('design', { x: -3.2, z: 1.0, yaw: 0 }); c.add('studio', { x: 3.2, z: 1.0, yaw: 0 }); c.add('all', { x: -1.6, z: 2.2, yaw: Math.PI }); c.add('lobby', { x: 0, z: 0, yaw: 0 }); });
-    await fp.waitForFunction(() => HOST.collab.stations().length === HOST.list.length + 4 && !HOST.collab.internals().pending.size, null, { timeout: 10000 });
+    await fp.evaluate(() => { const c = HOST.collab; c.arrange({ x: 0, z: 0, yaw: 0 }); c.add('studio', { x: 3.2, z: 1.0, yaw: 0 }); c.add('all', { x: -1.6, z: 2.2, yaw: Math.PI }); c.add('lobby', { x: 0, z: 0, yaw: 0 }); });
+    await fp.waitForFunction(() => HOST.collab.stations().length === HOST.list.length + 3 && !HOST.collab.internals().pending.size, null, { timeout: 10000 });
     // (each frame: how many cards were drawn in it; the uploads of the cards in view, three.js sending only what it draws;
     // F.point: a station pointed at, as a controller's ray would (an index no controller has, so the story's rays leave it);
     // F.walk: someone at a station, their presence kept fresh)
@@ -14436,17 +14295,17 @@ if (runs('frame rate')) {
     // what they say: four parts (its look, kicker, title, Nobody here), an All stories circle its own title
     const say = c0.says.filter(x => x.sig.length !== 4 || x.sig[3] !== 'Nobody here' || !x.sig[2] || (x.kind === 'all' && x.sig[2] !== 'All stories') || (!x.kind && x.sig[0] !== x.story));
     if (say.length) bad.push('the cards say ' + JSON.stringify(say));
-    const story = c0.says.filter(x => x.on && !x.kind && x.story !== 'design' && x.story !== 'studio').map(x => x.id);
+    const story = c0.says.filter(x => x.on && !x.kind && x.story !== 'studio').map(x => x.id);
     const drawnNow = () => fp.evaluate(() => Object.fromEntries([...HOST.collab.overlay().cards].map(([id, c]) => [id, c.drawn || 0])));
     const sent = () => fp.evaluate(() => { const u = window.__fp.up.map(x => x.filter(y => y === 'texImage2D 560x330').length); window.__fp.up = []; return { sent: u.reduce((a, b) => a + b, 0), frames: u.length }; });
     const same = (a, b) => Object.keys(a).filter(id => a[id] !== b[id]);
     // every story's station playing, then paused at 1:03: no card drawn again or sent to the GPU
     const d0 = await drawnNow(); await sent();
-    await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 3, playing: true, at: now }])); });
+    await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 3, playing: true, at: now }])); });
     await run(2600);
     const d1 = await drawnNow(), s1 = await sent();
     if (same(d0, d1).length || s1.sent) bad.push(`while every story played, ${same(d0, d1).length} cards were drawn again and ${s1.sent} sent to the GPU in ${s1.frames} frames over 2.6 s`);
-    await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'design' && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 63, playing: false, at: now }])); });
+    await fp.evaluate(() => { const c = HOST.collab, now = c.now ? c.now() : Date.now(); c.publish(c.stations().filter(s => !s.kind && s.story !== 'studio').map(s => ['st.' + s.id + '.play', { mode: 'story', t: 63, playing: false, at: now }])); });
     await run(1500);
     const d2 = await drawnNow(), s2 = await sent();
     if (same(d1, d2).length || s2.sent) bad.push(`paused, ${same(d1, d2).length} cards were drawn again and ${s2.sent} sent to the GPU`);
@@ -17158,13 +17017,13 @@ if (runs('occlusion')) {
     const s = await st();
     if (s.mode !== 'off' || s.over !== 'off' || s.own !== 'both') errors.push('occlusion: a story\'s own: ' + JSON.stringify(s));
     await shows('a story\'s own: off', '1111');
-    await op.evaluate(() => HOST.go('design'));
-    for (let k = 0; k < 400 && !(await op.evaluate(() => HOST.curKey === 'design' && HOST.cur && !!HOST.cur.collab.scene() && HOST.loading.ran)); k++) await op.evaluate(() => window.__occl.step(1));
+    await op.evaluate(() => HOST.go('flock'));   // (the design room until v217, parked)
+    for (let k = 0; k < 400 && !(await op.evaluate(() => HOST.curKey === 'flock' && HOST.cur && !!HOST.cur.collab.scene() && HOST.loading.ran)); k++) await op.evaluate(() => window.__occl.step(1));
     await op.evaluate(() => window.__occl.step(4));
     await plane();
     const s2 = await st();
     if (s2.over !== null || s2.mode !== 'both' || !s2.inScene) errors.push('occlusion: after a story change ' + JSON.stringify(s2));
-    await shows('the design room: the wall and people on the left', '0101');
+    await shows('the flock: the wall and people on the left', '0101');
     await op.evaluate(() => HOST.occlusion.scene(true));
     if ((await st()).mode !== 'depth') errors.push('occlusion: scene(true) is not the live depth alone (v195)');
     await op.evaluate(() => HOST.occlusion.scene('both'));

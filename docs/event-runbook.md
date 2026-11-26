@@ -200,7 +200,7 @@ answers the menu's *Are you in the same room as the others?* before it talks or 
    picked there plays for everyone (the story panel's **Stories** button takes everyone back to the cards). Anyone can
    move it: point at the cards and hold the grip (point to swing, raise or lower to push or pull, twist to turn), or drag
    its dot on the Shared dialog's map, or **Move here** in the menu; **Lock circles** stops that. As soon as someone adds
-   another circle (**Add here**, **Add a station**, **Design room here**, a lobby) or presses **Arrange all**, the arc
+   another circle (**Add here**, **Add a station**, **Studio here**, a lobby) or presses **Arrange all**, the arc
    becomes an ordinary **All stories** circle where it stands: whoever was at it stays with it, and from then on it is
    gone into as any circle (step 10). It runs its own stories at first; **With the room's circles** (the
    menu at that circle, or its row in the Shared dialog) makes a story picked there join the room's circle of that
@@ -211,10 +211,11 @@ answers the menu's *Are you in the same room as the others?* before it talks or 
    or an All stories circle; a room with no stations at all opens the menu by itself).
 6. **Arrange all** on a headset: two rows in front of you (from a page: round spot A). To move a station, point at its
    ring or card and hold the grip: point to swing, raise or lower to push or pull, twist to turn. On the page, drag its
-   dot (move) or square (turn). The design room's table is not one of the stories: to have it, stand where it should
-   go, facing the way it should face, and press **Design room here** in the menu (or choose **Design room** under
-   **Add a station** on the page); Arrange all leaves it where it is, and the All stories and lobby circles too. Over each ring its story's small model turns
-   (the design room's: a little table), so circles can be told apart from across the room.
+   dot (move) or square (turn). The studio is not one of the stories: to have it, stand where it should
+   go, facing the way it should face, and press **Studio here** in the menu (or choose **Studio** under **Add a
+   station** on the page); Arrange all leaves it where it is, and the All stories and lobby circles too (the design room
+   is parked since v217: no longer offered). Over each ring its story's small model turns, so circles can be told apart
+   from across the room.
 7. **Check again when in doubt** (*Lined up* is only what the app believes). A quick look: before anyone goes into a
    circle everyone's name tag shows, and it should float just above the real person's head (others' rays should start
    at their real controllers). **Check at A** (step 4) checks one headset against the spots. **Touch the spot** checks
@@ -469,7 +470,7 @@ and the end of docs/agents/shared-rooms.md "Shared rooms". Not yet confirmed on 
 - the limited menu (v214): how it reads to a visitor, how the 2-second hold of both sticks feels on real controllers,
   and whether taking the headset off locks it again on a Quest;
 - the stations' icons (each story's miniature over its ring): whether they tell the circles apart from across a real
-  room; the design room's table at its circle (**Design room here**): its size and height, and picking props up there;
+  room;
 - follow a person: a laptop following a guide in a headset as they walk from circle to circle (how quickly it
   switches, and that it stays put between circles);
 - camera mode on a real Android phone: the hit test on a tape cross and how closely the phone lines up with the

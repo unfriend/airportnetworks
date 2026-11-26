@@ -857,7 +857,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
       <h3>Stations</h3>
       <ul class="sh-stations"></ul>
       <p class="hint">Panels: what the headsets at a station's circle show of its story's panels (shown, controls only or hidden), for everyone there. Lock story: nobody there can move, turn or resize its scene or move its panel. Lock circles: nobody can move, add or remove a circle.</p>
-      <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station (or the design room, the studio or one of the studio's scenes)"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the circles are in place: nobody moves, adds or removes one by accident (the stories' scenes and panels have their own locks)">Lock circles</button><button class="btn" type="button" data-sh="near" aria-pressed="true" title="Listed under Rooms on this network for devices on the network of someone in it">Show on this network: on</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
+      <div class="row mt"><button class="btn" type="button" data-sh="arrange">Arrange all</button><select id="shAdd" aria-label="Story for a new station (or the studio or one of the studio's scenes)"></select><button class="btn" type="button" data-sh="add">Add a station</button><button class="btn" type="button" data-sh="lock" aria-pressed="false" title="Once the circles are in place: nobody moves, adds or removes one by accident (the stories' scenes and panels have their own locks)">Lock circles</button><button class="btn" type="button" data-sh="near" aria-pressed="true" title="Listed under Rooms on this network for devices on the network of someone in it">Show on this network: on</button><button class="btn" type="button" data-sh="fresh" hidden title="Every page in the room moves to a new address, where the headsets make a new shared space together">Fresh shared space</button></div>
       <div class="row mt sh-look"><span>In the headsets, for everyone here:</span><select id="shLabels" aria-label="Labels in the headsets: the small labels inside the scenes" title="The small labels inside the scenes"><option value="face">Labels: on top</option><option value="fixed">Labels: in 3D</option><option value="hidden">Labels: hidden</option></select><select id="shCards" aria-label="Cards in the headsets: the story panels, the station cards and the name tags" title="The larger ones: the story's text panel and play bar, the station cards over the circles and people's name tags"><option value="fixed">Cards: in 3D</option><option value="face">Cards: on top</option><option value="hidden">Cards: hidden</option></select><button class="btn" type="button" data-sh="free" aria-pressed="true" title="Free: the grip turns what it holds with your hand. Facing you: things you move keep facing you">Moving: free</button><button class="btn" type="button" data-sh="subs" aria-pressed="false" title="Subtitles at the start: what every headset here shows until it changes its own (its menu's Subtitles row); a change here takes every headset back to it">Subtitles at the start: off</button><button class="btn" type="button" data-sh="ask" aria-pressed="true" title="Ask first (the default): walking in does nothing; pointing at a circle's card or icon and pressing asks whether to go in, and no rings are drawn; the lobby is still walked into. Walk in: a headset goes into a circle by walking into it">Circles: ask first</button></div>
       <div class="row mt sh-look sh-menus"><button class="btn" type="button" data-sh="menus" aria-pressed="false" title="Limited (the default in a shared room): one short page with play, sound, subtitles, leaving the circle and lining up again. Full: every tab, as before">Menus: limited</button><span class="sh-menus-say">Subtitles at the start: each headset can change its own. The headsets' menu: limited for visitors (staff unlock one by holding both sticks down for 2 seconds), or full for everyone.</span></div>
       <h3>People</h3>
@@ -874,7 +874,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
 <button class="btn primary" id="xrgo" type="button" hidden>Enter VR to continue</button>
 <div id="loading"><div><span id="ldLine">Loading</span><div id="ldBar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><span id="ldStep"></span></div></div>
 <div id="nogl">This app needs WebGL, which this browser has turned off.</div>
-<script src="stories/list.js?v=5b90bd00846fc57f"></script>
+<script src="stories/list.js?v=d09a2d897d0a080d"></script>
 <script src="three.min.js"></script>
 <script>
 'use strict';
@@ -891,7 +891,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 216, id: 'f1226e99a7d184d5', format: 'networks-61' },
+  shell: { n: 217, id: '73013186ce12f0ce', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -1424,7 +1424,7 @@ HOST.audio = (function () {
     if (A.bad.media) return 'Sound unavailable';
     return A.primed && !A.blocked ? 'Sound on' : 'Play sound';
   }
-  // the Sound button's label: the narration's, or with none (a story without a recording, the design room) the sound as a
+  // the Sound button's label: the narration's, or with none (a story without a recording, the studio) the sound as a
   // whole, since the button silences the effects too and the sound starts off: off, on, or waiting for a tap
   const shown = () => label(A.cur) || (!AC ? '' : muted() ? 'Sound off' : running() ? 'Sound on' : 'Play sound');
   // the page's Sound button (headset panels read label() every frame) and Sound check
@@ -3030,9 +3030,9 @@ HOST.pkgUrl = function (key, file) {
   return 'packages/' + key + '/' + f + (fp ? '?v=' + fp : '');
 };
 // The low-poly miniatures (tools/packages/SPEC.md, "Miniatures"): the shell's own in lowpoly.js (built by
-// tools/lowpoly/build.mjs: the design room's, the studio's and the shell's circles' icons), a story package's in its own
+// tools/lowpoly/build.mjs: the studio's and the shell's circles' icons), a story package's in its own
 // file (story.json's minis, packages/<key>/minis.js), each loaded once, when a miniature in it is first asked for (a
-// station's icon, the design room's table), never with the story's main.js. Their load listeners are the shell's (added
+// station's icon), never with the story's main.js. Their load listeners are the shell's (added
 // with HOST.quiet set: a story change removes the listeners a story adds), so they survive a change of story. Each
 // resolves to LOWPOLY_MODELS (the global every file adds to); a failed load is asked again next time.
 // HOST.lowpoly(): lowpoly.js; HOST.lowpoly('<key>.<set>' or '<key>'): the file that holds it (a listed package's own;
@@ -3069,7 +3069,7 @@ HOST.lowpoly = function (name) {
 // the file a miniature's name points to ('' none: a listed package without miniatures)
 HOST.lowpolyUrl = function (name) {
   const k = String(name || '').split('.')[0];
-  if (!k || ['design', 'studio', 'all'].includes(k) || (self.STORY_EXTRA || []).some(m => m && m.key === k)) return 'lowpoly.js';
+  if (!k || ['studio', 'all'].includes(k) || (self.STORY_EXTRA || []).some(m => m && m.key === k)) return 'lowpoly.js';
   const m = this.packages && this.packages.get(k);
   if (m) return m.minis ? this.pkgUrl(k, m.minis) : '';
   return /^[a-z][a-z0-9-]{1,30}$/.test(k) ? 'packages/' + k + '/minis.js' : '';
@@ -3523,7 +3523,7 @@ HOST.teardown = function () {
   this.cur = null;
 };
 // a key's entry: one of the stories (HOST.list), or a page that is not one of them (self.STORY_EXTRA in
-// stories/list.js: the design room), started, loaded, swapped and titled the same way but not one of them (the Stories
+// stories/list.js: the studio; the design room until v217, parked), started, loaded, swapped and titled the same way but not one of them (the Stories
 // screens, Arrange all, Repeat's next story see only HOST.list; a shared room's station picker lists it last),
 // or a story package of the Experiments set or a hidden one (HOST.packages)
 // every story: the main set's (HOST.list) and the Experiments' (HOST.menu, v188). What a shared room may run as a story
@@ -3808,8 +3808,8 @@ HOST.slides = (function () {
 // Panels per story in the headset (the owner, 29 October 2026: "i would want that for every story as an independent per
 // story toggle maybe inside the clock menu"): 'shown' (the text and explore panel and the foot bar, as ever), 'controls'
 // (only the foot bar: play and pause, the chapter arrows, the clock, Next; good with subtitles on) or 'hidden' (no story
-// panel; the menu's Story tab still plays and pauses, and the menu stays, to switch back). Each story (and the design
-// room) keeps its own. Outside a shared room this device's (xrPanels in localStorage); at a station in a room the station's, for everyone
+// panel; the menu's Story tab still plays and pauses, and the menu stays, to switch back). Each story (and the studio)
+// keeps its own. Outside a shared room this device's (xrPanels in localStorage); at a station in a room the station's, for everyone
 // at that circle (shared.js, key st.<id>.ui; a station without it: shown). The menu's Panels row sets it for the story on
 // show (each press the next), the page's Shared dialog per station. Stories read get(key) every frame in xrUpdate, beside
 // the cards mode (cards hidden still hides both panels: the two are independent), and put sig(key) in their panels'
@@ -4450,7 +4450,7 @@ HOST.live = (function () {
     put: (k, v) => { try { if (v == null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { /* storage blocked */ } } };
   const quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const KEY = /^[a-z][a-z0-9-]{0,31}$/;
-  const known = key => !!HOST.meta(key);   // (a story, or a page that is not one: STORY_EXTRA's design room and studio)
+  const known = key => !!HOST.meta(key);   // (a story, or a page that is not one: STORY_EXTRA's studio)
   const title = key => { const m = HOST.meta(key) || (self.STORY_LIST || []).find(s => s && s.key === key); return m ? m.title : key; };
   // the app's root: the relay serves it under s/<n>/ too (a room's fresh shared space, shared.js)
   const root = () => new URL(/\/s\/\d{1,4}\/(?:index\.html)?$/.test(location.pathname) ? '../../' : './', location.href).href;
@@ -5811,13 +5811,13 @@ HOST.arrange = (function () {
   const appKeys = (self.STORY_LIST || []).concat(self.STORY_EXTRA || []).map(s => s && s.key);
   const named = [...hp.keys()].some(k => /^[a-z][a-z0-9-]{1,30}$/.test(k) && !hp.get(k) && !appKeys.includes(k));
   // (every story a package since v187, STORY_LIST empty: with no card yet after that wait, the index is waited for longer,
-  // and with none at all the design room opens behind the Stories screen rather than nothing)
+  // and with none at all the first page that is not a story, the studio, opens behind the Stories screen rather than nothing)
   HOST.packages.ready(appKeys.some(k => hp.has(k)) ? 0 : named ? 4000 : 1500).then(() => (HOST.list.length ? true : HOST.packages.ready(30000))).then(() => {
     // a place kept across a reload (HOST.live: an update, or a shell file changed while developing) wins over the address
     const back = HOST.live.restoring();
-    const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.experiments(), HOST.packages.hidden()).map(s => s.key);   // (#design opens the design room)
+    const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.experiments(), HOST.packages.hidden()).map(s => s.key);   // (#studio opens the studio; #design, the design room parked since v217, is a key like any unknown one)
     const first = HOST.list.find(s => !s.intro) || HOST.list[0];   // (not an introduction: the tutorial is built only when asked for)
-    const key = (back && back.key) || keys.find(k => hp.has(k)) || (first ? first.key : 'design');
+    const key = (back && back.key) || keys.find(k => hp.has(k)) || (first ? first.key : ((self.STORY_EXTRA || [])[0] || { key: 'studio' }).key);
     if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
     HOST.arrange.boot(hp, key);   // (#<key>&arr=<name>: the story plays that copy on the relay; &edit edits it)
     // the Stories screen is the landing page (no address, or #stories); a shared story link opens that story

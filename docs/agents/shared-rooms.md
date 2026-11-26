@@ -83,7 +83,7 @@ The plan is `docs/shared-space-plan.md`.
       the hand as you point, pushed away as you raise the controller, turned as you twist. The trigger still picks
       cards (the shell claims no hover for the volume). Refused while the circles are locked (`refused`, its notice).
       Move here (the menu) and the page's room map move it too; every write of it carries `arc` (`stVal`).
-    - Turning it into a circle: the first other circle placed (`add`: the page's Add, the headset's Add here, Design room
+    - Turning it into a circle: the first other circle placed (`add`: the page's Add, the headset's Add here, Studio
       here, the lobby, another All stories circle) or Arrange all (`arrange`) writes `st.all01` with `arc: false` in the
       same batch (`arcEnd`): an ordinary All stories circle where it stands (ring, card, icon; walk-in from then on;
       Arrange all leaves it where it is). Headsets and pages at it stay with it (a station is left only by walking into
@@ -137,7 +137,7 @@ The plan is `docs/shared-space-plan.md`.
     a story) and its switch (the arc's says it is for everyone in the room until another circle is added); the lobby's row has no
     Follow, Panels or Lock (only Remove), and a click on its dot follows nothing.
   - Add (the dialog's picker and the headset's *Add here* page) offers *All stories* and *Back to the lobby* after the
-    design room; moving, turning, removing, the circles lock and the map work on them as on any circle (a move keeps
+    studio; moving, turning, removing, the circles lock and the map work on them as on any circle (a move keeps
     `kind`, `sync` and `arc`: `stVal`). Arrange all leaves both where they are (and turns the room's arc into a circle).
 
 - `HOST.collab` keeps the room's keys (echo suppression by value, optimistic
@@ -902,7 +902,7 @@ The plan is `docs/shared-space-plan.md`.
 - Station icons (`makeIcon`, `iconDef`, `miniDef`, placed by `iconStep` in `shared.js`; made from the miniatures): over each station's ring, its middle 2.1 m
   above the floor (over the heads of people in the circle and above the card's top edge at 1.6 m, so from across the
   room it covers neither), its story's main miniature: the `icon` of its entry in `stories/list.js` (a key of
-  `LOWPOLY_MODELS`: the tour's interactome, the PET scanner, the airports' globe; the design room's own `design.table`,
+  `LOWPOLY_MODELS`: the tour's interactome, the PET scanner, the airports' globe; the design room's own `design.table` (gone with the room, parked since v217),
   a small round table with props on plates in the stories' colours, which is only its icon, not a prop on the table;
   and the shell's two circles' own, `all.stories`, the Stories screen in miniature (sixteen cards in the stories' colours
   in two rows on an arc under its header, lit from within), and `all.lobby`, an open doorway with light in it, stepping
@@ -933,7 +933,8 @@ The plan is `docs/shared-space-plan.md`.
   room's and the shell's two circles' (`HOST.collab.kinds()`, keys `all` and `lobby`), in a grid as a headset sees them (`?keys=a,b`, `&cols=`, `&t=` frozen, `&turns=4` four sides, `&fallback`),
   from the app in a hidden frame through `HOST.lowpoly('*')` and `HOST.collab.icon(key)` (its `model` says which
   miniature, '' the fallback). How they read from across a real room is untested on a headset.
-- The design room in a room: not one of the stories, so never part of
+- The design room in a room: parked since v217 (`tools/design/`; out of the app, no Add choice, no menu button: an old
+  room's design station shows as *Not on this device*, `HOST.unknown`). Until then: not one of the stories, so never part of
   Arrange all (it neither places nor moves nor removes a station of it), but a station like any other once placed: the
   page's Shared dialog lists it after the stories in its station picker (Add), the headset's Add here page too, and the
   headset's menu has a *Design room* row (below the settings and Panels, above the shared room): outside a room it
@@ -943,9 +944,9 @@ The plan is `docs/shared-space-plan.md`.
   is (greyed). A new station of a page that is not a story starts its clock at its table, in explore mode (a story's at
   its start, paused). Standing at it (it is at your feet) the headset takes it as its station and the table stands
   life size in front of you (its middle 1.55 m ahead of the spot), shared like a story at its station.
-- The studio in a room (v111): a page that is not a story, placed and kept as the design room is. The page's Add and
-  the headset's Add here list it after the design room (`STORY_EXTRA`'s order, then All stories and Back to the lobby);
-  the menu's Settings tab has *Design room* and *Studio* side by side (`PAGE_ROW`, `pageRow`): outside a room *Studio*
+- The studio in a room (v111): a page that is not a story, placed and kept as the design room was. The page's Add and
+  the headset's Add here list it after the stories (`STORY_EXTRA`'s order, then All stories and Back to the lobby);
+  the menu's Settings tab has *Studio* (`PAGE_ROW`, `pageRow`; *Design room* beside it until v217): outside a room *Studio*
   opens the studio (`HOST.go('studio')`), in a room *Studio here* puts a plain studio circle at your feet facing your
   way, or moves the room's plain one there (one not made for a scene: no `sc` in its record, told by how it was made and
   never by its state, which names a scene as soon as one is picked there; the first by id when there are several,
@@ -1005,7 +1006,7 @@ The plan is `docs/shared-space-plan.md`.
   - The circles lock (key `lock`, `{ on, by, at }`, FORMAT networks-6): once the stations are in place anyone locks them
     (*Lock circles* in the headset's menu and the page's Shared dialog) and
     anyone unlocks them. While on, the grip on a station's ring or card, the
-    room map's drag and turn, Arrange all, Add, Move here, Design room here
+    room map's drag and turn, Arrange all, Add, Move here, Studio here
     and Remove are refused (`refused()`, `circlesLocked()`), a station being
     carried stops where it was last sent. It never
     locks a scene or a panel. A room whose old layout lock (v96) was on reads as circles
@@ -1106,9 +1107,9 @@ The plan is `docs/shared-space-plan.md`.
     mute in the session, `HOST.audio.mute`: on until turned off there, v124, saved as `xrMuted`; a press is a tap, so it
     starts the engines too; a note beside it); *Sound effects: on/off* and *Narration: on/off* side by side (Sound effects
     for every story, in a room the room's: "The two sound switches"; Narration this headset's own, in a room until the
-    lobby: "The narration"), then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Design room* and *Studio* side by
-    side (outside a room each opens its page; in a room *Design room here* and *Studio here* put its circle at your
-    feet: "The design room in a room", "The studio in a room"), a note under each.
+    lobby: "The narration"), then *Effects volume* (`HOST.sfx`, this headset's own, with a note saying so); *Studio* (outside a room it opens
+    the studio; in a room *Studio here* puts its circle at your feet: "The studio in a room"), its note beside it (*Design
+    room* stood on its left until v217, parked).
   - **Circles**: the shared room (also *Back to the lobby* under the two locks, ending this headset's live station as walking into a lobby circle does, greyed at no station and at the room's arc) (its code and people as the heading, with *Another room* beside them in a room; in no
     room the rooms, then *Start a room*, *Join with a code* and *Refresh*; the question; stations (Move here, Add here;
     Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; at an All
@@ -2071,7 +2072,7 @@ reference, `packages/flock/src/engine/`):
   `HOST.start` and `allPick`); the header's *Back to the story* and the pane's *Back* not drawn while `xrCards()`; and in
   `drawMain`, after the room's Stories line,
   `else if (xrAllHere() && !XR.stories) hb('stories', 'Stories', () => HOST.room.allBack(), 130);`. The smoke test checks
-  the lines are in all sixteen stories and every page in `STORY_EXTRA` (the design room, the studio).
+  the lines are in all sixteen stories and every page in `STORY_EXTRA` (the studio; the design room until v217).
 - Recenter, next to `xrRecenter` (the story panel's Recenter button, and `recenter: xrRecenterAsk,` in the returned
   object after `caption`, for the menu's Recenter and Place again):
   `function xrRecenterAsk() { if (HOST.room && HOST.room.recenter && HOST.room.placing && HOST.room.placing()) return HOST.room.recenter(); if (HOST.anchor.on) HOST.anchor.again(); XR.needRecenter = true; return true; }`

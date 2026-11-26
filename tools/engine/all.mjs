@@ -14,8 +14,11 @@ import { stories } from '../stories.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url)), tools = path.join(here, '..'), root = path.join(tools, '..');
 const check = process.argv.includes('--check');
 const uses = f => { const t = fs.readFileSync(f, 'utf8'); return t.includes("'../engine/parts.mjs'") || t.includes("/tools/engine/parts.mjs'") || t.includes("'tools', 'engine', 'parts.mjs'"); };
-const builds = fs.readdirSync(tools).sort().map(k => path.join(tools, k, 'build.mjs'))
-  .concat(stories(root).list.filter(s => s.pkg && s.build).map(s => path.join(root, s.build)))
+// (a tools/<key>/ build of a page that is not a story, writing stories/<key>.js, only while stories/list.js names that page:
+// the design room, parked since v217, is left alone; tools/design/README.md)
+const S = stories(root), parked = k => fs.existsSync(path.join(root, 'stories', k + '.js')) && !S.all.some(s => s.key === k);
+const builds = fs.readdirSync(tools).sort().filter(k => !parked(k)).map(k => path.join(tools, k, 'build.mjs'))
+  .concat(S.list.filter(s => s.pkg && s.build).map(s => path.join(root, s.build)))
   .filter(f => fs.existsSync(f) && uses(f));
 // (and the miniatures: lowpoly.js and every package's minis.js, tools/lowpoly/build.mjs)
 builds.push(path.join(tools, 'lowpoly', 'build.mjs'));

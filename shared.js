@@ -121,7 +121,7 @@
   // wall-clock ms (a monotonic clock may stand still while a device sleeps; the relay's offset absorbs any jump)
   const clock = () => Date.now();
   const r3 = x => Math.round(x * 1000) / 1000;
-  // a story's entry in the list (HOST.meta: also a page that is not one of the stories, as the design room); one this
+  // a story's entry in the list (HOST.meta: also a page that is not one of the stories, as the studio); one this
   // device does not know yet (a newer copy of the app put it in the room) gets a stand-in whose card says this device
   // needs an update (HOST.unknown; HOST.live offers the update)
   const meta = key => KINDS[key] || (HOST.meta ? HOST.meta(key) : HOST.list.find(s => s.key === key)) || (HOST.unknown ? HOST.unknown(key) : undefined);
@@ -2400,7 +2400,7 @@
       out.push(Object.assign({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true, arc: v.arc === true } : {},
         !kd && v.story === STUDIO && v.sc === true ? { sc: true } : {}, kd !== LOBBY_ST && ASKS.includes(v.ask) ? { ask: v.ask } : {}));
     }
-    // (the pages that are not stories after the stories, in their list's order: the design room's, the studio's; then the
+    // (the pages that are not stories after the stories, in their list's order: the studio's; then the
     // All stories circles and the lobby)
     const extra = k => { const e = (self.STORY_EXTRA || []).findIndex(x => x && x.key === k); return e < 0 || e > 8 ? 0.9 : e / 10; };
     // (the Experiments set's stories after the main set's: HOST.stories)
@@ -2748,8 +2748,8 @@
     return Object.assign({ story: b.story }, s.kind ? { kind: s.kind } : {}, s.kind === ALL ? { sync: b.sync === true } : {}, s.kind === ALL && typeof b.arc === 'boolean' ? { arc: b.arc } : {},
       !s.kind && b.story === STUDIO && b.sc === true ? { sc: true } : {}, s.kind !== LOBBY_ST && ASKS.includes(b.ask) ? { ask: b.ask } : {}, { x: r3(P.x), z: r3(P.z), yaw: r3(P.yaw) });
   };
-  // a new station's clock: a story at its start, paused; a page that is not a story (the design room, the studio: no
-  // chapters) in explore mode, at its table or its scene
+  // a new station's clock: a story at its start, paused; a page that is not a story (the studio: no chapters) in explore
+  // mode, at its scene
   const startClock = story => ({ mode: !story || HOST.stories().some(m => m.key === story) ? 'story' : 'explore', t: 0, playing: false, at: 0 });
   // where you are in the room and which way you face: a headset's head, a desktop's room origin
   function base() {
@@ -2760,7 +2760,7 @@
   // for locking its panels and story elements"). The circles lock (Lock circles; key lock: { on, by, at }, the layout lock
   // of v96, which locked the scenes and panels too: a locked room from then needs its stories locked once): once the
   // stations are in place anyone can lock them, so nobody moves one by accident (the grip on a ring or card, the map's
-  // drag and turn, Arrange all, Add, Move here, Remove and Design room here are refused); anyone unlocks. It never locks
+  // drag and turn, Arrange all, Add, Move here, Remove and Studio here are refused); anyone unlocks. It never locks
   // a scene or a panel: that is each station's own lock (Lock this story: stLocked, below)
   const circlesLocked = () => { const v = val('lock'); return !!(v && v.on); };
   function setLock(on) {
@@ -2959,7 +2959,7 @@
       if (!old) pairs.push([kPlay(id), startClock()]);
     });
     // (a second station of a story goes; one of a story this device does not know, of the Experiments set (v188: placed
-    // only by Add), of a page that is not a story, such as the design room's table or the studio, and the shell's own kinds, All stories and Back to the lobby, stay where
+    // only by Add), of a page that is not a story, such as the studio, and the shell's own kinds, All stories and Back to the lobby, stay where
     // they are: never part of Arrange all)
     for (const s of C.st) if (!used.has(s.id) && !s.kind && HOST.list.some(m => m.key === s.story)) pairs.push(['st.' + s.id, null]);
     log('arrange', { stations: n });
@@ -2972,7 +2972,7 @@
   }
   // what Add offers (the page's picker, the headset's Add page): every story (the Experiments set's too, after the main
   // set's: HOST.stories; never placed by Arrange all), then the pages that are not stories (the
-  // design room's table, the studio), which only Add and the menu's Design room and Studio buttons place, never Arrange all
+  // studio; the design room's table until v217, parked), which only Add and the menu's Studio button place, never Arrange all
   // (and then the shell's own kinds: All stories and Back to the lobby)
   // (and after the studio its relay's scenes, one entry each: SCN, below)
   const addable = () => {
@@ -3060,13 +3060,13 @@
     sfx('place', roomAt(b.x, 0.05, b.z));
   }
   function remove(id) { if (C.stById.has(id) && !refused('remove')) publish([['st.' + id, null]]); }
-  // a page that is not a story here (the menu's Design room and Studio buttons in a room): a station of it at your feet,
-  // facing your way, or the room's one moved here when it has one (one props table, not a pile of them); refused while the
+  // a page that is not a story here (the menu's Studio button in a room): a station of it at your feet,
+  // facing your way, or the room's one moved here when it has one (not a pile of them); refused while the
   // circles are locked. The studio (v118: a room may hold several studio circles, one for each scene, from Add): the room's
   // plain studio circle (one not made for a scene, sc; told by how it was made, never by its state, which names a scene as
   // soon as one is picked there) moved here, the first by id when there are several, whatever circles of scenes stand
   // beside it; else a new plain studio circle at your feet
-  const DESIGN = 'design', STUDIO = 'studio';
+  const STUDIO = 'studio';   // (and DESIGN, the design room, until it was parked: v217)
   const pageOne = key => C.st.find(s => s.story === key && !s.kind && !s.sc) || null;
   function pageHere(key, b) {
     const has = pageOne(key);
@@ -3258,8 +3258,8 @@
   // went for at most CARRY, then holds; one let go lands exactly where it was let go, and its samples are done with. A
   // grip here drops someone else's samples of the same thing (or letting go would pull it back). A value without ts (a
   // write by hand: Arrange all, the map, a view after a flight), a new station, its story changed or nothing newer than
-  // LIVE leave it to the glide as before. Moves inside a story's collab.state() (the pass story's sea, the design room's
-  // miniatures) are not smoothed here: they come with the state, five times a second, and the story's own glide.
+  // LIVE leave it to the glide as before. Moves inside a story's collab.state() (the pass story's sea, the studio's
+  // items) are not smoothed here: they come with the state, five times a second, and the story's own glide.
   const SMOOTH = { DELAY: 120, SEND: 66, KEEP: 8, GAP: 1000, LIVE: 1000, CARRY: 100 };
   const BUF = new Map();   // a moving key's samples (st.<id> carried, st.<id>.place, .panel, .view): { s: [{ ts, v, h }], seed, story }
   function bufPush(B, ts, v, h) {
@@ -4604,7 +4604,7 @@
   // movable with grabbing": FLOAT, MG), in four tabs ("a tab in clock menu that shows the current circle story menu
   // card"; "a tab in clock menu for debug settings etc, one that shows the current circles menu"): Story (the story on
   // show's own panels, usable there), Settings (Exit, Recenter, the slideshow for every story, the headsets' settings,
-  // the story's panels, the sound switches, the design room and the studio), Circles (the shared room: join one from the
+  // the story's panels, the sound switches, the studio), Circles (the shared room: join one from the
   // list or by its code, the stations, the locks, Show all rings, the people, your name and colour, leave) and Debug (the
   // alignment and calibration, People, Sound check, the version, the connection, the browser and the frame rate).
   // It is closed at the start of every session (a notice says how to open it), and opens by itself (on Circles) for the
@@ -5101,11 +5101,10 @@
     ctx.font = FONT(20); ctx.fillStyle = MUTED; ctx.textAlign = 'center';
     ctx.fillText(fit(ctx, 'tip to tip over spot A, or one after the other', w - 36), cx, fy + 10); ctx.textAlign = 'left';
   }
-  // the menu's Design room and Studio buttons, side by side: each one's label, what a press does (or null: greyed), a note
-  // under it and its colour. Outside a room a press opens it; in a room it puts its circle at your feet (pageHere)
+  // the menu's Studio button (beside it the Design room's until v217, when the design room was parked): its label, what a
+  // press does (or null: greyed), a note beside it and its colour. Outside a room a press opens it; in a room it puts its
+  // circle at your feet (pageHere)
   const PAGE_ROW = {
-    design: { open: 'Design room', here: 'Design room here', at: 'You are at the props table', what: 'Every story\'s props on one table',
-      moves: 'Moves the room\'s props table to your feet', adds: 'The props table as a circle at your feet' },
     studio: { open: 'Studio', here: 'Studio here', at: 'You are in the studio', what: 'Your own models, trigger cubes and sounds',
       moves: 'Moves the room\'s studio to your feet', adds: 'The studio as a circle at your feet', another: 'Another studio circle at your feet' },
   };
@@ -5411,15 +5410,13 @@
         ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, la ? LIVE_SHORT[LV.mode] + (liveSound().playing ? ': playing now' : '') : 'Rooms on a relay only', x + bw + 16, y + 2, bw, 28, 2);
         y += 76;
       }
-      // the design room and the studio, side by side: outside a room each opens (the props table, your own scenes); in a
-      // room each puts its circle at your feet, facing your way (the room's one moved here when it has one), as Add does:
-      // not while the circles are locked. Each one's note under it
-      const dz = pageRow(DESIGN), sz = pageRow(STUDIO);
-      button(S, 'design', x, y, bw, 60, dz.label, dz.fn, { px: 24, color: dz.col || '#f0d58c' });
-      button(S, 'studio', x + bw + 16, y, bw, 60, sz.label, sz.fn, { px: 24, color: sz.col || '#e6d3b8' });
-      y += 68;
+      // the studio: outside a room it opens (your own scenes); in a room it puts its circle at your feet, facing your way
+      // (the room's one moved here when it has one), as Add does: not while the circles are locked. Its note beside it
+      // (the design room's button stood on its left until v217, when the design room was parked)
+      const sz = pageRow(STUDIO);
+      button(S, 'studio', x, y, bw, 60, sz.label, sz.fn, { px: 24, color: sz.col || '#e6d3b8' });
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
-      y += Math.max(wrapText(ctx, dz.note, x + 4, y, bw - 8, 28, 2), wrapText(ctx, sz.note, x + bw + 20, y, bw - 8, 28, 2)) + 14;
+      y += Math.max(68, wrapText(ctx, sz.note, x + bw + 16, y + 2, bw, 28, 2)) + 14;
       finish(y);
       return;
     }
@@ -5704,7 +5701,7 @@
       y += 92; line();
     } else if (PNL.page === 'add') {
       label('Add a station here: which story?');
-      // (the stories, then the design room, the studio and its relay's scenes, at most SCN_ROWS of them here: all on a page)
+      // (the stories, then the studio and its relay's scenes, at most SCN_ROWS of them here: all on a page)
       const all = addable(), sc = all.filter(m => m.scene), ad = all.filter(m => !m.scene || sc.indexOf(m) < SCN_ROWS);
       ad.forEach((m, i) => {
         const bx = x + (i % 2) * (bw + 16), by = y + Math.floor(i / 2) * 72;
@@ -8336,7 +8333,7 @@
   // follows it and shows its Stories screen (unless it left it by hand: Stop following, a story of its own). Nothing of it
   // is drawn in a headset at it (drawPreviews: its cards are the circle); the grip on its cards, or in an unseen volume
   // round them (arcHit), carries it for everyone as a station is carried (refused while the circles are locked), and Move
-  // here and the page's map move it too. The first other circle (Add, Add here, Design room here, the lobby) or Arrange
+  // here and the page's map move it too. The first other circle (Add, Add here, Studio here, the lobby) or Arrange
   // all writes it with arc: false in the same batch (arcEnd): an ordinary All stories circle where it stands, walk-in from
   // then on; the headsets and pages at it stay with it (a station is left only by walking into another), and a headset
   // that took it as the arc sees its ring while it stands outside it. Removing every other circle leaves it a circle. A
@@ -12761,7 +12758,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
           <button class="btn rm${armed(s.id) ? ' armed' : ''}" type="button" data-sh="remove:${s.id}" aria-label="${armed(s.id) ? 'Remove the ' + esc(m.title) + ' station for everyone? Press again to remove it' : 'Remove the ' + esc(m.title) + ' station'}">${armed(s.id) ? 'Remove for everyone?' : 'Remove'}</button></li>`;
       }).join('') : '<li class="none">No stations yet. Arrange all puts every story in two rows; a headset in the room can then move them.</li>';
       const sel = $('#shAdd'), lk = circlesLocked(), lb = $('[data-sh="lock"]');
-      const ad = addable(), adk = ad.map(addVal).join('\n');   // (the stories, then the design room, the studio and its relay's scenes)
+      const ad = addable(), adk = ad.map(addVal).join('\n');   // (the stories, then the studio and its relay's scenes)
       if (sel.dataset.k !== adk) { const was = sel.value; sel.innerHTML = ad.map(m => `<option value="${esc(addVal(m))}">${esc(addName(m))}</option>`).join(''); sel.dataset.k = adk; if (ad.some(m => addVal(m) === was)) sel.value = was; }
       if (lb) { lb.textContent = lk ? 'Unlock circles' : 'Lock circles'; lb.setAttribute('aria-pressed', String(lk)); lb.classList.toggle('on', lk); }
       // shown on this network or not: the room's (anyone sets it; not locked with the circles); a room on this device is on no network
@@ -13860,9 +13857,9 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     // the studio's relay ({ base, token } or null) and what a call to it answered (a 401 brings up the password prompts)
     relayFind: () => relayFind(), relaySaw: (base, status, sent, j) => relaySaw(base, status, sent, j),
     leave: () => leave(false, true),   // (on purpose: not joined again by itself until joined again by hand)
-    // a page that is not a story at your feet as a circle (the menu's Design room and Studio buttons in a room), or the
-    // room's one moved there: its station's id ('' refused: no room, or the circles locked)
-    arrange, add, move, remove, design: b => pageHere(DESIGN, b), studio: b => pageHere(STUDIO, b), follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
+    // a page that is not a story at your feet as a circle (the menu's Studio button in a room), or the room's one moved
+    // there: its station's id ('' refused: no room, or the circles locked; design, the design room's, until v217)
+    arrange, add, move, remove, studio: b => pageHere(STUDIO, b), follow: id => choose(id, 'follow'), pick: id => choose(id, 'pick'), unfollow, me: setMe, setHere,
     // this device in the real room with the others (a headset in AR, VR answered "In this room", a camera, any headset in a
     // room on this device alone) or elsewhere (a page, VR answered "Somewhere else" or not yet): moving with the sticks in
     // VR (index.html) applies in a room only elsewhere

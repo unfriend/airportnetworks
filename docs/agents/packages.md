@@ -5,7 +5,7 @@ A story in one folder, `packages/<key>/`, written by a colleague or someone the 
 independent from the rest of the app". The contract is `tools/packages/SPEC.md`; this file says how the app keeps it.
 Since v187 the app's own stories (sixteen then; twenty in `packages/order.json` now, with the Experiments set's `cellstress`
 and `hello` beside them, `packages/index.json` lists 22 packages) are packages too (`docs/packages-migration.md`);
-only the design room and the studio stay in `stories/`.
+only the studio stays in `stories/` as a page of the app (and `stories/design.js`, the design room's, parked since v217, unused).
 
 A package is code from a trusted person running with the app's full rights: it is not a sandbox. Only the folder in git
 (or on the host that serves the app) is ever run, never anything from the relay's scenes, an upload or a link.
@@ -150,9 +150,9 @@ A package's miniatures are its own (`tools/packages/SPEC.md`, "Miniatures"): `sr
 `// kit: a|b`) and `src/props.json` (the design room's cards), built by `node tools/lowpoly/build.mjs` into the file
 `story.json`'s `minis` names (`minis.js`, listed in the index like any file; `icon` names the station's). The shell's
 `HOST.lowpoly(name)` loads the file that holds a miniature (`index.html`, after `HOST.pkgUrl`), `HOST.lowpoly('*')`
-every listed package's and `lowpoly.js` (the shell's own four: the design room's, the studio's and the two circles'
-icons); `shared.js`'s station icons ask for theirs and show the plain shape until it comes; the design room loads them
-all before laying out its table (`takeCards`, `TABLE_ORDER`). The scan leaves out a package whose `icon` is in no file;
+every listed package's and `lowpoly.js` (the shell's own three: the studio's and the two circles'
+icons; the design room's went when it was parked, v217); `shared.js`'s station icons ask for theirs and show the plain shape until it comes; the design room (parked since
+v217) loaded them all before laying out its table (`takeCards`, `TABLE_ORDER`). The scan leaves out a package whose `icon` is in no file;
 the check fails on a name without the package's key and, with `--build`/`--load`, on a wrong `tris` or more than 1,200;
 the harnesses (`tools/lowpoly/harness-a.html`, `harness-b.html`, `load.js`) show the sources as they are edited. The
 service worker's install takes each listed package's `minis` file with its `main.js`. Every story's miniatures moved

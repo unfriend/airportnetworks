@@ -613,6 +613,10 @@ narration heard from out of the circle, the locks and the People toggle in use.
 ### The design room
 - The owner, 29 October 2026: "the design room as a room where we have a table with the low poly versions of all props".
 - v136, few draws: the sweep found 235 draws an eye and 5.4 ms of script a frame, a mesh per material of every miniature.
+- v217, parked: the owner, 26 November 2026: "remove the whole design room for now". Out of the app (no `STORY_EXTRA`
+  entry, not precached or served, not built by `tools/engine/all.mjs`, its tests gone), its sources kept in `tools/design/`
+  (its `README.md` says how to bring it back). `FORMAT` unchanged: no key or `state()` changed shape, only a station kind
+  stopped being offered; an old room's design station shows as *Not on this device*.
 
 ## The studio (moved out of AGENTS.md, now docs/agents/studio.md)
 

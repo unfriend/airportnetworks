@@ -1570,7 +1570,10 @@ const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', '
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js', 'output.js',
   'LICENSE', 'NOTICE.md']);   // (the project's licence and notices go with every copy of the app it serves)
 const APP_DIRS = new Set(['stories', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis', 'packages', 'fonts']), APP_DEEP = new Set(['examples', 'packages']);
-const appFile = segs => (segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0]));
+// (files of an app folder that are no longer the app's: the design room, parked since v217, whose built file stays in the
+// tree for the room to come back, tools/design/README.md)
+const PARKED = new Set(['stories/design.js']);
+const appFile = segs => !PARKED.has(segs.join('/')) && ((segs.length === 1 && APP_FILES.has(segs[0])) || (segs.length === 2 && APP_DIRS.has(segs[0])) || (segs.length > 2 && segs.length <= 7 && APP_DEEP.has(segs[0])));
 
 async function serve(req, res, url) {
   if (req.method !== 'GET' && req.method !== 'HEAD') return plain(res, 405, 'Method not allowed', { Allow: 'GET, HEAD' });
@@ -1710,7 +1713,12 @@ function buildMap() {
   const dir = path.join(WATCH, 'tools');
   let names = [];
   try { names = fs.readdirSync(dir); } catch { return; }
+  // (a page that is not a story, writing stories/<key>.js, is built only while stories/list.js names it: the design room is
+  // parked since v217, tools/design/README.md)
+  let listed = '';
+  try { listed = fs.readFileSync(path.join(WATCH, 'stories', 'list.js'), 'utf8'); } catch { /* none */ }
   for (const k of names) {
+    if (fs.existsSync(path.join(WATCH, 'stories', k + '.js')) && !listed.includes(`key: '${k}'`)) continue;
     const f = path.join(dir, k, 'build.mjs');
     let src;
     try { src = fs.readFileSync(f, 'utf8'); } catch { continue; }
