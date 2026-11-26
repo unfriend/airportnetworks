@@ -1,6 +1,6 @@
 # Start here: handing over Networks
 
-An installable web app that teaches network science in sixteen narrated 3D stories, each followed by an explore mode,
+An installable web app that teaches network science in twenty narrated 3D stories (the tutorial among them), each followed by an explore mode,
 on desktops, phones and VR/AR headsets (built for Meta Quest Browser). Several headsets can share one room. There is
 no build step and no framework: plain HTML and JavaScript with a vendored three.js, deployed by copying the folder to
 any HTTPS host. This page is for the colleagues taking it over: what there is, what state it is in, what is still open,
@@ -24,7 +24,10 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 | set up the PC with the Vive trackers and the Index | [tools/trackers/README.md](tools/trackers/README.md), [tools/trackers/SPEC.md](tools/trackers/SPEC.md), [relay/README.md](relay/README.md) ("The PC's Vive trackers") |
 | release (and write the *What is new* box) | [docs/setup-and-release.md](docs/setup-and-release.md); `whatsnew.json` is rewritten by hand at every release |
 
-## The sixteen stories
+## The twenty stories
+
+The order on the Stories screen is `packages/order.json`; five stories sit on the Experiments set (`proteins`, `flock`,
+`robots`, `cdk5`, `exposome`; the cell stress test and the example `hello` too), the rest on the main cards.
 
 | Story | Key | Source | Narration | Data |
 | --- | --- | --- | --- | --- |
@@ -45,6 +48,9 @@ delete or edit `.claude/settings.json` (or override it in your own `.claude/sett
 | Networks for everyone: Pass it on | `pass` | `packages/pass/src/` (built; its globe and cell cut out of `packages/airports/main.js` and `packages/spatial/main.js` at build time) | synthetic (Kokoro `af_heart`; German: Piper, Thorsten) | the airports' routes and the cell map's proteins as in those stories; the fish and the outbreak are simulations; English and German |
 | Collective motion: Flock | `flock` | `packages/flock/src/` (built) | synthetic (Kokoro, `af_heart`) | a live simulation |
 | Swarm robotics: Robot gang | `robots` | `packages/robots/` (a story package, built from its `src/`) | synthetic (Kokoro, `af_heart`) | a live simulation |
+| Spatial interactome: Back into the cell (on the main cards since v188) | `ppicell` | `packages/ppicell/src/` (built) | synthetic (Kokoro, `af_heart`; 15:08, the longest) | the interactome of Menche et al. 2015 (13,460 proteins, 141,296 links), the Human Protein Atlas's places, since v205 UniProt's membrane sides and the Complex Portal's complexes (its terms to confirm before `main`); the judgement is the story's own method; the model cell is illustrative; since v207 your own network in explore |
+| Chemical exposome: Invisible threads (on the Experiments set since v212) | `exposome` | `packages/exposome/src/` (built; its cell is cut out of `packages/ppicell/src/sets/cell.js` and its globe out of `packages/airports/main.js` at build time) | synthetic (Kokoro, `af_heart`; 9:48) | the authors' public Zenodo deposit (CC BY 4.0), derived numbers only: 9,887 substances, the network of 9,764, 6,177 diseases, 32 countries; built on CTD, DisGeNET (non-commercial terms) and the Global Burden of Disease (IHME): whether those terms allow showing derived numbers publicly is open (`docs/data-and-permissions.md`) |
+| Introduction: Your guide | `tutorial` | `packages/tutorial/src/` (built; `intro: true`, the last card since v180) | synthetic (Kokoro, `af_heart`; 3:35, then seven practice tasks) | none: a robot guide (the people's armour figure, posed by code) shows how the app works |
 
 "Built" stories are generated: edit `packages/<key>/src/` and run `node packages/<key>/src/build.mjs`, then `node
 tools/packages/scan.mjs` (`--check` says whether the built file is in step); never edit a built `packages/<key>/main.js`
@@ -53,16 +59,22 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
-- **25 November 2026: `dev` is networks-v211 (FORMAT networks-59), `main` is still networks-v135 (FORMAT networks-41).**
-  The entries below stop at v180; v181 to v199 are in `docs/history.md` and `whatsnew/`, and v200 to v211 (one session,
-  25 November) are these: the tracker guide (`examples/tracker-guide`, the Experiments set's link cards), a studio
+- **26 November 2026: `dev` is networks-v212 (FORMAT networks-59), `main` is still networks-v135 (FORMAT networks-41).**
+  What this file can know: `sw.js` says `networks-v212`, `shared.js` `networks-59`; `git fetch origin main` on 26
+  November shows `origin/main` at `7c32b37` (v135, 11 November) and `origin/dev` at `237e16c` (so `main` has not
+  moved since v135; this checkout is shallow, so no commit count); v212's `whatsnew.json` is dated 25 November. Twenty stories are on `dev` (the table above). The long
+  entries below stop at v180 (v189 and v190 have theirs); v181 to v212 are one line each in "The releases from v181 to
+  v212" below, with more in `docs/history.md` and `whatsnew/`. v200 to v211 (one session, 25 November) are: the tracker
+  guide (`examples/tracker-guide`, the Experiments set's link cards), a studio
   character worn with any mix of devices tied by nearness (`rig: 'any'`), the mirror robot, the owner's headset notes
   (sharp text in VR, the cards' corners, *Later* first, a smooth turn; the studio tour's tables and floor, the goggles'
   grip throttles and game screen), and Back into the cell with membrane sides, complexes, a new chapter, the Network
   tab's live limits, a network of your own (pairs or wwiznet's files), sharing through the relay (`relay/nets.mjs`) and
-  the export for wwiznet. None of it has been tried on a headset, with trackers or on the owner's relays.
+  the export for wwiznet; v212 is a new story, Invisible threads (`exposome`), on the Experiments set. None of it has been
+  tried on a headset, with trackers or on the owner's relays.
+  - *Developer notes (26 November 2026)*: `node tools/notes/notes.mjs list` says "No new notes."
   - *Open with the owner before `main` moves*:
-    1. the whole release run (smoke, relay, collab, update, live, sound): none of v136 to v211 has had it since v135's,
+    1. the whole release run (smoke, relay, collab, update, live, sound): none of v136 to v212 has had it since v135's,
        beyond each builder's own blocks; the studio smoke block holds a stick check edited at v202 and not run;
     2. the terms of the EBI Complex Portal and the Human Protein Atlas (complex memberships in `packages/ppicell/src/sets/sides.js`,
        places in `data.js` and `data/lookup.json`): "we will confirm the terms later" (`docs/data-and-permissions.md`);
@@ -74,10 +86,85 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
        and BiP read "bye pee"); the old one is kept as `packages/ppicell/src/narration-v204-old.mp3` until then;
     6. every device in a room must be on one release (FORMAT went 55 to 59), and the main relay gets the shared networks'
        store only when `main` moves;
-    7. waiting on the owner's word: a structure for every node of the CDK5 story's small subnetworks
+    7. the exposome story (v212): whether DisGeNET's and the Global Burden of Disease's non-commercial terms allow
+       showing the derived numbers on the public site (`docs/data-and-permissions.md`, the exposome rows and checklist);
+       its voice (9:48) and sound cues are unheard, nothing of it has been in a headset or a shared room (v212's
+       `whatsnew.json`);
+    8. waiting on the owner's word: a structure for every node of the CDK5 story's small subnetworks
        (`packages/cdk5/src/SPEC.md`: counted and estimated, 135 proteins, about 217,000 triangles and 2.8 MB at the
        coarsest level; not started), and terms from gene-set libraries in Back into the cell
        (`packages/ppicell/src/SPEC.md`, "Terms from gene-set libraries").
+
+- **Open points (26 November 2026).** One line each; the detail is under the heading named. Checked against the code and
+  the newer docs on 26 November; nothing below was run (no test suite, build or server).
+  - *Decisions waiting for the owner*: the whole release run before `main` moves, the Complex Portal's and Human Protein
+    Atlas's terms, DisGeNET's and IHME's terms (exposome), the goggles' status sent to the room (`gog`), the knee
+    trackers' place, the new recordings unheard, one release on every device in a room, the structure for every node
+    of the CDK5 story, terms from gene-set libraries (all in the first bullet above); the authors' permission, who holds
+    the repository and the live site's accounts, the history's public files, who to ask, which sounds to keep ("Decisions
+    for the owner", items 1 to 6 and 12); the PET story's second half waiting on the poster (item 8).
+  - *Parked or not started (the file's own estimates)*: glTF round trips, about 1.2 to 2M tokens; snapping in the studio;
+    quicker hot reload; "Line up with someone", about 1 to 1.5M tokens; a voice assistant, 9 to 12 hours and 4.5 to 6M
+    tokens; German for every story, 1.5 to 2 days (and 1 to 1.5 more for explore); circles that load code from a link,
+    5 to 8 hours; the studio's *Real room* look, 2 to 3 hours; see through their eyes, 3 to 4 hours; the real-world-to-
+    virtual slider, 2 to 3 hours; uploading from Google Drive, 3 to 4 hours; Talk in peer-to-peer rooms; a probe of
+    Quest Browser's WebXR body tracking, 1 to 2 hours; a performance round (the cell's models pinned to their finest
+    level, memory made each frame in ovary, endo and micro, overdraw, downloads); a paper on Back into the cell's layout
+    method (the owner's idea). All under "Decisions for the owner", item 7, except where named. Dropped: a texture
+    cube's crossfade (the owner, "no crossfade needed"), the invisible stand-ins for other headset wearers, the player for
+    stories written as data. Built since they were listed: a character worn with a headset and controllers alone (v164,
+    v201, v204).
+  - *Specific things untested or known bugs*: the smoke steps `studio sequences` and `flock: anchored placement`, the
+    studio block's carry step, the robots not docking about one run in eight, the full collab run not reaching its end on
+    the cloud machine (all last recorded in "Open after v191" and "Open points the reviews found"; not re-run on 26
+    November, so their present state is unknown); the tracker lined up with a slow drift (gate still 0.5 m/s in
+    `shared.js`), tracker names (last writer wins), a take from a model in centimetres, the solver's twist with six
+    trackers (all under "Open points the reviews found"); everything a device alone can show (the list "Open with the
+    owner before `main` moves" and each entry's *Untested*).
+  - *Blanks to fill*: who holds each account and key ("What the next person needs from the owner"), who to ask (item 6),
+    the licence's holder (item 1), the CDK5 row and the exposome row in `docs/data-and-permissions.md`, and the answers of
+    the authors (`docs/questions-for-authors.md`: C1 and C3 to C10, S1 to S9, MM1, MM5, MM6, T5, P4 to P11).
+
+- **The releases from v181 to v212, one line each** (from `whatsnew/networks-v<n>.json`; v189 and v190 are told in full
+  below; FORMAT networks-55 up to v196, 56 from v197, 57 at v205, 58 at v207, 59 at v208; all on `dev` only, none tried on
+  a headset unless said):
+  - v181 (21 November): the tutorial's robot guide is never quite still (breathing, shifting weight, swaying on a walk).
+  - v182 (22 November): the headset's *Getting around* card closes at once when pointed at and pressed; Back into the cell
+    begins as a hidden package.
+  - v183 (22 November): the headset's notes list has *Mark done*, *Delete* and *Mark all done*.
+  - v184 (22 November): *Record a run* (developer mode): a row a second of frame times, sent to the relay; runs on the
+    notes page.
+  - v185 (23 November): the robot gang is the first story moved into a package; *Take all stories* (offline).
+  - v186 (23 November): eight more stories moved into packages (qubits, mutation, flock, tutorial, endo, pet, ovary, soil).
+  - v187 (23 November): every story is a package (the tour, muscle, micro, topo, pass moved; airports, proteins and cell
+    map wrapped as they are).
+  - v188 (23 November): the second set of cards, *Experiments*; Back into the cell becomes a main story.
+  - v191 (23 November): the CDK5 story's new script, voice and three new scenes (partners, semaphorins, NPAS4).
+  - v192 (23 November): a tidy-up (eight unused protein models gone, about 0.9 MB less to take).
+  - v193 (23 November): a story changed while the app is open is kept for offline use; `tools/packages/publish.mjs`.
+  - v194 (24 November): in AR the lights' glow of people's bodies and the robot guide is see-through light, not black.
+  - v195 (24 November): the room scan no longer hides by default; *Smooth edges* as a switch. v196: on by default in AR.
+  - v197 and v198 (24 November; FORMAT 56): VR goggles in the studio, a flight through Back into the cell's cell; v198
+    the bubble fails safe, review fixes.
+  - v199 (24 November): the studio tour, an example scene with a stand for each studio feature.
+  - v200 (25 November): the tracker guide and two link cards on the Experiments set (*Studio*, *Tracker guide*).
+  - v201 (25 November): a studio character worn with any mix of devices (`rig: 'any'`).
+  - v202 (25 November): sharp text in VR again (it takes two failed sessions in a row), the cards' rounded bars, *Later*
+    first in What is new, a smooth turn.
+  - v203 (25 November): the tour after the owner's headset notes (tables hold what stands on them, no flickering floor
+    strips), the goggles' throttles and the shuttle's game screen; the goggles' status to the room (effect `gog`).
+  - v204 (25 November): the tracker guide's mirror robot (*Mirror the visitor*).
+  - v205 (25 November; FORMAT 57): Back into the cell with membrane sides (red links about 3,000 to about 1,200) and a
+    chapter *Machines* (the Complex Portal's complexes).
+  - v206 (25 November): lining up a worn character on a platform; kept devices; the card names a part not seen.
+  - v207 (25 November; FORMAT 58): Back into the cell's *Network* tab: the method's limits live, and your own network.
+  - v208 (25 November; FORMAT 59): your network shared with a room through the relay (`relay/nets.mjs`), or as a link.
+  - v209 (25 November): after the review of v208: *Remove from the relay* only where it was put, asks once; calls give
+    up when the relay does not answer.
+  - v210 (25 November): new synthetic voices for Back into the cell (15:08) and the tracker guide (a pad at each stand).
+  - v211 (25 November): Back into the cell exports the network on show for wwiznet and opens a wwiznet dataset.
+  - v212 (25 November): Invisible threads (`exposome`), the chemical exposome, on the Experiments set: about ten minutes
+    (9:48), explore with four tabs (Substances, Groups, Diseases, Countries); its terms to check before `main`.
 
 - **At the handover (13 November 2026, brought up to date on 20 November): where each branch is and what comes next.**
   - *The branches.* `dev` is networks-v180 (FORMAT networks-55, shell 178; the v180 to v140 entries below; v139 and v136
@@ -91,7 +178,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     v121), and before it networks-v121 (`5524684`, 7 November); v122 to v180 are the entries below. Since v175 the AI
     agents' cloud sessions work on `dev` itself (the session-start hook brings the checkout up to date with GitHub);
     their earlier branches, `claude/trusting-hypatia-ca5qv0` (v157, all in `dev`) and `claude/affectionate-pasteur-stzjl3`
-    (v139, all in `dev`; to be deleted, decision 4), hold nothing `dev` lacks. Two branches are kept apart on purpose:
+    (v139, all in `dev`; deleted on GitHub since, decision 4), hold nothing `dev` lacks. Two branches are kept apart on purpose:
     `unity-importer` (16 November: a part of a Unity scene made a studio scene; nice to have, "glTF round trips" under
     Deferred) and `copilot/assess-code-quality-security` (20 October, an old review, never merged). Nothing is half done
     on any branch.
@@ -138,7 +225,9 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     - The solver (`ik.js`): with six trackers the upper arms' and forearms' twist can be up to 12
       degrees off (only bends about the elbow and knee hinges are tested); `IK.calibrate` works the scale out from the
       size the character has now (the studio calibrates again at its record's scale, so it holds there); the headset
-      alone with stepping legs (`'head'`) steps too often and is not offered (deferred: item 7 of "Decisions for the owner").
+      alone with stepping legs (`'head'`) stepped too often and was not offered: since v164 (people's bodies) and v201
+      (the studio's `rig: 'any'`) it is used, with the stepping calmed (`GLIDE` in `ik.js`); how it looks on a real
+      character is untested ("Decisions for the owner", item 7, the ideas of 8 November).
     - From v125: a two-hand carry of a group while moving with the sticks in the studio may drift; the room-frame
       block's Undo check in `collab --studio` may count a following sound; a take recorded on a page that draws in
       software gets only a few keys a second.
@@ -186,8 +275,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
   - *Waiting on the colleague (Christiane Hütter)*: C1 and C3 to C10 in `docs/questions-for-authors.md`; in particular C8
     (why CDK5 with p25 leaves its place: the story names no mechanism until answered) and C9 (two spoken lines the data
     does not back: CDK5's say in NPAS4's pathway, whose only link was drawn by the authors, and "even in the nucleus").
-  - *Developer notes*: all 66 notes on the relay up to 23 November 2026 are implemented (through v188); they still show
-    as new because marking them done is the owner's (`CLAUDE.md`).
+  - *Developer notes* (as of 23 November): all 66 notes on the relay up to then were implemented (through v188) and
+    still showed as new because marking them done was the owner's. Since 25 November `CLAUDE.md` lets the session mark a
+    note done once its change is pushed to `dev`, and `node tools/notes/notes.mjs list` on 26 November says "No new
+    notes."; no note is waiting.
   - *An idea*: a paper on Back into the cell's layout method (the owner, 23 November 2026; not started):
     `packages/ppicell/src/SPEC.md`, "A paper on the layout method (idea)".
 - **networks-v190 (23 November 2026; FORMAT networks-55), on `dev` only: miniatures in the packages.** Each story's
@@ -223,7 +314,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
     elsewhere, through the relay (Opus via WebCodecs, binary frames with tag 2); per device and off by default, open mic
     with a voice gate and a *Mic* row (the Shared dialog, the menu's Circles tab, the phone sheet), no button taken;
     people both *here* never hear each other through it; in a headset a voice comes from the talker's head. Peer-to-peer
-    rooms left for later. `docs/agents/shared-rooms.md` "Talk"; `relay/test.mjs --talk`, `tools/collab.mjs --talk`,
+    rooms left for later (still so on 26 November 2026: `docs/agents/shared-rooms.md` "Talk", a peer-to-peer room says why it cannot). `docs/agents/shared-rooms.md` "Talk"; `relay/test.mjs --talk`, `tools/collab.mjs --talk`,
     smoke `talk`. Untested: Quest Browser's WebCodecs and track reader, the microphone prompt in VR, echo, latency over
     real networks; unheard.
 - **networks-v175 to v177 (20 November 2026; FORMAT networks-55, shells 175 to 177), on `dev` only: Sharp text on by
@@ -1974,7 +2065,10 @@ Before handing over (or making anything more public), someone has to decide thes
    `d7c7862`, `e548fa0` and `e3f6b4f`, removed in `bdc8a8e`; drawn content only). Deleting branches or rewriting
    history cannot be undone for those who already fetched them: decide first. *Decided for the branches* (the owner, 20
    November 2026): delete the `logs-2026-10-*` branches, and the old agents' branch `claude/affectionate-pasteur-stzjl3`
-   (nothing on it that `dev` lacks); a cloud session may push only `dev`, so they are deleted on GitHub by hand. The checklist is in
+   (nothing on it that `dev` lacks); a cloud session may push only `dev`, so they are deleted on GitHub by hand. *Done, as far as the repository shows* (26
+   November 2026: `git ls-remote --heads origin` lists only `claude/trusting-hypatia-ca5qv0`,
+   `copilot/assess-code-quality-security`, `dev`, `main` and `unity-importer`: the `logs-2026-10-*` branches and
+   `claude/affectionate-pasteur-stzjl3` are gone). The history behind the other points of this item is unchanged. The checklist is in
    [docs/data-and-permissions.md](docs/data-and-permissions.md).
 5. **The live site**. *As it is now (9 November 2026):* the main site is GitHub Pages from `main` at
    https://stories.lbi-netmed.com/ (`lbi-netmed.com` is at Namecheap; the `CNAME` file stays). The owner's Coolify (on
@@ -2046,8 +2140,8 @@ Before handing over (or making anything more public), someone has to decide thes
      - *Triangle spikes in a few chapters* (most scenes are 50,000 to 220,000): endo at 25 % 689,000, ppicell at 25 %
        524,000, micro at 50 % 496,000 and at 25 % 310,000, pet at 25 % 424,000. The ppicell one is known:
        `packages/ppicell/src/sets/sites.js` pins its protein models to their finest level (`lod: 0`, 18,000 to 48,000
-       triangles each) though they are 0.09 to 0.12 units wide; `molMesh`'s own `'auto'` would do. The endo, pet and
-       micro ones are not traced to a set yet.
+       triangles each) though they are 0.09 to 0.12 units wide; `molMesh`'s own `'auto'` would do (still so on 26 November
+       2026: `sites.js` lines 20 to 114 pass `lod: 0`). The endo, pet and micro ones are not traced to a set yet.
      - *Memory made each frame* (garbage collection pauses, which a headset shows as dropped frames): ovary 0.9 to 1.7
        MB a frame while its story plays, endo 0.6 to 0.8 MB, micro about 0.6 MB; the other stories 0.03 to 0.15 MB.
        Ovary also sends 80 to 127 KB of texture a frame. The causes are not traced.
@@ -2070,8 +2164,8 @@ Before handing over (or making anything more public), someone has to decide thes
      (its `p`, `q`, `s` already are glTF's translation, rotation, scale), so no layout file is rewritten. The standards
      looked at, the decisions and rough costs (about 1.2 to 2M tokens for all three pieces): `docs/agents/studio.md`, "Nice
      to have, later: glTF round trips (Blender, Unity)".
-   - **Snapping in the studio (maybe later; the owner, 14 November 2026: "put snapping on the for later list for
-     now").** As discussed: a setting of this device's own in the Scene pane while editing (never saved or shared): move
+   - **Snapping in the studio (maybe later, still not built on 26 November 2026: the studio's code never calls
+     `TransformControls`' snap setters; the owner, 14 November 2026: "put snapping on the for later list for now").** As discussed: a setting of this device's own in the Scene pane while editing (never saved or shared): move
      off / 1 / 5 / 10 / 25 / 50 cm, turn off / 5 / 15 / 45 / 90 degrees, size off / 10 / 25 %, and a drop onto the floor
      within a few cm. On a page through `TransformControls`' own `setTranslationSnap`, `setRotationSnap` and
      `setScaleSnap` (Alt to move freely); in a headset applied where the grip and the sticks let go, so carrying stays
@@ -2085,7 +2179,8 @@ Before handing over (or making anything more public), someone has to decide thes
      moment; (2) after a shell reload in a headset, enter VR or AR again by itself through Quest Browser's WebXR
      navigation (`navigator.xr`'s `sessiongranted`), keeping today's *Enter VR to continue* as the fallback; whether a
      reload counts as such a navigation can only be found on a Quest. Swapping the shell's own code without a reload is
-     not realistic (`shared.js` holds the room, the alignment and the session's state in one closure).
+     not realistic (`shared.js` holds the room, the alignment and the session's state in one closure). Still not built on 26
+     November 2026 (no `sessiongranted` in the code; `HOST.live` as described above).
    - **Lining up without tape: "Line up with someone" (left as it is for now; the owner, 16 November 2026: "Can we get a
      quick sync mode for conferences etc where we wont scan the room, for example just have two people high five each
      other twice while pressing a button, something like that… ( or we do a tutorial where to start they have to put
@@ -2097,7 +2192,8 @@ Before handing over (or making anything more public), someone has to decide thes
      of touches matched by the relay's time as Touch the spot already does; the second headset takes the first's frame
      (two shared points and the floor's up give the turn and the shift). A 3 cm miss turns the room by about 2 degrees
      (about 15 cm off at 5 m), and a group lines up in a chain, so errors add up: fine for walking about, worse than the
-     spots (why v109 chose fixed spots). About 1 to 1.5M tokens.
+     spots (why v109 chose fixed spots). About 1 to 1.5M tokens. Still as it is on 26 November 2026 (no
+     high-five line-up in the code; Touch the spot only checks).
    - **The next round (built in v124, on `dev`; the owner, 8 November 2026)**: (a) no "Leave AR" message after standby
      ("The leave ar message after standby or resume can go away, alignment nearly always good and has a check now
      too"); (b) sound by mode ("On mobile and desktop default to no sounds and no narration until manually enabled, in ar
@@ -2113,15 +2209,27 @@ Before handing over (or making anything more public), someone has to decide thes
      crossfade). On a page the owner's question whether Sound should bring the narration too was left open: it does, as
      before (one press);
    - **The ideas of 8 November 2026: built, but for one part.** (1) Vive trackers with Mixamo rigs: v126; (2) camera
-     mode: v124; (3) a trigger cube that changes a texture: v124 (a crossfade would add about 2 hours); (4) uploading
-     from Google Drive: skipped for now. Still open: a character worn with a headset and controllers alone (below). The
-     estimates as given that day, kept for the record: 2 and 3 were built in v124;
+     mode: v124; (3) a trigger cube that changes a texture: v124 (a crossfade would add about 2 hours: dropped, the owner's "no crossfade needed", `tools/studio/engine/e6i_tex.js`
+     line 3, `docs/history.md` v124); (4) uploading
+     from Google Drive: skipped for now (not built on 26 November 2026: no Google Picker in the code). The part that was still open that day, a character worn with a headset and
+     controllers alone (below), is built (26 November 2026 check: v164, v201, v204; what remains is under the next
+     paragraph). The estimates as given that day, kept for the record: 2 and 3 were built in v124;
      1 was on the maybe list, then (the same day, with 9 to 11 Vive Tracker 3.0, three base stations, a Valve Index and a
      Windows PC with SteamVR) "we go for 1 and 3 with mixamo rigs for now, 2 and 4 we can save up for maybe later": the
      plan is `tools/trackers/SPEC.md` (the solver from v125, the rest in v126); 4 is skipped for now. Deferred within it (the
      owner, 8 November 2026): a character worn with the headset and controllers alone, whose legs would need stepping of
      their own ("skip that part for now, note it down for later and maybe the quest body tracking can solve it"): first a
      probe of Quest Browser's experimental WebXR body tracking (1 to 2 hours, 0.5M tokens).
+     **Since built, by our own solver (found in the code on 26 November 2026):** people's bodies in a room are posed from
+     the head and the two grips, the feet stepped, since v164 (`bodies.js`, `ik.js` setup `'head'`); a studio character
+     takes any mix of trackers, a headset, controllers and tracked hands since v201 (`rig: 'any'`, `ik.js` `match` and
+     `fit`: each device tied to the part it is nearest to; a foot with nothing on it is stepped, a hand with nothing on it
+     hangs); *Mirror the visitor* (v204, `puppet.mirror`) drives a character from head and hands alone. What the code
+     asks at least: `pupReady` in `tools/studio/engine/e6l_puppet.js` wants one device on the head or the hips (a headset
+     alone will do), and with no tracker and no headset at all the card says "Nothing is seen" and nothing is worn; a
+     device near neither the head nor the hips gives a red card. **What is still open:** how a headset-only body looks
+     on a real character on a headset (untested; `tools/trackers/SPEC.md`, "Headset only"), and the probe of Quest
+     Browser's WebXR body tracking (`body-tracking`), maybe later, not made.
      (1) *a human mesh worn and animated with Vive trackers* (maybe list) (wear trackers, line yourself up with a rigged mesh, press,
      and the mesh follows you; record takes). Quest Browser does not see Vive trackers, so they need a Windows PC with
      SteamVR (or HTC's VIVE Hub) and their dongle or base stations. A small bridge program would read their poses and
@@ -2156,12 +2264,14 @@ Before handing over (or making anything more public), someone has to decide thes
      are made). Phase 1, ask and hear (a question about the story on show, answered aloud): about 6 to 8 hours and 3 to
      4M tokens. Phase 2, Claude acts on the scene (picks, explore controls, a circle): about 3 to 4 hours and 1.5 to 2M
      more. The microphone inside a Quest session is untested (the studio's voice recorder, v125, asks for it on the 2D
-     page first);
+     page first; Talk, v178, and the notebook's recording, v148, also use it: untried on a Quest). Not started on 26
+     November 2026 (no code or doc elsewhere mentions it);
    - collecting alignment logs from fresh headsets (a test plan is in the runbook);
    - **German for every story** (on hold, the owner, 29 October 2026: keep it low for now). The stories' text in German
      with a German voice and subtitles: about 1.5 to 2 days of agent work; explore mode in German too: about 1 to 1.5
      days more. In a shared room everyone keeps one timeline, so each stretch lasts the longer of its two languages (as
-     the pass story, already in English and German, does);
+     the pass story, already in English and German, does). Still on hold on 26 November 2026: the pass story is the only
+     one in German (`packages/pass/audio/narration-de.mp3`);
    - **The queue** (the owner, 29 October 2026): rooms on this network, first in it, the loading bar queued alongside,
      panels per story, the design room's part 2, follow a person and the ten-headset round's changes are built and
      released as networks-v97, and the sixteenth story, on soil (item 11 below), and sound effects' phase 1 (item 12) as
@@ -2180,10 +2290,13 @@ Before handing over (or making anything more public), someone has to decide thes
      "Add a circle from a link" in the page's Shared dialog (the headset lists the room's saved links), a `FORMAT`
      bump, tests with a local example circle. Office scale: "Add a circle here" where you stand and an office-sized
      room map; a walk test with a headset first (does one calibration hold across rooms and doorways; Quest's
-     passthrough outside the scanned room). About 5 to 6 hours, plus 1 to 2 hours for office-scale placing;
+     passthrough outside the scanned room). About 5 to 6 hours, plus 1 to 2 hours for office-scale placing. Not started on 26 November 2026 (no "Load
+     code from this address" or "Add a circle from a link" in `shared.js`, `index.html` or the docs);
    - **occlusion by the real world**: steps 2 and 4 below were built in v119 (the room's geometry and live depth, on by
      default in AR, each headset's own setting: docs/agents/shell.md "Real-world occlusion"; untested on a Quest in the app).
-     Still open: step 3, the studio's *Real room* look (about 2 to 3 hours). As planned (the owner, 4 November 2026:
+     Still open on 26 November 2026: step 3, the studio's *Real room* look (about 2 to 3 hours; nothing by that name in
+     the studio's code: a shape's `look: 'hide'`, which draws into the depth alone, is the nearest thing, for shapes only;
+     since then the default became the live depth alone, v195 and v196, so a room scan hides only when asked). As planned (the owner, 4 November 2026:
      "i would really like to work with the real rooms
      geometry as well as have people and object oclusions from the real world"; the plan agreed the same day, its first
      step, the test page `room-test/`, built in v112). What a Quest gives a web page: the room from Space Setup (walls,
@@ -2203,7 +2316,8 @@ Before handing over (or making anything more public), someone has to decide thes
    - **follow a person**: built (see "Where things stand");
    - **see through their eyes** (optional, later; the owner, 29 October 2026): a laptop's camera follows that wearer's
      head at their circle (a view for a projector). About 3 to 4 hours (each story places its scene differently in a
-     headset);
+     headset). Not built on 26 November 2026: a page's *Follow* (v97) follows the circle a person is at, not their head,
+     and the preview camera (v153) stands at a fixed spot;
    - **a real-world-to-virtual slider** (later; the owner, 29 October 2026: "when I am in a circle I have a slider on
      my watch where I can fade out the real world and fade into VR"): inside the same AR session, so the room's
      alignment, the circle, the people, the sync and the sound carry on. A slider in the clock menu while at a circle
@@ -2213,7 +2327,8 @@ Before handing over (or making anything more public), someone has to decide thes
      1.5 m) fades the real world back in by itself, and stepping back in returns to the setting (the Quest may not show
      its boundary in an AR session, and a room may hold ten people). Untested until tried on a headset: how partial
      passthrough looks, and whether the boundary shows. About 2 to 3 hours (the slider, the same few lines in all
-     sixteen stories and the design room, tests, docs);
+     sixteen stories and the design room, tests, docs). Not built on 26 November 2026 (no slider in `shared.js` or
+     `index.html`);
    - **the design room, part 2**: built (see "Where things stand": the menu's *Design room* button, the table as a
      circle in a shared room, the stations' icons from the miniatures). Part 1 (the table) is built too (docs/agents/stories.md "The
      design room"). Of the first plan (a catalogue of the props, a player for stories written as
@@ -2225,7 +2340,7 @@ Before handing over (or making anything more public), someone has to decide thes
      single shader's compile is still one task (three.js r128 cannot compile in parallel), and a few sets take 0.2 to
      0.5 s to build here; both would need changes inside three.js or the sets;
    - **station icons**: built, and since the design room's part 2 made from the miniatures (see "Where things
-     stand"). **For the owner:** approve the contact sheet of all nineteen, the sixteen stories', the design room's and, since v104, the All stories and Back to the lobby circles' (open `tools/icons.html` next to the app;
+     stand"). (Since v190 each story's miniature is in its own package.) **For the owner, still unanswered:** approve the contact sheet of all nineteen, the sixteen stories', the design room's and, since v104, the All stories and Back to the lobby circles' (open `tools/icons.html` next to the app;
      `&turns=4` shows each from four sides) or say which miniature should stand for a story (its `icon` in
      `stories/list.js`). How they read from across a real room is untested on a headset;
    - **live updates and hot reload**: built (see "Where things stand"; docs/agents/shell.md "Hot reload and live updates";
@@ -2392,10 +2507,11 @@ Before handing over (or making anything more public), someone has to decide thes
 - The story files are large (`packages/airports/main.js` is about 640 KB with its data): search them, never read them whole.
 - Headset behaviour can only be confirmed on a device: say so when reporting a change.
 
-## Adding a seventeenth story
+## Adding another story
 
-The sixteenth story (`soil`) is the most recent example (item 11 above; its integration touched every file the steps
-below name); the fifteenth (`topo`) too: `git show --stat` on its commits shows every file it touched
+The newest examples are `exposome` (v212, the twentieth: `packages/exposome/src/SPEC.md`) and `cdk5` (v189); `soil` (the
+sixteenth, item 11 above; its integration touched every file the steps
+below name) is the last of the older way; the fifteenth (`topo`) too: `git show --stat` on its commits shows every file it touched
 (the fourteenth, `mutation`, computes its numbers live; the thirteenth, `ovary`, is a data story typed in and read off
 figures; the twelfth, `pass`, shows how a story reuses another's models unchanged, and a story in two languages). Start
 from the closest existing story (`packages/topo/src/` for a story whose numbers come from the authors' own code run on their
@@ -2416,7 +2532,7 @@ for `stories/<key>.js`, `packages/<key>/story.json` and `packages/order.json` fo
    every headset Stories screen follows the list by itself; `index.html`'s head (title, meta description, link
    previews) and `manifest.webmanifest` say it in words for search engines and installs: update them, and the card
    rows' CSS if the rows change.
-3. Nothing in the other sixteen stories: their headset Stories screens space the cards and name the count from the
+3. Nothing in the other stories: their headset Stories screens space the cards and name the count from the
    list (`xrLandingCards`, `drawLandHead`).
 4. `sw.js`: bump `VERSION`, add `stories/<key>.js` to `SHELL` and `narration-<key>.mp3` to `AUDIO`; then
    `node tools/release.mjs` (version.json: running pages get the new card within a minute). `shared.js`: `FORMAT` only
@@ -2459,7 +2575,7 @@ one review round); building the tour with the strongest model throughout took ab
 The Files table in [README.md](README.md) and [docs/agents/layout.md](docs/agents/layout.md) (summed up under "Layout" in [AGENTS.md](AGENTS.md)) list everything. In short:
 
 - The shell: `index.html`, `shared.js` (shared rooms, the menu, the trackers), `sfx.js`, `occlusion.js`, `sw.js`.
-- `packages/`: one folder a story (v187: all sixteen), `packages/<key>/main.js` built from `packages/<key>/src/` (airports,
+- `packages/`: one folder a story (v187: all of them), `packages/<key>/main.js` built from `packages/<key>/src/` (airports,
   proteins and spatial hand-written), its narration in `audio/`; `packages/order.json` (by hand) their order.
 - `stories/`: the design room and the studio (built from `tools/design/`, `tools/studio/`) and `list.js` (by hand).
 - `tools/`: each built story's sources and build; `tools/studio/` (the studio, its test scenes), `tools/trackers/`
