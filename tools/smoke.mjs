@@ -73,8 +73,13 @@ let stepsRun = 0;
 const step = async (name, fn, always) => { if (ONLY && !always && !name.startsWith(ONLY)) return; stepsRun++; const n = errors.length; try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); if (errors.length > n && process.env.SMOKE_SHOW) console.log(errors.slice(n).map(e => '     ' + String(e).slice(0, 1500)).join('\n')); };
 const smokeStep = step;
 
+// (v219: what the start page asks for, from its first request: a story's file or a narration is a failure below)
+const startReqs = [];
+const onStartReq = r => startReqs.push(r.url());
+page.on('request', onStartReq);
 await page.goto(base + 'index.html');
 await page.waitForTimeout(4000);
+page.off('request', onStartReq);
 // the stories (HOST.list as the page has it: stories/list.js's STORY_LIST and the app's own story packages, those named in
 // packages/order.json, so a story added, removed or moved into a package needs no change here; v171, v185; the steps that
 // test one story by name are that story's own; a story's file is HOST.meta(k)'s: stories/<k>.js or packages/<k>/main.js),
@@ -86,6 +91,20 @@ if (STORY_KEYS.length < 2) { console.log('FAIL the page gives no list of stories
 const EXTRA = await page.evaluate(() => (self.STORY_EXTRA || []).map(s => s.key));
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
+});
+// v219 (the owner, 26 November 2026: "the start page should load nothing in the background, just have the cards there"):
+// no story started, built or fetched (no packages/<key>/main.js, no narration) until a card is picked; the loading line
+// gone, nothing to play; closing the Stories screen (Escape, a top-bar button) leaves it open over nothing
+await step('start page: the cards only, no story fetched or built', async () => {
+  const bad = startReqs.filter(u => /\/packages\/[^/]+\/main\.js|\.mp3(\?|$)/.test(u));
+  if (bad.length) errors.push('the start page fetched ' + bad.map(u => u.replace(base, '')).join(', '));
+  const st = await page.evaluate(() => ({ key: HOST.curKey, cur: !!HOST.cur, r: !!HOST.renderer, gone: document.getElementById('loading').classList.contains('gone'),
+    nostory: document.body.classList.contains('nostory'), mode: getComputedStyle(document.getElementById('btnMode')).display }));
+  if (st.key || st.cur || st.r) errors.push('a story or the renderer was made on the start page: ' + JSON.stringify(st));
+  if (!st.gone || !st.nostory || st.mode !== 'none') errors.push('the start page shows the loading line or a story\'s buttons: ' + JSON.stringify(st));
+  await page.keyboard.press('Escape');
+  await page.evaluate(() => HOST.closePicker());
+  if (!await page.evaluate(() => HOST.picking)) errors.push('the Stories screen closed with no story behind it');
 });
 // sound effects (phase 2): one explore action per story and the sound it asks for (code run inside the story, the name);
 // a built story with more than one scene and no entry here is checked with another scene opened (a whoosh), and every
@@ -17579,7 +17598,11 @@ if (['focus mode', 'phones', 'tablets', 'iPhone'].some(runs)) {
       const p = await ctx.newPage();
       watch(p);
       await p.goto(base + 'index.html' + hash);
-      await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.handheld && HOST.cur, null, { timeout: 60000 });
+      // (v219: the start page starts no story; these steps go into one behind the Stories screen, as the boot made until
+      // v218: the first story run there without closing it)
+      await p.waitForFunction(() => typeof HOST !== 'undefined' && HOST.handheld && (HOST.cur || (HOST.picking && HOST.list.length)), null, { timeout: 60000 });
+      await p.evaluate(async () => { if (!HOST.cur) { const m = HOST.list.find(s => !s.intro); await HOST.load(m.key); HOST.run(m); } });
+      await p.waitForFunction(() => HOST.cur, null, { timeout: 60000 });
       return { ctx, p };
     };
     const frames = p => p.evaluate(() => new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r))));
@@ -18019,7 +18042,8 @@ if (runs('developer mode')) {
   const open = async (hash, key) => {
     await dp.goto('about:blank');
     await dp.goto(base + 'index.html' + (hash || ''));
-    await dp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.dev && HOST.cur && HOST.curKey === (k || HOST.list[0].key) && HOST.cur.collab.scene(), key || '', { timeout: 60000 });
+    // (v219: the start page starts no story: there the Stories screen with the list read)
+    await dp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.dev && (k ? HOST.cur && HOST.curKey === k && HOST.cur.collab.scene() : HOST.picking && HOST.list.length > 0), key || '', { timeout: 60000 });
   };
   // the card as it shows: open, its title, date, the headings and items under each, the note
   const card = () => dp.evaluate(() => {
@@ -18052,7 +18076,7 @@ if (runs('developer mode')) {
     await dp.click('#devGot');
     const c2 = await card();
     if (c2.open || await ls('devSeen') !== file.version) errors.push('developer mode: Got it did not close the card and keep its version: ' + JSON.stringify([c2.open, await ls('devSeen')]));
-    await dp.reload(); await dp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.dev && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+    await dp.reload(); await dp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.dev && HOST.picking && HOST.list.length > 0, null, { timeout: 60000 });
     await dp.waitForTimeout(2500);
     if ((await card()).open) errors.push('developer mode: the card came again after Got it for the same version');
     // another release's file: shown again (no Untested heading when its list is empty)

@@ -14,7 +14,13 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 - `HOST.list` comes from `stories/list.js` and the app's own story packages, in `packages/order.json`'s order (v185,
   `docs/agents/packages.md`; since v187 every story is a package and `STORY_LIST` is empty, so the boot waits for the
   index: 1.5 s, 4 s when the address names a key, then up to 30 s more while there is no card at all, and with none the
-  studio (the first page in `STORY_EXTRA`; the design room until v217) opens behind the Stories screen; `index.html` loads `stories/list.js?v=<its fingerprint>`, stamped by
+  studio (the first page in `STORY_EXTRA`; the design room until v217) opens behind the Stories screen. Since v219 (the
+  owner, 26 November 2026: "the start page should load nothing in the background, just have the cards there") an address
+  with no story (no key, `#stories`, `#experiments`), no place kept (`HOST.live.restoring`), no room (`s`), no `t`,
+  `explore` or `arr` starts nothing: the Stories screen over the page's plain background, the loading line gone, no
+  renderer, no story file, narration or miniatures fetched until a card is picked; `body.nostory` hides Stories and
+  Explore now, and `HOST.closePicker` does nothing while no story has started (`HOST.curKey` empty). With `t`, `explore`
+  or `arr` the first story starts as before, and in a room the room decides as before (the first story behind); `index.html` loads `stories/list.js?v=<its fingerprint>`, stamped by
   `tools/release.mjs`, so a browser's held copy never gives a new page an old list; always the same array, changed in
   place when the list is read again; `HOST.listRev` counts the changes), so a
   story's code may keep it (`XR_STORIES`). No count of stories is shown anywhere since v188 (the owner, 23 November
@@ -127,7 +133,12 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   placement (`HOST.xrPose`).
 - The start screen (`#picker`) is the landing page. Entering VR/AR from it
   (`HOST.landingVR` / `HOST.picking`) shows the headset Stories screen
-  (`XR.stories`, built by `xrLandingSetup`). Entering VR/AR from inside a
+  (`XR.stories`, built by `xrLandingSetup`). With no story started (v219, the start page), the headset Stories screen
+  still needs a story's code, so `HOST.bare` shows Enter VR (and AR beside it, as a story does) and on the tap asks for
+  the session itself (`HOST.xr.request`, within the tap), makes the renderer with the stories' own settings, gives it the
+  session, shows the loading scene and starts the first story of the main set, which takes the session over (`xrAdopt`,
+  the controllers from `HOST.inputs`, kept from the session's `inputsourceschange` until a story starts) and opens on its
+  Stories screen; a session left before the story took it is cleared by the shell. Entering VR/AR from inside a
   story resumes that story. In a shared room a headset never shows the
   Stories screen (see "Shared rooms"), except at an All stories circle.
   - The headset Stories screen (the same lines in every story and the design room, on `XR.landGroup` in

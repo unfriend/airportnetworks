@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Network stories</title>
-<meta name="description" content="Network science in short interactive stories: the world's airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine from protein machines to the whole body, rare muscle diseases in a 71-layer network, the hidden mechanisms (endotypes) of one rare disease at the junction between nerve and muscle, the body's organs as a metabolic network seen by a PET scanner, how organs are built from small working units of tissue and how they change with age, how the ovary ages, seen in 255 tissue sections, how a gene network is shrunk to fit on a tiny quantum computer, how DNA changes letter by letter along a family tree, and how a quantum computer can model it, how the way cells sit in a slide of liver, read at every scale at once, tells cirrhosis from healthy tissue, how a wheat bred from a wild grass holds on to nitrogen and what the soil's microbes do meanwhile, how warnings, viruses and signals spread through a school of fish, the world's flights and a cell (in English and German), a flock of starlings flying all around you, and a gang of robot vacuums that follow you about your room. Works on phones, desktops and in VR and AR headsets.">
+<meta name="description" content="Network science in short narrated 3D stories you can then explore, on phones, desktops and VR or AR headsets.">
 <meta property="og:type" content="website">
 <meta property="og:title" content="Network stories">
-<meta property="og:description" content="Network science in short interactive stories: airports on a globe, proteins and disease in a cell, where proteins meet in a model human cell, a 3D tour of network medicine, rare muscle diseases in a 71-layer network, the endotypes of one rare disease, the body's organs as a network in a PET scan, the microanatomy of tissues and how it ages, how the ovary ages, a gene network on three qubits, DNA's changes as a quantum circuit, the shape of liver tissue at every scale, a wheat that holds on to nitrogen and the soil's microbes, how things spread from fish to flights to cells, a flock of starlings around you, and a gang of robot vacuums in your room. Works in VR and AR too.">
+<meta property="og:description" content="Network science in short narrated 3D stories you can then explore, on phones, desktops and VR or AR headsets.">
 <meta property="og:image" content="icons/icon-512.png">
 <meta name="twitter:card" content="summary">
 <link rel="manifest" href="manifest.webmanifest">
@@ -295,6 +295,8 @@ body.exploring #viewctl { display: flex; }
 
 #loading { position: fixed; inset: 0; display: grid; place-items: center; background: var(--scene); color: #c5d2e3; z-index: 10; font-size: 15px; transition: opacity 0.6s; }
 #loading.gone { opacity: 0; pointer-events: none; }
+/* v219: the start page with no story started: nothing to go back to, play or explore */
+body.nostory #btnOther, body.nostory #btnMode { display: none; }
 /* a story's load step by step (HOST.progress): a thin bar in the story's colour and the step under its loading line */
 #loading > div { display: grid; justify-items: center; gap: 12px; padding: 0 16px; text-align: center; }
 #ldBar { width: min(260px, 64vw); height: 3px; border-radius: 2px; background: rgba(197, 210, 227, 0.16); overflow: hidden; visibility: hidden; }
@@ -3552,7 +3554,12 @@ HOST.start = async function (key, keepHash, place) {
   if (meta.refused) { this.live.note(`The ${meta.title} story needs a newer version of the app.`); if (!this.cur && !this.session) this.openPicker(); return; }
   this.busy = true;
   this.loading.begin(meta);
-  try { await this.load(meta.key, this.live.stale(meta.key)); } catch (e) { this.loading.fail(e.message); this.busy = false; this.queued = ''; return; }
+  try { await this.load(meta.key, this.live.stale(meta.key)); } catch (e) {
+    this.loading.fail(e.message); this.busy = false; this.queued = '';
+    // (v219: from the start page there is no story behind the loading line: it says why for a while, then the cards again)
+    if (!this.curKey) setTimeout(() => { if (!this.curKey && !this.busy) document.getElementById('loading').classList.add('gone'); }, 4000);
+    return;
+  }
   if (typeof keepHash === 'string') this.hist.replace(keepHash);
   this.run(meta, keepHash, place);
   this.closePicker();
@@ -3719,6 +3726,7 @@ HOST.setUrl = function (stories, how) {
 HOST.chrome = function (stories) {
   // (no count of stories anywhere: "just say network stories, no number needed", the owner, 23 November 2026)
   const meta = this.meta(this.curKey), app = stories || !meta, exp = this.menu.at === 'experiments';
+  document.body.classList.toggle('nostory', !this.curKey);   // (v219: the start page, no story started: nothing to play or explore)
   document.title = app ? this.menu.title() : meta.page;
   document.querySelector('#top .brand').innerHTML = app ? `Networks<span>${exp ? 'experiments' : 'the stories'}</span>` : `${meta.brand}<span>${meta.sub}</span>`;
   document.getElementById('pickTitle').textContent = this.menu.title();
@@ -4423,7 +4431,7 @@ HOST.openPicker = function () {
 };
 HOST.closePicker = function () {
   const pk = document.getElementById('picker');
-  if (pk.hidden) return;
+  if (pk.hidden || !HOST.curKey) return;   // (v219: no story started yet, the start page: the cards stay, over nothing)
   pk.hidden = true; document.body.classList.remove('picking');
   HOST.soundCheck(false);
   HOST.setUrl(false, 'push');
@@ -5738,6 +5746,65 @@ HOST.arrange = (function () {
       editing: ED.on ? ED.name : '', dirty: edDirty(), note: S.note }),
   };
 })();
+// The start page runs no story (v219; the owner, 26 November 2026: "the start page should load nothing in the
+// background, just have the cards there"). A headset's Stories screen is a story's own code (XR.stories), so Enter VR or
+// AR with no story started asks for the session here, within the tap (a request needs it), gives it to the renderer made
+// with the stories' own settings (every story asks makeRenderer for the same), shows the loading scene, and starts the
+// first story, which takes the session over as after any change of story (xrAdopt, the controllers from HOST.inputs) and
+// opens on its Stories screen (HOST.landingVR). Once a story has started, its own buttons do it, and this stands aside
+HOST.bare = (function () {
+  const B = { busy: false };
+  const el = id => document.getElementById(id);
+  const first = () => { const f = HOST.list.find(s => !s.intro) || HOST.list[0]; return f ? f.key : ''; };
+  // the buttons, as a story shows them: VR where a headset can, AR only beside it (a phone's AR is its own card)
+  function offer() {
+    if (!navigator.xr || HOST.curKey) return;
+    navigator.xr.isSessionSupported('immersive-vr').then(vr => {
+      if (vr && !HOST.curKey) el('btnVR').hidden = false;
+      return navigator.xr.isSessionSupported('immersive-ar').then(ar => { if (ar && vr && !HOST.curKey) el('btnAR').hidden = false; });
+    }).catch(() => {});
+  }
+  function say(t) { const m = el('xrmsg'); m.textContent = t; m.style.display = 'block'; clearTimeout(B.t); B.t = setTimeout(() => { m.style.display = 'none'; }, 6000); }
+  async function enter(mode) {
+    if (HOST.curKey || HOST.busy || HOST.session || B.busy || !navigator.xr) return;
+    const key = first();
+    if (!key) return;
+    B.busy = true;
+    let s = null;
+    try {
+      const r = HOST.makeRenderer({ canvas: el('gl'), antialias: true, alpha: true, powerPreference: 'high-performance' });
+      s = await HOST.xr.request(mode);
+      HOST.mode = mode; HOST.landingVR = true;
+      HOST.session = s;
+      r.xr.setReferenceSpaceType('local');
+      await r.xr.setSession(s);
+      // (the controllers that come before the story listens: handed over as a story change hands them, HOST.inputs)
+      const take = () => { if (!HOST.curKey && HOST.session === s) HOST.inputs = Array.from(s.inputSources || []).slice(0, 2); };
+      const q = HOST.quiet; HOST.quiet = true;
+      try {
+        s.addEventListener('inputsourceschange', take);
+        // (left before the story took it over: nobody else ends it; a story that took it ends it itself, xrEnded)
+        s.addEventListener('end', () => { if (HOST.session === s) { HOST.session = null; HOST.mode = null; HOST.landingVR = false; HOST.inputs = []; } });
+      } finally { HOST.quiet = q; }
+      take();
+      r.setAnimationLoop(HOST.loading.start(true));
+    } catch (e) {
+      HOST.landingVR = false;
+      if (s && HOST.session === s) { HOST.session = null; HOST.mode = null; try { await s.end(); } catch (e2) { /* ended */ } }
+      say(`Could not start ${mode === 'immersive-ar' ? 'AR' : 'VR'}: ${e && e.message ? e.message : e}`);
+      B.busy = false;
+      return;
+    }
+    B.busy = false;
+    HOST.start(key);
+  }
+  const q = HOST.quiet; HOST.quiet = true;
+  try {
+    el('btnVR').addEventListener('click', () => enter('immersive-vr'));
+    el('btnAR').addEventListener('click', () => enter('immersive-ar'));
+  } finally { HOST.quiet = q; }
+  return { offer, enter, state: () => ({ busy: B.busy }) };
+})();
 (function boot() {
   const pk = document.getElementById('picker');
   HOST.cards();
@@ -5827,6 +5894,20 @@ HOST.arrange = (function () {
     const back = HOST.live.restoring();
     const keys = HOST.list.concat(self.STORY_EXTRA || [], HOST.packages.experiments(), HOST.packages.hidden()).map(s => s.key);   // (#studio opens the studio; #design, the design room parked since v217, is a key like any unknown one)
     const first = HOST.list.find(s => !s.intro) || HOST.list[0];   // (not an introduction: the tutorial is built only when asked for)
+    // (v219, the owner, 26 November 2026: "the start page should load nothing in the background, just have the cards
+    // there": with no story named, no place kept and no shared room, the Stories screen shows over the page's plain
+    // background and nothing is started, built or fetched until a card is picked; a deep link's #t= or &explore, or
+    // &arr=, still plays the first story, and in a room the room's station decides as before)
+    if (!back && !keys.some(k => hp.has(k)) && !['t', 'explore', 's', 'arr'].some(k => hp.has(k)) && (first || HOST.list.length)) {
+      HOST.arrange.boot(hp, '');
+      document.getElementById('loading').classList.add('gone');
+      if (hp.has('experiments')) HOST.menu.open('experiments');
+      HOST.openPicker();
+      HOST.bare.offer();
+      HOST.live.restored(null);
+      HOST.dev.boot();
+      return;
+    }
     const key = (back && back.key) || keys.find(k => hp.has(k)) || (first ? first.key : ((self.STORY_EXTRA || [])[0] || { key: 'studio' }).key);
     if (hp.has('panels')) HOST.panels.set(key, hp.get('panels'));   // (for the story the link opens)
     HOST.arrange.boot(hp, key);   // (#<key>&arr=<name>: the story plays that copy on the relay; &edit edits it)
