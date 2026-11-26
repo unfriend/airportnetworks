@@ -5126,7 +5126,7 @@
   // The limited menu (v214, a shared room's default, ML): one short page for visitors, no tabs, each row calling what the
   // full menu's (or the story panel's) matching row calls: Play or Pause and Start again (the story's play button and its
   // timeline's start, APP.togglePlay and APP.seek: the station's clock for everyone at the circle), Sound and the effects'
-  // volume (the Settings tab's), Subtitles (the room's, as there), the pass story's language (its own panel's buttons),
+  // volume (the Settings tab's), Subtitles (this headset's own, as there), the pass story's language (its own panel's buttons),
   // Leave the circle (Back to the lobby), Line up again (Re-align) and Close. What comes by itself still comes in its
   // place: a keypad, the room setup guide (its check and Calibrate), the relay's password and the once-per-room question
   const storyApp = () => {
@@ -12404,7 +12404,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     }
     const pk = showing(), pm = pk ? HOST.panels.get(pk) : '';
     add('panels', pm ? 'Panels: ' + PANELS_SAY[pm] : 'Panels', pm ? pm === 'shown' : null, pm ? () => HOST.panels.set(pk, HOST.panels.next(pk)) : null,
-      { wide: true, note: !pm ? 'No story on show' : C.code ? 'Panels for this circle; labels, cards, subtitles and sound effects for the room' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only' });
+      { wide: true, note: !pm ? 'No story on show' : C.code ? 'Panels for this circle; labels, cards and sound effects for the room; subtitles for this device' : 'Panels: for ' + ((meta(pk) || {}).title || 'this story') + ' only' });
     if (HOST.occlusion && HOST.occlusion.set) {
       const O = HOST.occlusion, om = O.own(), ov = O.over();
       add('occl', 'Real world hides: ' + O.say(om), om !== 'off', () => O.set(O.next(om)), { wide: true, note: ov ? 'This scene asks for its own: ' + O.say(ov) + '. Yours again in the next story.' : O.note ? O.note(om) : '' });
