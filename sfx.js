@@ -11,8 +11,8 @@
 //    first tap, nothing while the page or the headset is out of view, nothing while only the <audio> element engine
 //    runs (Web Audio out, or the element chosen in Sound check), and nothing while the sound is off (the bar's Sound
 //    button, or the headset panel's: it silences the narration, the effects and the background alike);
-//  - in a headset a sound can come from a place in the room (an HRTF panner; the listener follows your head every frame
-//    from shared.js's tick, HOST.sfx.listen); on a screen it is plain stereo;
+//  - in a headset a sound can come from a place in the room (an HRTF panner; the listener follows your head (kept each frame
+//    from shared.js's tick, HOST.sfx.listen; moved while such a sound plays); on a screen it is plain stereo;
 //  - it ducks under the narration (-9 dB, down in about 0.4 s, back in about 1.5 s) while HOST.audio.speaking();
 //  - at most 16 voices at once (the one quietest now makes room, the oldest of equals), and each sound a minimum gap;
 //    at most 4 continuous sounds besides (a fifth replaces the quietest when it is louder);
@@ -792,6 +792,7 @@
       while (S.voices.length >= MAX) cut(quietest(t), t);
       let sp = false;
       try { sp = !!(o.at && A.spatial()); } catch (e) { /* no headset */ }
+      if (sp) hear();   // (the listener where the head is now, before the voice is placed)
       const v = voice(S.G, name, t + LEAD + Math.max(0, +o.delay || 0), Object.assign({}, o, { spatial: sp, seed: hash(name) + (++S.n), defer: true }));
       S.voices.push(v); pump(c); S.played++; S.lastAt = t0; S.lastName = name; S.lastSpatial = v.spatial;
       return v;
@@ -818,6 +819,7 @@
           if (q.gn >= clamp(o.gain == null ? 1 : +o.gain || 0, 0, 2)) return null;
           droneOff(q, t, 0.3); S.dold.push(q); S.drones.delete(q.id);
         }
+        if (sp) hear();
         d = droneVoice(S.G, name, t + LEAD, Object.assign({}, o, { spatial: sp }), hash(id) + (++S.n));
         d.id = id; S.drones.set(id, d);
       }
@@ -881,15 +883,38 @@
         } else { L.setPosition(h.p[0], h.p[1], h.p[2]); L.setOrientation(h.f[0], h.f[1], h.f[2], h.u[0], h.u[1], h.u[2]); }
       } catch (e) { /* an old engine: the listener stays */ }
     }
-    // p: { x, y, z }, q: { x, y, z, w } (the head), or null (no headset: the listener goes back to the origin)
+    // p: { x, y, z }, q: { x, y, z, w } (the head), or null (no headset: the listener goes back to the origin). Called
+    // every headset frame (shared.js): the pose is only kept here, and the listener moved from it about 25 times a second
+    // while a spatial voice or drone of this file sounds, and as one starts (hear); the shell's sound zone, Talk and the
+    // studio's emitters set the same listener themselves while they play
+    const HP = { x: 0, y: 0, z: 0 }, HQ = { x: 0, y: 0, z: 0, w: 1 };
+    let hasHead = false, heardAt = 0;
     function listen(p, q) {
-      if (!p || !q) { if (S.head) { S.head = null; listener(); } return; }
+      if (!p || !q) { hasHead = false; if (S.head) { S.head = null; listener(); } return; }
+      HP.x = p.x; HP.y = p.y; HP.z = p.z; HQ.x = q.x; HQ.y = q.y; HQ.z = q.z; HQ.w = q.w; hasHead = true;
+      const tn = now();
+      if (tn - heardAt < 40 || !spatialLive()) return;
+      heardAt = tn; hear();
+    }
+    function spatialLive() {
+      const c = S.c;
+      if (!c) return false;
+      const t = c.currentTime;
+      for (const v of S.voices) if (v.spatial && v.end > t) return true;
+      for (const d of S.drones.values()) if (d.sp) return true;
+      for (const d of S.dold) if (d.sp) return true;
+      return false;
+    }
+    // the listener from the last head pose kept
+    function hear() {
+      if (!hasHead) return;
+      const p = HP, q = HQ;
       const rot = (vx, vy, vz) => {   // v rotated by q
         const ix = q.w * vx + q.y * vz - q.z * vy, iy = q.w * vy + q.z * vx - q.x * vz, iz = q.w * vz + q.x * vy - q.y * vx, iw = -q.x * vx - q.y * vy - q.z * vz;
         return [ix * q.w + iw * -q.x + iy * -q.z - iz * -q.y, iy * q.w + iw * -q.y + iz * -q.x - ix * -q.z, iz * q.w + iw * -q.z + ix * -q.y - iy * -q.x];
       };
       const f = rot(0, 0, -1), u = rot(0, 1, 0), h = S.head;
-      // (still: a move under 1 mm and 0.1 degrees leaves the listener alone; it is set about 90 times a second)
+      // (still: a move under 1 mm and 0.1 degrees leaves the listener alone; at most about 25 times a second)
       if (h && Math.abs(h.p[0] - p.x) + Math.abs(h.p[1] - p.y) + Math.abs(h.p[2] - p.z) < 0.001
         && h.f[0] * f[0] + h.f[1] * f[1] + h.f[2] * f[2] > 0.9999985 && h.u[0] * u[0] + h.u[1] * u[1] + h.u[2] * u[2] > 0.9999985) return;
       S.head = { p: [p.x, p.y, p.z], f, u };

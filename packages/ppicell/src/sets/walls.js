@@ -17,7 +17,7 @@ SETS.walls = function (K) {
     const m = K.rim(set, { color: c, a0: 0, a1: 0 }), M = new THREE.Matrix4();
     const geos = list.map(o => geo.clone().applyMatrix4(M.compose(new THREE.Vector3(...o.c), o.q || new THREE.Quaternion(), new THREE.Vector3(...(o.s || [1, 1, 1])))));
     const mesh = new THREE.Mesh(geos.length > 1 ? K.merge(geos) : geos[0], m);
-    mesh.renderOrder = 9; set.group.add(mesh);
+    mesh.renderOrder = 9; set.group.add(mesh); m.userData.mesh = mesh;
     return m;
   };
   const sph = new THREE.SphereGeometry(1, 48, 32);
@@ -38,7 +38,7 @@ SETS.walls = function (K) {
     CELL.golgi.r.forEach((r, k) => out.push(new THREE.SphereGeometry(r, 48, 8, 0, Math.PI * 2, 0, CELL.golgi.ang[k]).toNonIndexed().applyMatrix4(M.compose(new THREE.Vector3(...CELL.nuc.c), q, new THREE.Vector3(1, 1, 1)))));
     out.forEach(g => { if (g.attributes.uv) g.deleteAttribute('uv'); });
     const mesh = new THREE.Mesh(K.merge(out), K.rim(set, { color: col[3], a0: 0, a1: 0 }));
-    mesh.renderOrder = 9; set.group.add(mesh);
+    mesh.renderOrder = 9; set.group.add(mesh); mesh.material.userData.mesh = mesh;
     return mesh.material;
   })();
   const SP = [
@@ -167,6 +167,7 @@ SETS.walls = function (K) {
         const on = lit >= 6.5 ? 0.4 * (lit - 6.5) * 2 : Math.max(0, 1 - Math.abs(lit - (i + 1)));
         s.m.uniforms.uA0.value = s.fill * on;
         s.m.uniforms.uA1.value = 0.25 * on + (i < 5 ? 0.55 * w : 0);
+        s.m.userData.mesh.visible = s.m.uniforms.uA0.value > 0.001 || s.m.uniforms.uA1.value > 0.001;   // (a space at alpha 0 is not drawn: up to seven see-through layers of fill)
       });
       const pv = clamp(S.walls_parts, 0, 1);
       for (const g of parts) { g.visible = pv > 0.01; g.scale.setScalar(Math.max(0.01, pv) * (g === imp ? 2.4 : 1)); }   // (the import site drawn larger still: a mitochondrion is small)

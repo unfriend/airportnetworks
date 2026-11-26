@@ -424,6 +424,9 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
     lastNow = tn;
     const c = L && L.code ? L.code() : '';
     if (c !== code) { code = c; KILLS.clear(); RS.clear(); BOLTS.clear(); W = null; VW = null; LEAD = ''; }
+    // nothing flying here or from others, nothing asked for, nothing left to draw or send: the frame costs nothing (a
+    // launch asked for runs the whole frame, its poses read then; the clocks start afresh from the next busy frame)
+    if (!(S.on || S.want || RS.size || BOLTS.size || PART.n || OUT.length || PEND.size || GONE.size || W || VW || (G.made && !G.idleDone))) { lastT = 0; lastNow = 0; F.kind = inRoom() ? 'room' : 'own'; return; }   // (the frame kept: nothing was in the old one)
     sense(f, ref);
     const moved = frameStep(f, ref);
     gameHead();

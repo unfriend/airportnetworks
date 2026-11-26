@@ -471,7 +471,7 @@ void main() {
   let orgMesh = null;
   function buildOrgans() {
     if (orgMesh || !O3 || !O3.ready()) return;
-    const M = O3.merged(ORGN.map(i => O3.idOf(NAME[i]) || 'stomach')), g = new THREE.BufferGeometry();
+    const M = O3.merged(ORGN.map(i => O3.idOf(NAME[i]) || 'stomach'), { lite: true }), g = new THREE.BufferGeometry();   // (nodes of a network, small on screen: the lighter copies, as the atlas's)
     g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
     g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1));
     g.setIndex(new THREE.BufferAttribute(M.idx, 1));

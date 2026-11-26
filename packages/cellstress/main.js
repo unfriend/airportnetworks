@@ -268,7 +268,7 @@ const pkgUrl = file => (HOST.pkgUrl ? HOST.pkgUrl(KEY, file) : `packages/${KEY}/
 const pkgMeta = () => (HOST.packages && HOST.packages.get(KEY)) || (HOST.meta && HOST.meta(KEY)) || null;
 // ================================================================== SETS ==
 // Each set is one 3D scene of the story, centred on the origin. The story fades sets in and out and drives them
-// through their params (see SETS.x.params); the set contract is tools/lbi/SPEC.md, "What a set exports".
+// through their params (see SETS.x.params); the set contract is packages/lbi/src/SPEC.md, "What a set exports".
 const SETS = {};
 // The stress test's one set: the cell map story's model cell (stories/spatial.js: the same membrane, nucleus, ER, Golgi,
 // mitochondria, small organelles and cytoskeleton, drawn with the same shaders), filled with made-up proteins and a
@@ -2794,8 +2794,9 @@ function panelDepth(P, inScene) {
 // fade alone sends only the rows that moved (panelFade, panelSend)
 function panelTick(P, now, force) {
   if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
+  if (!force && now - P.t < 60) return;   // (the throttle before the signature: P.sig() builds a string each call)
   const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + P.hover + '|' + XR.fontOK, s = k < 0 ? base : base + sg.slice(k);
-  if (s === P.last || (!force && now - P.t < 60)) return;
+  if (s === P.last) return;
   if (P.cap && !P.nd && !force && XR.landN >= 2) return;
   P.t = now;
   const R = P.last && base === P.base && P.fb ? panelFade(P) : null;

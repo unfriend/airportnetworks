@@ -1,9 +1,8 @@
 //#use head
 // ================================================================== STORY ==
 // Narration timing: [time in the recording, original story cue]. The story's animation is stretched or squeezed between
-// these points so each cue lands on the matching sentence. Until the guide's voice is recorded (Kokoro's af_heart:
-// node tools/voice/narrate.mjs tutorial writes this table and NARRATION_ENDS from the recording it makes), the story is
-// paced by node tools/pace.mjs, which writes this table from the words on the panel.
+// these points so each cue lands on the matching sentence. Written with NARRATION_ENDS by node tools/voice/narrate.mjs
+// tutorial from the guide's synthetic voice it records (Kokoro's af_heart); run it again after the words change.
 const NARRATION_SYNC = [
   [0, 0],                                             // Hello
   [27.5, 25], [28.82, 26.2], [30.25, 26.4], [43.45, 38.4], [46.72, 41.2], [48.14, 42.2],  // Pointing
@@ -15,7 +14,6 @@ const NARRATION_SYNC = [
   [191.25, 166], [192.57, 167.2], [194.09, 167.4], [215.65, 187],  // Your turn
 ];
 // where each chapter's words end in the recording (seconds by chapter key): the slideshow lets the voice finish there
-// (none until the recording exists: narrate.mjs writes it)
 const NARRATION_ENDS = { hello: 26, point: 52.05, play: 76.75, explore: 109.95, menu: 139.3, recenter: 159.85, together: 190.25, end: 208.25 };
 //#use storyT narrT T_END
 // the chapters (story seconds), from the guide's script (sets/script.js), which keys its moves in them

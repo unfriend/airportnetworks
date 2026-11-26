@@ -16,10 +16,8 @@ const CH = [
 // each cue lands on its sentence. Without a recording (the default: captions only) the story keeps its own clock.
 // With one (audio/narration.mp3 in the package: e7_app.js, narrationFile) put the pairs here, and where each chapter's
 // words end in it as NARRATION_ENDS = { title: 19.5, ... } (the slideshow lets the voice finish there).
-// v205: the words changed (sides and complexes) and the recording is not made yet (the voice needs Kokoro: README.md),
-// so there is none (the v204 one is kept as src/narration-v204-old.mp3, not served) and these tables are laid out by
-// tools/voice/narrate.mjs --dry on estimated durations (16.2 characters a second, as the old recording read), so the
-// subtitles keep the voice's pace; node tools/voice/narrate.mjs ppicell writes both from the real recording.
+// v210: both written by node tools/voice/narrate.mjs ppicell from the synthetic recording it makes (the v204 one is kept
+// as src/narration-v204-old.mp3, not served); run it again after the words change.
 const NARRATION_SYNC = [
   [0, 0], [3.3, 3], [17.69, 10],                      // No place
   [72.69, 60], [82.59, 69], [98.22, 81], [112.52, 94], [120.76, 101],  // Crowds

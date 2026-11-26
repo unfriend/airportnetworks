@@ -13,9 +13,8 @@ const CH = [
   { key: 'end', name: 'A map', a: 485, b: 530 },
 ];
 // Narration timing: [time on the clock, story time] pairs; the story is stretched or squeezed between them so each cue
-// lands on its sentence. No recording yet (the voice is rendered at the end: tools/voice/narrate.mjs exposome writes
-// these and NARRATION_ENDS from it); until then this table is laid out as tools/pace.mjs does (the panel's words read
-// at 2.1 words a second, each stretch at least 1.1 times its story time), so the captions keep a reading pace.
+// lands on its sentence. Written with NARRATION_ENDS by node tools/voice/narrate.mjs exposome from the synthetic
+// recording it makes (packages/exposome/audio/narration.mp3); run it again after the words change.
 const NARRATION_SYNC = [
   [0, 0], [3.3, 3], [13.55, 12], [24.55, 22], [35.23, 31],  // Substances
   [56.13, 50], [57.78, 51.5], [69.54, 61], [78.34, 69], [86.27, 76], [97.37, 86], [122.67, 109],

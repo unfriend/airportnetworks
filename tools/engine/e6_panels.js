@@ -140,8 +140,9 @@ function panelDepth(P, inScene) {
 // fade alone sends only the rows that moved (panelFade, panelSend)
 function panelTick(P, now, force) {
   if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
+  if (!force && now - P.t < 60) return;   // (the throttle before the signature: P.sig() builds a string each call)
   const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + P.hover + '|' + XR.fontOK, s = k < 0 ? base : base + sg.slice(k);
-  if (s === P.last || (!force && now - P.t < 60)) return;
+  if (s === P.last) return;
   if (P.cap && !P.nd && !force && XR.landN >= 2) return;
   P.t = now;
   const R = P.last && base === P.base && P.fb ? panelFade(P) : null;

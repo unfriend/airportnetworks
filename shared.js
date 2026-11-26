@@ -149,6 +149,7 @@
   // the relay's password: whether one is wanted, and the one being tried (below, "the relay's password"; here, as the log
   // reads it)
   const AUTH = { at: '', base: '', state: '', tryT: '', tryAt: '', t401: 0 };
+  let KNOWN_T = null;   // (the passwords kept here, as secretless reads them: read once, forgotten as tokenKeep or another tab writes them)
   // ------------------------------------------------------------------ log --
   const LOG = window.__collabLog = [];
   LOG.n = 0;   // entries are numbered (the relay's copy goes on from the last one sent)
@@ -306,7 +307,7 @@
   // 'checking', 'limit' (too many wrong ones from this network), 'away' (the relay did not answer the check)
   const originOf = u => { try { return new URL(u).origin; } catch (e) { return ''; } };
   const tokens = () => { try { const o = JSON.parse(get('relayTokens') || '{}'); return o && typeof o === 'object' && !Array.isArray(o) ? o : {}; } catch (e) { return {}; } };
-  function tokenKeep(o, t) { const all = tokens(); if (t) all[o] = t; else delete all[o]; put('relayTokens', Object.keys(all).length ? JSON.stringify(all) : ''); }
+  function tokenKeep(o, t) { const all = tokens(); if (t) all[o] = t; else delete all[o]; put('relayTokens', Object.keys(all).length ? JSON.stringify(all) : ''); KNOWN_T = null; }
   // the password for a relay's address ('' none): the one being tried, else the one kept for its origin
   const tokenFor = base => { const o = originOf(base); if (!o) return ''; if (AUTH.tryT && AUTH.tryAt === o) return AUTH.tryT; const t = tokens()[o]; return typeof t === 'string' ? t : ''; };
   // the relay at base wants a password this device has not got (the dialog and the menu ask for it)
@@ -425,7 +426,9 @@
     away: 'The relay did not answer: try again in a moment.' }[AUTH.state] || '');
   // never a password in a log line (the passwords known here, ?token= and key= in a URL, a Bearer header)
   function secretless(data) {
-    const known = Object.values(tokens()).concat(AUTH.tryT).filter(t => typeof t === 'string' && t.length >= 3);
+    // (every log line passes here: the kept passwords parsed once, not at each line; the one being tried read live)
+    if (KNOWN_T === null) KNOWN_T = Object.values(tokens()).filter(t => typeof t === 'string' && t.length >= 3);
+    const known = typeof AUTH.tryT === 'string' && AUTH.tryT.length >= 3 ? KNOWN_T.concat(AUTH.tryT) : KNOWN_T;
     const one = v => {
       if (typeof v !== 'string') return v;
       v = v.replace(/([?&](?:token|key)=)[^&#\s"']*/gi, '$1***').replace(/(Bearer\s+)\S+/gi, '$1***');
@@ -442,6 +445,7 @@
     return out || data;
   }
 
+  window.addEventListener('storage', e => { if (!e.key || e.key === 'relayTokens') KNOWN_T = null; });   // (another tab kept or forgot one; a clear has no key)
   // the relay's address: http(s)://host[:port][/path]; typed as wss://..., https://... or host:port
   function norm(s) {
     s = String(s || '').trim();
@@ -879,6 +883,7 @@
   const rank = k => (ST_RE.test(k) ? 0 : /\.play$/.test(k) ? 1 : /\.x$/.test(k) ? 2 : /\.panel$/.test(k) ? 3 : 4);
   // the whole room, first on every socket (a reconnect refetches everything): the room's values win
   function welcome(m) {
+    iconIdleKick();
     if (C.via === 'relay' && C.wsTok) authSaw(C.relay, 200, C.wsTok);
     else if (C.via === 'peer' && C.peerTok) authSaw(peerBase(), 200, C.peerTok);
     C.status = 'open'; C.tries = 0; C.note = ''; C.welcomed = true; C.takeover = false; C.next = ''; C.spareN = 0; C.peerNew = false; C.lastRole = '';
@@ -990,6 +995,7 @@
   // a change of the room's keys (null: all of them), applied in order: stations, clock, explore state, panel, frame
   function roomChanged(keys, local, plain) {
     const all = !keys, has = re => all || keys.some(k => re.test(k));
+    iconIdleKick();   // (a station or the room's look changed: miniatures to build, perhaps)
     if (has(/^st\.[\w-]+$/)) stationsChanged();
     const L = sesSt();
     if (!local && L && C.ready && L.story === HOST.curKey) {
@@ -3493,10 +3499,11 @@
     // every change, for nobody to see: nothing meanwhile, once when the session ends)
     if (DLG.open && !HOST.session) { if (DLG.stale) { DLG.stale = false; renderDialog(); } drawMap(); guideList(); }
   }
-  // from a timer and from the page's frames: a page whose frames take long (software WebGL, a slow phone) can starve
-  // its timers for seconds while it draws, and a page following a station then fell behind its clock
-  setInterval(pump, 200);
-  (function frame() { pump(); requestAnimationFrame(frame); })();
+  // from a timer and, in a room, from the page's frames: a page whose frames take long (software WebGL, a slow phone) can
+  // starve its timers for seconds while it draws, and a page following a station then fell behind its clock. Out of a room
+  // the timer alone (v218: what pump does there, the attach check, live sound and Talk, the rooms nearby, keeps 200 ms)
+  function pumpFrame() { if (!C.code) { C.pumpRaf = 0; return; } pump(); C.pumpRaf = requestAnimationFrame(pumpFrame); }
+  setInterval(() => { pump(); if (C.code && !C.pumpRaf) C.pumpRaf = requestAnimationFrame(pumpFrame); }, 200);
 
   // ------------------------------------------------------------ the overlay --
   // One group hung in the story's scene (scene coordinates are the story's local reference space): the room
@@ -3928,20 +3935,23 @@
   // the miniatures of the room's stations built outside the frames (v137; the first 150 frames of a lobby had a worst script
   // frame of 9 ms, a miniature built each): on a timer, a slice of about 2 ms, as soon as the room is known, where a headset
   // will show them (a headset's browser, or a session); iconStep builds only the ones still missing, one a frame that was
-  // not late
+  // not late. The timer runs only while there is something to build (v218): started as the room's keys change, at the
+  // welcome and as a session starts, stopped out of a room, on a page with no session, or once every miniature is built
+  // (its timer on C, declared early: a room's keys may change before this line has run)
+  function iconIdleKick() { if (!C.iconT && C.code) C.iconT = setInterval(iconIdle, 40); }
   function iconIdle() {
-    if (!C.code || !(IS_HEADSET || HOST.session)) return;
+    if (!C.code || !(IS_HEADSET || HOST.session)) { clearInterval(C.iconT); C.iconT = 0; return; }
     peopleWarm();
-    if (!C.st.length) return;
     const t0 = performance.now();
+    let left = PPL.warmed !== HOST.renderer;   // (the people's shaders not linked yet: the overlay not in a scene)
     for (const s of C.st) {
       const key = lookKey(s), mk = iconOf(key);
-      if (!mk || !iconModel(mk) || ICON.defs.has(key + '|' + mk)) continue;
+      if (!mk || ICON.defs.has(key + '|' + mk)) continue;
+      if (!iconModel(mk) || performance.now() - t0 >= 2) { left = true; continue; }   // (its miniatures still loading, or the slice used)
       iconDef(key, false);
-      if (performance.now() - t0 >= 2) break;
     }
+    if (!left) { clearInterval(C.iconT); C.iconT = 0; }
   }
-  setInterval(iconIdle, 40);
   // the shell's shaders linked before anyone needs them (v137): the people's instanced meshes, their rays and signs and the
   // icons' glows are programs of their own, and the first person to come into a room made a headset link five at once (10 to
   // 100 ms each on a Quest). Once, as the room is known and the story's scene holds the overlay (compile takes every material
@@ -9654,11 +9664,14 @@
     if (SV.at && t - SV.at < gap) return;
     SV.at = t; SV.n++;
     // (the other rooms' places, and this room's other areas': v131)
-    const cand = PLC.list.filter(p => p.code && p !== R.saved && placeKept(p) && !(p.code === C.code && placeStale(p)));
+    // (in no room, only the places of rooms that could be joined: one left on purpose or gone is never looked for, v218)
+    const cand = PLC.list.filter(p => p.code && p !== R.saved && placeKept(p) && !(p.code === C.code && placeStale(p)) && (C.code || !placeBarred(p.code)));
     if (!cand.length) { placeDecide([], t); return; }
     const g = ++SV.gen;
     SV.busy = true;
-    log('places looked for', { n: cand.length, room: C.code, lined });
+    // (the log's two lines only when what they say changes: a survey runs every 10 s to 2 min)
+    const look = cand.length + '|' + C.code + '|' + lined;
+    if (SV.logLook !== look) { SV.logLook = look; log('places looked for', { n: cand.length, room: C.code, lined }); }
     const findIn = u => new Promise((res, rej) => {
       let done = false;
       const to = setTimeout(() => { done = true; rej(new Error('timed out')); }, SV.wait);
@@ -9704,9 +9717,12 @@
     }
     if (learnt) storePlaces();
     const found = items.filter(it => it.P).map(it => ({ code: it.p.code, pair: pairOf(it.p), p: it.p, d: Math.hypot(it.P[0] - HD.p.x, it.P[2] - HD.p.z) }));
-    log('places found', { found: found.map(o => [o.code + (o.pair ? '|' + o.pair : ''), r3(o.d)]), not: items.filter(it => !it.P).map(it => it.p.code + (pairOf(it.p) ? '|' + pairOf(it.p) : '')) });
+    const not = items.filter(it => !it.P).map(it => it.p.code + (pairOf(it.p) ? '|' + pairOf(it.p) : '')), seen = found.map(o => o.code + (o.pair ? '|' + o.pair : ''));
+    if (SV.logFound !== seen.join() + '/' + not.join()) { SV.logFound = seen.join() + '/' + not.join(); log('places found', { found: found.map(o => [o.code + (o.pair ? '|' + o.pair : ''), r3(o.d)]), not }); }
     placeDecide(found, t);
   }
+  // a room left on purpose here, or gone (its code another room's now): never joined by itself
+  function placeBarred(code) { const kr = localRooms().find(r => r.code === code); return !!(kr && (kr.left || kr.gone)) || (LOC.code === code && (LOC.left || LOC.gone)); }
   function placeDecide(found, t) {
     const own = ownState(t);
     // the room joined now's own place has not answered yet: decided once it has (the places looked for again then)
@@ -9744,7 +9760,7 @@
     else {
       // by itself only from no room, or from one joined by itself; never into a room left on purpose (or whose code is
       // another room's now), and never while the room joined now holds (SV, above)
-      const kr = localRooms().find(r => r.code === best.code), barred = !!(kr && (kr.left || kr.gone)) || (LOC.code === best.code && (LOC.left || LOC.gone));
+      const barred = placeBarred(best.code);
       const holds = !!(C.code && (own === 'lost' || (own === 'gone' && best.d > SV.sure) || (cur && (cur.d <= SV.near || best.d > cur.d - SV.margin)) ||
         (R.src === 'marks' && R.frame && !(cur && cur.d > SV.near))));
       if ((!C.code || byItself()) && !barred && !holds) { placeJoin(best.code, 'auto'); return; }
@@ -10030,6 +10046,10 @@
   }
   function update(f) {
     if (!R.session || !C.code || !f) return;
+    // (once a frame: tick and HOST.anchor.frame's place(f) both ask with the same frame; a real XRFrame is new each
+    // frame, a test's pretend one may be reused, so only a real one is remembered)
+    if (f === R.lastF) return;
+    if (typeof XRFrame === 'function' && f instanceof XRFrame) R.lastF = f;
     begin();
     const local = refSpace();
     if (!local) return;
@@ -10980,6 +11000,7 @@
     if (s === R.session) return;
     camSession(s);   // (camera mode: this session is the camera's when Start was pressed for it)
     R.session = s; R.begun = null; R.aligned = false; R.frame = null; R.src = ''; R.calib = null; checkReset(); AD.on = null; AD.want = null;
+    if (s) iconIdleKick();
     phSession(s);   // (a phone's AR: its menu button, or two taps on the screen)
     if (MG.src) menuPut();   // (a menu carried as the session ends: where it was let go is where it opens next time)
     menuShareEnd('session');   // (your menu shown to your circle: closed for them)

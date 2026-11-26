@@ -1,20 +1,23 @@
 {
-  "version": "networks-v217",
+  "version": "networks-v218",
   "date": "2026-11-26",
   "new": [
-    "The design room (the props table) is put away for now: no card, no menu button, no Add a station choice. Its sources are kept so it can come back.",
-    "The headset menu's Settings tab now has the Studio button alone where the two buttons stood.",
-    "An old room that still has a design room circle shows it as Not on this device; #design opens the Stories screen as any unknown address does.",
+    "Less work in the background: pages outside a shared room no longer run the room's frame loop, and focus mode runs its own only while it is on and a story shows.",
+    "In a headset with no spaceship flying, the spaceships cost nothing each frame; the sound effects move their listener only while a sound placed in the room plays.",
+    "A room's alignment is worked out once a frame, not twice; out of a room, the places of rooms you left on purpose are no longer looked for, so no Join offer comes for them.",
+    "Story panels in a headset check for changes a little less often per frame, and a few hidden see-through layers (Back into the cell's spaces, the qubits story's grid) are no longer drawn.",
+    "The microanatomy story's hierarchy draws its organs with the lighter models, as the atlas does.",
     "Still to try from v214 to v216: the limited menu and the staff unlock, Subtitles per headset, and the hands' turn."
   ],
   "test": [
-    "A room's Add a station list, on a page and in the headset menu: the stories, then the studio, All stories and Back to the lobby; no design room.",
-    "A room that had a design room circle: its card says Not on this device, nothing breaks, and Remove takes it away.",
-    "The headset menu's Settings tab: the Studio button and its note, outside a room and in one.",
+    "The spaceship: launch with the right stick's double click, fly, land, and launch again after a minute with nothing flying.",
+    "Focus mode on a phone: subtitles and chapter titles fade in and out, the Sound button and its icon follow the sound, More closes when the bar has room.",
+    "A shared room's alignment: walk into a circle, the room lines up and stays put.",
+    "Headset panels of any story still redraw at once on a press; Back into the cell's walls chapter; the qubits story's pairs chapter; the microanatomy hierarchy's organs.",
     "v214: the limited menu in a room and the 2-second hold on both sticks. v215: Subtitles in one headset's menu leaves the other as it was. v216: hands ahead and held up, in the mirror and in a room."
   ],
   "untested": [
-    "The Settings tab's new layout and an old room's design circle in a real headset.",
+    "Everything in a headset: the spaceship's launch, the room's alignment and places, the sound effects' direction, the panels' redraws.",
     "v214: the limited menu and the unlock in a headset. v215: Subtitles per headset and the room's default. v216: the hands' turn against a real controller.",
     "v213 and earlier as before: nothing since v200 has been in a headset; every synthetic voice is unheard."
   ]

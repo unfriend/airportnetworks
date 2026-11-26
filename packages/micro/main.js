@@ -5171,7 +5171,7 @@ void main() {
   let orgMesh = null;
   function buildOrgans() {
     if (orgMesh || !O3 || !O3.ready()) return;
-    const M = O3.merged(ORGN.map(i => O3.idOf(NAME[i]) || 'stomach')), g = new THREE.BufferGeometry();
+    const M = O3.merged(ORGN.map(i => O3.idOf(NAME[i]) || 'stomach'), { lite: true }), g = new THREE.BufferGeometry();   // (nodes of a network, small on screen: the lighter copies, as the atlas's)
     g.setAttribute('position', new THREE.BufferAttribute(M.pos, 3)); g.setAttribute('normal', new THREE.BufferAttribute(M.nrm, 3));
     g.setAttribute('aCol', new THREE.BufferAttribute(M.col, 3)); g.setAttribute('aSlot', new THREE.BufferAttribute(M.slot, 1));
     g.setIndex(new THREE.BufferAttribute(M.idx, 1));
@@ -8079,8 +8079,9 @@ function panelDepth(P, inScene) {
 // fade alone sends only the rows that moved (panelFade, panelSend)
 function panelTick(P, now, force) {
   if (!force && P.want === false && !((P === XR.main || P === XR.foot) && (!HOST.collab.mirroring || HOST.collab.mirroring()))) return;
+  if (!force && now - P.t < 60) return;   // (the throttle before the signature: P.sig() builds a string each call)
   const sg = P.sig(), k = sg.indexOf('\u0001'), base = (k < 0 ? sg : sg.slice(0, k)) + '|' + P.hover + '|' + XR.fontOK, s = k < 0 ? base : base + sg.slice(k);
-  if (s === P.last || (!force && now - P.t < 60)) return;
+  if (s === P.last) return;
   if (P.cap && !P.nd && !force && XR.landN >= 2) return;
   P.t = now;
   const R = P.last && base === P.base && P.fb ? panelFade(P) : null;

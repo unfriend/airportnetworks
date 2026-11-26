@@ -47,6 +47,7 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     set.mats.push(m);
     return m;
   };
+  let triP, triG;   // (the grid's points and its gene row: hidden while their alpha is nil, update)
   {
     const r = K.rng(5), ij = new Float32Array(NP * 2), sd = new Float32Array(NP);
     let o = 0;
@@ -60,7 +61,7 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     gg.setAttribute('aIJ', new THREE.BufferAttribute(gij, 2)); gg.setAttribute('aSeed', new THREE.BufferAttribute(new Float32Array(NMAX), 1));
     const pp = new THREE.Points(g, triMat(false)), gp = new THREE.Points(gg, triMat(true));
     pp.frustumCulled = gp.frustumCulled = false;
-    set.group.add(pp, gp);
+    set.group.add(pp, gp); triP = pp; triG = gp;
   }
   // a dark slate behind the grid, as the map has its ground: the dots glow by adding light, which a light wall seen in
   // passthrough swallows (it grows with the grid: uW is its width). It never writes depth (update keeps it so: QLOOK's
@@ -251,7 +252,7 @@ void main() { vec2 c = gl_PointCoord - 0.5; float d = length(c); if (d > 0.5) di
     const nn = 6 * Math.pow(NMAX / 6, grid);
     now.n = nn;
     triU.uN.value = nn; triU.uSp.value = spOf(nn);
-    triU.uGeneA.value = tri; triU.uPairA.value = tri * prog(grid, 0, 0.04);
+    triU.uGeneA.value = tri; triU.uPairA.value = tri * prog(grid, 0, 0.04); triP.visible = triG.visible = tri > 0.003;
     slateU.uW.value = (nn - 1) * spOf(nn) + 0.56; slateU.uSlateA.value = tri; slate.visible = tri > 0.003;
     const fold = smooth(clamp(S.pairs_fold, 0, 1)), valley = clamp(S.pairs_valley, 0, 1), hoodK = Math.round(clamp(S.pairs_code, 0, 8)) - 1;
     now.code = hoodK;

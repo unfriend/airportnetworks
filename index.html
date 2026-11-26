@@ -881,7 +881,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
 // one address for the same page: Quest Browser keeps a shared space per page address, so a headset that opened
 // .../index.html and one that opened .../ might not share one (the folder is served as index.html, also offline)
 if (/\/index\.html$/.test(location.pathname)) history.replaceState(history.state, '', location.pathname.replace(/index\.html$/, '') + location.search + location.hash);
-// The app shell. Each story lives in stories/<name>.js and is loaded when it is
+// The app shell. Each story is a package, packages/<key>/main.js (the studio stories/studio.js), loaded when it is
 // first picked. Stories share this page, its renderer and any running headset
 // session, so changing story never ends VR or AR.
 const HOST = {
@@ -891,7 +891,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 217, id: '73013186ce12f0ce', format: 'networks-61' },
+  shell: { n: 218, id: 'cd5c140e29a7120b', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -1438,6 +1438,7 @@ HOST.audio = (function () {
     b.setAttribute('aria-pressed', l === 'Sound on' ? 'true' : 'false');
     b.title = muted() ? 'Turn the sound on' : l === 'Sound on' ? 'Turn the sound off (narration and effects)' : 'Start the sound';
     if (HOST.soundCheckShown) HOST.soundCheckShown();
+    if (HOST.focus && HOST.focus.sound) HOST.focus.sound();   // (focus mode's Sound and a narrow bar's icon follow it)
   }
   // the Sound button: "Play sound" (or loading) only starts the engines, and so does the press
   // that just started them; "Sound on" turns the sound off, "Sound off" on again (saved: this device's choice).
@@ -3574,6 +3575,7 @@ HOST.run = function (meta, keepHash, place) {
   document.querySelectorAll('#picker .card').forEach(c => c.classList.toggle('here', c.dataset.story === meta.key));
   this.curKey = meta.key;
   this.chrome(this.picking);
+  if (this.focus && this.focus.check) this.focus.check();   // (a story to show: focus mode's frames, if it is on)
   this.built = place ? () => this.putPlace(place) : null;
   this.cur = this.factories[meta.key](this);
   this.busy = false;
@@ -3703,7 +3705,7 @@ HOST.menu = (function () {
   return api;
 })();
 // the address says where you are, so it can be shared: #stories on the Stories
-// screen (page or headset), #airports, #proteins or #spatial in a story; in a shared
+// screen (page or headset), #<key> in a story (#airports, #pet ...); in a shared
 // room #s=XYZ (the same on every headset there: Quest shared spaces are per page URL). It replaces the address, except
 // how = 'push' (the page's Stories screen closing onto a story: an entry of its own, so the back button comes back) and
 // 'back' (the Stories screen opened over such an entry: back to the one under it), HOST.hist
@@ -3858,7 +3860,7 @@ HOST.panels = (function () {
 // shell sends a resize event whenever it changes.
 HOST.focus = (function () {
   const KEY = 'pageFocus', el = id => document.getElementById(id), body = document.body;
-  const F = { on: false, text: false, drawer: false, val: null, mode: '', cur: null, ch: null, chK: '', pick: true, title: 0, ta: -1, snd: null, t: 0,
+  const F = { on: false, text: false, drawer: false, val: null, mode: '', cur: null, ch: null, chK: '', pick: true, title: 0, ta: -1, snd: null, t: 0, raf: 0,
     sub: { shown: '', id: '', a: 0, o: '' } };
   try { F.on = !/OculusBrowser|Quest|Pico|Wolvic/i.test(navigator.userAgent) && matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) <= 1100; } catch (e) { /* no media queries */ }
   try { const v = localStorage.getItem(KEY); if (v === 'on' || v === 'off') F.on = v === 'on'; } catch (e) { /* storage blocked */ }
@@ -3901,7 +3903,13 @@ HOST.focus = (function () {
       if (F.title) { F.title = 0; F.ta = 0; el('chtitle').style.opacity = '0'; }
     }
     if (v !== F.val) { const was = F.val; F.val = v; if (was !== null) window.dispatchEvent(new Event('resize')); }
+    loop();
   }
+  // the frames (the subtitles' and the chapter title's fades) only while focus mode is on and a story shows (v218: no
+  // frame loop on every page for ever); check() starts them, from the body's classes changing, the setters, a session
+  // starting or ending (HOST.session) and the top bar's fit (HOST.handheld)
+  const looping = () => F.on && !HOST.picking && !!HOST.curKey;
+  function loop() { if (!F.raf && looping()) { F.t = 0; F.raf = requestAnimationFrame(frame); } }
   function set(on) {
     F.on = !!on;
     try { localStorage.setItem(KEY, F.on ? 'on' : 'off'); } catch (e) { /* storage blocked */ }
@@ -3986,12 +3994,12 @@ HOST.focus = (function () {
     el('chtitle').textContent = s; F.title = performance.now();
   }
   function frame(now) {
-    requestAnimationFrame(frame);
+    F.raf = 0;
+    if (!looping()) { check(); return; }   // (stopped: check clears what showed)
+    F.raf = requestAnimationFrame(frame);
     const dt = F.t ? Math.min(0.1, Math.max(0, (now - F.t) / 1000)) : 0;
     F.t = now;
     check();
-    sound();
-    if (!F.on) return;
     const A = app(), picking = HOST.picking, story = !!A && A.mode === 'story' && built();
     const ch = story ? chapters() : null, i = ch ? chAt(ch, +A.t || 0) : -1, on = !!ch && value() && !document.hidden;
     if (ch) { const n = el('fcName'), name = String(ch[i].name || ''); if (n.textContent !== name) n.textContent = name; }
@@ -4048,10 +4056,11 @@ HOST.focus = (function () {
     check();
   }).observe(body, { attributes: true, attributeFilter: ['class'], attributeOldValue: true });
   check();
-  requestAnimationFrame(frame);
+  sound();
   const focus = () => value();
   return Object.assign(focus, {
     on: () => F.on, set, check, close, chapter,
+    sound,   // (the Sound button's label changed: HOST.audio's changed() calls it)
     text(open) { if (open !== undefined) text(open); return F.text; },
     drawer(open) { if (open !== undefined) drawer(open); return F.drawer; },
     // for tests: what shows now (the caption in the strip, the chapter's title while it shows)
@@ -4160,6 +4169,7 @@ HOST.handheld = (function () {
       for (const f of [() => el('btnVR').classList.add('ovf'), () => top.classList.add('tight'), () => top.classList.add('sndico'), () => el('btnShared').classList.add('ovf'), () => el('btnAR').classList.add('ovf')]) { f(); if (fits()) break; }
     }
     if (watch) watch.takeRecords();   // (its own changes)
+    if (HOST.focus && HOST.focus.check) HOST.focus.check();   // (More closed once the bar has room: focus mode's check, v218 no longer every frame)
   }
   // the bar's buttons shown, hidden or relabelled (the sound, Shared's room, the mode, the story's title), focus mode and
   // the Stories screen, the window's size and the font's arrival
@@ -5775,7 +5785,7 @@ HOST.arrange = (function () {
     // (what is new (HOST.dev), the card of HOST.handheld, More, and in focus mode the story's text or explore's drawer close first)
     if (!document.getElementById('shared').hidden) HOST.collab.dialog(false); else if (!HOST.dev.close() && !HOST.handheld.close() && !HOST.focus.close() && HOST.picking) HOST.closePicker();
   });
-  // which story to load first: #airports, #proteins or #spatial (old links to proteins.html and spatial.html forward here)
+  // which story to load first: #<key> (old links to proteins.html and spatial.html forward here)
   const hp = new URLSearchParams(location.hash.slice(1));
   HOST.setRepeat(hp.get('repeat') || HOST.repeat);
   if (hp.has('slides')) HOST.slides.setGlobal(hp.get('slides') !== 'off');

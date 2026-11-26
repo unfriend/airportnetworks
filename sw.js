@@ -1,12 +1,14 @@
-// Offline support: the app shell is cached on install, so the installed app
-// opens without a network connection. Bump VERSION when you change any file.
-const VERSION = 'networks-v217';
+// Offline support: the app shell is cached on install, so the installed app opens without a network connection; each
+// story package's files are cached as it is first opened (PKG). Bump VERSION when you change any shell file (a change
+// to one package's files alone needs none: its fingerprint in packages/index.json reaches the pages, v193).
+const VERSION = 'networks-v218';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
   './fonts/B612-Regular.woff2', './fonts/B612-Bold.woff2', './fonts/B612-Italic.woff2'];
 
-const AUDIO = [];
-// The narrations (about 60 MB together, and seldom changed) keep a cache of their own that outlives the releases. A
+const AUDIO = [];   // (empty since audio/ went at v190: every story's narration is its package's, cached in PKG)
+// Until v187 the narrations (about 60 MB together, and seldom changed) kept a cache of their own that outlives the
+// releases (NARR, kept for its pruning below and AUDIO's rules, both idle while AUDIO is empty). A
 // narration goes into it when a story first plays it (the fetch handler below), never all of them at once: ten
 // headsets fetching every story's narration at their first visit was 570 MB over one router, while people were already
 // in a room. A new worker asks the server only about those this device holds, each with its copy's ETag (or date), and
@@ -167,7 +169,7 @@ function fresh(net, key, cache) {
   const slow = new Promise(r => setTimeout(r, 4000)).then(cached).then(hit => hit || safe);
   return Promise.race([safe, slow]);
 }
-// The narrations' own cache (NARR) holds only those still in audio/ (AUDIO): since v187 each story's narration is its
+// The narrations' own cache (NARR) holds only those still in audio/ (AUDIO, empty since v190): since v187 each story's narration is its
 // package's (PKG), so a copy of an old address (audio/narration*.mp3, up to about 60 MB on a device that played them
 // before v187) is dropped at activate; a current one is never touched
 async function narrPrune() {
