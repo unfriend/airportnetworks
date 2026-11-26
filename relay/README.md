@@ -98,8 +98,11 @@ It prints `relay listening on http://<host>:<port>` when it starts and, when it 
 (`--host 0.0.0.0`), what to open: over HTTPS the `https://<address>:<port>/` for the headsets; over plain HTTP
 the address for desktops only and how to reach it from a headset (`--lan`, or `adb reverse` and
 `http://localhost:<port>/`), since a headset gets no VR or AR at an `http://` address. Then one line per event: a room created, a
-join, a hello, a room's stored writes once a tick (v219: `XYZ set #12 by k7f2: st.a1.play`, or `XYZ 7 sets #12..#18 by
-k7f2 q1w2: st.a1 st.a1.play`, deletions as `key=null`; presence passed by for a backed-up connection is counted), every refusal
+join, a hello, a room's stored writes in one line a second at most and always before the room's next other line (v220:
+`XYZ set #12 by k7f2: st.a1.play`, or `XYZ 7 sets #12..#18 by k7f2: st.a1 st.a1.play; q1w2: st.b2`, each key after the
+member who wrote it, deletions as `key=null`, at most 200 keys a line and the rest as `+n more`, never a value; presence
+passed by for a backed-up connection is counted: a connection counts as backed up by what waits to leave, not by the
+messages held a moment to leave together, so one large write holds back nobody's presence), every refusal
 with its reason, dropped ephemeral messages (counted), a leave, a timeout, an expired room; and for the introduction
 server an id joining, coming back, refused, leaving or timing out and an id that never came (ids only, `peer join
 <id>`; a slot of rooms on this network shows with `******` in place of its network's id). No line names a client's

@@ -369,7 +369,10 @@ const KEY = /^[\w-]+(?:\.[\w:-]+)*$/, ID = /^[\w-]{1,64}$/, CODE = /^[A-Z]{3}$/;
 const STATION = /^st\.([\w-]{1,32})(?:\.|$)/;           // st.<id> and its state keys st.<id>.*
 const DELETABLE = /^(st|pose)\./;                       // the only keys that may be written as null
 const KINDS = ['ar', 'vr', 'desktop', 'cam'];   // (cam: a phone in camera mode, v124: never a headset)
-const log = (...a) => { if (!OPT.quiet) console.log(new Date().toISOString(), ...a); };
+const say = (...a) => console.log(new Date().toISOString(), ...a);
+// (a room's pending set line, setsNote, goes out before any other line, so the log keeps the order things happened in)
+const SETS = { rooms: new Set(), t: 0, ms: 1000, max: 200 };
+const log = (...a) => { if (OPT.quiet) return; if (SETS.rooms.size) setsFlush(); say(...a); };
 process.stdout.on('error', () => {});   // a closed log must not stop the relay
 const str = (s, n) => (typeof s === 'string' ? s.trim().slice(0, n) : '');
 const EMPTY = Buffer.alloc(0);
@@ -379,17 +382,17 @@ const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const UTF8 = new TextDecoder('utf-8', { fatal: true });
 const okCode = c => (c >= 1000 && c <= 1003) || (c >= 1007 && c <= 1014) || (c >= 3000 && c <= 4999);
 // (the sockets holding a tick's messages, flushed together every CORK.ms: Ws.later)
-const CORKED = new Set(), CORK = { t: 0, ms: 20 };
+const CORKED = new Set(), CORK = { t: 0, ms: 20, max: 256 << 10 };
 function corkFlush() { CORK.t = 0; for (const w of [...CORKED]) w.flush(); }
 class Ws {
   constructor(socket) {
-    Object.assign(this, { socket, buf: EMPTY, parts: null, partLen: 0, closing: false, dead: false, last: Date.now(), pinged: Date.now() });
+    Object.assign(this, { socket, buf: EMPTY, parts: null, partLen: 0, closing: false, dead: false, last: Date.now(), pinged: Date.now(), cn: 0 });
     this.onmessage = () => {}; this.onclose = () => {};
     socket.setNoDelay(true);
     socket.on('data', d => this.data(d));
     socket.on('end', () => socket.end());
     socket.on('error', () => socket.destroy());
-    socket.on('close', () => { clearTimeout(this.kill); this.dead = true; CORKED.delete(this); this.corked = false; this.onclose(); });
+    socket.on('close', () => { clearTimeout(this.kill); this.dead = true; CORKED.delete(this); this.corked = false; this.cn = 0; this.onclose(); });
   }
   static frame(op, data) {   // server frames are never masked
     const n = data.length, head = Buffer.alloc(n < 126 ? 2 : n < 65536 ? 4 : 10);
@@ -399,9 +402,13 @@ class Ws {
     else { head[1] = 127; head.writeUInt32BE(Math.floor(n / 2 ** 32), 2); head.writeUInt32BE(n >>> 0, 6); }
     return Buffer.concat([head, data]);
   }
+  // what waits to reach the member: the socket's queue less the bytes held by the cork this tick (v220: they count in
+  // writableLength, so one large set made every member look backed up until the flush, and its presence, trackers, OSC,
+  // live sound and talk were passed by; corked bytes are not late, they leave within CORK.ms)
+  backlog() { return Math.max(0, this.socket.writableLength - this.cn); }
   write(buf) {
     if (this.socket.destroyed) return;
-    if (this.socket.writableLength > 16 * MAX_MSG) return this.socket.destroy();   // a reader that cannot keep up
+    if (this.backlog() > 16 * MAX_MSG) return this.socket.destroy();   // a reader that cannot keep up
     if (this.corked) this.flush();   // (what waits goes first, in order, and this at once: talk, live sound, replies)
     this.socket.write(buf);
   }
@@ -410,11 +417,13 @@ class Ws {
   // Nagle off); written in order with everything else, and flushed at once by any other write
   later(buf) {
     if (this.socket.destroyed) return;
-    if (this.socket.writableLength > 16 * MAX_MSG) return this.socket.destroy();
+    if (this.backlog() > 16 * MAX_MSG) return this.socket.destroy();
     if (!this.corked) { this.corked = true; this.socket.cork(); CORKED.add(this); if (!CORK.t) CORK.t = setTimeout(corkFlush, CORK.ms); }
     this.socket.write(buf);
+    this.cn += buf.length;
+    if (this.cn > CORK.max) this.flush();   // (big writes fill their packets anyway: never more than this held per socket)
   }
-  flush() { if (!this.corked) return; this.corked = false; CORKED.delete(this); if (!this.socket.destroyed) this.socket.uncork(); }
+  flush() { if (!this.corked) return; this.corked = false; this.cn = 0; CORKED.delete(this); if (!this.socket.destroyed) this.socket.uncork(); }
   send(op, data) { this.write(Ws.frame(op, data)); }
   text(s) { if (!this.closing) this.send(1, Buffer.from(s)); }
   close(code, reason = '') {
@@ -539,13 +548,15 @@ const stations = r => [...r.keys.keys()].filter(k => /^st\.[^.]+$/.test(k)).leng
 const idle = r => (r.members.size ? 0 : Math.round((Date.now() - r.empty) / 1000));
 const keysOut = r => Object.fromEntries([...r.keys].map(([k, e]) => [k, { v: e.v, seq: e.seq, by: e.by }]));
 // (a presence fx, p.<id>, is passed by for a member whose socket is backed up: a slow headset gets the next pose rather
-// than seconds of old ones, as trackersSend does; set and members messages never are)
+// than seconds of old ones, as trackersSend does; set and members messages never are. Safe to skip: every presence is
+// whole, never a change against the one before (shared.js presenceOut: station, head, hands, grips, ... and ts), so the
+// next one says all of it. The backlog leaves out this tick's corked bytes, Ws.backlog)
 const PRES_BACKLOG = 64 * 1024;
 function broadcast(room, msg, except) {
   const buf = Ws.frame(1, Buffer.from(JSON.stringify(msg))), pres = msg.t === 'fx' && typeof msg.k === 'string' && msg.k.startsWith('p.');
   for (const m of room.members.values()) {
     if (m === except || m.ws.closing) continue;   // nothing after a close frame
-    if (pres && m.ws.socket.writableLength > PRES_BACKLOG) { m.presSkipped = (m.presSkipped || 0) + 1; continue; }
+    if (pres && m.ws.backlog() > PRES_BACKLOG) { m.presSkipped = (m.presSkipped || 0) + 1; continue; }
     m.ws.later(buf);
   }
 }
@@ -753,20 +764,43 @@ function set(room, m, msg) {
     stored += room.size;
     keepTouch(); room.keepKeys = null;
     broadcast(room, { t: 'set', batch: out, seq, by: m.id, cid });
-    // (said once a tick for the room, v219: a station dragged writes many a second; setsSay)
-    const L = room.setLog || (room.setLog = { n: 0, from: seq, to: seq, by: new Set(), keys: new Set() });
-    L.n++; L.to = seq; L.by.add(m.id);
-    for (const [k, v] of out) if (L.keys.size < 200) L.keys.add(v === null ? k + '=null' : k);
+    setsNote(room, m, seq, out);
   }
   if (bad.length) refuse(room, m, cid, bad.map(b => b[0]), bad.map(([k, w]) => `${k}: ${w}`).join('; ').slice(0, 500));
 }
 
-// a room's writes since the last tick, in one line: how many, their numbers, by whom, the keys (=null: deleted)
+// a room's writes said in one line a second at most (v219: a station dragged writes many a second), and at once before
+// any other log line (v220: before, a set came up to 5 s late, after lines of what followed it): how many, their numbers,
+// and each member's keys after its id (=null: deleted). At most SETS.max keys a line; the rest counted as +n more
+function setsNote(room, m, seq, out) {
+  if (OPT.quiet) return;
+  const L = room.setLog || (room.setLog = { n: 0, from: seq, to: seq, keys: 0, by: new Map() });
+  L.n++; L.to = seq;
+  let b = L.by.get(m.id);
+  if (!b) L.by.set(m.id, b = { keys: new Set(), more: 0 });
+  for (const [k, v] of out) {
+    const s = v === null ? k + '=null' : k;
+    if (b.keys.has(s)) continue;
+    if (L.keys < SETS.max) { b.keys.add(s); L.keys++; } else b.more++;   // (more: writes of keys not kept, not distinct)
+  }
+  SETS.rooms.add(room);
+  if (!SETS.t) SETS.t = setTimeout(setsFlush, SETS.ms);
+}
+function setsFlush() {
+  clearTimeout(SETS.t); SETS.t = 0;
+  const all = [...SETS.rooms];
+  SETS.rooms.clear();
+  for (const room of all) setsSay(room);
+}
 function setsSay(room) {
   const L = room.setLog;
   if (!L) return;
   room.setLog = null;
-  log(`${room.code} ${L.n === 1 ? 'set' : L.n + ' sets'} #${L.from}${L.n === 1 ? '' : '..#' + L.to} by ${[...L.by].join(' ')}: ${cut([...L.keys], 40)}`);
+  const by = [...L.by].map(([id, b]) => {
+    const ks = [...b.keys], more = Math.max(0, ks.length - 40) + b.more;
+    return `${id}: ${[...ks.slice(0, 40), ...(more ? [`+${more} more`] : [])].join(' ')}`;
+  });
+  say(`${room.code} ${L.n === 1 ? 'set' : L.n + ' sets'} #${L.from}${L.n === 1 ? '' : '..#' + L.to} by ${by.join('; ')}`);
 }
 
 // ---- --keep <file>: the rooms kept across restarts (v136). Until then a restart (every deploy on Coolify) emptied every
@@ -946,7 +980,6 @@ setInterval(() => {
     if (p.dropped) { log(`peer dropped ${p.dropped} messages from ${pid(p.id)} (more than ${PEER_RATE} a second)`); p.dropped = 0; }
   }
   for (const room of rooms.values()) {
-    setsSay(room);
     for (const m of room.members.values()) {
       if (m.presSkipped) { log(`${room.code} passed by ${m.presSkipped} presence fx for ${m.id} (its connection backed up)`); m.presSkipped = 0; }
       if (now - m.ws.last > OPT.timeout * 1000) { kick(room, m, 'timeout', `silent for ${OPT.timeout} s`, 4009); continue; }
@@ -1177,7 +1210,7 @@ function trackersApi(req, res, url) {
 function trackersSend(room, msg) {
   const buf = Ws.frame(1, Buffer.from(JSON.stringify(msg)));
   for (const m of room.members.values()) {
-    if (m.ws.closing || m.ws.socket.destroyed || m.ws.socket.writableLength > TRK.BACKLOG) { TRK.count.skipped++; continue; }
+    if (m.ws.closing || m.ws.socket.destroyed || m.ws.backlog() > TRK.BACKLOG) { TRK.count.skipped++; continue; }
     m.ws.write(buf);
   }
 }
@@ -1249,7 +1282,7 @@ function oscIn(msgs, at) {
   for (const room of rooms.values()) {
     for (const m of room.members.values()) {
       if (!m.out) continue;
-      if (m.ws.closing || m.ws.socket.destroyed || m.ws.socket.writableLength > OSC_BACKLOG || over(m.oscIn, OSC_IN_RATE)) { oscCount(room).dropped++; continue; }
+      if (m.ws.closing || m.ws.socket.destroyed || m.ws.backlog() > OSC_BACKLOG || over(m.oscIn, OSC_IN_RATE)) { oscCount(room).dropped++; continue; }
       m.ws.write(buf);
     }
   }
@@ -1348,7 +1381,7 @@ function sndBin(room, m, buf) {
   const f = Ws.frame(2, buf);
   for (const x of room.members.values()) {
     if (x === m || !x.sndSub) continue;
-    if (x.ws.closing || x.ws.socket.destroyed || x.ws.socket.writableLength > SND_BACKLOG) { s.dropped++; continue; }   // audio never queues up
+    if (x.ws.closing || x.ws.socket.destroyed || x.ws.backlog() > SND_BACKLOG) { s.dropped++; continue; }   // audio never queues up
     x.ws.write(f);
   }
 }
@@ -1437,7 +1470,7 @@ function talkBin(room, m, buf) {
   const f = Ws.frame(2, buf);
   for (const x of room.members.values()) {
     if (!talkHears(m, x)) continue;
-    if (x.ws.socket.destroyed || x.ws.socket.writableLength > TALK_BACKLOG) { m.talkDropped++; continue; }   // audio never queues up
+    if (x.ws.socket.destroyed || x.ws.backlog() > TALK_BACKLOG) { m.talkDropped++; continue; }   // audio never queues up
     x.ws.write(f);
   }
 }
@@ -3368,7 +3401,7 @@ process.on('unhandledRejection', err => log('error', 'unhandled:', scrub(String(
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)
     keepWrite(true);   // (--keep: the rooms as they are now, each one's members counted as here until now)
-    for (const r of rooms.values()) setsSay(r);   // (the writes since the last tick, said before the end)
+    if (!OPT.quiet) setsFlush();   // (the writes not said yet, said before the end)
     for (const r of rooms.values()) for (const m of r.members.values()) m.ws.close(1001, 'relay stopping');
     for (const p of peers.values()) p.ws.close(1001, 'relay stopping');
     for (const res of [...W.clients, ...SW.clients]) res.end();

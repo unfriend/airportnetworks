@@ -4335,11 +4335,40 @@ if (me === 'hang') setInterval(() => {}, 1000);
   await logsSteps();
   await videoSteps();
 
+  await step('set lines: in order with the others, each key under its writer, +n more past the cap; a large set holds back no presence', async () => {
+    // (v220: a set line is said before any other line, at once; corked bytes are not counted as a member's backlog)
+    const code = await newRoom(), W1 = await joined(code, 'w1'), W2 = await joined(code, 'w2');
+    W1.send({ t: 'set', batch: [['st.q1', { story: 'airports' }]] });
+    ok(await W2.next(is('set', m => m.seq === 1)), 'w1 wrote');
+    W2.send({ t: 'set', batch: [['st.q2', { story: 'airports' }]] });
+    ok(await W1.next(is('set', m => m.seq === 2)), 'w2 wrote');
+    const W3 = await joined(code, 'w3');
+    await sleep(100);
+    const lines = relay.out.split('\n').filter(l => l.includes(` ${code} `)), at = re => lines.findIndex(l => re.test(l));
+    const s12 = at(new RegExp(`${code} 2 sets #1\\.\\.#2 by w1: st\\.q1; w2: st\\.q2$`)), j3 = at(new RegExp(`${code} join w3 `));
+    ok(s12 >= 0 && j3 > s12, 'the two writes said in one line, each key after its writer, before the join that followed them (not a tick later)');
+    W1.send({ t: 'set', batch: Array.from({ length: 250 }, (_, i) => ['st.q1.k' + i, i]) });
+    ok(await W2.next(is('set', m => m.seq === 3)), 'w1 wrote 250 keys');
+    W3.send({ t: 'hello', name: 'C', kind: 'desktop', version: 'v1' });
+    await sleep(150);
+    const L2 = relay.out.split('\n').filter(l => l.includes(` ${code} `)), s3 = L2.findIndex(l => new RegExp(`${code} set #3 by w1: st\\.q1\\.k0 st\\.q1\\.k1 .*st\\.q1\\.k39 \\+210 more$`).test(l));
+    ok(s3 >= 0 && L2.findIndex(l => l.includes(`${code} hello w3`)) > s3, '250 keys: 40 shown, the rest (200 kept, 50 past the cap) as +210 more, before the hello');
+    for (const c of [W1, W2, W3]) c.q.length = 0;
+    W1.send({ t: 'set', batch: [['st.q1.big', 'x'.repeat(200000)]] });   // (about 200 KB to every member, corked with the tick)
+    W1.send({ t: 'fx', k: 'p.w1', v: { st: 'q1', ts: 1 } });
+    const p2 = await W2.next(is('fx', m => m.k === 'p.w1')), p3 = await W3.next(is('fx', m => m.k === 'p.w1'));
+    ok(p2 && p3, 'a presence right after a large set reaches every member');
+    await sleep(500);
+    ok(!new RegExp(`${code} passed by \\d+ presence fx`).test(relay.out), 'and none passed by as backed up');
+    ok(!relay.out.includes('x'.repeat(100)), 'the set line names keys, never values');
+    for (const c of [W1, W2, W3]) c.ws.close();
+  });
+
   await step('the log has a line per tick of writes and per refusal', async () => {
-    // (v219: one line a tick for a room's writes: 'set #n by id: keys', or 'k sets #a..#b by ids: keys')
-    ok(new RegExp(`${R} (set|\\d+ sets) #1\\b[^\\n]* by [^:\\n]*\\ba1\\b[^:\\n]*: [^\\n]*\\bst\\.s1 [^\\n]*\\bst\\.s1\\.play\\b`).test(relay.out), 'a write');
+    // (v220: 'set #n by id: keys', or 'k sets #a..#b by id: keys; id: keys', said before any other line)
+    ok(new RegExp(`${R} (set|\\d+ sets) #1\\b[^\\n]* by (?:[^\\n]*; )?a1: [^;\\n]*\\bst\\.s1 [^;\\n]*\\bst\\.s1\\.play\\b`).test(relay.out), 'a write');
     ok(new RegExp(`${R} refused a1 \\(roomFrameShared: null outside the deletable families\\)`).test(relay.out), 'a refusal');
-    ok(/sets? #\d+[^\n]* by [^:\n]*\bb1\b[^:\n]*: [^\n]*st\.s1\.play=null[^\n]*st\.s1\.x=null/.test(relay.out), 'the epoch deletions');
+    ok(/sets? #\d+[^\n]* by (?:[^\n]*; )?b1: [^;\n]*st\.s1\.play=null[^;\n]*st\.s1\.x=null/.test(relay.out), 'the epoch deletions');
   });
   A.ws.close(); B.ws.close();
 } finally {
