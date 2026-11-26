@@ -106,6 +106,17 @@ const before = await page.evaluate(async () => {
   for (const k of await caches.keys()) for (const r of await (await caches.open(k)).keys()) { const m = /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(r.url); if (m) names.add(m[1]); }
   return [...names].sort();
 });
+// (the older page took every story's main.js and miniatures itself (v219 asked its worker 5 s after its first story):
+// dropped here, and this device's note of the index it last saw with them, so only the new worker's install can bring
+// them back and the check below measures that install, not the older page's take; the v220 review)
+const dropped = await page.evaluate(async () => {
+  const c = await caches.open('networks-packages');
+  let n = 0;
+  for (const r of await c.keys()) if (/\/packages\/[^/]+\/(main|minis)\.js$/.test(new URL(r.url).pathname) && await c.delete(r)) n++;
+  try { localStorage.removeItem('pkgMains'); } catch (e) { /* none */ }
+  return n;
+});
+console.log(`older version's stories dropped from the packages' cache: ${dropped} files`);
 await stop(srv);
 srv = await serve(newDir);
 for (const visit of ['first visit after the update', 'next visit']) {
@@ -168,7 +179,7 @@ for (let i = 0; i < 360 && !(await settled(NEWV)); i++) await wait(250);
   if (old.length) report('narrations: old copies at addresses that are no longer narrations are dropped at activate', !!kept && old.every(f => !kept.includes(f)), JSON.stringify({ held: kept, dropped: old }));
 }
 // (and waited for explicitly: every listed package's main.js and miniatures in the packages' cache, at the addresses the
-// page asks for; up to a minute more, so an older worker's slower take is not what is measured)
+// page asks for, up to a minute more; the older page's copies were dropped before the update, so this is the install's)
 {
   const mains = () => page.evaluate(async () => {
     const ix = await (await fetch('packages/index.json', { cache: 'no-store' })).json(), c = await caches.open('networks-packages'), miss = [];

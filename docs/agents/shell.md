@@ -143,7 +143,8 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   controllers (`getController`) before `setSession` (v220): three.js r128 maps a select or squeeze only to a controller
   it has when the session announces its sources, and Quest announces them long before the first story makes its own, so
   in v219 the trigger reached nothing (no menu presses, no calibration marks) until the next change of controllers. A
-  first story that fails to load ends that session (`HOST.bare.failed`: `HOST.session`, `mode`, `landingVR` and `inputs`
+  first story that fails to load, or is refused (it needs a newer app or shell: `meta.refused`, `HOST.live.allowed`; the
+  review of v220), ends that session (`HOST.bare.failed`: `HOST.session`, `mode`, `landingVR` and `inputs`
   cleared, the Stories screen again with a line saying why), and the top bar's click sets `HOST.landingVR` only when an
   enter went ahead. Entering VR/AR from inside a
   story resumes that story. In a shared room a headset never shows the

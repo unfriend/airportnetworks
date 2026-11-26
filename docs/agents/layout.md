@@ -61,8 +61,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   the answer when the network takes more than 4 s). A story package's file at an address with its version (`?v=<fp>`)
   comes from the packages' cache at once when it is there, with no trip to the network (v219), narrations included (a
   package's own); only a miss goes to the network. Its install takes every listed story's `main.js` and miniatures,
-  only those missing or changed (`takeMains`, v220), and a `main.js` whose text is not the one the index names is never
-  kept (a deploy half done: `pkgKeep`, v220). The old
+  only those missing or changed (`takeMains`, v220; 30 s a file, 90 s in all; older versions kept until activate,
+  `pkgPrune`), and a text file whose text is not the one its address names is never kept (a deploy half done:
+  `pkgKeep`, v220). The old
   narrations' cache (`networks-narration`) is only emptied at activate since v219. Installing asks each shell file with
   the ETag of an older release's copy and keeps that copy on a 304 (v219; until then `cache: 'reload'`, all of it; a copy
   with only a date is fetched whole since v220). The studio's scenes (any same-origin path with `/scenes/`: the relay's

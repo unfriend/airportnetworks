@@ -893,7 +893,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 219, id: '7c05e5b3ba79e612', format: 'networks-61' },
+  shell: { n: 220, id: '9c0bb650abffb880', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3030,8 +3030,15 @@ HOST.packages = (function () {
       const changed = merge() || JSON.stringify(was) !== JSON.stringify(all);
       if (changed && HOST.cards) { HOST.cards(); HOST.chrome(HOST.picking); }
       // (a package changed since this page read the index: all stories taken here, its new files too, else its new main.js;
-      // never at the first read, which the start page makes: it asks for nothing)
+      // at the first read only when a story's main.js or miniatures changed since this device last read the index (a
+      // package published with no new release, which no worker install takes, v220 review): only what changed is fetched)
       if (changed && reread && HOST.offline) HOST.offline.again();
+      if (!reread && j && HOST.offline) {
+        const sig = all.filter(m => m.list !== 'hidden').map(m => m.key + ' ' + m.fp + ' ' + (m.minis ? m.files[m.minis] : '')).join('\n');
+        let had = null;
+        try { had = localStorage.getItem('pkgMains'); localStorage.setItem('pkgMains', sig); } catch (e) { /* storage blocked: nothing asked */ }
+        if (had && had !== sig) HOST.offline.again();
+      }
       return changed;
     })());
   }
@@ -3585,9 +3592,11 @@ HOST.start = async function (key, keepHash, place) {
   if (!meta) { if (key) this.live.missing(key); return; }
   this.menu.follow(meta.key);   // (the Stories screen opens on this story's set of cards next time: HOST.menu)
   if (this.curKey === meta.key && this.cur) { this.closePicker(); return; }
-  if (!this.live.allowed(meta.key)) return;   // it needs a newer shell: asked first (HOST.live)
+  // (v220 review: the first story asked for by Enter VR or AR on the start page, refused here, ends that session too)
+  const newer = () => { if (!this.cur && this.session) this.bare.failed(meta, `The ${meta.title} story needs a newer version of the app`); };
+  if (!this.live.allowed(meta.key)) { newer(); return; }   // it needs a newer shell: asked first (HOST.live)
   // a story package written for a newer app (its Story API or the shell it needs): never loaded, said on the bar
-  if (meta.refused) { this.live.note(`The ${meta.title} story needs a newer version of the app.`); if (!this.cur && !this.session) this.openPicker(); return; }
+  if (meta.refused) { this.live.note(`The ${meta.title} story needs a newer version of the app.`); if (!this.cur && !this.session) this.openPicker(); newer(); return; }
   this.busy = true;
   this.loading.begin(meta);
   try { await this.load(meta.key, this.live.stale(meta.key)); } catch (e) {

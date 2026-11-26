@@ -1441,7 +1441,8 @@ on the first visit after the update, on the next visit and offline. It finds the
 `tools/stories.mjs` (`stories/airports.js` in an older tree, `packages/airports/main.js` since v187), asks the browser for
 the new worker and waits until it is installed before going offline (its install takes every listed package's `main.js`
 and miniatures, about 17 MB: `takeMains`, at install again since v220), then waits explicitly, up to a minute, until the
-packages' cache holds every one of them at the address the page asks for and says so (a check of its own),
+packages' cache holds every one of them at the address the page asks for and says so (a check of its own; the older
+page's own copies of them, and `pkgMains`, are dropped before the update, so the check measures the new install),
 checks byte ranges of a package narration from the packages' cache offline (asked with `no-store`: the browser's own
 cache answers a range it cannot satisfy with the whole file), and says what the page shows when no story runs. The
 narrations' cache (v190): copies at old addresses (`audio/narration-proteins.mp3`, `audio/narration-lbi.mp3`, put there
