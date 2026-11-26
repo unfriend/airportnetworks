@@ -1,22 +1,23 @@
 {
-  "version": "networks-v219",
+  "version": "networks-v220",
   "date": "2026-11-26",
   "new": [
-    "The start page shows only the cards: no story is started, built or fetched behind them until you pick one.",
-    "Enter VR or AR from the start page opens the headset's Stories screen, with the first story loading behind it.",
-    "Stories start faster on a second visit: a story's file is taken from this device and compiled once, with no trip to the network.",
-    "A release no longer downloads the whole app again: unchanged files are kept; every story's file is fetched two at a time, after the first story.",
-    "Still to try from v214 to v216: the limited menu and the staff unlock, Subtitles per headset, and the hands' turn."
+    "This release repairs v219, which went out before its review: the start page fetched every story after 30 seconds, and a first story that failed to load left a headset on the loading card.",
+    "Every story is fetched again when the app installs or updates; only the files that changed are downloaded, and a slow network no longer holds the update back.",
+    "A story file caught half way through a deploy is no longer kept on the device.",
+    "In a shared room the limited headset menu has Calibrate (Stop calibrating while it runs) and Room setup.",
+    "A room you left on purpose is offered again when you stand in its place."
   ],
   "test": [
-    "The start page on a phone and in a headset: the cards over a plain background, then picking a card starts that story.",
-    "Back to the story from the Stories screen, and Enter VR and Enter AR from the start page (the cards in the headset, Back to the story absent).",
-    "An installed copy taking this update and the next one; a story opened offline after Take all stories.",
-    "v214: the limited menu in a room and the 2-second hold on both sticks. v215: Subtitles in one headset's menu leaves the other as it was. v216: hands ahead and held up, in the mirror and in a room."
+    "Enter VR or AR from the start page: the trigger works at once, in the menu and when calibrating.",
+    "The limited menu in a room: Calibrate, Stop calibrating and Room setup; Room setup offers no Fresh shared space and no new area.",
+    "An installed copy taking this update, then a story opened offline that was never opened before.",
+    "Leave a room on purpose, then stand in its place again: it is offered, not joined by itself."
   ],
   "untested": [
-    "All of it on a headset and on an installed phone copy: the start page's Enter VR and AR, a story's start from the device's copy, a release's update.",
-    "v214: the limited menu and the unlock in a headset. v215: Subtitles per headset and the room's default. v216: the hands' turn against a real controller.",
-    "v213 and earlier as before: nothing since v200 has been in a headset; every synthetic voice is unheard."
+    "Everything in a headset: nothing since v200 has been tried in one.",
+    "The calibration fault you saw (after the second cross both crosses were gone and the room was not lined up) could not be reproduced without a headset. One cause was found and fixed: from the start page the trigger reached nothing. Whether that was your fault is not known: it may not be fixed.",
+    "The install's download of every story on a Quest's storage and wifi, and a real host's deploy.",
+    "Every synthetic voice is unheard."
   ]
 }
