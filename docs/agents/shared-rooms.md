@@ -1237,13 +1237,17 @@ The plan is `docs/shared-space-plan.md`.
   - The copy of a relay's room kept on the device (`mirror`, `locSave`, `locFlush`): a batch of moves still held (every
     pair `h: 1`, `heldOnly`) only marks the copy out of date (`LOC.mirror`); any other change writes it 2 s later
     (`locSave(2000)`; a room on this device or a peer-to-peer host's hub: 0.4 s as before, and its held moves likewise wait
-    for their release), and leaving the page (`pagehide`) writes it at once. The kept rooms are read and parsed to push the
+    for their release, marked `LOC.held`, so another tab's copy does not take this one's place mid-carry), and leaving
+    the page (`pagehide`) or hiding it (`visibilitychange`, a headset taken off) writes a copy out of date at once. The
+    kept rooms are read and parsed to push the
     oldest out (`localRooms().slice(LR_MAX)`) only when a room new on this device is first written (`LOC.kept`), not at
-    every write. Measured with a page in a room while someone carries a circle: see `docs/history.md`, v222.
+    every write (a tab with an old list can leave more than 8 for a while: the next new room prunes them). Measured with a page in a room while someone carries a circle: see `docs/history.md`, v222.
   - Carrying a circle (`stationsMoved`, called by `roomChanged` before `stationsChanged`): when every changed `st.<id>`
     record differs from its entry in `C.st` only in `x`, `z` and `yaw` (the entry made by `stEntry`, as the full build
     makes it), that entry is swapped for the new one in place in `C.st` and `C.stById`; anything else (a new, gone or
-    re-storied station, a kind, sync, arc, sc or ask change, `roomChanged(null)`) builds the list again as before.
+    re-storied station, a kind, sync, arc, sc or ask change, `roomChanged(null)`) builds the list again as before. The
+    list's order depends only on the story list (`HOST.stories()`), kinds and ids, so the pump builds it again too when
+    `HOST.listRev` changes.
   - `publish`: a pending write keeps its text (`C.pending` entries `{ cid, v, s }`), so the poll's check against it and
     the acknowledgement's compare (`onSet`, keys that are not moves) do not turn the value into text again: the studio's
     whole scene record was turned into text up to three times a poll (5 a second). The studio's own `state()` still builds
@@ -1273,8 +1277,10 @@ The plan is `docs/shared-space-plan.md`.
     1.6 m round a point 0.7 m under their head. A body in no eye's cone is neither solved nor drawn: `addTo` only samples
     its standing height (`eyeStep`, so its size comes out as if drawn) and marks it `away`; the frame it is seen again is a
     jump (feet planted under it, hands where they are). Never culled: a camera (camera mode), a spaceship flying, the
-    goggles on, an unusual projection (not a plain perspective, or a view over about 160 degrees), your own body, a
-    story's figures. Untested on a headset: whether a body ever pops in at the edge of the view on a real Quest.
+    goggles on, an unusual projection (not a plain perspective, or a cone whose half-angle with the margin reaches 162
+    degrees, `0.9 * PI`), more than four views, your own body, a story's figures. The Statistics panel's triangles and
+    draw calls and the debug hook's `HOST.bodies.stats()` count only the bodies drawn, so they fall while people are out
+    of view. Untested on a headset: whether a body ever pops in at the edge of the view on a real Quest.
 - The menu's hover (v145): the light of what is pointed at is not in `panelSig`; `panelHover` redraws the old and new button
   rectangles (each region keeps a paint closure; 3 px pad) and sends them as `sheetPatch` patches with one mipmap pass, and a
   full redraw sends only rows 0 to H (`panelSend`) once the texture is on the GPU, so `tex.version` no longer moves on a redraw:

@@ -418,8 +418,9 @@ mix (`personMixer`) gives the same numbers as `MIX.person` (20,000 random cases)
 and with about 50 times fewer garbage collections. Only reasoned, not measured (they need a headset session): the menu's
 signature built at most 10 times a second instead of every frame, the subtitles' walk only when a cue's text changed,
 the trackers' key read once per value, a pending write's text kept (the studio's whole scene record turned into text
-once a poll instead of up to three times), and bodies out of view not solved or drawn (each a full IK solve and about 3,300
-triangles per eye per person). Sending a presence's fixed fields only on change was not done: the relay skips presence
+once a poll instead of up to three times). Measured headless: bodies out of view not solved or
+drawn (each a full IK solve and about 3,300 triangles per eye per person), 8.1 to 4.1 bodies a frame and 0.32 to 0.17 ms.
+Sending a presence's fixed fields only on change was not done: the relay skips presence
 when a socket is backed up (v220), so a change could be lost.
 
 ### Getting around (v124)

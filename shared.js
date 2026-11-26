@@ -1038,7 +1038,7 @@
   // whether it was left on purpose: what rejoin needs (a room used within a week on this network is joined again by itself).
   const LR = 'collabRoom.', LR_MAX = 8;   // the last few rooms are kept
   const LKEY = /^[\w-]+(?:\.[\w:-]+)*$/, LST = /^st\.([\w-]{1,32})(?:\.|$)/;   // as the relay's KEY and STATION
-  const LOC = { code: '', seq: 0, keys: new Map(), timer: 0, mirror: false, list: null, net: '', relay: '', left: false, gone: false };
+  const LOC = { code: '', seq: 0, keys: new Map(), timer: 0, mirror: false, held: false, list: null, net: '', relay: '', left: false, gone: false };
   function locLoad(code) {
     if (LOC.code === code) return LOC;
     locFlush();
@@ -1050,7 +1050,7 @@
     }
     // (v136: a copy says the format it was written in, f; one an older app wrote is brought to this one: MIGRATE)
     if (o && typeof o.f === 'string' && o.f !== FORMAT) keys = migrate(keys, o.f);
-    Object.assign(LOC, { code, seq: (o && +o.seq) || 0, keys, mirror: false, kept: !!o, net: o && typeof o.net === 'string' ? o.net : '',
+    Object.assign(LOC, { code, seq: (o && +o.seq) || 0, keys, mirror: false, held: false, kept: !!o, net: o && typeof o.net === 'string' ? o.net : '',
       relay: o && typeof o.relay === 'string' ? o.relay : '', left: !!(o && o.left), gone: !!(o && o.gone) });
     return LOC;
   }
@@ -1064,7 +1064,7 @@
       LOC.keys = new Map([...C.keys].map(([k, e]) => [k, { v: e.v, seq: +e.seq || 0, by: e.by || '' }]));
       for (const e of LOC.keys.values()) if (e.seq > LOC.seq) LOC.seq = e.seq;
     }
-    LOC.mirror = false;
+    LOC.mirror = LOC.held = false;
     // in the room now: used now, on this network, through this relay, and no longer left (joined again by hand)
     if (C.code === LOC.code && C.want && C.welcomed && C.stranger !== C.code) { LOC.left = LOC.gone = false; LOC.relay = C.relay; if (C.net) LOC.net = C.net; }
     put(LR + LOC.code, J({ f: FORMAT, seq: LOC.seq, at: Date.now(), keys: Object.fromEntries(LOC.keys), net: LOC.net || undefined, relay: LOC.relay || undefined, left: LOC.left || undefined, gone: LOC.gone || undefined }));
@@ -1105,7 +1105,7 @@
     do { code = ''; for (const b of crypto.getRandomValues(new Uint8Array(3))) code += String.fromCharCode(65 + b % 26); } while (kept.has(code));
     return code;
   }
-  // a relay's room (or a peer-to-peer guest's) is kept here as it changes (written at most every 0.4 s); a host's hub
+  // a relay's room (or a peer-to-peer guest's) is kept here as it changes (written 2 s after a change); a host's hub
   // keeps its own
   // (held: a move still held only marks the copy out of date; its release, or leaving the page, writes it)
   function mirror(held) {
@@ -1117,12 +1117,14 @@
   // the page goes: its copy is written, and a peer-to-peer host lets go of the room's id at once (the others take over)
   window.addEventListener('pagehide', () => { locFlush(); slotDrop(); for (const s of [C.ws, C.spare]) if (s && s.bye) s.bye(); });
   window.addEventListener('pageshow', e => { if (e.persisted) wake('page'); });
+  // (hidden: a headset taken off, a tab left; pagehide may never come: a copy out of date is written now)
+  document.addEventListener('visibilitychange', () => { if (document.hidden && (LOC.timer || LOC.mirror || LOC.held)) locFlush(); });
   // another tab wrote a room kept here: the list is read again, and a room on this device open here takes its copy
   // (its own writes still on their way win)
   window.addEventListener('storage', e => {
     if (!e.key || !e.key.startsWith(LR)) return;
     LOC.list = null;
-    if (C.local && C.code && e.key === LR + C.code && LOC.code === C.code && !LOC.timer) {
+    if (C.local && C.code && e.key === LR + C.code && LOC.code === C.code && !LOC.timer && !LOC.held) {
       LOC.code = '';
       const ws = C.ws;
       C.ws = null;
@@ -1237,7 +1239,7 @@
         for (const k of gone) { L.keys.delete(k); out.push([k, null]); }
         for (const [k, v] of ok) { if (v === null) L.keys.delete(k); else L.keys.set(k, { v, seq, by: m.id }); out.push([k, v]); }
         this.cast({ t: 'set', batch: out, seq, by: m.id, cid });
-        if (!heldOnly(ok)) locSave();   // (a move still held: kept when it is let go, or the page goes)
+        if (!heldOnly(ok)) locSave(); else LOC.held = true;   // (a move still held: kept when it is let go, or the page goes or hides)
       }
       if (bad.length) this.refuse(m, cid, bad, 'not stored');
     }
@@ -3546,7 +3548,7 @@
     if (HOST.collab) { liveStep(); talkStep(); }   // (the room's live sound and Talk: subscribed or not, v162, v178; not while this file is still being read)
     // (in no room, with the dialog or the menu open: the rooms on this network looked for again now and then)
     if (!C.code) { if ((C.listing.dialog || (C.listing.menu && HOST.session)) && C.nearAt && t - C.nearAt > 15000 && !C.nearBusy) nearFind('again'); return; }
-    if (HOST.listRev !== C.iconRev) { C.iconRev = HOST.listRev; iconIdleKick(); }   // (the packages' index came, or changed: a station's icon may be known now, v222)
+    if (HOST.listRev !== C.iconRev) { C.iconRev = HOST.listRev; stationsChanged(); changed(); iconIdleKick(); }   // (the packages' index came, or changed: the stations' order and icons again, v222)
     if (C.local) probe(t);
     slotStep(t);   // (a peer-to-peer host: shown on its network)
     if (C.ws && C.ws.readyState === 1) {
