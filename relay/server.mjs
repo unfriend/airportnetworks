@@ -378,6 +378,9 @@ const EMPTY = Buffer.alloc(0);
 const GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
 const UTF8 = new TextDecoder('utf-8', { fatal: true });
 const okCode = c => (c >= 1000 && c <= 1003) || (c >= 1007 && c <= 1014) || (c >= 3000 && c <= 4999);
+// (the sockets holding a tick's messages, flushed together every CORK.ms: Ws.later)
+const CORKED = new Set(), CORK = { t: 0, ms: 20 };
+function corkFlush() { CORK.t = 0; for (const w of [...CORKED]) w.flush(); }
 class Ws {
   constructor(socket) {
     Object.assign(this, { socket, buf: EMPTY, parts: null, partLen: 0, closing: false, dead: false, last: Date.now(), pinged: Date.now() });
@@ -386,7 +389,7 @@ class Ws {
     socket.on('data', d => this.data(d));
     socket.on('end', () => socket.end());
     socket.on('error', () => socket.destroy());
-    socket.on('close', () => { clearTimeout(this.kill); this.dead = true; this.onclose(); });
+    socket.on('close', () => { clearTimeout(this.kill); this.dead = true; CORKED.delete(this); this.corked = false; this.onclose(); });
   }
   static frame(op, data) {   // server frames are never masked
     const n = data.length, head = Buffer.alloc(n < 126 ? 2 : n < 65536 ? 4 : 10);
@@ -399,8 +402,19 @@ class Ws {
   write(buf) {
     if (this.socket.destroyed) return;
     if (this.socket.writableLength > 16 * MAX_MSG) return this.socket.destroy();   // a reader that cannot keep up
+    if (this.corked) this.flush();   // (what waits goes first, in order, and this at once: talk, live sound, replies)
     this.socket.write(buf);
   }
+  // a room's message to every member (broadcast): held a moment with the others of its tick, so they leave in one
+  // packet rather than one each (v219: presence at 15 a second from 30 headsets was about 13,000 packets a second with
+  // Nagle off); written in order with everything else, and flushed at once by any other write
+  later(buf) {
+    if (this.socket.destroyed) return;
+    if (this.socket.writableLength > 16 * MAX_MSG) return this.socket.destroy();
+    if (!this.corked) { this.corked = true; this.socket.cork(); CORKED.add(this); if (!CORK.t) CORK.t = setTimeout(corkFlush, CORK.ms); }
+    this.socket.write(buf);
+  }
+  flush() { if (!this.corked) return; this.corked = false; CORKED.delete(this); if (!this.socket.destroyed) this.socket.uncork(); }
   send(op, data) { this.write(Ws.frame(op, data)); }
   text(s) { if (!this.closing) this.send(1, Buffer.from(s)); }
   close(code, reason = '') {
@@ -524,12 +538,19 @@ const people = r => [...r.members.values()].map(pub);
 const stations = r => [...r.keys.keys()].filter(k => /^st\.[^.]+$/.test(k)).length;
 const idle = r => (r.members.size ? 0 : Math.round((Date.now() - r.empty) / 1000));
 const keysOut = r => Object.fromEntries([...r.keys].map(([k, e]) => [k, { v: e.v, seq: e.seq, by: e.by }]));
+// (a presence fx, p.<id>, is passed by for a member whose socket is backed up: a slow headset gets the next pose rather
+// than seconds of old ones, as trackersSend does; set and members messages never are)
+const PRES_BACKLOG = 64 * 1024;
 function broadcast(room, msg, except) {
-  const buf = Ws.frame(1, Buffer.from(JSON.stringify(msg)));
-  for (const m of room.members.values()) if (m !== except && !m.ws.closing) m.ws.write(buf);   // nothing after a close frame
+  const buf = Ws.frame(1, Buffer.from(JSON.stringify(msg))), pres = msg.t === 'fx' && typeof msg.k === 'string' && msg.k.startsWith('p.');
+  for (const m of room.members.values()) {
+    if (m === except || m.ws.closing) continue;   // nothing after a close frame
+    if (pres && m.ws.socket.writableLength > PRES_BACKLOG) { m.presSkipped = (m.presSkipped || 0) + 1; continue; }
+    m.ws.later(buf);
+  }
 }
 const send = (m, msg) => m.ws.text(JSON.stringify(msg));
-const cut = keys => (keys.length > 12 ? keys.slice(0, 12).join(' ') + ` +${keys.length - 12} more` : keys.join(' '));
+const cut = (keys, n = 12) => (keys.length > n ? keys.slice(0, n).join(' ') + ` +${keys.length - n} more` : keys.join(' '));
 
 // (net: the member's network, a hash: netOf; never its address, which is neither kept nor logged. who: its address's
 // limits, clientOf; fid: its address for failed attempts while a password is set, failId)
@@ -730,11 +751,22 @@ function set(room, m, msg) {
       out.push([k, v]);
     }
     stored += room.size;
-    keepTouch();
+    keepTouch(); room.keepKeys = null;
     broadcast(room, { t: 'set', batch: out, seq, by: m.id, cid });
-    log(`${room.code} set #${seq} by ${m.id}: ${cut(out.map(([k, v]) => (v === null ? k + '=null' : k)))}`);
+    // (said once a tick for the room, v219: a station dragged writes many a second; setsSay)
+    const L = room.setLog || (room.setLog = { n: 0, from: seq, to: seq, by: new Set(), keys: new Set() });
+    L.n++; L.to = seq; L.by.add(m.id);
+    for (const [k, v] of out) if (L.keys.size < 200) L.keys.add(v === null ? k + '=null' : k);
   }
   if (bad.length) refuse(room, m, cid, bad.map(b => b[0]), bad.map(([k, w]) => `${k}: ${w}`).join('; ').slice(0, 500));
+}
+
+// a room's writes since the last tick, in one line: how many, their numbers, by whom, the keys (=null: deleted)
+function setsSay(room) {
+  const L = room.setLog;
+  if (!L) return;
+  room.setLog = null;
+  log(`${room.code} ${L.n === 1 ? 'set' : L.n + ' sets'} #${L.from}${L.n === 1 ? '' : '..#' + L.to} by ${[...L.by].join(' ')}: ${cut([...L.keys], 40)}`);
 }
 
 // ---- --keep <file>: the rooms kept across restarts (v136). Until then a restart (every deploy on Coolify) emptied every
@@ -749,10 +781,15 @@ function set(room, m, msg) {
 const KEEP = OPT.keep ? path.resolve(String(OPT.keep)) : '';
 const KP = { dirty: false, busy: false, id: crypto.randomBytes(6).toString('hex'), mtime: 0, final: false, start: Date.now() };
 function keepTouch() { if (KEEP) KP.dirty = true; }
+// (each room's keys as JSON kept until its next write, v219: every 5 s while anything changed, every room was stringified
+// again, up to 4 MB each)
 function keepOut() {
-  const now = Date.now();
-  return JSON.stringify({ keep: 1, by: KP.id, at: now, rooms: [...rooms.values()].map(r => ({ code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq,
-    empty: r.members.size ? now : r.empty, keys: Object.fromEntries([...r.keys].map(([k, e]) => [k, { v: e.v, seq: e.seq, by: e.by }])) })) });
+  const now = Date.now(), J = JSON.stringify;
+  const one = r => {
+    if (r.keepKeys == null) r.keepKeys = J(Object.fromEntries([...r.keys].map(([k, e]) => [k, { v: e.v, seq: e.seq, by: e.by }])));
+    return J({ code: r.code, app: r.app, version: r.version, created: r.created, seq: r.seq, empty: r.members.size ? now : r.empty }).slice(0, -1) + ',"keys":' + r.keepKeys + '}';
+  };
+  return `{"keep":1,"by":${J(KP.id)},"at":${now},"rooms":[${[...rooms.values()].map(one).join(',')}]}`;
 }
 function keepWrite(final) {
   if (!KEEP || KP.final || (KP.busy && !final)) return;
@@ -808,7 +845,7 @@ function keepLoad(first) {
     if ((!r && rooms.size >= MAX_ROOMS) || (STORE && stored - (r ? r.size : 0) + e.size > STORE)) continue;
     const x = r || makeRoom(e.code, e.app, e.version);
     stored += e.size - (r ? r.size : 0);
-    Object.assign(x, { app: e.app, version: e.version, created: e.created, seq: e.seq, keys: e.keys, size: e.size, keptSeq: e.seq }, r ? {} : { empty: e.empty });
+    Object.assign(x, { app: e.app, version: e.version, created: e.created, seq: e.seq, keys: e.keys, size: e.size, keptSeq: e.seq, keepKeys: null }, r ? {} : { empty: e.empty });
     if (r) for (const m of r.members.values()) m.ws.close(1012, 'room read again');   // (they come back to it as it is now)
     n++;
   }
@@ -909,7 +946,9 @@ setInterval(() => {
     if (p.dropped) { log(`peer dropped ${p.dropped} messages from ${pid(p.id)} (more than ${PEER_RATE} a second)`); p.dropped = 0; }
   }
   for (const room of rooms.values()) {
+    setsSay(room);
     for (const m of room.members.values()) {
+      if (m.presSkipped) { log(`${room.code} passed by ${m.presSkipped} presence fx for ${m.id} (its connection backed up)`); m.presSkipped = 0; }
       if (now - m.ws.last > OPT.timeout * 1000) { kick(room, m, 'timeout', `silent for ${OPT.timeout} s`, 4009); continue; }
       if (now - m.ws.pinged >= OPT.ping * 1000) { m.ws.send(9, EMPTY); m.ws.pinged = now; }
       if (m.fxDropped) { log(`${room.code} refused ${m.fxDropped} fx from ${m.id} (more than ${FX_RATE} a second)`); m.fxDropped = 0; }
@@ -1554,7 +1593,20 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; ch
   // the studio's scenes (--scenes): models, their data and textures, sounds (relay/scenes.mjs: R2 stores them so too)
   ...SCENE_TYPES };
 const SQUEEZE = /^(text\/|application\/(json|manifest\+json|wasm)|image\/svg)/;   // worth sending gzipped
-const gzip = promisify(zlib.gzip), GZ = new Map();
+const gzip = promisify(zlib.gzip), gunzip = promisify(zlib.gunzip), brotli = promisify(zlib.brotliCompress);
+// each file's packed copies, one per kind, made once per ETag and kept (keyed by path: bounded by the app's files); one
+// on its way is shared, so many headsets asking for the same changed file at once pack it once
+const GZ = new Map(), BR = new Map();
+function packed(map, file, base, how) {
+  let z = map.get(file);
+  if (z && z.etag === base) return z;
+  z = { etag: base, buf: null, p: null };
+  z.p = fs.promises.readFile(file).then(how).then(b => { z.buf = b; return b; }, err => { if (map.get(file) === z) map.delete(file); throw err; });
+  z.p.catch(() => {});   // (a failure is the next asker's to see: it packs again)
+  map.set(file, z);
+  return z;
+}
+const brOf = b => brotli(b, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 9, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: b.length } });
 const ROOT = OPT.static ? path.resolve(OPT.static) : '';
 const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // Only the app's own files are served, not the rest of the repository (the authors' data in ikerdata/,
@@ -1607,17 +1659,28 @@ async function serve(req, res, url) {
 }
 // a file as the app's and the scenes' are sent: an ETag from its size and time (304 when it matches), Cache-Control
 // no-cache (asked again each time, so a changed file is never stale), one byte range (the audio element asks for them),
-// text gzipped (squeeze: the app's files; a scene's are models, pictures and sounds, already packed)
+// text packed (squeeze: the app's files; a scene's are models, pictures and sounds, already packed): brotli for an asker
+// that takes it once its copy is made (made in the background the first time, gzip meanwhile; v219), else gzip. Each
+// kind has an ETag of its own (-br, -gz); an If-None-Match naming any of the file's is a 304 (the same content). A HEAD
+// packs nothing: it says what is ready
 async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true, extra = {}, type = '' } = {}) {
   type = type || (path.basename(file) === 'LICENSE' ? 'text/plain; charset=utf-8' : TYPES[path.extname(file).toLowerCase()]) || 'application/octet-stream';
   const range = /^bytes=(\d*)-(\d*)$/.exec(String(req.headers.range || '').trim());
-  const base = `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`;
+  const base = `"${st.size.toString(36)}-${Math.floor(st.mtimeMs).toString(36)}"`, tag = k => base.slice(0, -1) + '-' + k + '"';
   const useRange = range && (range[1] || range[2]) && (!req.headers['if-range'] || req.headers['if-range'] === base);
-  const zip = squeeze && !useRange && SQUEEZE.test(type) && st.size > 1024 && st.size < 32 * MAX_MSG && /\bgzip\b/.test(req.headers['accept-encoding'] || '');
-  const etag = zip ? base.slice(0, -1) + '-gz"' : base;
+  const ae = String(req.headers['accept-encoding'] || ''), head0 = req.method === 'HEAD';
+  const can = squeeze && !useRange && SQUEEZE.test(type) && st.size > 1024 && st.size < 32 * MAX_MSG;
+  let enc = '';
+  if (can && /\bbr\b/.test(ae)) {
+    const b = head0 ? BR.get(file) : packed(BR, file, base, brOf);
+    if (b && b.etag === base && b.buf) enc = 'br';
+  }
+  if (can && !enc && /\bgzip\b/.test(ae) && (!head0 || (GZ.get(file) && GZ.get(file).etag === base && GZ.get(file).buf))) enc = 'gzip';
+  const etag = enc === 'br' ? tag('br') : enc === 'gzip' ? tag('gz') : base;
   const head = { 'Content-Type': type, 'Cache-Control': cache, ETag: etag, 'Last-Modified': st.mtime.toUTCString(), 'Accept-Ranges': 'bytes', 'X-Content-Type-Options': 'nosniff',
     ...(squeeze && SQUEEZE.test(type) ? { Vary: 'Accept-Encoding' } : {}), ...extra };
-  if (String(req.headers['if-none-match'] || '').split(',').some(t => t.trim().replace(/^W\//, '') === etag)) { res.writeHead(304, head); return res.end(); }
+  const same = String(req.headers['if-none-match'] || '').split(',').map(t => t.trim().replace(/^W\//, '')).find(t => t === base || t === tag('gz') || t === tag('br'));
+  if (same) { res.writeHead(304, { ...head, ETag: same }); return res.end(); }
   const stream = (opts, status, more) => {
     res.writeHead(status, { ...head, ...more });
     if (req.method === 'HEAD') return res.end();
@@ -1628,11 +1691,11 @@ async function sendFile(req, res, file, st, { cache = 'no-cache', squeeze = true
     if (start >= st.size || start > end || (!range[1] && +range[2] === 0)) return reply(res, 416, '', type, { 'Content-Range': `bytes */${st.size}` });
     return stream({ start, end }, 206, { 'Content-Range': `bytes ${start}-${end}/${st.size}`, 'Content-Length': end - start + 1 });
   }
-  if (zip) {
-    let z = GZ.get(file);
-    if (!z || z.etag !== base) GZ.set(file, z = { etag: base, buf: await gzip(await fs.promises.readFile(file)) });
-    res.writeHead(200, { ...head, 'Content-Encoding': 'gzip', 'Content-Length': z.buf.length });
-    return res.end(req.method === 'HEAD' ? undefined : z.buf);
+  if (enc) {
+    const z = enc === 'br' ? BR.get(file) : packed(GZ, file, base, gzip);
+    const buf = z.buf || await z.p;
+    res.writeHead(200, { ...head, 'Content-Encoding': enc, 'Content-Length': buf.length });
+    return res.end(head0 ? undefined : buf);
   }
   stream({}, 200, { 'Content-Length': st.size });
 }
@@ -2812,7 +2875,7 @@ async function netsApi(req, res, url) {
       try { b = JSON.parse(text); } catch { /* said below */ }
       const r = parseNet(b);
       if (r.error) return json(res, 400, { error: r.error });
-      const gz = netGzip(r.canon);
+      const gz = await netGzip(r.canon);
       r.meta.gz = gz.length;
       // (one put at a time: the caps are checked and the network written in one turn, so a burst cannot pass them)
       const out = await netsOne(async () => {
@@ -2838,7 +2901,7 @@ async function netsApi(req, res, url) {
     const gz = await NETS.data(id);
     if (!gz) return no(404, 'no such network');
     const takes = /\bgzip\b/.test(String(req.headers['accept-encoding'] || ''));
-    const body = takes ? gz : zlib.gunzipSync(gz);
+    const body = takes ? gz : await gunzip(gz);
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Length': body.length, ...(takes ? { 'Content-Encoding': 'gzip' } : {}), Vary: 'Accept-Encoding' });
     return res.end(req.method === 'HEAD' ? undefined : body);
   } catch (err) {
@@ -3305,6 +3368,7 @@ process.on('unhandledRejection', err => log('error', 'unhandled:', scrub(String(
 for (const sig of ['SIGINT', 'SIGTERM']) {
   process.on(sig, () => {   // say goodbye, so clients reconnect at once (a container stop sends SIGTERM)
     keepWrite(true);   // (--keep: the rooms as they are now, each one's members counted as here until now)
+    for (const r of rooms.values()) setsSay(r);   // (the writes since the last tick, said before the end)
     for (const r of rooms.values()) for (const m of r.members.values()) m.ws.close(1001, 'relay stopping');
     for (const p of peers.values()) p.ws.close(1001, 'relay stopping');
     for (const res of [...W.clients, ...SW.clients]) res.end();

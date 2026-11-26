@@ -2084,6 +2084,7 @@ try {
   });
 
   await step('a silent member times out; answering pings keeps one in', async () => {
+    await sleep(60);   // (v219: a room's messages leave together every 20 ms: the step before's last ones come first)
     A.q.length = 0;
     const s = await raw(`/api/ws?room=${R}&id=quiet`);
     s.send({ payload: JSON.stringify({ t: 'hello', name: 'Quiet', version: 'v1' }) });
@@ -2156,8 +2157,20 @@ try {
     ok(r.status === 200 && /^text\/html/.test(r.headers['content-type']) && r.buf.equals(file('index.html')), '/ is index.html');
     r = await req('GET', '/' + SF);
     ok(r.status === 200 && r.headers['content-type'] === 'text/javascript; charset=utf-8' && r.buf.equals(file(SF)), 'a story file');
+    // (v219: brotli for an asker that takes it once its copy is made in the background, gzip until then; each kind its
+    // own ETag, any of the file's a 304; a HEAD packs nothing)
+    const H0 = await req('HEAD', '/three.LICENSE.txt', { headers: { 'Accept-Encoding': 'gzip, br' } });
+    ok(H0.status === 200 && !H0.headers['content-encoding'], `a HEAD packs nothing (${H0.headers['content-encoding']})`);
+    const unpack = x => (x.headers['content-encoding'] === 'br' ? zlib.brotliDecompressSync(x.buf) : zlib.gunzipSync(x.buf));
     r = await req('GET', '/' + SF, { headers: { 'Accept-Encoding': 'gzip, br' } });
-    ok(r.headers['content-encoding'] === 'gzip' && zlib.gunzipSync(r.buf).equals(file(SF)) && /Accept-Encoding/.test(r.headers.vary), 'gzipped when asked');
+    ok(['gzip', 'br'].includes(r.headers['content-encoding']) && unpack(r).equals(file(SF)) && /Accept-Encoding/.test(r.headers.vary), 'packed when asked (gzip until its brotli copy is made)');
+    let rb = r;
+    for (let i = 0; i < 100 && rb.headers['content-encoding'] !== 'br'; i++) { await sleep(100); rb = await req('GET', '/' + SF, { headers: { 'Accept-Encoding': 'gzip, br' } }); }
+    ok(rb.headers['content-encoding'] === 'br' && zlib.brotliDecompressSync(rb.buf).equals(file(SF)) && /-br"$/.test(rb.headers.etag), `brotli once its copy is made, with an ETag of its own (${rb.headers.etag})`);
+    const rg = await req('GET', '/' + SF, { headers: { 'Accept-Encoding': 'gzip' } });
+    ok(rg.headers['content-encoding'] === 'gzip' && zlib.gunzipSync(rg.buf).equals(file(SF)) && /-gz"$/.test(rg.headers.etag), 'gzip for an asker without br, its own ETag');
+    const r3 = await req('GET', '/' + SF, { headers: { 'Accept-Encoding': 'gzip', 'If-None-Match': rb.headers.etag } });
+    ok(r3.status === 304 && r3.headers.etag === rb.headers.etag, 'another kind\'s ETag of the same file: 304 (the same content)');
     const types = { '/shared.js': 'text/javascript', '/sw.js': 'text/javascript', '/manifest.webmanifest': 'application/manifest+json', '/icons/icon-192.png': 'image/png', '/three.min.js': 'text/javascript',
       '/three.LICENSE.txt': 'text/plain', '/README.txt': 'text/plain', '/proteins.html': 'text/html', '/peerjs.min.js': 'text/javascript',
       '/PEERJS-LICENSE.txt': 'text/plain', '/p2p/': 'text/html', '/p2p/index.html': 'text/html',
@@ -2202,7 +2215,8 @@ try {
   await step('only the app\'s files are served, not the rest of the repository', async () => {
     // everything the service worker caches (SHELL, and the narrations that exist) is served
     const sw = fs.readFileSync(path.join(REPO, 'sw.js'), 'utf8'), want = [];
-    for (const name of ['SHELL', 'AUDIO']) want.push(...[...new RegExp(`const ${name} = \\[([^\\]]*)\\]`).exec(sw)[1].matchAll(/'\.\/([^']*)'/g)].map(m => m[1]));
+    // (AUDIO: gone from sw.js since v219, the narrations being the packages')
+    for (const name of ['SHELL', 'AUDIO']) want.push(...[...((new RegExp(`const ${name} = \\[([^\\]]*)\\]`).exec(sw) || [])[1] || '').matchAll(/'\.\/([^']*)'/g)].map(m => m[1]));
     ok(want.length > 15, `sw.js lists the app's files (${want.length})`);
     const missing = [];
     for (const f of want) if (!f || fs.existsSync(path.join(REPO, f))) { const r = await req('HEAD', '/' + f); if (r.status !== 200) missing.push(`/${f} (${r.status})`); }
@@ -4321,10 +4335,11 @@ if (me === 'hang') setInterval(() => {}, 1000);
   await logsSteps();
   await videoSteps();
 
-  await step('the log has a line per write and per refusal', async () => {
-    ok(new RegExp(`${R} set #1 by a1: st\\.s1 st\\.s1\\.play`).test(relay.out), 'a write');
+  await step('the log has a line per tick of writes and per refusal', async () => {
+    // (v219: one line a tick for a room's writes: 'set #n by id: keys', or 'k sets #a..#b by ids: keys')
+    ok(new RegExp(`${R} (set|\\d+ sets) #1\\b[^\\n]* by [^:\\n]*\\ba1\\b[^:\\n]*: [^\\n]*\\bst\\.s1 [^\\n]*\\bst\\.s1\\.play\\b`).test(relay.out), 'a write');
     ok(new RegExp(`${R} refused a1 \\(roomFrameShared: null outside the deletable families\\)`).test(relay.out), 'a refusal');
-    ok(/set #\d+ by b1: st\.s1\.play=null st\.s1\.x=null st\.s1/.test(relay.out), 'the epoch deletions');
+    ok(/sets? #\d+[^\n]* by [^:\n]*\bb1\b[^:\n]*: [^\n]*st\.s1\.play=null[^\n]*st\.s1\.x=null/.test(relay.out), 'the epoch deletions');
   });
   A.ws.close(); B.ws.close();
 } finally {

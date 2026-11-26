@@ -35,7 +35,7 @@ COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the en
 | --- | --- | --- |
 | `--port <n>` | 8787 | port; `0` picks a free one (the start line says which) |
 | `--host <addr>` | 0.0.0.0 | address to listen on |
-| `--static <dir>` | off | also serve the app's files from `<dir>` (the repository root); nothing else (see HTTP API) |
+| `--static <dir>` | off | also serve the app's files from `<dir>` (the repository root); nothing else (see HTTP API). Text is sent packed: brotli to a browser that takes it once its copy is made (in the background, once per file and change; gzip until then), else gzip; each with an ETag of its own, any of a file's a 304 (v219) |
 | `--cert <file> --key <file>` | off | speak HTTPS and WSS with this certificate (PEM) |
 | `--timeout <s>` | 40 | a member silent this long is dropped |
 | `--expire <s>` | 21600 (6 h) | a room without members is deleted after this |
@@ -57,7 +57,7 @@ COLLAB_TOKEN=<word> node relay/server.mjs ...   # the same password, from the en
 | `--ffmpeg-limit <s>` | 180 | one conversion may take this long, then it is stopped |
 | `--ffmpeg-video-limit <s>` | 1800 | a video converted to MP4 (H.264) may take this long, then it is stopped ([Converting a video](#converting-a-video)) |
 | `--app <url>` | the `--origin`, else `https://stories.lbi-netmed.com/` | where `/upload` sends people when the relay does not serve the app itself |
-| `--keep <file>` | off | keep the rooms in `<file>` (JSON, written atomically every 5 s when they changed and as the relay stops, read back as it starts; its folder made): a restart, such as a deploy, no longer empties them ([Rooms across updates](#rooms-across-updates-v136)). Not `--store`, which is only a cap on their size |
+| `--keep <file>` | off | keep the rooms in `<file>` (JSON, written atomically every 5 s when they changed and as the relay stops, read back as it starts; its folder made; each room's keys turned into JSON again only after its own writes, v219): a restart, such as a deploy, no longer empties them ([Rooms across updates](#rooms-across-updates-v136)). Not `--store`, which is only a cap on their size |
 | `--trackers [<port>]` | off (47800 when given without a port) | the PC's Vive trackers: take the bridge's readings (`tools/trackers/bridge.py`) on UDP `127.0.0.1:<port>` (`0` picks a free one, which the start line says), list them at `/api/trackers` and send them, lined up, to the rooms that turn them on ([The PC's Vive trackers](#the-pcs-vive-trackers---trackers)). A port another program holds stops the start with a sentence |
 
 The environment (asdf10k-collab-backend's `COLLAB_*` names, since shells and conda set `PORT` and `HOST` for other
@@ -98,7 +98,8 @@ It prints `relay listening on http://<host>:<port>` when it starts and, when it 
 (`--host 0.0.0.0`), what to open: over HTTPS the `https://<address>:<port>/` for the headsets; over plain HTTP
 the address for desktops only and how to reach it from a headset (`--lan`, or `adb reverse` and
 `http://localhost:<port>/`), since a headset gets no VR or AR at an `http://` address. Then one line per event: a room created, a
-join, a hello, every stored write (`XYZ set #12 by k7f2: st.a1.play`, deletions as `key=null`), every refusal
+join, a hello, a room's stored writes once a tick (v219: `XYZ set #12 by k7f2: st.a1.play`, or `XYZ 7 sets #12..#18 by
+k7f2 q1w2: st.a1 st.a1.play`, deletions as `key=null`; presence passed by for a backed-up connection is counted), every refusal
 with its reason, dropped ephemeral messages (counted), a leave, a timeout, an expired room; and for the introduction
 server an id joining, coming back, refused, leaving or timing out and an id that never came (ids only, `peer join
 <id>`; a slot of rooms on this network shows with `******` in place of its network's id). No line names a client's

@@ -49,7 +49,8 @@ export function parseNet(d, at = Date.now()) {
 // the listing's row for a network (its meta.json as kept)
 export const summary = m => ({ id: m.id, name: m.name, n: m.n, e: m.e, kinds: m.kinds, score: !!m.score, bytes: m.bytes, gz: m.gz, at: m.at });
 const newest = (a, b) => b.at - a.at || (a.id < b.id ? -1 : 1);
-export const gzip = canon => zlib.gzipSync(Buffer.from(canon), { level: 9 });
+// (asynchronous: a network of up to 12 MB at level 9 takes a while, which every room would otherwise wait for)
+export const gzip = canon => new Promise((res, rej) => zlib.gzip(Buffer.from(canon), { level: 9 }, (err, buf) => (err ? rej(err) : res(buf))));
 
 // ---- the folder's store. Each method answers like the R2 one: no throwing for a missing network (null / false)
 export function folderStore(root) {
