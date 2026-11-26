@@ -268,7 +268,10 @@ gone from the input sources with its stick down and back, then a click still ope
 the notice *Full menu*), let go: the menu, moving with the sticks and the ship as they were, the tabs and the Circles
 tab's *Menus* row there; a hold of 0.5 s nothing at all; both down across 2.1 s with no frames not firing on the first frame back; a second 2 s
 hold (frames every 0.1 s) limited again (*Limited menu*); unlocked again,
-then the session hidden and visible: limited (`last` *hidden*); the room's switch (`HOST.collab.setMenus(true)`): full
+then the session hidden and visible: limited (`last` *hidden*); subtitles (v215): the limited page's row switching this
+headset's own choice (no room key written, `xrSubs` untouched, still so ten frames later), the room's default changed
+(`HOST.xr.setSubsDefault`) taking it to the new default and dropping the own choice, and an own choice gone in the next
+room; the room's switch (`HOST.collab.setMenus(true)`): full
 for the room (`why` *room*) and the Shared dialog's button there, then limited again; unlocked, left, and a new room:
 limited there.
 
@@ -1711,7 +1714,8 @@ the design room (the Shared dialog's picker listing it after
 the stories, its station added there for every page, refused while locked from
 Add and the Design room button, left where it is by Arrange all, the button
 moving the room's one to your feet rather than adding a second), the headsets' four settings and the two sound switches
-as the room's (labels on top, cards in 3D, no subtitles, sound effects and narration on for pages that have them on, in a room without them; set on one
+as the room's (labels on top, cards in 3D, no subtitles, sound effects and narration on for pages that have them on, in a room without them; v215: one page's
+own subtitles staying its own with no key written, the room's default turned on putting every page on; set on one
 page (the labels from one, the cards from another, each leaving the other), or in another's Shared dialog (both pickers)
 with the circles locked, for every page; free moving off taking the turns
 out of the stations' places and panels; kept across the relay restart and, in a

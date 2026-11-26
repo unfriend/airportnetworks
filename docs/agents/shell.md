@@ -256,10 +256,20 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   you*; *Subtitles: on* / *off*) and, in a room, in the page's Shared dialog
   (a Labels and a Cards picker). Labels and cards are independent: labels
   hidden leaves the cards, cards hidden leaves the labels. In a shared room
-  they are the room's (key `look`, below), for every headset and page in it;
-  otherwise the device's own (`xrLabels2`, `xrCards`, `xrFree`, `xrSubs` in
+  labels, cards and free moving are the room's (key `look`, below), for every headset and page in it;
+  otherwise the device's own (`xrLabels2`, `xrCards`, `xrFree` in
   `localStorage`; the labels under a new key, `xrLabels2`, so every device started once on the new defaults whatever it chose before; `xrLabels` is left
-  behind), which keeps a room's last value after leaving it.
+  behind), which keeps a room's last value after leaving it. Subtitles (v215; the owner, 26 November 2026: "make
+  subtitles per headset", then "add a room default for subtitles too"; until then the room's setting): outside a room
+  this device's own, `xrSubs` (`on` / `off`, off by default, the same key as before, so a choice made outside rooms is
+  kept; `#subs=on|off` sets it, `HOST.xr.setSubsDevice`, for outside rooms only); in a room the room's default (`look`'s
+  `subs`, `HOST.xr.subsDefault()` / `setSubsDefault(on)`: the page's Shared dialog, *Subtitles at the start: on / off*,
+  and a full menu's Circles tab) unless this headset chose its own there (`HOST.xr.setSubs(on)`: the menu's Settings
+  row, the limited page's row, a phone's sheet; `shared.js` `SUBO`, `HOST.collab.subsOwn()`): never sent, never stored,
+  forgotten on joining or leaving a room and as a session starts or ends, and dropped whenever the room's default
+  changes, so the staff's switch always shows. `HOST.xr.subs()` is what applies now; a room's default is never kept as
+  the device's own (`keep` leaves `xrSubs` alone). Camera mode's and the preview camera's *Subtitles* are their own, as
+  before.
   `#labels=face|fixed|hidden`, `#cards=face|fixed|hidden`, `#free=on|off` and
   `#subs=on|off` in a link set them. Stories read labels, cards and free moving
   every frame (`xrSettings` in `xrBegin`: `XR.lm`, `XR.cm`, `XR.free`; a shell

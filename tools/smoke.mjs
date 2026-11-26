@@ -15942,6 +15942,25 @@ if (runs('stick moving')) {
       const want = ['set:sound', 'sfxvol', 'subs', 'realign', 'close'], miss = want.filter(k => !i1.includes(k));
       if (miss.length || i1.some(k => /^tab:/.test(k)) || i1.includes('settings') || i1.includes('devmode')) bad.push('the limited page: ' + JSON.stringify({ miss, ids: i1 }));
       if ((await wp.evaluate(() => HOST.collab.menuFind('lim:play'))) !== null) bad.push('Play not greyed with no story on show');
+      // subtitles (v215): the row switches this headset alone (its own choice over the room's default), writing no room key
+      // and nothing kept on the device; it stays (frames later); the room's default changed takes it back to the default
+      const sb = await wp.evaluate(async () => {
+        const k0 = JSON.stringify(HOST.collab.val('look') || null), ls0 = localStorage.getItem('xrSubs'), was = HOST.xr.subs(), r = HOST.collab.menuFind('subs');
+        if (r) r.fn();
+        await new Promise(res => setTimeout(res, 300));
+        return { row: !!r, was, now: HOST.xr.subs(), own: HOST.collab.subsOwn(), kept: localStorage.getItem('xrSubs') === ls0, same: JSON.stringify(HOST.collab.val('look') || null) === k0, pend: HOST.collab.internals().pending.size };
+      });
+      await tick(10);
+      const sb2 = await wp.evaluate(() => [HOST.xr.subs(), HOST.collab.subsOwn()]);
+      const sd = await wp.evaluate(async () => {
+        const d = HOST.xr.subsDefault(); HOST.xr.setSubsDefault(!d); await new Promise(res => setTimeout(res, 300));
+        const o = { d, now: HOST.xr.subs(), own: HOST.collab.subsOwn(), key: (HOST.collab.val('look') || {}).subs };
+        HOST.xr.setSubsDefault(d); await new Promise(res => setTimeout(res, 300)); o.back = HOST.xr.subs();
+        return o;
+      });
+      if (!sb.row || sb.now === sb.was || sb.own !== sb.now || !sb.kept || !sb.same || sb.pend || sb2[0] !== sb.now || sb2[1] !== sb.now) bad.push('subtitles in a room, this headset\'s own: ' + JSON.stringify({ sb, sb2 }));
+      if (sd.now !== !sd.d || sd.own !== null || sd.key !== !sd.d || sd.back !== sd.d) bad.push('subtitles in a room, the room\'s default: ' + JSON.stringify(sd));
+      await wp.evaluate(() => HOST.xr.setSubs(true));   // (an own choice, gone with the next room: checked below)
       // a brief click of both sticks (together, then the second 0.1 s after the first): one click each, the menu once
       const btn = (h, on) => wp.evaluate(([h, on]) => { window.__w[h].gamepad.buttons[3].pressed = on; window.__wtick(1); }, [h, on]);
       await wp.evaluate(() => HOST.collab.panelOpen(false)); await wp.waitForTimeout(500); await tick(1);
@@ -16001,6 +16020,8 @@ if (runs('stick moving')) {
       await room();
       const l9 = await lv();
       if (l7.level !== 'full' || l8.why !== 'no room' || l9.level !== 'limited' || l9.unlocked) bad.push('into another room: ' + JSON.stringify({ l7, l8, l9 }));
+      const s9 = await wp.evaluate(() => [HOST.xr.subs(), HOST.collab.subsOwn(), HOST.xr.subsDefault()]);
+      if (s9[0] !== s9[2] || s9[1] !== null) bad.push('subtitles: an own choice carried into the next room ' + JSON.stringify(s9));
     } finally {
       await wp.evaluate(() => { HOST.collab.panelOpen(false); HOST.collab.leave(); HOST.collab.menuIdle(20000); });
     }

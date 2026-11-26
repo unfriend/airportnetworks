@@ -8919,8 +8919,9 @@ try {
 
   // ----------------------------------------- the headsets' settings --
   // labels (the scenes' small ones) and cards (the story panels, station cards and name tags), each on top, in 3D or
-  // hidden, free moving and subtitles are the room's, the same on every page and headset in it (key look): a room
-  // without the key gives labels on top, cards in 3D and no subtitles; set on one page, the others follow at once, also
+  // hidden and free moving are the room's, the same on every page and headset in it (key look; subtitles the room's
+  // default since v215, each device's own choice over it): a room without the key gives labels on top, cards in 3D and
+  // no subtitles; set on one page, the others follow at once, also
   // from the Shared dialog's row and with the layout locked (it never refuses them); free moving off takes the turns out
   // of the stations' places and panels
   const LOOKS = () => [HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free()].join();
@@ -8935,14 +8936,17 @@ try {
   const cardSet = await lookIs(A, 'hidden,face,true') && await lookIs(C, 'hidden,face,true');
   check('the headsets\' settings: set on one page, every other page in the room follows (the labels from one page, then the cards from another, each leaving the other)',
     lookSet && cardSet, (await Promise.all([A, B, C].map(lookOf))).join('; '));
-  // subtitles: off in a room without them; on from one page, for every page
+  // subtitles (v215): the room's default, each device's own choice over it: on on one page, the others stay off and the
+  // room's key unwritten; the default turned on from another, every page on (the own choice dropped)
   const subsOf = p => p.evaluate(() => [HOST.xr.subs(), HOST.collab.look().subs].join());
   const subsIs = (p, want) => until(p, w => HOST.xr.subs() === w, want, 6000);   // (a loaded machine can take a few seconds)
   const subs0 = await Promise.all([A, B, C].map(subsOf));
-  await A.evaluate(() => HOST.xr.setSubs(true));
-  const subsSet = await subsIs(B, true) && await subsIs(C, true);
-  check('the headsets\' settings: subtitles are off in a room without them; turned on on one page, they are on on every page', subs0.every(v => v === 'false,false') && subsSet,
-    subs0.join('; ') + ' -> ' + (await Promise.all([A, B, C].map(subsOf))).join('; '));
+  await A.evaluate(() => HOST.xr.setSubs(true)); await sleep(1500);
+  const subs1 = await Promise.all([A, B, C].map(subsOf)), rkS = (await roomInfo(code)).keys.look;
+  await B.evaluate(() => HOST.xr.setSubsDefault(true));
+  const subsSet = await subsIs(A, true) && await subsIs(C, true) && await subsIs(B, true) && await A.evaluate(() => HOST.collab.subsOwn() === null);
+  check('the headsets\' settings: subtitles off in a room without them; one page\'s own choice stays its own (no key written); the room\'s default turned on, on on every page', subs0.every(v => v === 'false,false') &&
+    subs1.join(';') === 'true,false;false,false;false,false' && !(rkS && rkS.v && rkS.v.subs) && subsSet, subs0.join('; ') + ' -> ' + subs1.join('; ') + ' ' + JSON.stringify(rkS) + ' -> ' + (await Promise.all([A, B, C].map(subsOf))).join('; '));
   // the two sound switches (the owner, 30 October 2026): sound effects and narration, the room's too, for every page and
   // headset in it (key look: sfx, voice); a room without them gives both on; turned off on one page, off on every page
   const SND = () => [HOST.xr.sfx(), HOST.xr.voice(), HOST.sfx.on(), HOST.collab.look().sfx, HOST.collab.look().voice].join();
@@ -8978,7 +8982,7 @@ try {
   const rk2 = (await roomInfo(code)).keys, unq = !!rk2[kTp] && !rk2[kTp].v.q && !!rk2[kTn] && !rk2[kTn].v.q && rk2[kTn].v.yaw === 0.3;
   const aUnq = await A.evaluate(([a, b]) => !HOST.collab.val(a).q && !HOST.collab.val(b).q, [kTp, kTn]);
   check('the headsets\' settings and the sound switches: the Shared dialog\'s rows set them for everyone, also with the layout locked; free moving off takes the turns out of the stations\' places and panels',
-    turned && dlg.shown === 'hidden' && dlg.shownC === 'face' && dlg.sel === 'face' && dlg.selC === 'hidden' && dlg.btn === 'Moving: facing you' && dlg.subs === 'Subtitles: on' && dlg.sbtn === 'Subtitles: off' && lk2 && unq && aUnq &&
+    turned && dlg.shown === 'hidden' && dlg.shownC === 'face' && dlg.sel === 'face' && dlg.selC === 'hidden' && dlg.btn === 'Moving: facing you' && dlg.subs === 'Subtitles at the start: on' && dlg.sbtn === 'Subtitles at the start: off' && lk2 && unq && aUnq &&
       dlg.snd === 'Sound effects: off,Narration: off,For everyone in this room, pages and headsets:' && dlg.snd2 === 'Sound effects: on,Narration: on' &&
       !!rk2.look && rk2.look.v.labels === 'face' && rk2.look.v.cards === 'hidden' && rk2.look.v.free === false && rk2.look.v.subs === false && rk2.look.v.sfx === true && rk2.look.v.voice === true,
     JSON.stringify({ turned, dlg, lk2, place: rk2[kTp], panel: rk2[kTn], look: rk2.look }));
@@ -9234,7 +9238,7 @@ try {
 
   // ---------------------------------------------------- relay restart --
   // (the headsets' labels in 3D, cards hidden, subtitles on and the narration off first: the restarted relay gets the room's settings back too)
-  await A.evaluate(() => { HOST.xr.setLabels('fixed'); HOST.xr.setCards('hidden'); HOST.xr.setSubs(true); HOST.xr.setVoice(false); });
+  await A.evaluate(() => { HOST.xr.setLabels('fixed'); HOST.xr.setCards('hidden'); HOST.xr.setSubsDefault(true); HOST.xr.setVoice(false); });
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
   const before = await roomInfo(code), keep = port;
   await stopRelay();
@@ -9251,10 +9255,10 @@ try {
   check('and a change after the restart still reaches the others', await until(B, s => JSON.stringify(HOST.cur.collab.state()) === s, sR, 5000));
   let lookR = null;
   for (let k = 0; k < 25 && !lookR; k++) { const r = await roomInfo(code).catch(() => ({ keys: {} })); lookR = r.keys && r.keys.look && r.keys.look.v; if (!lookR) await sleep(200); }
-  check('a relay restart keeps the headsets\' settings and the sound switches (labels in 3D, cards hidden, subtitles on, the narration off here) for every page', !!lookR && lookR.labels === 'fixed' && lookR.cards === 'hidden' &&
+  check('a relay restart keeps the headsets\' settings and the sound switches (labels in 3D, cards hidden, subtitles on by default, the narration off here) for every page', !!lookR && lookR.labels === 'fixed' && lookR.cards === 'hidden' &&
     lookR.free === true && lookR.subs === true && lookR.sfx === true && lookR.voice === false && await lookIs(B, 'fixed,hidden,true') && await lookIs(C, 'fixed,hidden,true') && await subsIs(B, true) && await subsIs(C, true) &&
     await sndIs(B, 'true,false,true,true,false') && await sndIs(C, 'true,false,true,true,false'), JSON.stringify({ lookR, B: await lookOf(B), subs: await subsOf(B), snd: await sndOf(B) }));
-  await A.evaluate(() => { HOST.xr.setLabels('face'); HOST.xr.setCards('fixed'); HOST.xr.setSubs(false); HOST.xr.setVoice(true); });
+  await A.evaluate(() => { HOST.xr.setLabels('face'); HOST.xr.setCards('fixed'); HOST.xr.setSubsDefault(false); HOST.xr.setVoice(true); });
   await lookIs(B, 'face,fixed,true'); await lookIs(C, 'face,fixed,true'); await subsIs(B, false); await subsIs(C, false); await sndIs(B, 'true,true,true,true,true'); await sndIs(C, 'true,true,true,true,true');
   let uiR = null;
   for (let k = 0; k < 25 && !uiR; k++) { const r = await roomInfo(code).catch(() => ({ keys: {} })); uiR = r.keys && r.keys[kUi(id0)] && r.keys[kUi(id0)].v; if (!uiR) await sleep(200); }
@@ -10987,7 +10991,7 @@ try {
   check('no relay known, peer to peer off: a link opens its room on this device', lj, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, HOST.collab.relay])));
   // a device that turned the sound switches off keeps them off in a room that never wrote them, and saves them on nowhere;
   // another setting written meanwhile leaves them out of the room's key (it must not hand this device's own to everyone)
-  await Lp.evaluate(() => HOST.xr.setSubs(true));
+  await Lp.evaluate(() => HOST.xr.setSubsDefault(true));
   const lown = await until(Lp, () => { const v = HOST.collab.val('look'); return !!v && v.subs === true && !('sfx' in v) && !('voice' in v) && !HOST.xr.sfx() && !HOST.xr.voice() &&
     !HOST.sfx.on() && localStorage.getItem('sfxOn') === 'off' && localStorage.getItem('narrationOn') === 'off'; }, null, 3000);
   check('a room on this device: a device that turned the sound switches off keeps them off in a room that never wrote them (another setting written leaves them out)', lown,
@@ -10999,7 +11003,7 @@ try {
   check('a room on this device: Arrange all, moving a station and the lock work alone', await until(Lp, () => HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
     !HOST.collab.internals().pending.size, null, 3000));
   // the headsets' settings in a room on this device: the room's too (with the layout locked), and kept with it
-  await Lp.evaluate(() => { HOST.xr.setLabels('hidden'); HOST.xr.setCards('face'); HOST.xr.setFree(false); HOST.xr.setSubs(true); HOST.sfx.set(false); HOST.xr.setVoice(false); });
+  await Lp.evaluate(() => { HOST.xr.setLabels('hidden'); HOST.xr.setCards('face'); HOST.xr.setFree(false); HOST.xr.setSubsDefault(true); HOST.sfx.set(false); HOST.xr.setVoice(false); });
   const lookL = () => { const L = HOST.collab.look(); return !!L && L.labels === 'hidden' && L.cards === 'face' && L.free === false && L.subs === true && L.sfx === false && L.voice === false; };
   const llook = await until(Lp, `(${lookL})() && !HOST.collab.internals().pending.size`, null, 3000);
   await sleep(700);   // kept at most 0.4 s after a change
@@ -11010,7 +11014,7 @@ try {
   const llook2 = await until(Lp, `HOST.collab.code === 'LCL' && (${lookL})() && HOST.xr.labels() === 'hidden' && HOST.xr.cards() === 'face' && !HOST.xr.free() && HOST.xr.subs() && !HOST.sfx.on() && !HOST.xr.voice()`, null, 8000);
   check('a room on this device: the headsets\' settings and the sound switches are the room\'s (set with the layout locked) and kept across a reload', llook && llook2,
     JSON.stringify(await Lp.evaluate(() => [HOST.collab.look(), HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free(), HOST.xr.subs(), HOST.sfx.on(), HOST.xr.voice()])));
-  await Lp.evaluate(() => { HOST.collab.lock(false); HOST.xr.setLabels('face'); HOST.xr.setCards('fixed'); HOST.xr.setFree(true); HOST.xr.setSubs(false); HOST.sfx.set(true); HOST.xr.setVoice(true); });
+  await Lp.evaluate(() => { HOST.collab.lock(false); HOST.xr.setLabels('face'); HOST.xr.setCards('fixed'); HOST.xr.setFree(true); HOST.xr.setSubsDefault(false); HOST.sfx.set(true); HOST.xr.setVoice(true); });
   await ready(Lp, 'airports');
   // a headset alone (no shared space): the stations stand on its floor; the panel has Re-align, not the question
   // whether it is in the room with the others; walking up to a station plays its story there

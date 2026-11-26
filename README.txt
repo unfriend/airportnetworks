@@ -657,9 +657,11 @@ with your hand, two hands turn it too; the story panel can tilt; Recenter
 puts things back) or facing you (things you move keep facing you and the
 panel stays upright). Subtitles: off (the default) or on (the narration's words
 in a strip low in your view while a story plays, following your head when you
-turn away; #subs=on in a link turns them on). In a shared room all four
-settings are the room's, the same for everyone in it (also set in the Shared
-dialog; the locks do not stop them), and a scene turned at a station is
+turn away; #subs=on in a link turns them on; each device's own, and in a
+shared room each headset's own over the room's default, Subtitles at the start
+in the Shared dialog). In a shared room the other three settings are the
+room's, the same for everyone in it (also set in the Shared dialog; the locks
+do not stop them), and a scene turned at a station is
 turned for everyone there.
 #labels=face|fixed|hidden, #cards=face|fixed|hidden and #free=on|off in a link set them. Frame rate (off
 by default, this headset's own, never the room's; #fps=on in a link): a small

@@ -1,22 +1,22 @@
 {
-  "version": "networks-v214",
+  "version": "networks-v215",
   "date": "2026-11-26",
   "new": [
-    "In a shared room the headset menu is now a short one for visitors by default: play or pause, start again, sound and effects volume, subtitles, the language in the pass story, leave the circle, line up again, close.",
-    "Staff unlock the full menu on one headset by holding both sticks down together for 2 seconds; the same hold locks it again. It also locks by itself on joining or leaving a room, at the session's end and when the headset is taken off.",
-    "The Shared dialog has a switch, Menus: limited / full, for the whole room (the full menu's Circles tab has it too). Outside a room nothing changes.",
-    "On a limited headset, developer mode's What is new no longer opens by itself."
+    "Subtitles are each headset's own: its menu's Subtitles row (Settings, or the limited page) switches only that headset.",
+    "In a shared room the Shared dialog sets the room's default, Subtitles at the start: on / off (also on a full menu's Circles tab). Every headset shows the default until it changes its own; changing the default takes every headset back to it.",
+    "A headset's own choice in a room is never sent or kept: it is forgotten when the headset joins or leaves a room or its session starts or ends. Outside rooms the device keeps its own setting, as before (#subs=on|off sets it).",
+    "Rooms from before this release are refused (a new room format), so update every device for an event.",
+    "Still to try from v214: the limited menu in shared rooms and the staff unlock (both sticks held down for 2 seconds)."
   ],
   "test": [
-    "Join a room in a headset: the menu (click a stick) shows the short page. Try each row at a circle.",
-    "Hold both sticks down for 2 seconds: Full menu, and no menu toggle, no stick moving, no spaceship. Hold again: Limited menu.",
-    "Unlock, take the headset off for a moment and put it back on: the menu should be limited again.",
-    "Turn Menus: full in the Shared dialog on a laptop: every headset gets the tabs back."
+    "In a room with two headsets: turn Subtitles on in one headset's menu; the other stays as it was.",
+    "On a laptop's Shared dialog, switch Subtitles at the start: both headsets follow; then each can change its own again.",
+    "v214: join a room in a headset; the menu shows the short page. Hold both sticks down for 2 seconds: Full menu, with no menu toggle, no stick moving and no spaceship. Hold again: Limited menu.",
+    "v214: unlock, take the headset off for a moment and put it on again: the menu should be limited again. Menus: full in the Shared dialog gives every headset the tabs."
   ],
   "untested": [
-    "How the 2-second hold feels on real controllers, and whether a stick held a moment longer than a click still opens the menu well.",
-    "Whether taking the headset off is noticed on a Quest (the session's hidden state) and locks the menu.",
-    "How the limited menu reads in a headset, and the pass story's language buttons there.",
+    "Subtitles per headset and the room's default in real headsets.",
+    "v214: how the 2-second hold feels on real controllers; whether taking a Quest off is noticed and locks the menu; how the limited menu reads in a headset.",
     "v213 and earlier as before: nothing since v200 has been in a headset; every synthetic voice is unheard."
   ]
 }

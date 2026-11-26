@@ -26,7 +26,9 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-60';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-61';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  // networks-61 (v215): look's subs is the room's default for subtitles, each headset's own choice over it (never sent);
+  // an older device would take it as the room's setting and write it for everyone when it changed its own
   // networks-60 (v214): the room's key menus ({ full, by, at }: the headsets' menus limited, the default, or full); an older
   // device would ignore it and show every headset the full menu
   // networks-54 (v170): a station's key st.<id>.arr (the copy of its story it runs: an arrangement on the relay,
@@ -219,6 +221,28 @@
   // with both down (a gap restarts the hold), eat: no click counts until both are let go
   const HOLD = { ms: 2000, gap: 500, since: 0, first: 0, src: null, last: 0, done: false, eat: false };
   const holdReset = () => Object.assign(HOLD, { since: 0, first: 0, src: null, last: 0, done: false, eat: false });
+  // Subtitles in a room (v215; the owner, 26 November 2026: "make subtitles per headset", then "add a room default for
+  // subtitles too"): look's subs is the room's default (the page's Shared dialog, a full menu's Circles tab); a headset's
+  // own choice there (its menu's Subtitles row, a phone's sheet) is SUBO: never sent, never stored, forgotten on joining
+  // or leaving a room and as a session starts or ends, and dropped when the room's default changes (the staff's switch
+  // always shows). Outside a room the device's own (HOST.xr, xrSubs)
+  const SUBO = { on: null, code: '', s: null, d: false };
+  const subsDefault = () => { const L = lookKept(); return !!(L && L.subs); };
+  function subsOwn() {
+    if (SUBO.on === null) return null;
+    if (SUBO.code !== C.code || SUBO.s !== R.session) { subsForget('stale'); return null; }
+    if (SUBO.d !== subsDefault()) { subsForget('default'); return null; }
+    return SUBO.on;
+  }
+  function subsForget(why) { if (SUBO.on === null) return; SUBO.on = null; log('subtitles own dropped', { why }); }
+  function setSubsOwn(on) {
+    if (!C.code) return false;
+    Object.assign(SUBO, { on: !!on, code: C.code, s: R.session, d: subsDefault() });
+    log('subtitles own', { on: !!on });
+    changed();
+    return true;
+  }
+  function setSubsDefault(on) { SUBO.on = null; return setLook({ subs: !!on }); }
   function menuLock(why) {
     holdReset();
     if (!ML.full) return;
@@ -560,6 +584,7 @@
     C.pres.clear();
     log('join', { code, relay: C.relay, via });
     menuLock('joined');   // (a staff unlock never carries into a room: its limited menu again, developer mode or not)
+    subsForget('joined');   // (subtitles: the room's default again)
     HOST.setUrl(HOST.picking);
     connect();
     R.joined();
@@ -571,7 +596,7 @@
   function leave(switching, purpose) {
     if (!C.code) return;
     log('leave', { code: C.code, purpose: !!purpose });
-    menuLock('left');
+    menuLock('left'); subsForget('left');
     C.want = false; clearTimeout(C.timer); clearTimeout(C.openTimer);
     const ws = C.ws, sp = C.spare;
     C.ws = null; C.spare = null;
@@ -2748,7 +2773,8 @@
   // the headsets' four settings (HOST.xr: the scenes' small labels and the cards (story panels, station cards, name tags),
   // each on top, in 3D (turned to you, in the scene) or hidden; free moving on or off; subtitles on or off) and the two
   // sound switches for pages and headsets alike (sound effects and narration on or off) are the room's in a room, for
-  // everyone in it (key look: { labels, cards, free, subs, sfx, voice, by, at }; a room without it: labels on top, cards in
+  // everyone in it (key look: { labels, cards, free, subs, sfx, voice, by, at }; subs the room's default for subtitles since
+  // v215, FORMAT networks-61, each headset's own choice over it: SUBO; a room without it: labels on top, cards in
   // 3D, no subtitles; FORMAT networks-27 for cards, sfx and voice), set from a headset's menu or the page's dialog, and
   // never refused by either lock. A sound switch the room never wrote stays each device's own (HOST.xr.mine), so a device
   // that turned it off keeps it off. Null outside a room (the device's own). Beside them the room's circles: asked first
@@ -4708,7 +4734,7 @@
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
       PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
       // (v214: the limited menu, the room's switch, and what the limited page shows that nothing above says)
-      (L => [L, roomMenusFull(), L ? (A => (A ? A.mode + A.playing : ''))(storyApp()) : '', L && HOST.curKey === 'pass' ? langButtons().map(o => o.l + o.on).join() : '', L ? R.state : ''])(menuLimited()),
+      (L => [L, roomMenusFull(), subsDefault(), L ? (A => (A ? A.mode + A.playing : ''))(storyApp()) : '', L && HOST.curKey === 'pass' ? langButtons().map(o => o.l + o.on).join() : '', L ? R.state : ''])(menuLimited()),
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -5141,7 +5167,7 @@
     y += 76;
     const su = HOST.xr.subs();
     button(S, 'subs', x, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su, px: 23 });
-    note('The spoken words, low in your view', y);
+    note('The spoken words, low in your view. This headset only', y);
     y += 76;
     const lg = langButtons();
     if (lg.length) {
@@ -5250,7 +5276,8 @@
       }
       // the scenes' small labels and the cards (the story panels, station cards and name tags), each on top, in 3D or hidden
       // (each press the next, from its default: labels on top, cards in 3D; lit while shown, and a press that hides sounds
-      // as turning off), free moving and subtitles, for every story; in a room the room's
+      // as turning off) and free moving, for every story, in a room the room's; subtitles this headset's own (v215: in a room
+      // over the room's default, until it rejoins)
       const lm = HOST.xr.labels(), cm = cardMode(), fr = HOST.xr.free(), su = HOST.xr.subs(), SAY = { fixed: 'in 3D', hidden: 'hidden', face: 'on top' };
       const nl = { face: 'fixed', fixed: 'hidden', hidden: 'face' }[lm], nc = { fixed: 'face', face: 'hidden', hidden: 'fixed' }[cm];
       button(S, 'labels', x, y, bw, 60, 'Labels: ' + SAY[lm], () => HOST.xr.setLabels(nl), { on: lm !== 'hidden', tog: nl === 'hidden' });
@@ -5348,7 +5375,7 @@
         y += 76;
       } else if (C.code) {
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        ctx.fillText(fit(ctx, 'These four and Sound effects: for everyone here', w), x, y - 4); y += 30;   // (Sound and Narration are this headset's own)
+        ctx.fillText(fit(ctx, 'Labels, Cards, Moving and Sound effects: for everyone here', w), x, y - 4); y += 30;   // (Subtitles, Sound and Narration are this headset's own)
       }
       // the sound on this headset (its mute in a headset session: on until turned off there, v124; the owner, 8 November
       // 2026: "in ar and vr default to sounds but no narration"; this headset's own; a press here counts as a tap, so it
@@ -5735,6 +5762,12 @@
       button(S, 'menus', x, y, bw, 56, mf ? 'Menus: full' : 'Menus: limited', () => setMenusFull(!mf), { px: 21, on: mf });
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
       wrapText(ctx, mf ? 'Every headset here has every tab' : 'Headsets here get a short menu; both sticks held 2 s: full', x + bw + 16, y + 2, bw, 27, 2);
+      y += 72;
+      // the room's default for subtitles (v215): every headset goes to it; each can change its own after
+      const sd = subsDefault();
+      button(S, 'subsdef', x, y, bw, 56, sd ? 'Subtitles at the start: on' : 'Subtitles at the start: off', () => setSubsDefault(!sd), { px: 19, on: sd });
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      wrapText(ctx, 'For everyone here; each headset can change its own', x + bw + 16, y + 2, bw, 27, 2);
       y += 72;
       // the circle you are at, on its own (v172): the other way than the room's, then the room's again
       const AQ = A && A.kind !== LOBBY_ST ? A : null;
@@ -7691,7 +7724,8 @@
     heard: TRK.heard ? Math.round(performance.now() - TRK.heard) : null, relay: TRK.relay.on, seen: TRK.relay.seen, used: trkUsed(), index: !IS_HEADSET, status: trkStatus(), est: TRK.fr.est.length }; };
 
   // ------------------------------------------------------------- subtitles --
-  // HOST.xr.subs() (the menu's Subtitles row; in a room the room's): the narration's words in a strip low in the view,
+  // HOST.xr.subs() (the menu's Subtitles row; this device's own, and in a room its own choice over the room's default since
+  // v215): the narration's words in a strip low in the view,
   // about 1.4 m away and 0.9 m wide, white on a dark band, drawn on top of everything in every label mode (subtitles
   // are their own setting), over whatever story runs; only in a headset, in story mode, with a line on show (nothing in
   // explore mode, on the Stories screen, away from a station, or for a story without the hook). The story gives its
@@ -10957,6 +10991,7 @@
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
     menuLock('session');   // (a session's end, or a new one: limited again in a room, v214)
+    subsForget('session');
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
     // in a headset a station is reached only by walking into its circle: one this page followed (or a session ended at)
     // is not its station
@@ -12506,8 +12541,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       else if (act === 'arrange') arrange({ x: 0, z: 0, yaw: 0 });
       else if (act === 'lock') setLock(!circlesLocked());
       else if (act === 'free') HOST.xr.setFree(!HOST.xr.free());
-      else if (act === 'subs') HOST.xr.setSubs(!HOST.xr.subs());
       else if (act === 'ask') setAsk(!askFirst());
+      else if (act === 'subs') setSubsDefault(!subsDefault());   // (the room's default for subtitles, v215: every headset back to it)
       else if (act === 'menus') setMenusFull(!roomMenusFull());   // (the headsets' menus, limited or full: the room's, never locked)
       else if (act === 'sfx') { if (HOST.sfx) HOST.sfx.set(!HOST.sfx.on()); }   // (in a room the room's; turned on, the click's own sound says so)
       else if (act === 'voice') { const L = look(); if (L) setVoiceAll(!L.voice); else HOST.xr.setVoice(!HOST.xr.voice()); }   // (in a room: for everyone, every headset's own going)
@@ -12720,12 +12755,12 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       // shown on this network or not: the room's (anyone sets it; not locked with the circles); a room on this device is on no network
       const nb = $('[data-sh="near"]'), ns = nearShown();
       if (nb) { nb.hidden = C.local; nb.textContent = ns ? 'Show on this network: on' : 'Show on this network: off'; nb.setAttribute('aria-pressed', String(ns)); }
-      // the headsets' labels, cards, moving and subtitles, the room's (not locked with the circles)
-      const sl = $('#shLabels'), sc = $('#shCards'), fb2 = $('[data-sh="free"]'), sb = $('[data-sh="subs"]'), lm = HOST.xr.labels(), cm = cardMode(), fr = HOST.xr.free(), su = HOST.xr.subs();
+      // the headsets' labels, cards and moving, the room's, and its default for subtitles (v215; not locked with the circles)
+      const sl = $('#shLabels'), sc = $('#shCards'), fb2 = $('[data-sh="free"]'), sb = $('[data-sh="subs"]'), lm = HOST.xr.labels(), cm = cardMode(), fr = HOST.xr.free(), su = subsDefault();
       if (sl && sl.value !== lm) sl.value = lm;
       if (sc && sc.value !== cm) sc.value = cm;
       if (fb2) { fb2.textContent = fr ? 'Moving: free' : 'Moving: facing you'; fb2.setAttribute('aria-pressed', String(fr)); }
-      if (sb) { sb.textContent = su ? 'Subtitles: on' : 'Subtitles: off'; sb.setAttribute('aria-pressed', String(su)); }
+      if (sb) { sb.textContent = su ? 'Subtitles at the start: on' : 'Subtitles at the start: off'; sb.setAttribute('aria-pressed', String(su)); }
       // the room's circles: walked into, or asked first (headsets; not locked with the circles)
       const ab = $('[data-sh="ask"]'), af = askFirst();
       if (ab) { ab.textContent = af ? 'Circles: ask first' : 'Circles: walk in'; ab.setAttribute('aria-pressed', String(af)); }
@@ -13893,7 +13928,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       PNL.tab = tab; PNL.page = page; PNL.code = code; draw();
       return [...ids];
     },
-    // the room's headset settings and sound switches ({ labels, cards, free, subs, sfx, voice, ask }; null outside a room),
+    // the room's headset settings and sound switches ({ labels, cards, free, subs: the subtitles' default, sfx, voice, ask }; null outside a room),
     // set for everyone there (HOST.xr calls these)
     look, lookKept, setLook,
     // the room's circles walked into (false) or asked first (true: walking in does nothing, a press on a circle asks), set
@@ -13968,6 +14003,8 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       return Object.assign(menuLevel(), { room: roomMenusFull(), unlocked: mlUnlocked(), force: ML.force, hold: { ms: HOLD.ms, since: HOLD.since, eat: HOLD.eat }, last: ML.why });
     },
     setMenus: on => setMenusFull(on),
+    // subtitles in a room (v215): this headset's own choice (null: none, the room's default applies), set; the room's default, set
+    subsOwn: () => subsOwn(), setSubsOwn: on => setSubsOwn(on), subsDefault: () => subsDefault(), setSubsDefault: on => setSubsDefault(on),
     // the relay's password: whether one is wanted ({ state, at, kept: one kept here for this relay }), one tried, forgotten
     auth: () => ({ state: AUTH.state, at: AUTH.at, kept: !!(C.relay && tokens()[originOf(C.relay)]), waiting: C.status === 'auth', create: !!C.wantCreate, home: HOME.state, offer: homeOffer() }),
     // the relay this page offers (HOME_RELAY), for tests: homeRelay(url) offers another (null: the table's again); its
