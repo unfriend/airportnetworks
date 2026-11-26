@@ -1,3 +1,6 @@
+> **A record of October 2026** (two Quest 3s, Quest Browser then). Where it differs from what the app does now,
+> `docs/agents/shared-rooms.md` is current; the dated reports behind it are in `docs/history/shared-spaces-test-log.md`.
+
 # Quest shared spaces: what we learnt
 
 October 2026. From a WebXR app that lines up two Quest 3 headsets in one room (Quest Browser) for one shared

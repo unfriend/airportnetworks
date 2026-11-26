@@ -14,8 +14,9 @@ story deliberately shows the paper's printed values, and the microanatomy story 
 1. change the generator (`packages/<key>/src/data/gen_data.*`) or the figures' readings
    (`packages/<key>/src/data/figures.json`), never `sets/data.js` by hand;
 2. regenerate the data, rebuild with `node packages/<key>/src/build.mjs` (then `--check`, and
-   `node tools/packages/scan.mjs`), bump `VERSION` in `sw.js` and run
-   the smoke test ([docs/agents/testing.md](agents/testing.md), "Testing");
+   `node tools/packages/scan.mjs`), bump `VERSION` in `sw.js` and run the cheap checks (`node --check` on the changed
+   files, the builds' `--check`, `node tools/release.mjs --check`); the smoke test only before `main` moves
+   ([docs/agents/testing.md](agents/testing.md), "Testing");
 3. set the item's status here to `answered`, with the date and the answer in a few words.
 
 ## PET: One scan, one system (`pet`)
@@ -104,12 +105,12 @@ Who to ask: Joel Hancock. Contact person: **TO FILL (owner)**.
 
 Sources: the ISMB 2026 talk "Deep integrative multiplex network-based analysis of rare neuromuscular disorders reveals
 overlapping multiscale endotypes involved in cardiac and skeletal muscle myopathies" (Iker Núñez-Carpintero, Philipp
-Friedrich, Julia Guthrie, Jörg Menche) and their analysis files in `ikerdata/`. Who to ask: Iker Núñez-Carpintero and
+Friedrich, Julia Guthrie, Jörg Menche) and their analysis files (the authors' folder, kept out of the repository). Who to ask: Iker Núñez-Carpintero and
 Philipp Friedrich. Contact person: **TO FILL (owner)**. What to do when new files arrive: [packages/nmd/src/README.md](../packages/nmd/src/README.md).
 
 | # | Item | Where in the source | What the story shows now | Status |
 | --- | --- | --- | --- | --- |
-| N1 | The authors' own layer z-scores. | their analysis (not in `ikerdata/`) | Stand-ins computed here, in this map, on the protein layers only: the largest connected group of a disease's known genes against 1,000 random gene sets with the same numbers of links (`packages/nmd/src/data/gen_data.mjs`; the story's small print says so). | open |
+| N1 | The authors' own layer z-scores. | their analysis (not in the authors' folder, kept out of the repository) | Stand-ins computed here, in this map, on the protein layers only: the largest connected group of a disease's known genes against 1,000 random gene sets with the same numbers of links (`packages/nmd/src/data/gen_data.mjs`; the story's small print says so). | open |
 | N2 | The authors' random walk: its settings and visits. | their analysis | Computed here: restart 0.7, layer switch 0.5, layers weighted by the z-scores ("After Buphamalai et al. (2021)" in the small print). `heat` in `packages/nmd/src/sets/data.js`, from `gen_data.mjs`. | open |
 | N3 | The authors' names for the endotypes. | their analysis | Each endotype is named after the most typical GO process of its genes (`gen_data.mjs`); the story says so. | open |
 | N4 | The links of the other layers: 33 of the 71 layers have none yet, and 11 have links only for the overlap of congenital myopathies and cardiomyopathies. | their analysis | Those layers are drawn empty (`data: ''` in `layers`); they fill in without code changes once the files are in `ikerdata/` and `gen_data.mjs` reads them. | open |

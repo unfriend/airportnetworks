@@ -19,6 +19,7 @@ Meta Quest Browser).
 | **Airports** (network theory) | 3,214 airports and 18,858 routes on a globe | nodes and edges, degree and hubs, shortest paths, betweenness, communities, robustness when airports close |
 | **Proteins** (network medicine) | 254 proteins and 375 interactions inside a cell | essential hubs, modules, disease modules, drug targets, knockouts |
 | **Cell map** (spatial interactome) | 249 proteins in 13 compartments of a model human cell | where proteins meet, proteins in several places, signals crossing the cell, proteins that move, proximity labelling, proteins in the wrong place |
+| **Back into the cell** (spatial interactome) | an interactome of 13,460 proteins put back into a model human cell: which of its links can happen where, with the proteins' membrane sides and complexes (UniProt, the Complex Portal) and real protein structures at the close-ups; in explore, the method's limits live, and a network of your own | why an interaction map is not yet a cell, where proteins are and which side of a membrane, complexes, which links can happen where, how to judge a network |
 | **Muscle and heart** (rare muscle diseases) | 1,182 genes of 13 groups of neuromuscular disorders in a tower of 71 layers, after the ISMB 2026 talk by Iker Núñez-Carpintero and Philipp Friedrich (LBI Network Medicine), on their data | the motor unit from nerve to sarcomere, a multiplex network, a random walk with restart, disease modules, endotypes, the overlap of congenital myopathies and cardiomyopathies, a stress test on a supercomputer; explore: pick a group, search a gene, run your own walk, knock out layers, pick endotypes, stand inside the tower |
 | **Endotypes** (disease endotypes) | one junction between nerve and muscle close up, the 35 genes of congenital myasthenic syndromes, their protein network of 18,306 proteins and 12 endotypes, after the ISMB 2026 EndotypY poster by Chloé Bûcheron, Iker Núñez-Carpintero, Enes Sakalli, Mathilde Meyenberg, Julia Guthrie and Jörg Menche (LBI Network Medicine), on their run | fatigable weakness, seed genes, a random walk with restart, a disease module, functional neighbourhoods, a tree whose splits are tested, endotypes and where they act in the synapse; explore: every endotype and gene, the method step by step, stand in the gap |
 | **One scan, one system** (whole-body PET) | a PET/CT scanner and how it sees, the tour's glowing PET body, its organs outlined and measured, and the networks of the organs' metabolism from 658 whole-body scans, after the paper by Barbara K Geist and colleagues (Med, 2025) and their poster "Shaping a New Era in Nuclear Medicine" (Medical University of Vienna and LBI Network Medicine) | positrons and coincidences, uptake, partial correlations, network density and disorder, hubs, health eroding into disease |
@@ -28,11 +29,13 @@ Meta Quest Browser).
 | **The mutation machine** (Quantum phylogenetics) | a text in four letters copied with swaps, a family tree in 3D that you walk round and look up into, a letter's two qubits, a rule of change as a path through a pyramid of mixes, the machine of gears for one branch and its circuit, an RNA stem, and the ancestor of three species rebuilt three ways, after the poster by Enes Berk Sakalli (LBI Network Medicine) and Arndt von Haeseler (CIBIV, Max Perutz Labs) | mutations and family trees, branch length, a letter in two qubits, superposition and read-out, a substitution model (GTR) as a dynamical system, a compiler from a rule to a circuit (copy, then turn), one machine per branch, letters that change together coupled, rebuilding an ancestor and what its shares mean; explore: any letter or mix and its read-outs, three rules, the branch length, five trees and any branch, the pair favour, rebuild again. Example numbers, computed live |
 | **The shape of tissue** (tissue topology) | the tour's body with its liver lifted out, a slice of healthy liver drawn from its real cells, balls growing round 110 of them until pieces join and loops open and close, the tower of scales, 123 liver slides as a rack of glass slides with their curves, a classifier's wall and the scales it weighs, and a new slide scored cell by cell, after the poster by Simon Schindler, André Rendeiro and Jörg Menche (LBI Network Medicine, CeMM, Medical University of Vienna, Max Perutz Labs), on their data | where cells sit as data in any modality, one scale or every scale, a network with triangles (the alpha complex), persistent homology: pieces and loops, the barcode and the Betti curves, comparing the slides' curves (functional PCA), a classifier read back as a weight for every radius, a fair test on slides it never saw, every cell a centre (local persistent homology), cirrhosis-like and healthy-like cells; explore: any radius, any slide, a window of radii of your own, any cell and its neighbourhood. Every number computed by the authors' package topocyte |
 | **Holding on to nitrogen** (soil microbes) | a cut-away block of soil where less than half the fertiliser reaches the wheat and the microbes' relay turns the rest into nitrate and nitrous oxide, a wheat given a piece of a wild grass's chromosome to slow the relay, the hop to a field trial in Japan (24 plots under netting, five dates, 119 samples), the BNI wheat greener and leaking less nitrate, the jars' nitrous oxide, and a crowd of about 100,000 kinds of microbe with the network of those that rise and fall together, after the slides and field trial of Marina Montserrat Díez, Christa Schleper and colleagues (University of Vienna, JIRCAS, University of Thessaly, Université Lyon 1) | nitrification as a relay of microbes, biological nitrification inhibition (BNI), a field trial's design (two wheat lines, three regimes, five dates, four replicates), measured against read off the slides, a co-occurrence network from 16S data (correlation, not interaction), a shuffle that leaves no link, modules that follow the fertiliser and the plots, the samples split by wheat line against random halves; strong indications, not yet proof; explore: any date and measure, the sketch's switches, any kind, any module, a threshold, the shuffle and the split |
-| **The switch that sticks** (CDK5 and brain diseases; on the Experiments set) | the kinase CDK5 among 16,376 human proteins in the six arrangements of the Menche lab's CDK5 VR project (CDK5_data, Christiane Hütter): a map of processes, its two activators, healthy signalling, the cut that leaves it stuck on, the Alzheimer's pathway and a landscape of diseases | interactomes, pathways, disease modules, over-representation "in this map" |
+| **The switch that sticks** (CDK5 and brain diseases; on the Experiments set) | the kinase CDK5 among 16,376 human proteins in the nine arrangements of the Menche lab's CDK5 VR project (CDK5_data, Christiane Hütter): a map of processes, its two activators, healthy signalling, the cut that leaves it stuck on, the Alzheimer's pathway and a landscape of diseases | interactomes, pathways, disease modules, over-representation "in this map" |
+| **Invisible threads** (the chemical exposome; on the Experiments set) | 9,887 substances from air, water, food and medicines and the genes they disturb, the network of 9,764 substances tied by shared genes and its communities, the model cell with the interactome where substances hit, the 6,177 diseases close to them, and 32 European countries' industrial releases on the airports globe, after Lombardo, Hütter, Unterlass and Menche (Nat Commun 2026) | exposure as a network, shared genes, communities, hazard, which diseases sit close by, releases by country |
 | **Pass it on** (networks for everyone; in English and German) | a school of fish all around you (in a headset, life size; in passthrough, in your room), the airports story's globe with an outbreak on its routes, and the cell map story's cell, for the Ludwig Boltzmann Institute for Network Medicine's outreach (about 12 and up) | no fish is in charge: each watches a few neighbours, and a warning races through the school faster than the shark; one neighbour each and the school falls apart; an infection travels along the flight routes, slowly, then through the hubs everywhere at once (a simple model, not a forecast); a signal passes hand to hand in a cell, and a protein in the wrong place stops it; explore: be the shark, change who watches whom, start an outbreak in any city and change how it spreads, the cell's proteins and moves |
 | **Flock** (collective motion) | 200 starlings at dusk flying all around you (in a headset, life size), over a field by a lake | no leader: each bird follows its seven nearest neighbours, so the flock is a network that changes from moment to moment; a falcon sets off a wave that runs through the whole flock; explore: as many birds as you like (100 to 400), who follows whom, send a falcon; then it flies on for as long as you stay |
 | **Robot gang** (swarm robotics) | a gang of 6 to 24 robot vacuums in a model living room; in a headset, in your own room (its floor, walls and furniture from the headset's room setup) | bump and turn: no map, yet the floor gets clean; then one rule, follow, on two networks of who follows whom: a star (all follow you) and a chain (a conga line). Click the floor to walk; in a headset the trigger on the floor spills crumbs |
 | **The future** (LBI Network Medicine) | a 3D tour in ten scenes, after the Ludwig Boltzmann Institute for Network Medicine's welcome talk | the whole is more than its parts, networks everywhere, genes and protein shapes, a protein machine (ATP synthase) assembling and running, the interactome as a city map, rare diseases and inborn errors of immunity, network propagation for diagnosis, networks across scales, the institute's research groups, whole-body PET and organ networks, tissue as a network of cells |
+| **Your guide** (an introduction; the last card) | a robot guide that shows how the app works in a headset, then seven practice tasks | pointing, playing a story, exploring, the menu, shared rooms |
 
 ## Using it
 
@@ -136,7 +139,7 @@ Meta Quest Browser).
   up: `tools/trackers/README.md`.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
-  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#ovary`, `#qubits`, `#mutation`, `#topo`, `#soil`, `#cdk5`, `#pass`, `#flock` or `#robots`
+  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#ovary`, `#qubits`, `#mutation`, `#topo`, `#soil`, `#cdk5`, `#pass`, `#flock`, `#robots`, `#ppicell`, `#exposome` or `#tutorial`
   in a story. A story link opens that story directly; a link without
   a hash lands on the Stories screen. Old links to `proteins.html` and
   `spatial.html` still work.
@@ -194,10 +197,10 @@ outside a headset it reloads by itself).
 
 ## Narration
 
-Every story has a narration in `audio/`: `narration.mp3` for the airports (a
-human recording) and `narration-<key>.mp3` for the others (synthetic, made with
+Every story has a narration in its own package, `packages/<key>/audio/narration.mp3`: a
+human recording for the airports, a synthetic one for the others (made with
 `tools/voice/`: Kokoro's American voice `af_heart`; Pass it on also has
-`narration-pass-de.mp3`, in German with Piper's Thorsten voice; see
+`narration-de.mp3` beside it, in German with Piper's Thorsten voice; see
 `tools/voice/README.md`). A narration plays in sync with its story and follows
 pausing, seeking and chapter jumps. Without the file the story runs silently on
 the same timing.
@@ -220,8 +223,8 @@ fails. A link ending in `#soundcheck` opens it directly.
 
 Chapter timings and how to record and re-sync a new recording are in
 `docs/narration-timings.txt`. `NARRATION_SYNC` is in
-`tools/<story>/engine/e3_story.js` for the thirteen built stories (rebuild after
-changing it) and in `stories/<story>.js` for airports, proteins and spatial.
+`packages/<key>/src/engine/e3_story.js` for the built stories (rebuild after
+changing it) and in `packages/<key>/main.js` for airports, proteins and spatial.
 After a narrated story's text changes, `node tools/voice/narrate.mjs <key>`
 speaks the changed lines again and re-times the story from the audio, then
 `node tools/voice/check.mjs <key>` checks it (the models and their Python stay
@@ -395,55 +398,10 @@ The protein data is meant for teaching, not research.
 
 ## Files
 
-| Path | What it is |
-| --- | --- |
-| `index.html` | the app: Stories screen, shared page layout, loads and swaps the stories |
-| `packages/airports/main.js`, `packages/proteins/main.js`, `packages/spatial/main.js`, `packages/lbi/main.js`, `packages/nmd/main.js`, `packages/endo/main.js`, `packages/pet/main.js`, `packages/micro/main.js`, `packages/ovary/main.js`, `packages/qubits/main.js`, `packages/mutation/main.js`, `packages/topo/main.js`, `packages/soil/main.js`, `packages/pass/main.js`, `packages/flock/main.js`, `packages/robots/main.js`, `packages/ppicell/main.js` | the stories, each a story package (since v187 every one; `packages/order.json` their order, `packages/index.json` the scan's index), with their data, explore modes and headset panels; each one's narration in `packages/<key>/audio/` |
-| `stories/design.js`, `stories/studio.js` | two pages that are not stories (on no Stories screen): the design room (`#design`, a table with a small model of every prop; parked since v217, `tools/design/`, unused) and the studio (`#studio`, your own models, trigger cubes and sounds placed in the room, served and saved by the relay's `--scenes`, with an upload page at `<relay>/upload`; see `tools/studio/README.md`) |
-| `stories/list.js` | the studio (`STORY_EXTRA`; the design room until v217); `STORY_LIST` is empty since every story became a package (v187) |
-| `version.json` | the latest release, written by `node tools/release.mjs`: running copies take new and changed stories from it, and ask before a new shell (see `docs/agents/shell.md`, "Hot reload and live updates") |
-| `whatsnew.json` | what is new in the latest release, what to test and what is untested, written by hand at every release: developer mode shows it (see `docs/agents/shell.md`, "Developer mode"; `node tools/release.mjs --check` fails while it names another release) |
-| `proteins.html`, `spatial.html` | forward old links to the app |
-| `sw.js`, `manifest.webmanifest`, `icons/` | offline cache and app install |
-| `audio/` | the narrations (the airports' recorded, the others synthetic, from `tools/voice/`) |
-| `three.min.js` | three.js r128 (MIT licence, see `three.LICENSE.txt`) |
-| `shared.js` | shared rooms: the client (rooms, stations, the clock, the room frame in a headset, presence, the Shared dialog and headset panel) |
-| `sfx.js` | the shell's sound effects (`HOST.sfx`: clicks, chimes, room sounds and the stories' own sounds, made in code, through the narration's context; on by default, silent on a page until *Sound* is pressed; a quiet background only for the flock and Pass it on); `tools/sfx.html` is its sound board, `tools/sfx-render.mjs` renders every sound to MP3 |
-| `occlusion.js` | real-world occlusion in AR (`HOST.occlusion`): real people, hands and things (by default) and the room scan (when chosen) hide what stands behind them, with smooth edges as a switch (on by default; untested in the app on a Quest) |
-| `ships.js` | the spaceships (`HOST.ships`, v132): a little ship steered with the right thumbstick (since v133; launched by the right stick clicked twice), shield and health, drones, drifting targets and pickups fought together in a shared room; nothing stored (untested on a headset) |
-| `notes.js` | the developer notebook (`HOST.notes`, v142; developer mode only): hold B or Y in a headset, or press the round button on a page, to record a spoken note with two pictures, pins and the context; sent to the relay's `/api/notes` (kept in an outbox until it answers); read on `notes/` (untested on a headset) |
-| `relay/` | the shared rooms' server (`server.mjs`, no packages), its test, Dockerfile and guide (`README.md`) |
-| `relay/trackers.mjs` | the relay's part for the PC's Vive trackers (`--trackers`, only on the PC with SteamVR): takes the bridge's readings on UDP 127.0.0.1 and sends them, lined up, to the rooms that use them (`relay/README.md`, "The PC's Vive trackers") |
-| `HANDOVER.md` | start here when taking the project over |
-| `docs/` | the shared rooms' plan (`shared-space-plan.md`), the lessons it applies (`multiplayer.md`, `shared-spaces.md`) and what two Quest 3s did (`quest-shared-space-findings.md`); for the handover: data sources and permissions (`data-and-permissions.md`), open questions for the authors (`questions-for-authors.md`), setup, tests and release (`setup-and-release.md`), running a session with headsets (`event-runbook.md`) and the narration scripts (`narration.md`) |
-| `tools/smoke.mjs` | headless test: loads every story and fails on page errors |
-| `tools/collab.mjs` | headless test of shared rooms: a relay and several pages, and a pretend headset, in one room |
-| `tools/update.mjs` | update test: an older version installed, then this one deployed (see `docs/agents/testing.md`) |
-| `tools/release.mjs` | a release step: writes `version.json` and stamps the shell's release into `index.html` (`--check` says whether they are current, and whether `whatsnew.json` names this release) |
-| `tools/live.mjs` | test of hot reload and live updates: a copy of the app changed as a release or an editor would, on a static host and through the relay's `--watch` |
-| `tools/audio.mjs` | narration test under the headset browsers' sound rule, with faults that make the fallback take over (needs `packages/airports/audio/narration.mp3`) |
-| `tools/narration.mjs` | writes `docs/narration.md` from the running stories (serve the folder first) |
-| `tools/pace.mjs` | paces the stories without a recording: writes their `NARRATION_SYNC` from the words on their panels (`--write`; serve the folder first) |
-| `packages/lbi/src/` | sources of the tour: its 3D sets, engine parts and build script (`node packages/lbi/src/build.mjs` writes `packages/lbi/main.js`) |
-| `packages/nmd/src/` | sources of the muscle story (`node packages/nmd/src/data/gen_data.mjs <the authors' folder>`, then `node packages/nmd/src/build.mjs` writes `packages/nmd/main.js`) |
-| `packages/endo/src/` | sources of the endotype story (`node packages/endo/src/build.mjs` writes `packages/endo/main.js`; data from `packages/endo/src/data/gen_data.py` and the authors' files, which are not in the repository) |
-| `packages/pet/src/` | sources of the PET story (`node packages/pet/src/data/gen_data.mjs`, then `node packages/pet/src/build.mjs` writes `packages/pet/main.js`) |
-| `packages/micro/src/` | sources of the microanatomy story (`node packages/micro/src/build.mjs` writes `packages/micro/main.js`; data from `packages/micro/src/data/gen_data.mjs` and Iva Buljan's network file, which is not in the repository) |
-| `packages/ovary/src/` | sources of the aging ovary story (`node packages/ovary/src/data/gen_data.mjs`, then `node packages/ovary/src/build.mjs` writes `packages/ovary/main.js`) |
-| `packages/qubits/src/` | sources of the qubits story (`node packages/qubits/src/build.mjs` writes `packages/qubits/main.js`; `node packages/qubits/src/test-qmath.mjs` checks its maths) |
-| `packages/mutation/src/` | sources of the mutation story (`node packages/mutation/src/build.mjs` writes `packages/mutation/main.js`; `node packages/mutation/src/test-mmath.mjs` checks its maths) |
-| `packages/topo/src/` | sources of the tissue topology story (`node packages/topo/src/build.mjs` writes `packages/topo/main.js`; `node packages/topo/src/test-data.mjs` checks its data against the poster's numbers; data from `packages/topo/src/data/gen_data.py` and the authors' files, which are not in the repository) |
-| `packages/soil/src/` | sources of the soil story (`node packages/soil/src/build.mjs` writes `packages/soil/main.js`; `node packages/soil/src/test-data.mjs` checks its data, decoders and key numbers; data from `packages/soil/src/data/gen_data.py` and the authors' files, which are not in the repository) |
-| `packages/cdk5/src/` | sources of the CDK5 story (`node packages/cdk5/src/build.mjs` writes `packages/cdk5/main.js`; `node packages/cdk5/src/test-data.mjs` checks its data and decoders; data from `packages/cdk5/src/data/gen_data.py` and a clone of the Menche lab's public CDK5_data repository, which is not in this one) |
-| `packages/pass/src/` | sources of the pass story (`node packages/pass/src/build.mjs` writes `packages/pass/main.js`, cutting its globe and cell out of `packages/airports/main.js` and `packages/spatial/main.js`; `node packages/pass/src/test-sets.mjs` checks its sets) |
-| `packages/flock/src/` | sources of the flock (`node packages/flock/src/build.mjs` writes `packages/flock/main.js`) |
-| `packages/robots/src/` | sources of the robot gang, a story package (`node packages/robots/src/build.mjs` writes `packages/robots/main.js`) |
-| `tools/studio/` | sources of the studio (`node tools/studio/build.mjs` writes `stories/studio.js`; `convert.mjs` turns a model into a GLB on a computer, `scan.mjs` describes a plain folder of scenes; its `README.md` is the formats guide) |
-| `tools/trackers/` | the Vive trackers' bridge (`bridge.py`: SteamVR's poses to the relay on the same Windows PC; Python 3 and pyopenvr, `--fake` without SteamVR), a fake bridge in Node (`fake.mjs`), the setup on the PC (`README.md`) and the contracts as built (`SPEC.md`) |
-| `tools/voice/` | the synthetic narrations: `narrate.mjs <key>` speaks a story's words (Kokoro; German with Piper) and re-times the story, `check.mjs <key>` checks the result (models and Python outside the repository; see its `README.md`) |
-| `AGENTS.md`, `CLAUDE.md`, `docs/agents/` | notes on the architecture and conventions for AI coding agents (and people): `AGENTS.md` the core, `docs/agents/*.md` the details by area, `docs/history.md` why rules are as they are |
-| `README.txt` | the same notes in plain text |
-| `LICENSE`, `NOTICE.md` | the licences: MIT for the code; CC BY 4.0 for the words, narrations, documentation and icons; the data and the parts written by others under their own terms |
+Every file and folder, in full: [`docs/agents/layout.md`](docs/agents/layout.md) (summed up under "Layout" in
+[`AGENTS.md`](AGENTS.md)). `README.txt` is the same notes in plain text; `LICENSE` and `NOTICE.md` are the licences (MIT for
+the code; CC BY 4.0 for the words, narrations, documentation and icons; the data and the parts written by others under their own
+terms).
 
 ## Developing
 

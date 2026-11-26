@@ -139,15 +139,13 @@ preprint (doi 10.1101/2025.10.13.682110).
 
 ## Before the repository or the site is public
 
-**Both are public already.** Checked on 22 October 2026: GitHub reports `unfriend/airportnetworks` as public, and
-GitHub Pages serves it at `https://stories.lbi-netmed.com/` (the github.io address redirects there) with the same version as `main`
-(`networks-v64`; nine stories, the microanatomy story is not on `main` yet). GitHub Pages serves every file of the
+**Both are public already.** GitHub Pages serves every file of the
 branch, not only the app (a file of `ikerdata/` downloaded from the site until it was removed on 3 November 2026). (The relay serves only the app's own files,
 see `APP_FILES` in `relay/server.mjs`; the Docker image leaves out `ikerdata/`, `tools/`, `docs/` and the logs, see
 `.dockerignore`.) So check these now; each is the owner's decision. Deleting branches or rewriting history cannot be
 undone for clones and forks made before (GitHub showed no forks on 22 October 2026).
 
-- [ ] **Log branches.** `logs-2026-10-17`, `logs-2026-10-19`, `logs-2026-10-20`, `logs-2026-10-20-new`,
+- [x] **Log branches** (deleted on GitHub, checked 26 November 2026; where a copy is kept is still **TO FILL (owner)**). `logs-2026-10-17`, `logs-2026-10-19`, `logs-2026-10-20`, `logs-2026-10-20-new`,
   `logs-2026-10-20-new2`, `logs-2026-10-20-new3` and `logs-2026-10-20-new4` hold `relay/logs/*.jsonl`. Their file
   names and contents include people's first names and room codes. Keep a copy where the team keeps such logs
   (**TO FILL (owner):** where), then delete the branches on GitHub. [relay/README.md](../relay/README.md) ("Logs")
@@ -276,18 +274,13 @@ martin chiettini for now, leave it in to clarify for later"); an employer may ho
 work (§ 40b of the Austrian copyright act, UrhG), so the holder may change once the employer has answered (`LICENSE`'s
 copyright line, `NOTICE.md`'s credit line).
 
-Third-party material:
+Third-party material: every row of the table that stood here is in `NOTICE.md` ("Parts written by others" and the data
+table). What `NOTICE.md` carries shorter, so the longer text stays here (the rows below), is how the OpenFlights ODbL fits the
+project licence, the recordings of Kokoro and what only runs offline to make them, and Piper's Thorsten voice's model card;
+`NOTICE.md` also lists parts this table never had (the studio's fflate, meshoptimizer and three.js's loaders, Basis Universal).
 
 | What | Where | Licence or terms |
 | --- | --- | --- |
-| three.js r128 | `three.min.js` | MIT; the notice is `three.LICENSE.txt` and must ship with it |
-| PeerJS 1.5.5 | `peerjs.min.js` (loaded only for a peer-to-peer room) | MIT; the notice is `PEERJS-LICENSE.txt` and must ship with it |
-| B612 font | `fonts/` (since v213; until then loaded from Google Fonts), in `sw.js` `SHELL` | SIL Open Font License 1.1, the B612 Project Authors; the licence ships with it (`fonts/OFL.txt`) |
-| App icons | `icons/` | the project's own, CC BY 4.0 (the owner, 20 November 2026: "icons are fine under cc 4.0") |
 | OpenFlights routes, 2014 | embedded in `packages/airports/main.js`; positions reused in `packages/lbi/main.js` | ODbL: credit OpenFlights (the story does), and a database adapted from it and used in public, such as the embedded routes, has to be offered under the ODbL too. Check how this fits the project licence |
-| Natural Earth coastlines | `packages/airports/main.js` | public domain |
-| Geist et al., Med 2025 | `packages/pet/src/` | CC BY 4.0: credit the authors (the story does) |
-| Buljan et al., bioRxiv 2025 | `packages/micro/src/` | CC BY-NC: credit, and no commercial use |
-| EndotypY | used by `packages/endo/src/data/gen_data.py` only, not shipped | MIT |
 | Kokoro-82M v1.0 (hexgrad), its American voice `af_heart` | every story's narration but the airports' (since v109; the tour's since October 2026), `packages/<key>/audio/narration.mp3`, made by `tools/voice/` (the model is not shipped) | Apache-2.0: the recordings it makes are ours to use; no speaker to ask. Each story's credits say the narration is a synthetic voice (Kokoro; the pass story's German: Piper's Thorsten). kokoro-onnx (MIT), espeak-ng and phonemizer (GPL-3) only run offline to make it: nothing of them ships |
 | Piper's German voice Thorsten, high quality (`de_DE-thorsten-high`, from `rhasspy/piper-voices` on Hugging Face) | the pass story's German narration, `packages/pass/audio/narration-de.mp3`, made by `tools/voice/` (the model is not shipped; its English one is Kokoro's, above) | Its model card (`de/de_DE/thorsten/high/MODEL_CARD`): dataset Thorsten-Voice (github.com/thorstenMueller/Thorsten-Voice), licence CC0; training: finetuned from the U.S. English lessac voice (high quality). The voices repository is marked MIT. The lessac voice's model card gives its dataset's licence as the Blizzard 2013 Lessac data's (cstr.ed.ac.uk/projects/blizzard/2013/lessac_blizzard2013/license.html), a research licence: research purposes only, no commercial use (checklist below). The speaker gave his voice under CC0: no speaker to ask. The story's credits should say the German narration is a synthetic voice (Piper, Thorsten). piper-tts (GPL-3.0-or-later) and its espeak-ng only run offline to make it: nothing of them ships |

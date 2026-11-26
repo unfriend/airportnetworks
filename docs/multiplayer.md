@@ -1,3 +1,9 @@
+> **A record of October 2026, not this app's rules.** It condenses another project's design (a graph viewer with a Node
+> relay). Where it differs, `docs/agents/shared-rooms.md` is current. What changed in this app: the relay has a shared
+> password (`COLLAB_TOKEN`; `--public` hosting; section 2's "No auth: the code is the secret" is no longer all there is), the room
+> address is `#s=XYZ` (a hash, not `?s=`), the relay uses no packages (plain Node, no `ws`), and a room can also run
+> peer to peer or on one device with no relay at all.
+
 # Multiplayer: how to sync several headsets (rules and lessons)
 
 Guidance for building shared sessions in this app: several headsets (usually 2-8 Quest 3, usually in one room)
