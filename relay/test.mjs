@@ -2207,6 +2207,8 @@ try {
     const missing = [];
     for (const f of want) if (!f || fs.existsSync(path.join(REPO, f))) { const r = await req('HEAD', '/' + f); if (r.status !== 200) missing.push(`/${f} (${r.status})`); }
     ok(!missing.length, 'every file sw.js caches is served' + (missing.length ? ': not ' + missing.join(' ') : ''));
+    // (the design room, parked since v217: its built file stays in the tree but is not the app's, relay/server.mjs PARKED)
+    { const r = await req('GET', '/stories/design.js'); ok(r.status === 404, `the parked design room's stories/design.js is not served (${r.status})`); }
     // (the studio's KTX2 encoder and transcoder, basis/, v151: not in SHELL, fetched when first used; the WebAssembly as
     // application/wasm, which compiling it as it streams needs, and gzipped)
     const bas = [];

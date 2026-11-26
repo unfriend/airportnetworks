@@ -1344,7 +1344,7 @@ after the session; the menu's Sound row the session's mute, `xrMuted`, its Narra
 and a controller's press on the story panel's button turning the narration off and on), the sound
 off by default (a fresh device, also one with the sound on under the old key,
 showing *Sound off*, a tap playing the story silently, no narration and no
-effects, until Sound is pressed; a page without a recording (the studio; the design room until v217) having the button
+effects, until Sound is pressed; a story without a recording (the example package, hello; the design room until v217) having the button
 too; the choice kept across a reload, on and off; `#sound=on` and `#sound=off`),
 that the narration plays after a click, after a story change with no tap (as in the
 headset's Stories menu), through pause, jumps, the Sound button, the Stories

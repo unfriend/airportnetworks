@@ -1713,12 +1713,9 @@ function buildMap() {
   const dir = path.join(WATCH, 'tools');
   let names = [];
   try { names = fs.readdirSync(dir); } catch { return; }
-  // (a page that is not a story, writing stories/<key>.js, is built only while stories/list.js names it: the design room is
-  // parked since v217, tools/design/README.md)
-  let listed = '';
-  try { listed = fs.readFileSync(path.join(WATCH, 'stories', 'list.js'), 'utf8'); } catch { /* none */ }
   for (const k of names) {
-    if (fs.existsSync(path.join(WATCH, 'stories', k + '.js')) && !listed.includes(`key: '${k}'`)) continue;
+    // (a build whose file is parked is not run: the design room's, since v217, PARKED above; tools/design/README.md)
+    if (PARKED.has(`stories/${k}.js`)) continue;
     const f = path.join(dir, k, 'build.mjs');
     let src;
     try { src = fs.readFileSync(f, 'utf8'); } catch { continue; }

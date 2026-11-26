@@ -7,7 +7,7 @@
 // 2026: "Default to sound off in all modes"), so the pages here start as a device that did (narrationMuted3 '0'), but
 // for the checks of that: a fresh device (also one that had the sound on before, narrationMuted2) starts with Sound off,
 // a tap plays nothing (no narration, no effects) until Sound is pressed, the choice is kept across a reload (on and off),
-// a page without a recording (the studio; the design room until it was parked, v217) has the button too, #sound=on and #sound=off in a link. Checked here: sound after a click,
+// a story without a recording (the example package, hello; the design room until it was parked, v217) has the button too, #sound=on and #sound=off in a link. Checked here: sound after a click,
 // after a story change with no tap (the headset's Stories menu), through pause, jumps, the
 // Sound button and the Stories screen; mutes saved by older versions are ignored; Play sound
 // never mutes; Esc is not a tap; the hum runs only in a headset session (hidden and visible
@@ -129,10 +129,10 @@ await step('a click on the story card', async () => {
 });
 // let the click's activation run out, then change story with no tap
 await wait(6000);
-// (the studio: since v109 every story has a narration, and only the pages that are not stories have none; the design
-// room here until it was parked, v217)
-await page.evaluate(() => HOST.go('studio'));
-await until('the studio', p => p.story === 'studio');
+// (the example package, hello: since v109 every one of the app's stories has a narration, and hello has none; the design
+// room here until it was parked, v217. Not the studio: it fetches a scene listing, and its emitters are its own)
+await page.evaluate(() => HOST.go('hello'));
+await until('the hello example', p => p.story === 'hello');
 await step('the engine keeps running in a story without narration', async () => {
   await wait(1500);
   const p = await probe();
@@ -225,7 +225,7 @@ await page.close();
 
 // 1b. the sound off by default (the owner, November 2026: "Default to sound off in all modes"): a fresh device, also one
 // that had the sound on before (narrationMuted2 '0': every device starts muted once), shows Sound off; a tap plays the
-// story silently (no narration, no effects) until Sound is pressed; a page without a recording (the studio) has the button too; the
+// story silently (no narration, no effects) until Sound is pressed; a story without a recording (hello) has the button too; the
 // choice is kept across a reload, on and off
 page = await open(base, '', { narrationMuted3: null, narrationMuted2: '0' });
 const btn = () => page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, b.textContent, b.getAttribute('aria-pressed'), localStorage.getItem('narrationMuted3')].join(); });
@@ -246,11 +246,11 @@ await step('sound off by default: Sound off, and a tap plays nothing until Sound
   if (k !== 'false,Sound on,0,true') throw new Error('after Sound: ' + k);
   console.log('ok   a fresh device (sound on under the old key): Sound off, a tap played the story silently (no narration, no effects), Sound turned both on (saved)');
 });
-// (the studio: never a recording, as a story may have one where its MP3 was made but not committed; the design room
-// until v217, parked)
-const pageUp = () => page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.audio && HOST.curKey === 'studio' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 90000 });
+// (hello, the example package: never a recording, as a story may have one where its MP3 was made but not committed; the
+// design room until v217, parked)
+const pageUp = () => page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.audio && HOST.curKey === 'hello' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 90000 });
 await step('sound off by default: a page without a recording has the Sound button too', async () => {
-  await page.evaluate(() => HOST.go('studio'));
+  await page.evaluate(() => HOST.go('hello'));
   await pageUp();
   await wait(1200);   // (a press within 800 ms of the sound coming on only starts it)
   const a = await btn();
@@ -260,7 +260,7 @@ await step('sound off by default: a page without a recording has the Sound butto
   await page.click('#btnSound');
   const c = await btn(), cfx = await page.evaluate(() => !!HOST.sfx.play('notice', { force: true }));
   if (b !== 'true,false,Sound off,false,1' || bfx !== null || c !== 'false,false,Sound on,true,0' || !cfx) throw new Error(JSON.stringify([b, bfx, c, cfx]));
-  console.log('ok   a page without a recording (the studio) shows Sound on; a press silences the effects (Sound off), another brings them back');
+  console.log('ok   a story without a recording (hello) shows Sound on; a press silences the effects (Sound off), another brings them back');
 });
 await step('sound off by default: the choice kept across a reload, on and off', async () => {
   await page.reload({ waitUntil: 'load' });
