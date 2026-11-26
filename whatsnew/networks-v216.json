@@ -1,0 +1,22 @@
+{
+  "version": "networks-v216",
+  "date": "2026-11-26",
+  "new": [
+    "Hands turned the right way: a controller held naturally, pointing ahead, now gives a hand pointing ahead with the palm in, and one held up a hand pointing up. Before, every hand came out a quarter turn off.",
+    "The same fix reaches the tracker guide's mirror (stand 8), people's bodies in a shared room and My body.",
+    "Tracked hands: a hand's grip is used first everywhere, and a hand with only a wrist is turned to match. The mirror's hand pucks now face the way the hand points.",
+    "Still to try from v214 and v215: the limited menu and the staff unlock, and Subtitles per headset."
+  ],
+  "test": [
+    "Stand 8, Your mirror: hold both controllers straight ahead; its hands should point back at you, palms in, the pucks facing you. Hold the left up: its hand on that side points up.",
+    "Turn a controller round its own length, and point it down and to the side: the hand should follow it.",
+    "Put the controllers down and use tracked hands: the same, hands ahead and held up.",
+    "In a shared room with two headsets: each other's bodies, hands ahead and held up, controllers and tracked hands. Turn My body on and look at your own hands.",
+    "v214: the limited menu in a room and the 2-second hold on both sticks. v215: Subtitles in one headset's menu leaves the other as it was."
+  ],
+  "untested": [
+    "All of the hands' turn in a real headset: checked only against the WebXR specs, Meta's controller model and pretend controllers. A small tilt of the hand against a real controller is possible.",
+    "v214: the limited menu and the unlock in a headset. v215: Subtitles per headset and the room's default.",
+    "v213 and earlier as before: nothing since v200 has been in a headset; every synthetic voice is unheard."
+  ]
+}

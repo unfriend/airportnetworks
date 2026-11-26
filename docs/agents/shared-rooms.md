@@ -1260,7 +1260,10 @@ The plan is `docs/shared-space-plan.md`.
   - Posed by `ik.js`'s `'head'` setup (the hips worked out below the head, the arms reaching for the grips, the feet
     planted and stepped by turns, gliding under the hips faster than 1 m/s: the sticks), calibrated once from the
     mannequin's own T-pose (the headset at its eyes and 8 cm ahead of them, the grips where Quest controllers are held in
-    a T-pose: WebXR's grip axes). Hands from presence's `g` (the grips, or a tracked hand's wrist), smoothed as the head is
+    a T-pose, each pointing out along its arm, palms down: WebXR's grip axes, since v216 as a Quest really gives them, a
+    controller held naturally with its grip's -z ahead along the hand and +y up; until v215 each hand came out a quarter
+    turn off, pointing down for a controller held ahead: `tools/trackers/SPEC.md`, "Grip and wrist frames"). Hands from
+    presence's `g` (the grips: a tracked hand's grip space, else its wrist made a grip, v216), smoothed as the head is
     (between the samples, else eased); where `g` is missing (an app before v126), from the ray's start and direction
     (which hand by where it starts, right or left of the head); else, and for a controller asleep, a relaxed hanging arm,
     eased in and out over 0.2 s. Each person's size follows their standing eye height (the 90th percentile of their head's
@@ -1290,7 +1293,7 @@ The plan is `docs/shared-space-plan.md`.
     camera there draws someone.
   - My body (`HOST.xr.body()`, `setBody(on)` in `index.html`; `xrBody` in `localStorage`, off by default, `#body=on|off`;
     the owner: your own legs when you look down "off by default"): your own body drawn from your head and your controllers'
-    grips (or a tracked hand's grip space) as this frame gives them (`selfGrips`, in the world's frame: in a room or not,
+    grips (or a tracked hand's grip space, else its wrist made a grip) as this frame gives them (`selfGrips`, in the world's frame: in a room or not,
     `gripStep` running only in a room), the head and neck folded away (its neck scaled to nothing, its glows there
     dropped, its rim and glow toned down: the self flag), on the room's floor in a room, else the reference space's. In VR
     only (in AR you see your own), never in camera mode or on the preview camera, never sent. A row on the menu's Settings
@@ -1314,11 +1317,11 @@ The plan is `docs/shared-space-plan.md`.
     `visor`, `chest`, `lfist`, `rfist`, `lboot`, `rboot`); `info(B).started` (the foot that began a step this frame, -1).
   - For tests: `HOST.collab.bodyState()` (`{ on, my, ready, can, drawing, err, loading, stats, self, selfFloor }`),
     `HOST.bodies.info(o.body)` (its feet, which are planted, its steps, gliding, its eye height and size, its hips, its
-    neck's scale, its hands' hold) and `stats()` (instances, renders of each mesh). The smoke test's `bodies` block.
+    neck's scale, its hands' hold; v216 `aim` and `palm`: each hand's way and its palm's) and `stats()` (instances, renders of each mesh). The smoke test's `bodies` block.
   - Untested on a headset: how the bodies, their lights, the scan and the glows read at 2 to 6 m on a Quest; the frame
     cost with ten or more people (the solver on a Quest's CPU, the 54 KB texture a frame, 2,470 triangles a person);
-    real controllers' grip poses and tracked hands' wrists sent as `g` (a wrist's axes are not a grip's: hands may sit
-    turned); a real person's walking, crouching and sitting; the comfort of My body; whether the first body hitches.
+    real controllers' and tracked hands' grip poses sent as `g` (v216: the hands' turn checked only against the specs and
+    Meta's controller model, and in the tests' pretend controllers); a real person's walking, crouching and sitting; the comfort of My body; whether the first body hitches.
 - At its station in a shared room a headset moves the scene and the panel for
   everyone: the grip on the scene moves it (`XR.globeOff`), both grips on it
   resize it (`xrResize`: the distance between the hands, a quarter to four times

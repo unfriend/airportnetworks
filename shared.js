@@ -4263,6 +4263,12 @@
   // space's (local-floor's y = 0)
   const SELF = { B: null, g: [[0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 1]], ok: [false, false], was: false,
     I: { head: [0, 0, 0, 0, 0, 0, 1], g: [null, null], ray: null, floor: 0, toWorld: null, rgb: [1, 1, 1], self: true, dt: 0, jump: false } };
+  // (v216) a tracked hand's wrist joint (the Hand Input spec: -z towards the palm's middle, +y out of the back of the hand)
+  // as the grip that hand would have (WebXR's grip: -z along the hand, +x out of the back of the right hand and the palm of
+  // the left, the fist's middle 5.5 cm on and 1.5 cm into the palm), for a hand that gives no grip space: bodies.js and
+  // the studio's mirror take every hand as a grip (tools/trackers/SPEC.md, "Grip and wrist frames")
+  const WRIST_G = [0, 1].map(k => new THREE.Matrix4().makeRotationZ(k ? Math.PI / 2 : -Math.PI / 2).setPosition(0, -0.015, -0.055));
+  const _wg = new THREE.Matrix4(), _wgp = new THREE.Vector3(), _wgq = new THREE.Quaternion(), _wgs = new THREE.Vector3();
   function selfGrips(f, local) {
     SELF.ok[0] = SELF.ok[1] = false;
     const s = HOST.session;
@@ -4271,10 +4277,12 @@
     for (let i = 0; i < src.length; i++) {
       const x = src[i], k = !x ? -1 : x.handedness === 'left' ? 0 : x.handedness === 'right' ? 1 : -1;
       if (k < 0) continue;
-      let p = null;
-      try { p = x.gripSpace ? f.getPose(x.gripSpace, local) : x.hand ? f.getJointPose(x.hand.get('wrist'), local) : null; } catch (e) { /* not tracked now */ }
+      let p = null, wr = false;
+      try { p = x.gripSpace ? f.getPose(x.gripSpace, local) : x.hand ? (wr = true, f.getJointPose(x.hand.get('wrist'), local)) : null; } catch (e) { /* not tracked now */ }
       if (!p) continue;
-      const a = SELF.g[k], P = p.transform.position, Q = p.transform.orientation;
+      let P = p.transform.position, Q = p.transform.orientation;
+      if (wr) { _wg.fromArray(p.transform.matrix).multiply(WRIST_G[k]).decompose(_wgp, _wgq, _wgs); P = _wgp; Q = _wgq; }
+      const a = SELF.g[k];
       a[0] = P.x; a[1] = P.y; a[2] = P.z; a[3] = Q.x; a[4] = Q.y; a[5] = Q.z; a[6] = Q.w;
       SELF.ok[k] = true;
     }
@@ -7695,10 +7703,14 @@
       for (const src of srcs) {
         const k = !src ? -1 : src.handedness === 'left' ? 0 : src.handedness === 'right' ? 1 : -1;
         if (k < 0) continue;
-        let p = null;
-        try { p = src.hand ? f.getJointPose(src.hand.get('wrist'), local) : f.getPose(src.gripSpace || src.targetRaySpace, local); } catch (e) { /* not tracked now */ }
+        let p = null, wr = false;
+        // (v216: a hand's grip space first, as a controller's; a hand without one its wrist made a grip, WRIST_G: before,
+        // a tracked hand always sent its wrist, whose axes are not a grip's)
+        try { p = src.gripSpace ? f.getPose(src.gripSpace, local) : src.hand ? (wr = true, f.getJointPose(src.hand.get('wrist'), local)) : f.getPose(src.targetRaySpace, local); } catch (e) { /* not tracked now */ }
         if (!p) continue;
-        _gm.fromArray(p.transform.matrix).premultiply(R.mi).decompose(_gp, _gq, _gs);
+        _gm.fromArray(p.transform.matrix);
+        if (wr) _gm.multiply(WRIST_G[k]);
+        _gm.premultiply(R.mi).decompose(_gp, _gq, _gs);
         GRIP[k].v = [_gp.x, _gp.y, _gp.z, _gq.x, _gq.y, _gq.z, _gq.w]; GRIP[k].at = t;
       }
     }
@@ -8401,8 +8413,8 @@
       _v.copy(h.o).applyMatrix4(R.mi); _v2.copy(h.d).transformDirection(R.mi);
       hands.push([r3(_v.x), r3(_v.y), r3(_v.z), r3(_v2.x), r3(_v2.y), r3(_v2.z), r3(len)]);
     }
-    // (g: the grips, or the tracked hands' wrists, [left, right] as poses in room coordinates: the studio's puppet worn with
-    // a Quest's head and hands reads them, HOST.collab.body)
+    // (g: the grips (a tracked hand's grip space, else its wrist made a grip: v216), [left, right] as poses in room
+    // coordinates: people's bodies and the studio's puppet worn with a Quest's head and hands read them, HOST.collab.body)
     const g = GRIP.map(G => (G.v ? G.v.map((c, k) => (k < 3 ? r3(c) : r4(c)) + 0) : null));
     // (sh: this headset's spaceship, and while it leads the shared targets, drones and pickups; ships.js)
     const sh = HOST.ships && HOST.ships.out ? HOST.ships.out() : null;

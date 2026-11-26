@@ -501,5 +501,48 @@ function fitFrom(names, at, from) {
   ok(worst <= 0.001, 'clipOf: the take replays the solved pose within 1 mm', mm(worst));
 }
 
+// ---- (v216) the hands' turn: a Quest controller held naturally, its ray ahead, has its grip's -z ahead along the hand,
+// +y up and +x to the right, for either hand (WebXR's grip space; tools/trackers/SPEC.md, "Grip and wrist frames").
+// People's bodies (bodies.js, the 'head' setup from its own T-pose's grips): with that hold straight ahead and held up,
+// each hand points along its controller (within 20 degrees), the palms in; with no controllers they hang, pointing down.
+// A tracked hand's wrist joint (the Hand Input spec: -z to the palm's middle, +y out of the back of the hand) made a grip
+// by WRIST_G (shared.js) and MIR_WRIST (the studio's mirror), one and the same matrix, gives the same hand
+{
+  globalThis.makeIK = makeIK; globalThis.HOST = globalThis.HOST || {};
+  new Function(fs.readFileSync(path.join(ROOT, 'bodies.js'), 'utf8'))();
+  const BD = globalThis.HOST.bodies, V3 = THREE.Vector3;
+  // (the natural hold: facing yaw (radians, 0 along -z), the controller pitched up by pitch degrees)
+  const hold = (yaw, pitch) => new THREE.Quaternion().setFromEuler(new THREE.Euler((pitch || 0) * Math.PI / 180, yaw || 0, 0, 'YXZ'));
+  const ang = (a, b) => Math.acos(Math.max(-1, Math.min(1, new V3(...a).normalize().dot(b.clone().normalize())))) * 180 / Math.PI;
+  const pose = (P, g) => { const I = { head: [0, 1.62, 0, ...hold(P.yaw, -5).toArray()], g, floor: 0, rgb: [1, 1, 1], dt: 0, jump: true, ease: 0, warm: true }; for (let k = 0; k < 4; k++) BD.add(P, I); return BD.info(P); };
+  const at = (yaw, side, y, fw) => new V3(side * 0.2, y, -fw).applyAxisAngle(new V3(0, 1, 0), yaw);
+  const worst = { aim: 0, palm: 0 }, says = [];
+  for (const yaw of [0, 2.1]) for (const pitch of [0, 90]) {
+    const P = BD.person('h' + yaw + pitch), q = hold(yaw, pitch), y = pitch ? 1.75 : 1.15, fw = pitch ? 0.25 : 0.4;
+    const g = [-1, 1].map(sd => [...at(yaw, sd, y, fw).toArray(), ...q.toArray()]), f = pose(P, g);
+    const ahead = new V3(0, 0, -1).applyQuaternion(q), right = new V3(1, 0, 0).applyQuaternion(hold(yaw, 0));
+    for (let i = 0; i < 2; i++) {
+      const a = ang(f.aim[i], ahead), pIn = ang(f.palm[i], i ? right.clone().negate() : right);
+      worst.aim = Math.max(worst.aim, a); worst.palm = Math.max(worst.palm, pIn);
+      says.push(`${pitch ? 'up' : 'ahead'} ${i ? 'R' : 'L'} ${a.toFixed(0)}°`);
+    }
+  }
+  console.log(`the hands' turn (bodies, a natural hold): along the controller within ${dg(worst.aim)}, the palms in within ${dg(worst.palm)} (${says.join(', ')})`);
+  ok(worst.aim <= 20 && worst.palm <= 30, 'bodies (v216): a controller held naturally, ahead or up, turned or not: each hand along its controller within 20 degrees, the palms in', JSON.stringify(worst));
+  const P0 = BD.person('hang'), f0 = pose(P0, [null, null]);
+  ok(f0.aim.every(a => ang(a, new V3(0, -1, 0)) <= 25), 'bodies: with no controllers the hands hang, pointing down', JSON.stringify(f0.aim));
+  // the wrist made a grip: the same matrix in shared.js and the mirror, giving the natural hold's grip from the spec's wrist
+  const SRC = /makeRotationZ\(k \? Math\.PI \/ 2 : -Math\.PI \/ 2\)\.setPosition\(0, -0\.015, -0\.055\)/;
+  const inShared = SRC.test(fs.readFileSync(path.join(ROOT, 'shared.js'), 'utf8')), inMirror = SRC.test(fs.readFileSync(path.join(HERE, 'engine/e6l_puppet.js'), 'utf8'));
+  const WG = [0, 1].map(k => new THREE.Matrix4().makeRotationZ(k ? Math.PI / 2 : -Math.PI / 2).setPosition(0, -0.015, -0.055));
+  // (the spec's wrist of a hand held out ahead, palm in: -z ahead, +y out of the back, left's back to the left, right's to the right)
+  const wrist = (k, p) => new THREE.Matrix4().makeBasis(k ? new V3(0, -1, 0) : new V3(0, 1, 0), k ? new V3(1, 0, 0) : new V3(-1, 0, 0), new V3(0, 0, 1)).setPosition(p);
+  let wq = 0;
+  const gw = [0, 1].map(k => { const m = wrist(k, new V3(k ? 0.2 : -0.2, 1.12, -0.33)).multiply(WG[k]), p = new V3(), q = new THREE.Quaternion(), sc = new V3(); m.decompose(p, q, sc); wq = Math.max(wq, deg(q, hold(0, 0))); return [...p.toArray(), ...q.toArray()]; });
+  const fw = pose(BD.person('wrist'), gw);
+  const wa = Math.max(...fw.aim.map(a => ang(a, new V3(0, 0, -1))));
+  ok(inShared && inMirror && wq < 0.01 && wa <= 20 && gw.every(g => g[2] < -0.37), 'a tracked hand\'s wrist made a grip (shared.js WRIST_G, the mirror\'s MIR_WRIST): the natural hold\'s grip, 5.5 cm on, the hand along it', JSON.stringify({ inShared, inMirror, wq, wa }));
+}
+
 console.log(`${checks} checks, ${fails} failed (${((Date.now() - t0) / 1000).toFixed(1)} s)`);
 process.exit(fails ? 1 : 0);

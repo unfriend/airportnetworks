@@ -825,6 +825,16 @@ narration heard from out of the circle, the locks and the People toggle in use.
   like a trigger cube's reveal: nothing sent, saved or in `state()`. A true mirror image (reflected, not turned), so your
   left hand moves the hand on your left. Trackers near the body are tied by `match` against the pose the headset and hands
   give (no T-pose). No FORMAT bump: no room key or `state()` changed shape (the record's new field is optional).
+- The hands' turn (v216). The owner's note, 26 November 2026, a Quest 3 in VR on v212 at stand 8 *Your mirror*: "looks
+  like the hands are off by 90 degrees like if I hold my controller straight as you can tell here they are off especially
+  the left one is visibly [so] and at the end I will hold it up and then it's right" (his pictures: controllers held
+  ahead, the robot's hands turned a quarter, the pucks edge-on; the left held up, that hand right). The grips' offsets
+  (`bodies.js`'s, which the mirror copies) read WebXR's grip as a hammer grip, +y up the arm; a Quest's grip lies along
+  the controller (-z ahead along the hand, +y up), so every hand pointed down when held ahead, in people's bodies and *My
+  body* as in the mirror; the tests' pretend grips held naturally too but nothing checked which way a hand pointed. Fixed
+  in the offsets (and the hanging hand's grip, so it hangs as before), a tracked hand's wrist made a grip where no grip
+  space comes (sent as `g` too: values, not shape, so no FORMAT bump), the hands' pucks facing the way they point; new
+  checks in `test-ik.mjs` and the smoke test (`tools/trackers/SPEC.md`, "Grip and wrist frames").
 
 ### The studio tour and the VR goggles after the owner's headset notes (v203)
 - The owner, 25 November 2026, walking the tour on v199 in a Quest 3. "The cube the vases stand on is not larger ... left

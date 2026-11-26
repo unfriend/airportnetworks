@@ -751,15 +751,19 @@ void main() {
   // ---------------------------------------------------------------------------------------------- the poser
   // Posed from a headset and two controllers by ik.js's 'head' setup, calibrated from the mannequin's own T-pose: the
   // headset at its eyes and ahead of them by AHEAD (ik.js's eye point is in the middle of the head, a person's eyes some
-  // 8 cm in front of it), the grips where a person holding Quest controllers in a T-pose has them (WebXR's grip space: the
-  // origin in the middle of the curled fingers, -z along a rod held in the fist towards the thumb, +x out of the back of
-  // the right hand and out of the palm of the left, +y back up the arm), the middle of the fist FIST from the wrist. A
-  // person's size follows their standing eye height, so sitting or crouching bends the legs instead of shrinking them
+  // 8 cm in front of it), the grips where a person holding Quest controllers in a T-pose has them, each pointing out along
+  // its arm, palms down, the middle of the fist FIST from the wrist. WebXR's grip space: the origin in the middle of the
+  // curled fingers, -z along a rod held in the fist towards the thumb, +x out of the back of the right hand and out of the
+  // palm of the left. A Quest controller held naturally, its ray pointing ahead, has its grip's -z ahead (along the
+  // controller and the hand), +y up and +x to the right, for either hand (v216: before, the grip's +y was taken to run
+  // back up the arm, so a hand pointing ahead came out pointing down, a quarter turn off: the owner's note of 26
+  // November 2026, tools/trackers/SPEC.md "Grip and wrist frames"). A person's size follows their standing eye height, so
+  // sitting or crouching bends the legs instead of shrinking them
   const V = (x, y, z) => new T.Vector3(x || 0, y || 0, z || 0), UP = V(0, 1, 0);
   const basis = (x, y, z) => new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x, y, z));
   const MAP = { head: 'hmd', lhand: 'l', rhand: 'r' };
-  const GRIP_Q = { l: basis(V(0, -1, 0), V(-1, 0, 0), V(0, 0, -1)), r: basis(V(0, 1, 0), V(1, 0, 0), V(0, 0, -1)) };   // (a T-pose, palms down)
-  const HANG_Q = basis(V(-1, 0, 0), V(0, 1, 0), V(0, 0, -1));   // (hanging: the backs of the hands out, the thumbs forward)
+  const GRIP_Q = { l: basis(V(0, -1, 0), V(0, 0, 1), V(-1, 0, 0)), r: basis(V(0, 1, 0), V(0, 0, 1), V(1, 0, 0)) };   // (a T-pose, palms down, -z out along the arm)
+  const HANG_Q = basis(V(-1, 0, 0), V(0, 0, 1), V(0, 1, 0));   // (hanging: -z down along the arm, the backs of the hands out, the thumbs forward)
   const EYE_Q = new T.Quaternion().setFromAxisAngle(UP, Math.PI);   // (a headset looking along +z: its own -z)
   const FIST = [0.055, -0.015, 0], AHEAD = 0.08;
   // the standing eye height: a high percentile (EYE.p) of the head's height over the floor, sampled every EYE.dt s over
@@ -989,7 +993,11 @@ void main() {
     if (!B || !B.rig) return null;
     const st = B.st, F = st.feet || [];
     return { feet: F.map(f => f.p.slice()), on: F.map(f => f.on), steps: st.n || 0, started: Number.isFinite(st.started) ? st.started : -1, glide: !!st.glide,
-      eye: B.eye.now, want: B.eye.want, k: B.k, hips: B.rig.bones.hips.getWorldPosition(V()).toArray(), neck: B.neck ? B.neck.scale.x : 1, hands: B.H.map(H => +H.w.toFixed(3)) };
+      eye: B.eye.now, want: B.eye.want, k: B.k, hips: B.rig.bones.hips.getWorldPosition(V()).toArray(), neck: B.neck ? B.neck.scale.x : 1, hands: B.H.map(H => +H.w.toFixed(3)),
+      // (v216: each hand's way along the hand and its palm's, unit vectors in the poses' frame: every bone's rest turn is the
+      // identity, the left arm out along +x, the palms down)
+      aim: ['l', 'r'].map((s, i) => V(i ? -1 : 1, 0, 0).applyQuaternion(B.rig.bones[s + 'hand'].getWorldQuaternion(_q)).toArray()),
+      palm: ['l', 'r'].map(s => V(0, -1, 0).applyQuaternion(B.rig.bones[s + 'hand'].getWorldQuaternion(_q)).toArray()) };
   }
   const stats = () => statsOf(W.def);
   return { CAP, PARTS, can, attach, warm, person, begin, add, end, info, stats, meshes: () => ({ body: W.def ? W.def.body : null, halo: W.def ? W.def.halo : null }),

@@ -316,12 +316,14 @@ robot sees your trackers".
   model's root is scaled, its bones solved, as the puppet's are, in `pupStep`'s place: `mirStep`). On a page, or when the
   headset is taken off, it plays its own clip again.
 - The devices: this headset's viewer pose, each controller's grip (`gripSpace`) or a tracked hand's grip, else its wrist
-  joint (read in the studio's `xrBegin`, `mirGrips`, only while a mirror asks), and at a station the room's trackers
+  joint made a grip (`MIR_WRIST`, v216: "Grip and wrist frames" below; read in the studio's `xrBegin`, `mirGrips`, only
+  while a mirror asks), and at a station the room's trackers
   (`TRK.at`, kind `t`, seen now). Each is reflected in the plane, its turn too: the reflection S times its turn times its
   own x flipped (S M L), so a left grip's frame becomes a right grip's and a headset facing the mirror one facing back. A
   true mirror image, not a turn: your left hand drives its right hand, which is on your left as you face it.
 - Its offsets need no T-pose: the headset's and hands' are those people's bodies use (`bodies.js`: the headset at its eyes
-  and 8 cm ahead, the grips in the fists of its T-pose, palms down), made once on the character at rest by
+  and 8 cm ahead, the grips in the fists of its T-pose, palms down, each controller pointing out along its arm: since
+  v216, "Grip and wrist frames" below), made once on the character at rest by
   `IK.calibrate` (`'any'`, no scale). A tracker's is taken when the set of devices changes (after its first few frames):
   `IK.match` with `posed: true` against the character as it is solved then (from the headset and hands), each tracker its
   offset to the bone it is tied to at that moment. A tracker too far from every part (`match`'s `far`) is ignored; a part
@@ -332,12 +334,50 @@ robot sees your trackers".
 - The pucks: an opaque puck (a disc 7.6 cm across) and a tag at each device that drives a part, where the mirror sees it
   (reflected), green for yours (*Headset*, *Left controller* or *Left hand*, *Right ...*), amber for a tracker named by the
   part it is on, on you (*Left foot tracker*). The tags are the studio's opaque tags; neither is hit by the pointer. A part
-  that is worked out has none.
-- Assumptions (untested on a headset): the grip and wrist frames as WebXR defines them, mirrored by flipping their x; a
-  tracker's offset is only as good as the pose the headset and hands give at the moment it is tied.
+  that is worked out has none. A hand's puck faces the way the controller or hand points (v216: its disc turned from the
+  grip's +y to its -z, so a controller held out towards the mirror shows its face); the headset's and the trackers' lie
+  as their own +y has them.
+- Assumptions (untested on a headset): the grip and wrist frames as "Grip and wrist frames" below has them (from the
+  specs and Meta's controller model, not yet seen on a Quest since v216), mirrored by flipping their x; the hand follows
+  the grip's -z exactly, so a real controller whose grip runs a little up from where the hand points tilts the hand by as
+  much; a tracker's offset is only as good as the pose the headset and hands give at the moment it is tied.
 - For tests: `STUDIO.mirror(id)` (on, its size, which device drives which part, the pucks' words and places, its head,
-  hands, hips and feet in the scene's frame) and `STUDIO.mirrorFake({ head, l, r, hand })` (seven numbers each in the
+  hands, hips and feet in the scene's frame; v216 `aim` and `palm`: each hand's way along the hand and its palm's, unit
+  vectors in the scene's frame) and `STUDIO.mirrorFake({ head, l, r, hand })` (seven numbers each in the
   scene's frame; `null` ends it), a pretend headset.
+
+## Grip and wrist frames (v216)
+
+The owner, 26 November 2026, a Quest 3 in VR on v212 at the tracker guide's mirror: "looks like the hands are off by 90
+degrees like if I hold my controller straight ... they are off especially the left one ... and at the end I will hold it
+up and then it's right". Until v215 the grips' offsets (`bodies.js` `GRIP_Q`, the mirror's `MIR_GRIP`) took the grip's
++y to run back up the arm and its -z across the fist (a hammer grip), so a controller held naturally, pointing ahead,
+gave a hand pointing down and one held up a hand pointing ahead: a quarter turn about the hand's side, the same for both
+hands, in people's bodies, *My body* and the mirror alike (the mirror's flip, S M L, checks out; why the left looked
+worse is not known, perhaps only how he held it). The forearm was near right (the solver reaches for the grip's place), the hand not.
+
+- WebXR's grip space (the WebXR spec, `gripSpace`): the origin at the middle of the curled fingers, -z along a rod held
+  in the fist towards the thumb, +x out of the back of the right hand and out of the palm of the left (the back of the left
+  hand to -x), +y "roughly" the arm's way. On a Quest Touch controller the rod is the controller itself: Meta's model for
+  the Quest Touch Plus in the WebXR input profiles (`meta-quest-touch-plus`, drawn in grip space) lies along z (12 cm,
+  its trigger and thumbstick at -z, the face buttons at +y), so a controller held naturally, its ray ahead, has its
+  grip's -z ahead along the hand, +y up and +x to the right, for either hand: palms in. Held up, -z up.
+- A tracked hand's wrist joint (the WebXR Hand Input spec): -y out of the palm, -z along the hand towards the palm's
+  middle; its x differs from a grip's by a quarter turn about z, the other way for each hand. Where a hand gives no grip
+  space, its wrist is made a grip: turned by -90 degrees (left) or +90 (right) about its own z, moved 5.5 cm along the
+  hand and 1.5 cm into the palm (`WRIST_G` in `shared.js`, `MIR_WRIST` in the studio; one and the same matrix). Quest
+  Browser gives hands a grip space, used first everywhere since v216 (presence's `g` sent a tracked hand's wrist until
+  v215, whose turn people's bodies took for a grip's: values only changed, not the shape).
+- The offsets (`bodies.js`, the mirror): the mannequin's or character's T-pose holding each controller pointing out along
+  its arm, palms down (left: -z out along +x, +x down, +y forward; right: -z along -x, +x up, +y forward), the fist's
+  middle 5.5 cm on from the wrist and 1.5 cm down. A hanging hand (`HANG_Q`): -z down, the thumbs forward. The tutorial
+  guide's `grip(side, wrist, aim)` and the hanging hands pose exactly as before (both turned with the offsets); a hand
+  from a ray (an app before v126) now points along its ray.
+- Checked by `tools/studio/test-ik.mjs` (bodies held naturally ahead and up, turned: each hand along its controller, the
+  palms in; hanging hands down; the wrist made a grip), the smoke test's `bodies` (a body's hands along controllers held
+  ahead) and `studio guide` (the mirror's hands: up for a raised controller, back at you for one held ahead); the tests'
+  pretend controllers hold naturally (`HOLD` in `tools/smoke.mjs`). Not checked: wearing a real Quest; trackers and the
+  worn puppet's calibrated maps are untouched (their offsets are taken from the devices as they are).
 
 ## The solver (`ik.js`)
 

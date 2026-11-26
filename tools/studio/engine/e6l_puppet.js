@@ -373,10 +373,17 @@ const it0 = L => (STU.items.get(L.id) || { rec: {} }).rec.puppet || {};
 const MIR = { want: false, g: [null, null], hand: [false, false], fake: null, own: { head: null, l: null, r: null, hand: null }, D: [1.2, 1.6, 2, 2.5] };
 const MIR_EYE = { dt: 0.5, n: 60, p: 0.9, lo: 1.0, hi: 2.05, tau: 1 };   // (as bodies.js's EYE: a high percentile of the head's height over 30 s)
 // (as bodies.js: the headset ahead of the eyes, the fist's middle from the wrist, at the mannequin's size, its eyes 1.62 m
-// up; WebXR's grip in a T-pose, palms down; a headset looking along +z)
+// up; WebXR's grip in a T-pose, palms down, its -z out along the arm (v216: a controller held naturally has its grip's -z
+// ahead along the hand, +y up; before, +y was taken to run up the arm and the hands came out a quarter turn off); a
+// headset looking along +z)
 const MIR_K = { eye: 1.62, ahead: 0.08, fist: [0.055, -0.015, 0] };
 const mirBasis = (x, y, z) => new THREE.Quaternion().setFromRotationMatrix(new THREE.Matrix4().makeBasis(new THREE.Vector3(...x), new THREE.Vector3(...y), new THREE.Vector3(...z)));
-const MIR_GRIP = { l: mirBasis([0, -1, 0], [-1, 0, 0], [0, 0, -1]), r: mirBasis([0, 1, 0], [1, 0, 0], [0, 0, -1]) };
+const MIR_GRIP = { l: mirBasis([0, -1, 0], [0, 0, 1], [-1, 0, 0]), r: mirBasis([0, 1, 0], [0, 0, 1], [1, 0, 0]) };
+// a tracked hand's wrist joint (the Hand Input spec: -z towards the palm's middle, +y out of the back of the hand) as the
+// grip that hand would have (-z along the hand, +x out of the back of the right hand and the palm of the left, the fist's
+// middle 5.5 cm on and 1.5 cm into the palm): only where a hand gives no grip space
+const MIR_WRIST = [0, 1].map(k => new THREE.Matrix4().makeRotationZ(k ? Math.PI / 2 : -Math.PI / 2).setPosition(0, -0.015, -0.055));
+const _mrW = new THREE.Matrix4(), _mrWp = new THREE.Vector3(), _mrWq = new THREE.Quaternion(), _mrWs = new THREE.Vector3();
 const MIR_EYEQ = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
 const MIR_BODY = { head: '@head', rhand: '@l', lhand: '@r' };   // (the part each of your own devices drives: mirrored)
 const MIR_SWAP = s => (s[0] === 'l' ? 'r' + s.slice(1) : s[0] === 'r' ? 'l' + s.slice(1) : s);
@@ -392,10 +399,11 @@ function mirGrips(frame, ref) {
   for (let i = 0; i < src.length; i++) {
     const x = src[i], k = !x ? -1 : x.handedness === 'left' ? 0 : x.handedness === 'right' ? 1 : -1;
     if (k < 0) continue;
-    let p = null;
-    try { p = x.gripSpace ? frame.getPose(x.gripSpace, ref) : x.hand && frame.getJointPose ? frame.getJointPose(x.hand.get('wrist'), ref) : null; } catch (e) { p = null; }
+    let p = null, wr = false;
+    try { p = x.gripSpace ? frame.getPose(x.gripSpace, ref) : x.hand && frame.getJointPose ? (wr = true, frame.getJointPose(x.hand.get('wrist'), ref)) : null; } catch (e) { p = null; }
     if (!p) continue;
-    const P = p.transform.position, Q = p.transform.orientation;
+    let P = p.transform.position, Q = p.transform.orientation;
+    if (wr) { _mrW.fromArray(p.transform.matrix).multiply(MIR_WRIST[k]).decompose(_mrWp, _mrWq, _mrWs); P = _mrWp; Q = _mrWq; }
     MIR.g[k] = [P.x, P.y, P.z, Q.x, Q.y, Q.z, Q.w]; MIR.hand[k] = !!x.hand;
   }
 }
@@ -543,7 +551,7 @@ function mirStep(it, dt) {
 }
 // the pucks: one at each device that drives a part, where the mirror sees it, with a tag naming it (yours: your headset,
 // your left controller or hand ...; a tracker by the part it is on, on you). Opaque, never hit by the pointer
-const MIR_PUCK = { geo: null, mat: {} };
+const MIR_PUCK = { geo: null, mat: {} }, MIR_FACE = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI / 2);   // (the disc's face from the grip's +y to its -z)
 function mirPucks(it, M, D) {
   let G = it.mirG;
   if (!G) {
@@ -571,6 +579,7 @@ function mirPucks(it, M, D) {
     }
     P.material = MIR_PUCK.mat[x.id[0] === '@' ? 'dev' : 'trk'];
     P.position.fromArray(x.at); P.quaternion.fromArray(x.at, 3); P.visible = true;
+    if (x.id === '@l' || x.id === '@r') P.quaternion.multiply(MIR_FACE);   // (a hand's puck faces the way it points, v216)
     tg.userData.set(x.word, MIR_COL[x.id[0] === '@' ? 'dev' : 'trk'], 0.06);
     tg.position.fromArray(x.at); tg.position.y += 0.05; tg.visible = true;
   });
@@ -590,14 +599,26 @@ function mirDrop(it) {
   it.mirG = null; it.mir = null;
 }
 // (for tests and the console, STUDIO.mirror: where it is, its size, which device drives which part, the pucks' words and
-// places, and its hands' and head's places in the scene's frame)
+// places, and its hands' and head's places in the scene's frame; v216: aim, each hand's way along the hand (the forearm's
+// way at rest, turned as the hand is turned from rest) and palm (its palm's, down at rest), unit vectors in the scene's frame)
 function mirState(id) {
   const it = STU.items.get(id), M = it && it.mir;
   if (!it) return null;
   const at = b => { if (!it.rig || !it.rig.ok || !it.rig.bones[b]) return null; const v = it.rig.bones[b].getWorldPosition(new THREE.Vector3()); return GL.items.worldToLocal(v).toArray().map(n => Math.round(n * 1e4) / 1e4); };
+  const hand = (s, palm) => {
+    const rig = it.rig;
+    if (!M || !rig || !rig.ok || !rig.bones[s + 'hand']) return null;
+    const h = IK.restPose(rig, s + 'hand'), f = IK.restPose(rig, s + 'fore'), gq = new THREE.Quaternion();
+    GL.items.getWorldQuaternion(gq);
+    const par = rig.bones.hips.parent, fq = par ? par.getWorldQuaternion(new THREE.Quaternion()) : new THREE.Quaternion();
+    const v = palm ? rig.up.clone().negate().applyQuaternion(fq) : h.p.clone().sub(f.p);
+    v.applyQuaternion(h.q.clone().invert()).applyQuaternion(rig.bones[s + 'hand'].getWorldQuaternion(new THREE.Quaternion())).applyQuaternion(gq.invert()).normalize();
+    return v.toArray().map(n => Math.round(n * 1e3) / 1e3);
+  };
   return { rec: it.rec.puppet || null, on: !!M, why: it.pupWhy || '', clip: !!it.action, k: M ? M.k : 0, eye: M ? M.eye.now : 0, map: M ? Object.assign({}, M.C.map) : {},
     pucks: M ? M.list.map(x => ({ word: x.word, slot: x.slot, at: x.at.slice(0, 3) })) : [], shown: !!(it.mirG && it.mirG.g.visible),
-    bones: M ? { head: at('head'), lhand: at('lhand'), rhand: at('rhand'), hips: at('hips'), lfoot: at('lfoot'), rfoot: at('rfoot') } : null };
+    bones: M ? { head: at('head'), lhand: at('lhand'), rhand: at('rhand'), hips: at('hips'), lfoot: at('lfoot'), rfoot: at('rfoot') } : null,
+    aim: M ? { lhand: hand('l'), rhand: hand('r') } : null, palm: M ? { lhand: hand('l', true), rhand: hand('r', true) } : null };
 }
 
 // ---------------------------------------------------------------- takes --

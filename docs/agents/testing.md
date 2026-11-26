@@ -1254,7 +1254,10 @@ A second step (v204): the mirror (`mir008`) with no headset plays its clip; with
 (`STUDIO.mirrorFake`, the scene's frame) on its pad facing it, the left hand raised, its right hand rises where your left
 hand's image is (within 15 cm), it is sized to the eyes (1.7 m), its pucks read *Headset*, *Left controller*, *Right
 controller*; 0.6 m nearer with the other hand raised and tracked hands, it steps 0.6 m towards you, its left hand up, the
-pucks *Left hand*, *Right hand*; `collab.state()` and every record unchanged; the headset gone, its clip again.
+pucks *Left hand*, *Right hand*; `collab.state()` and every record unchanged; the headset gone, its clip again. Since
+v216 the pretend controllers are held as a Quest's are (`HOLD` in `tools/smoke.mjs`: grip -z ahead along the hand, +y
+up; the raised one straight up) and its hands must point as they do (`STUDIO.mirror(id).aim` and `palm`): its raised
+hand up, the other back towards you (within 20 degrees), its palm in.
 
 ### smoke: bodies
 
@@ -1266,7 +1269,9 @@ in real time (the shell's frames are timed by the clock). Four steps:
   anyone shows; Bodies on and My body off and unset by default), one body instance and no head, one draw a frame (an
   eye) for the bodies and one for their glows; while walking, six steps at least, 80 % by turns, never both feet off the
   floor, the planted ankles 5 to 12 cm over the floor; standing, both feet planted and no steps from a second on. Four
-  people (one with no grips: their hands hanging): four instances, still one draw and one. Prints the walk's steps and
+  people (one with no grips: their hands hanging): four instances, still one draw and one; since v216 a person's hands,
+  controllers held naturally ahead (the feed's grips are `HOLD`'s), point along them within 20 degrees, palms in
+  (`HOST.bodies.info(B).aim` and `palm`). Prints the walk's steps and
   what a body costs (ms a person a frame to pose and write; SwiftShader's machine).
 - Bodies off (the Debug tab's *Bodies* row, pressed through `HOST.collab.menuFind`): no bodies, four heads, kept as
   `collabBodies` off; on again, four bodies. A jump of 3 m: both feet planted under the new place within a frame of it
@@ -2476,8 +2481,12 @@ sizes and moves it as on the floor, `match` ties the same parts and `calibrate` 
 without `o.base` it is sized otherwise); and since v164, for people's bodies, a headset alone on
 this rig with straight legs at rest: the head bobbing 2.5 cm over its height at rest and swaying (no steps, both feet
 planted, none sliding: the old solver stepped 19 times), looking down 1 rad (the back upright, the hips under the head:
-before, 15 cm back and 32 degrees), and moving at 1.6 m/s (the feet glide, no steps; stepping again once slow); run it
-after changing `ik.js` or the puppet in `tools/studio/test/make.mjs`.
+before, 15 cm back and 32 degrees), and moving at 1.6 m/s (the feet glide, no steps; stepping again once slow); since
+v216 (76 checks) the hands' turn: `bodies.js` loaded in Node, controllers held naturally (grip -z ahead, +y up: a
+Quest's) ahead and straight up, facing two ways, each hand along its controller within 20 degrees and the palms in; no
+controllers, the hands hanging down; a tracked hand's wrist made a grip (the same matrix in `shared.js` and the
+studio's mirror) giving the natural hold's grip and a hand along it (`tools/trackers/SPEC.md`, "Grip and wrist
+frames"); run it after changing `ik.js`, `bodies.js`'s grips or the puppet in `tools/studio/test/make.mjs`.
 
 ## Refactor checks: does a change of the shared engine change what a story does?
 

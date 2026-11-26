@@ -13299,6 +13299,12 @@ if (runs('studio tour')) {
   });
   await tp.close();
 }
+// (v216) a Quest controller held naturally, as WebXR's grip space has it: facing yaw (radians about +y, 0 along -z), the
+// controller pitched up by pitch degrees; its grip's -z ahead along the controller and the hand, +y up, +x to the right,
+// for either hand (tools/trackers/SPEC.md, "Grip and wrist frames"). A quaternion [x, y, z, w]: the pretend grips below.
+// AIM_OK: a hand's way (unit vectors) within deg of want
+const HOLD = (yaw, pitch) => { const a = (pitch || 0) * Math.PI / 360, b = (yaw || 0) / 2; return [Math.cos(b) * Math.sin(a), Math.sin(b) * Math.cos(a), -Math.sin(b) * Math.sin(a), Math.cos(b) * Math.cos(a)]; };
+const AIM_OK = (v, want, deg) => !!v && Math.acos(Math.max(-1, Math.min(1, (v[0] * want[0] + v[1] * want[1] + v[2] * want[2]) / Math.hypot(...v) / Math.hypot(...want)))) <= deg * Math.PI / 180;
 // The tracker guide (v200): examples/tracker-guide/, made by tools/studio/tracker-guide/make.mjs. The Experiments set
 // has its two link cards (Studio, Tracker guide) after the packages and before the card back, none on the main set; the
 // Tracker guide card opens the studio on the example, visiting (no Edit); every model loads with the clips its layout
@@ -13343,7 +13349,8 @@ if (runs('studio guide')) {
     const recs = () => ss('JSON.stringify([...STU.items.values()].map(i => i.rec))'), st = () => gp.evaluate(() => JSON.stringify(HOST.cur.collab.state()));
     const r0 = await recs(), s0 = await st();
     // (on the pad, 1.6 m in front of it, facing it (-z), eyes 1.7 m up; the left hand raised high)
-    const fake = (z, ly, ry, hand) => ({ head: [1.2, 1.7, z, 0, 0, 0, 1], l: [0.85, ly, z - 0.25, 0, 0, 0, 1], r: [1.5, ry, z - 0.15, 0, 0, 0, 1], hand: [hand, hand] });
+    // (each controller held naturally, HOLD: ahead, or straight up where it is raised high)
+    const fake = (z, ly, ry, hand) => ({ head: [1.2, 1.7, z, 0, 0, 0, 1], l: [0.85, ly, z - 0.25, ...HOLD(0, ly > 1.7 ? 90 : 0)], r: [1.5, ry, z - 0.15, ...HOLD(0, ry > 1.7 ? 90 : 0)], hand: [hand, hand] });
     await ss(`STUDIO.mirrorFake(${JSON.stringify(fake(-13.4, 2.0, 1.0, false))})`); await wait(2000);
     const a = await M();
     const B = a.bones || {}, near = (p, q, d) => p && q && Math.hypot(p[0] - q[0], p[1] - q[1], p[2] - q[2]) < d;
@@ -13353,6 +13360,10 @@ if (runs('studio guide')) {
       if (!near(B.rhand, [0.85, 2.0, -14.75], 0.15) || !(B.rhand[1] > B.head[1])) out.push('its right hand is not up where your left hand shows: ' + JSON.stringify(B.rhand));
       if (!near(B.lhand, [1.5, 1.0, -14.85], 0.15)) out.push('its left hand is not at your right hand\'s image: ' + JSON.stringify(B.lhand));
       if (Math.abs(a.eye - 1.7) > 0.01) out.push('not sized to your eyes: ' + a.eye);
+      // (v216, the owner's note of 26 November 2026: the hands a quarter turn off) your raised left hand's image points up, your
+      // right's, held ahead, points back at you (+z here), palms in
+      const A = a.aim || {}, Pm = a.palm || {};
+      if (!AIM_OK(A.rhand, [0, 1, 0], 20) || !AIM_OK(A.lhand, [0, 0, 1], 20) || !AIM_OK(Pm.lhand, [-1, 0, 0], 30)) out.push('its hands do not point as your controllers do (want its right hand up, its left towards you, palm in): ' + JSON.stringify({ aim: A, palm: Pm }));
       const words = a.pucks.map(x => x.word).sort().join();
       if (words !== 'Headset,Left controller,Right controller' || !a.shown) out.push('its pucks: ' + words + (a.shown ? '' : ' (not shown)'));
     }
@@ -13360,13 +13371,14 @@ if (runs('studio guide')) {
     const b = await M();
     if (!b.on || !b.bones || !(b.bones.hips[2] - B.hips[2] > 0.5)) out.push('stepping 0.6 m towards it, it did not step towards you: ' + JSON.stringify([B.hips, b.bones && b.bones.hips]));
     if (b.bones && !(b.bones.lhand[1] > b.bones.head[1] && b.bones.rhand[1] < 1.3)) out.push('the right hand raised, its left hand not up: ' + JSON.stringify(b.bones));
+    if (b.aim && (!AIM_OK(b.aim.lhand, [0, 1, 0], 20) || !AIM_OK(b.aim.rhand, [0, 0, 1], 20))) out.push('the right hand raised: its hands do not point as your controllers do: ' + JSON.stringify(b.aim));
     if (b.pucks.map(x => x.word).sort().join() !== 'Headset,Left hand,Right hand') out.push('tracked hands not named: ' + b.pucks.map(x => x.word).join());
     if (await recs() !== r0) out.push('a record changed while it mirrored');
     if (await st() !== s0) out.push('state() changed while it mirrored');
     await ss('STUDIO.mirrorFake(null)'); await wait(600);
     const c = await M();
     if (c.on || !c.clip || c.shown) out.push('the headset gone, not its clip again: ' + JSON.stringify({ on: c.on, clip: c.clip, shown: c.shown }));
-    console.log(`     (the mirror: its right hand ${JSON.stringify(B.rhand)} for your left reflected at [0.85, 2, -14.75]; stepped ${b.bones ? (b.bones.hips[2] - B.hips[2]).toFixed(2) : '?'} m)`);
+    console.log(`     (the mirror: its right hand ${JSON.stringify(B.rhand)} for your left reflected at [0.85, 2, -14.75]; stepped ${b.bones ? (b.bones.hips[2] - B.hips[2]).toFixed(2) : '?'} m; its hands' ways ${JSON.stringify(a.aim)})`);
     if (out.length) errors.push(...out.map(x => 'studio guide: ' + x));
   });
   await gp.close();
@@ -14609,6 +14621,7 @@ if (runs('bodies')) {
     const C = HOST.collab, F = window.__fp, T = THREE, W = window.__bw = window.__bw || { t0: performance.now() - 1 };
     const q = yaw => new T.Quaternion().setFromEuler(new T.Euler(-0.1, Math.PI + yaw, 0, 'YXZ')).toArray();
     const grip = (b, s) => { const R = new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), b.yaw), p = new T.Vector3(0.2 * s, 1.0, 0.25).applyQuaternion(R);
+      // (held naturally, as the smoke test's HOLD(b.yaw + Math.PI, 0): the grips' -z ahead, +y up, facing as the head)
       return [b.x + p.x, p.y, b.z + p.z, ...new T.Quaternion().setFromAxisAngle(new T.Vector3(0, 1, 0), b.yaw + Math.PI).toArray()]; };
     const fns = people.map(P => new Function('t', 'return (' + P.at + ')(t)'));
     const seen = [], end = performance.now() + secs * 1000;
@@ -14675,6 +14688,9 @@ if (runs('bodies')) {
     if (d4.body !== 1 || d4.halo !== 1) bad.push('four people, the draws a frame (an eye): ' + JSON.stringify(d4));
     const one = await bp.evaluate(() => { const o = HOST.collab.overlay().people.get('p4'); return o && o.body ? HOST.bodies.info(o.body).hands : null; });
     if (!one || one[0] !== 0 || one[1] !== 0) bad.push('a person with no grips: their hands not hanging: ' + JSON.stringify(one));
+    // (v216) controllers held naturally ahead (facing +z here): both hands point ahead along them, the palms in
+    const way = await bp.evaluate(() => { const o = HOST.collab.overlay().people.get('w1'); const I = o && o.body ? HOST.bodies.info(o.body) : null; return I ? { aim: I.aim, palm: I.palm } : null; });
+    if (!way || !AIM_OK(way.aim[0], [0, 0, 1], 20) || !AIM_OK(way.aim[1], [0, 0, 1], 20) || !AIM_OK(way.palm[0], [-1, 0, 0], 30) || !AIM_OK(way.palm[1], [1, 0, 0], 30)) bad.push('controllers held naturally ahead: the hands not along them, palms in: ' + JSON.stringify(way));
     if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
   });
 
