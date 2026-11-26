@@ -1210,7 +1210,8 @@ await step('a story picked while another builds: its steps stop, the headset\'s 
 if (runs('headset')) {
   // the main page parked meanwhile (the Stories screen, its story paused and its frame loop stopped): a story left
   // running there shares the GPU process with this page and slowed its frames so much that the card's fade timed out
-  await page.evaluate(() => { HOST.openPicker(); HOST.cur.peek('GL.renderer.setAnimationLoop(null)'); });
+  // (with --only the main page is still the start page, no story on it since v219)
+  await page.evaluate(() => { HOST.openPicker(); if (HOST.cur) HOST.cur.peek('GL.renderer.setAnimationLoop(null)'); });
   const hp = await browser.newPage({ viewport: { width: 640, height: 400 } });
   hp.on('pageerror', e => errors.push('loading scene: ' + (e.stack || e.message)));
   hp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('loading scene: ' + m.text()); });
@@ -1268,7 +1269,57 @@ if (runs('headset')) {
     }
   });
   await hp.close();
-  await page.evaluate(() => { HOST.cur.peek('GL.renderer.setAnimationLoop(frame)'); HOST.closePicker(); });
+  await page.evaluate(() => { if (HOST.cur) { HOST.cur.peek('GL.renderer.setAnimationLoop(frame)'); HOST.closePicker(); } });
+}
+// Enter VR from the start page (HOST.bare, v219) with a pretend Quest (FPS_FAKE, three.js r128's own WebXR path) that
+// announces its controllers by an inputsourceschange a moment after the session starts, as Quest Browser does, long
+// before the first story makes its controllers: the trigger reaches the story's controller (v220: in v219 three.js had
+// mapped none, so nothing was pressed and no calibration mark taken). Then a first story that fails to load: the session
+// ends, the Stories screen shows again with a line saying why, nothing of the session kept (v220)
+if (runs('start page headset')) {
+  await step('start page headset: Enter VR from the start page, the trigger reaches the story; a first story that fails ends the session', async () => {
+    const ctx = await browser.newContext({ viewport: { width: 640, height: 400 }, serviceWorkers: 'block' }), out = [];
+    await ctx.addInitScript(FPS_FAKE);
+    await ctx.addInitScript(() => {
+      const xr = navigator.xr, ask = xr.requestSession;
+      xr.requestSession = async (m, init) => {
+        const s = await ask.call(xr, m, init), srcs = s.inputSources;
+        s.inputSources = [];
+        setTimeout(() => { s.inputSources = srcs; const e = new Event('inputsourceschange'); e.added = srcs; e.removed = []; e.session = s; s.dispatchEvent(e); }, 30);
+        return s;
+      };
+      setInterval(() => { const F = window.__fp; if (F.session && !F.session.ended) try { F.step(1); } catch (e) { /* the test's */ } }, 15);
+    });
+    const sp = await ctx.newPage();
+    sp.on('pageerror', e => out.push('page error: ' + (e.stack || e.message)));
+    try {
+      for (const fail of [false, true]) {
+        if (fail) await sp.route('**/packages/*/main.js*', r => r.abort());
+        await sp.goto(base + 'index.html');
+        await sp.waitForFunction(() => typeof HOST !== 'undefined' && !document.getElementById('btnVR').hidden && HOST.picking && !HOST.curKey, null, { timeout: 30000 });
+        await sp.click('#btnVR');
+        if (!fail) {
+          await sp.waitForFunction(() => HOST.cur && HOST.loading.built() && HOST.cur.peek('XR.on'), null, { timeout: 90000 });
+          await sp.waitForTimeout(300);
+          const r = await sp.evaluate(async () => {
+            const s = window.__fp.session, x = s.inputSources[0], c = HOST.cur.peek('XR.ctrls'), ev = t => { const e = new Event(t); e.inputSource = x; e.frame = window.__fp.frame(); s.dispatchEvent(e); };
+            const was = c[0].wantPress;
+            ev('selectstart');
+            const heard = c[0].wantPress;
+            c[0].wantPress = was; ev('select'); ev('selectend');
+            return { heard, stories: HOST.cur.peek('XR.stories'), srcs: c.map(k => !!k.src) };
+          });
+          if (!r.heard || !r.stories || r.srcs.some(v => !v)) out.push('entered from the start page: ' + JSON.stringify(r));
+        } else {
+          await sp.waitForFunction(() => !HOST.session && !HOST.busy, null, { timeout: 30000 }).catch(() => {});
+          const r = await sp.evaluate(() => ({ session: !!HOST.session, ended: !!(window.__fp.session && window.__fp.session.ended), landing: HOST.landingVR, mode: HOST.mode, inputs: HOST.inputs.length,
+            picking: HOST.picking, cur: !!HOST.cur, msg: document.getElementById('xrmsg').style.display === 'block' ? document.getElementById('xrmsg').textContent : '' }));
+          if (r.session || !r.ended || r.landing || r.mode || r.inputs || !r.picking || r.cur || !/headset view ended/.test(r.msg)) out.push('a first story that failed: ' + JSON.stringify(r));
+        }
+      }
+    } finally { await ctx.close(); }
+    if (out.length) errors.push(...out.map(o => 'start page headset: ' + o));
+  });
 }
 // The design room is parked since v217 (tools/design/README.md; the owner, 26 November 2026): not in STORY_EXTRA, no card,
 // and #design, HOST.go('design') and HOST.start('design') behave as any key this device does not know (nothing starts)

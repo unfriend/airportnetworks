@@ -57,6 +57,13 @@ The first steps (`--only 'start page'`, a few seconds) watch what the start page
 its service worker is active (two minutes at most, 4 s at least; v219 watched 4 s): the page fetches no story's
 `main.js` and no narration, nothing is started or built, and (v220) the worker's install has put every listed story's
 `main.js` and miniatures into the packages' cache (`networks-packages`, at the addresses the page asks for).
+`--only 'start page headset'` (v220, about 20 s, a page of its own): Enter VR from the start page (`HOST.bare`) with a
+pretend Quest (`FPS_FAKE`, three.js r128's own WebXR path) that announces its controllers by an `inputsourceschange`
+30 ms after the session starts, as Quest Browser does: a real `selectstart` reaches the first story's controller (in
+v219 three.js had mapped none, so the trigger did nothing: no menu, no calibration marks); then, with every story's
+`main.js` refused, the session ends, nothing of it is kept (`HOST.session`, `mode`, `landingVR`, `inputs`) and the
+Stories screen shows with a line saying why. Both fail on v219. The `headset` block runs with `--only` alone again (the
+main page has no story then).
 
 The smoke test (serve the folder, then run it) loads every story (and the studio, below; the design room's block went when the room was parked, v217: one step,
 *parked*, checks that it is not offered and that `#design`, `HOST.go('design')` and `HOST.start('design')` start nothing), scrubs through it, plays it as a slideshow
