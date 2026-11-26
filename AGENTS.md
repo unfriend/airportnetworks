@@ -56,7 +56,7 @@ One or two lines each; the full text of every entry is `docs/agents/layout.md`.
   session, loads and swaps stories (`docs/agents/shell.md`).
 - `stories/list.js` - `STORY_LIST` (empty since v187: every story is a package; old shells read it) and `STORY_EXTRA`
   (the design room, then the studio); `HOST.meta(key)` finds a key in either or in `HOST.packages`.
-- `packages/<key>/main.js` - one story each (v187: all sixteen), `HOST.register('<key>', function (HOST) { ... })`,
+- `packages/<key>/main.js` - one story each (all of them packages since v187; twenty in `packages/order.json` at v212), `HOST.register('<key>', function (HOST) { ... })`,
   returning `{ inputs, caption, recenter, panels, xrPose, collab, peek, dispose }` (optionally `lobby`, `sticks`); built
   from `packages/<key>/src/`, except airports, proteins and spatial, hand-written (`main.js` is the source, no `src/`).
 - `stories/design.js`, `stories/studio.js` - the two pages that are not stories, built from `tools/design/`, `tools/studio/`.
@@ -154,7 +154,7 @@ gets at most a line per feature and stays under 70 KB.
 - A story builds in steps (`LOAD`, `HOST.progress`), tells its chapters in `CH` on story time, follows its narration
   (`NARRATION_SYNC`, `HOST.audio.narration`), and then opens explore mode (`X`, `render*` and `draw*` twins).
 - Two sets of cards (v188, `HOST.menu`): the main Stories screen (`HOST.list`, then a card *Experiments*) and the
-  Experiments set (`story.json` `list: "experiments"`: proteins, the flock, the robots, the cell stress test, hello; a card
+  Experiments set (`story.json` `list: "experiments"`: CDK5, the exposome story, proteins, the flock, the robots, the cell stress test, hello; a card
   back), page and headset arch alike; `HOST.stories()` is both (a room's Add and picks); Arrange all only the main set. Since v200
   the Experiments set also has two link cards (*Studio*, *Tracker guide*: `HOST.menu.link`, a page at an address, no story). No
   count of stories anywhere a user reads it (*Network stories*). `docs/agents/shell.md`.
@@ -360,8 +360,8 @@ The detail files hold the reasons and the exact lines; these are the rules that 
   `docs/agents/testing.md`, "Windows".
 - Bump `VERSION` in `sw.js` whenever any app file changes, or installed copies
   (and headsets) keep serving the old cache. If you add a file the app needs,
-  also add it to `SHELL` (story files and narrations excepted: `tools/release.mjs` writes those from `stories/list.js`
-  and `audio/`; a package's files are its own, in `packages/`), and to `APP_FILES` (or `APP_DIRS`) in
+  also add it to `SHELL` (the design room and the studio excepted: `tools/release.mjs` writes those from `stories/list.js`;
+  a package's files and narration are its own, in `packages/`), and to `APP_FILES` (or `APP_DIRS`) in
   `relay/server.mjs`, or the relay serving the app answers 404 for it
   (`node relay/test.mjs` checks every file `SHELL` names).
 - When releasing (after bumping `VERSION`), run `node tools/release.mjs`: it
@@ -440,7 +440,7 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
 | `node tools/live.mjs` | after touching `HOST.live`, `HOST.swap`, `HOST.load`, `tools/release.mjs` or the relay's `--watch` |
 | `git worktree add /tmp/old <commit> && node tools/update.mjs /tmp/old .` | after changing `sw.js` or how files load |
 | `node relay/test.mjs` (`--trackers`, `--rooms`, `--notes`, `--video`, `--osc`, `--talk` for parts) | after touching `shared.js`, the relay or a story's hooks |
-| `node tools/collab.mjs` (about 15 min; `--quick`, or one round: `--code`, `--all`, `--guide`, `--places`, `--areas`, `--reload [--cases 2,5]`, `--p2p`, `--near`, `--names`, `--standby`, `--narration`, `--walk`, `--ships`, `--camera`, `--preview`, `--design`, `--token`, `--arr` and `--talk` (not in the main run), `--studio`, `--studio-scenes`, `--home`, `--behave`, `--trackers`, `--output`, `--follow`, `--circles`, `--ask`, `--menus` (`MENUS_STORY=studio`), `--smooth`; `--shots <dir>` saves pictures) | after touching `shared.js`, the relay, a story's hooks or `state()` (`--smooth` after touching `setView` or smoothing; `--studio` after the relay's scenes or uploads). A new story needs an entry in `STORIES` there; `HEADSET_STORY` stays the last entry |
+| `node tools/collab.mjs` (about 15 min; `--quick`, or one round: `--code`, `--all`, `--guide`, `--places`, `--areas`, `--reload [--cases 2,5]`, `--p2p`, `--near`, `--names`, `--standby`, `--narration`, `--walk`, `--ships`, `--camera`, `--preview`, `--design`, `--token`, `--arr`, `--talk` and `--net` (not in the main run), `--studio`, `--studio-scenes`, `--home`, `--behave`, `--trackers`, `--output`, `--follow`, `--circles`, `--ask`, `--menus` (`MENUS_STORY=studio`), `--smooth`; `--shots <dir>` saves pictures) | after touching `shared.js`, the relay, a story's hooks or `state()` (`--smooth` after touching `setView` or smoothing; `--studio` after the relay's scenes or uploads). A new story needs an entry in `STORIES` there; `HEADSET_STORY` stays the last entry |
 | `node tools/output/test-page.mjs` | after touching `output.js` or the output page's part of `shared.js` (Web MIDI and the studio stubbed; `tools/collab.mjs --output` is the end-to-end round with the relay's OSC) |
 | `node tools/peer.mjs` | links two `p2p/` pages through `/peerjs` |
 | `node tools/room-test.mjs` | after changing `room-test/` |
