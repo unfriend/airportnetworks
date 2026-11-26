@@ -53,6 +53,11 @@ Since v218: a step that throws fails with its message and the run goes on; `--on
 `--list` prints every block and step name (read from the file's text) and exits; what this machine lacks (`ffmpeg` for the
 studio's screens, a shell without `HOST.collab.trkIn`) fails unless `--skip-missing` is given.
 
+The first steps (`--only 'start page'`, a few seconds) watch what the start page asks for from its first request until
+its service worker is active (two minutes at most, 4 s at least; v219 watched 4 s): the page fetches no story's
+`main.js` and no narration, nothing is started or built, and (v220) the worker's install has put every listed story's
+`main.js` and miniatures into the packages' cache (`networks-packages`, at the addresses the page asks for).
+
 The smoke test (serve the folder, then run it) loads every story (and the studio, below; the design room's block went when the room was parked, v217: one step,
 *parked*, checks that it is not offered and that `#design`, `HOST.go('design')` and `HOST.start('design')` start nothing), scrubs through it, plays it as a slideshow
 (a paused scrub near a stop holding, a stop exactly at a chapter's end and at the
@@ -192,7 +197,8 @@ the page's default story). For a builder's own steps; the release run is the who
 `HOST.list` (which the headset's Stories screen and Arrange all read) and the page's cards are order.json's keys whose
 package is on the main set, in its order, then the card to the Experiments; the tutorial (the one `intro`) last. On the
 Experiments set, `HOST.packages.experiments()` and the page's cards are the index's experiments in the index's order
-(order.json's first, then other packages by key), then the card back.
+(order.json's first, then other packages by key), then its link cards (`HOST.menu`'s `LINKS`: the studio and the
+tracker guide), then the card back (v220: the step had left the link cards out since before v218, and failed).
 
 ### smoke: take all
 
@@ -1426,7 +1432,9 @@ It installs the old version, serves this one like GitHub Pages (ten-minute
 browser caching, ETags) and checks that the page and its stories are both new
 on the first visit after the update, on the next visit and offline. It finds the airports story's file through
 `tools/stories.mjs` (`stories/airports.js` in an older tree, `packages/airports/main.js` since v187), asks the browser for
-the new worker and waits until it is installed before going offline (it takes every package's `main.js`, about 13 MB),
+the new worker and waits until it is installed before going offline (its install takes every listed package's `main.js`
+and miniatures, about 17 MB: `takeMains`, at install again since v220), then waits explicitly, up to a minute, until the
+packages' cache holds every one of them at the address the page asks for and says so (a check of its own),
 checks byte ranges of a package narration from the packages' cache offline (asked with `no-store`: the browser's own
 cache answers a range it cannot satisfy with the whole file), and says what the page shows when no story runs. The
 narrations' cache (v190): copies at old addresses (`audio/narration-proteins.mp3`, `audio/narration-lbi.mp3`, put there

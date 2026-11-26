@@ -18,7 +18,8 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   owner, 26 November 2026: "the start page should load nothing in the background, just have the cards there") an address
   with no story (no key, `#stories`, `#experiments`), no place kept (`HOST.live.restoring`), no room (`s`), no `t`,
   `explore` or `arr` starts nothing: the Stories screen over the page's plain background, the loading line gone, no
-  renderer, no story file, narration or miniatures fetched until a card is picked; `body.nostory` hides Stories and
+  renderer, no story file, narration or miniatures fetched by the page until a card is picked (the service worker's
+  install takes every story's `main.js` and miniatures in the background, v220: `docs/agents/packages.md`); `body.nostory` hides Stories and
   Explore now, and `HOST.closePicker` does nothing while no story has started (`HOST.curKey` empty). With `t`, `explore`
   or `arr` the first story starts as before, and in a room the room decides as before (the first story behind); `index.html` loads `stories/list.js?v=<its fingerprint>`, stamped by
   `tools/release.mjs`, so a browser's held copy never gives a new page an old list; always the same array, changed in
@@ -138,7 +139,13 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   the session itself (`HOST.xr.request`, within the tap), makes the renderer with the stories' own settings, gives it the
   session, shows the loading scene and starts the first story of the main set, which takes the session over (`xrAdopt`,
   the controllers from `HOST.inputs`, kept from the session's `inputsourceschange` until a story starts) and opens on its
-  Stories screen; a session left before the story took it is cleared by the shell. Entering VR/AR from inside a
+  Stories screen; a session left before the story took it is cleared by the shell. It makes the renderer's two
+  controllers (`getController`) before `setSession` (v220): three.js r128 maps a select or squeeze only to a controller
+  it has when the session announces its sources, and Quest announces them long before the first story makes its own, so
+  in v219 the trigger reached nothing (no menu presses, no calibration marks) until the next change of controllers. A
+  first story that fails to load ends that session (`HOST.bare.failed`: `HOST.session`, `mode`, `landingVR` and `inputs`
+  cleared, the Stories screen again with a line saying why), and the top bar's click sets `HOST.landingVR` only when an
+  enter went ahead. Entering VR/AR from inside a
   story resumes that story. In a shared room a headset never shows the
   Stories screen (see "Shared rooms"), except at an All stories circle.
   - The headset Stories screen (the same lines in every story and the design room, on `XR.landGroup` in

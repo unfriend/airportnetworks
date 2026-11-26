@@ -108,13 +108,25 @@ clears it. A fresh fetch (`HOST.load`'s `&fresh=<time>`: a package that changed 
 it was kept under its one-off address, dropping the real one's copy, so the package had no offline copy until the app
 was opened again).
 
-**Every story's file (v185; v219 no longer at install)**: the worker takes every listed package's `main.js` and
-miniatures (`takeMains`: the index read, each `main.js?v=<the package's fp>`, two at a time, files held passed by) when a
-page asks (`{ type: 'mains' }`, `HOST.offline`: once a page load, 5 s after its first story is built or 30 s after the
-start), so an installed copy opens every story offline.
+**Every story's file (v185; at install again since v220, the owner: "just fetch all stories at install")**: the worker's
+install takes every listed package's `main.js` and miniatures (`takeMains`, four at a time, never failing the install),
+so an installed copy opens every story offline and an upgrade from any release (a v219 worker took them only when its
+page asked) ends with them on the device before the new worker activates. Only what is missing or changed is fetched:
+a file held at its address (checked against the index's fingerprint) is passed by, and a `main.js` whose text is the
+same as before (another file of its package changed, so its address did: the index this device held says so) is the
+copy held, moved to its new address. The start page itself asks for nothing (v219's page-side ask after 30 s is gone);
+a page asks again (`{ type: 'mains' }`, `HOST.offline.again`) only when a re-read of the index finds a package changed
+while it ran. v219 took them only when a page asked.
 
-**At install (v219)** each `SHELL` file is asked past the HTTP cache with the ETag (or date) of the copy an older
-release's cache holds; a 304 keeps that copy, so a release downloads only what changed. `fresh()` (a shell file at every
+**A deploy half done (v220, `pkgKeep`)**: a `main.js` fetched on a miss is hashed as `tools/packages/scan.mjs` hashes
+it (`HOST.fingerprint` of the text) and compared with `files['main.js']` of the cached index entry whose `fp` is the
+address's `?v=`; a body that differs (the host served the new index a moment before the new `main.js`) is answered but
+not kept, so the next ask fetches again (v219 kept it for ever, and `HOST.loadSrc` takes the index's fingerprint, so
+`HOST.live` never noticed). `takeMains` and Take all check their text files likewise.
+
+**At install (v219)** each `SHELL` file is asked past the HTTP cache with the ETag of the copy an older
+release's cache holds (a copy with only a date is fetched whole, v220: `If-Modified-Since` let a redeploy of an older
+file answer 304 and keep the newer copy); a 304 keeps that copy, so a release downloads only what changed. `fresh()` (a shell file at every
 page start) writes the cache only when the answer's ETag (or date) differs from the copy held. `AUDIO`, `narrFetch` and
 the `audio/narration` rule are gone (v219); `narrPrune` still empties an old device's `networks-narration` at activate.
 
@@ -224,8 +236,9 @@ The plan and its decided route: `docs/packages-migration.md`. What is in place:
   the Stories screen, away from every station, or the menu open); otherwise fetched fresh at its next start. Its files'
   addresses carry their fingerprints (`main.js?v=<fp>`, `HOST.pkgUrl`), so no browser or host cache serves an old one.
   `version.json`'s `packages` are read only by `HOST.live.missing` (a room's station of a story this copy lacks).
-- *Installed copies*: `sw.js` does not change, so no new worker installs; package files are network first in their own
-  cache (`networks-packages`), so online they get the new files; offline they run the version they last opened (since
+- *Installed copies*: `sw.js` does not change, so no new worker installs; a changed package's files have new addresses
+  (their fingerprints), which miss the packages' cache (`networks-packages`) and are fetched, so online they get the new
+  files, and a page that re-reads the index asks the worker for the changed `main.js` and miniatures (`takeMains`); offline they run the version they last opened (since
   v193 also one fetched fresh: "The service worker" above). A device that took all stories takes the changed files when
   the index changes (`HOST.offline.again`).
 - *`tools/release.mjs`*: run with the same `VERSION`, it rewrites only `version.json`'s `packages.<key>.fp` (the shell's

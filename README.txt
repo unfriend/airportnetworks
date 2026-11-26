@@ -854,9 +854,11 @@ story's sound cues.
 After changing any file (including adding or replacing a narration file),
 bump VERSION in sw.js so installed copies update, then run node
 tools/release.mjs (it writes version.json). Online, the app always fetches
-its files fresh (the cache is for offline use; a story's narration is kept
-there once it has played on the device, so offline you have the ones you
-have heard). A copy that is open picks up
+its shell files fresh (the cache is for offline use). Each story's file and
+miniatures are taken when the app is installed or updated, only the ones
+that changed, so every story opens offline; a story's other files and its
+narration are kept once it has opened or played on the device, so offline
+you have the narrations you have heard (Take all stories takes the rest). A copy that is open picks up
 a release by itself, about once a minute: new and changed stories are taken
 without losing your place (the story on show is swapped at a quiet moment),
 and a new shell asks first (Reload now or Later; on the Stories screen it

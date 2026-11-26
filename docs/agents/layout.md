@@ -55,13 +55,17 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   alone, is said by none since then).
 - `proteins.html`, `spatial.html` - redirect stubs to `index.html#proteins`
   / `#spatial` so old links keep working. Do not put code there.
-- `sw.js` - service worker. Pages and app files come from the network first,
+- `sw.js` - service worker. Pages and shell files (outside `packages/`) come from the network first,
   checked with the server each time (`cache: 'no-cache'`), so the page and its
-  story files are always the same version; the cache is the offline copy (and
+  files are always the same version; the cache is the offline copy (and
   the answer when the network takes more than 4 s). A story package's file at an address with its version (`?v=<fp>`)
-  comes from the packages' cache at once when it is there (v219), narrations included (a package's own). The old
+  comes from the packages' cache at once when it is there, with no trip to the network (v219), narrations included (a
+  package's own); only a miss goes to the network. Its install takes every listed story's `main.js` and miniatures,
+  only those missing or changed (`takeMains`, v220), and a `main.js` whose text is not the one the index names is never
+  kept (a deploy half done: `pkgKeep`, v220). The old
   narrations' cache (`networks-narration`) is only emptied at activate since v219. Installing asks each shell file with
-  the ETag of an older release's copy and keeps that copy on a 304 (v219; until then `cache: 'reload'`, all of it). The studio's scenes (any same-origin path with `/scenes/`: the relay's
+  the ETag of an older release's copy and keeps that copy on a 304 (v219; until then `cache: 'reload'`, all of it; a copy
+  with only a date is fetched whole since v220). The studio's scenes (any same-origin path with `/scenes/`: the relay's
   `--scenes` and a static folder of them) are passed straight through, never cached (v111), and so are the example
   scenes that ship with the app (`examples/`, v137: big models and streamed sounds, not offline); the upload page's
   POSTs and the navigation to `<relay>/upload` are left to the browser. Story packages (`packages/`) are fetched network
