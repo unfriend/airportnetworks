@@ -31,7 +31,7 @@ function normTrk(x) {
 // at: the trackers the shell gives this frame, by id ({ id, name, k ('t' a tracker, 'h' the Index, 'l' and 'r' its
 // controllers), p, q, ok }); last: each one's last pose seen here ({ p, q }), held while it is not seen; names: the names
 // the room gave them; st: the station they were seen at (another: none seen here yet); any: an item follows one
-const TRK = { at: new Map(), last: new Map(), names: new Map(), st: '', any: false };
+const TRK = { at: new Map(), last: new Map(), names: new Map(), st: '', any: false, rev: -1 };
 const trkKind = x => { const k = x.k || x.kind || 't'; return k === 'h' || k === 'hmd' ? 'h' : k === 'l' || k === 'r' ? k : k === 'ctl' ? (x.h === 'l' || x.h === 'r' ? x.h : 'c') : k === 'base' ? 'base' : 't'; };
 const trkArr = (v, n) => (Array.isArray(v) ? (v.length === n ? v : null) : v && typeof v === 'object' ? (n === 3 ? [v.x, v.y, v.z] : [v.x, v.y, v.z, v.w]) : null);
 // what the shell gives now (an older shell, or none: nothing)
@@ -52,7 +52,7 @@ function trkRead() {
 }
 // every frame, first of all (behaveStep): the trackers here now, and whether the pipeline's base stage is needed for them
 function trkStep(pn) {
-  TRK.any = [...STU.items.values()].some(it => MOTION_ITEMS.includes(it.kind) && it.rec.trk);
+  if (TRK.rev !== STU.rev) { TRK.rev = STU.rev; TRK.any = false; for (const it of STU.items.values()) if (MOTION_ITEMS.includes(it.kind) && it.rec.trk) { TRK.any = true; break; } }   // (again only when the items change, v223)
   const sid = atStation() ? stationId() || 'here' : '';
   if (sid !== TRK.st) { TRK.st = sid; TRK.last.clear(); }
   TRK.at.clear();

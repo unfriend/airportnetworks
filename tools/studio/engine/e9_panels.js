@@ -240,7 +240,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : ''].join('|');   // (not the item pointed at in the scene: nothing on the panel shows it; v136, it redrew the whole card as a ray moved between items)
+  return ['x', audioLabel(), xrSig(), PSIG.on ? PSIG.s : paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : ''].join('|');   // (not the item pointed at in the scene: nothing on the panel shows it; v136, it redrew the whole card as a ray moved between items)
 }
 const XR_HERE = 'studio';
 const XR_STORIES = HOST.list;

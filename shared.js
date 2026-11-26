@@ -945,8 +945,8 @@
     // (a camera writes nothing to the room: camera mode; the desktop preview camera only its own place, pcam)
     if (CAM.on && !(CAM.pc && pairs.every(p => p[0] === 'pcam'))) { camQuiet(pairs.map(p => p[0])); return false; }
     const out = [];
-    for (const [k, v] of pairs) {
-      const s = sig(k, v);
+    for (const [k, v, s0] of pairs) {
+      const s = s0 !== undefined ? s0 : sig(k, v);   // (s0: its text, given by statePoll)
       // echo suppression by value; also while our own write of this same value waits for its acknowledgement (v221: before,
       // sent again at every poll, a busy page's ack for one cid came after the next was sent, so it never ended, and a resend
       // landing after someone else's change started a merge war between the two pages). Nothing is lost: on one socket every
@@ -3258,12 +3258,18 @@
     else C.synced.set(k, J(v));   // a remote value becomes the last synced value
     log('state', { st: L.id });
   }
+  // (v223: a story that gives the same object again while nothing in it changed, the studio's roomState, is turned into
+  // text once, not every frame; once a second all the same, so a value changed in place still goes out)
+  const SPOLL = { v: undefined, s: '', at: 0 };
   function statePoll() {
     const L = sesSt();
     if (!synced(L) || !C.hook.state) return;
     let s;
     try { s = C.hook.state(); } catch (e) { return; }
-    if (s !== undefined) publish([[kX(L.id), s]]);
+    if (s === undefined) return;
+    const k = kX(L.id), t = clock();
+    if (s !== SPOLL.v || !(s && typeof s === 'object') || t - SPOLL.at > 1000) { SPOLL.v = s; SPOLL.s = sig(k, s); SPOLL.at = t; }
+    publish([[k, s, SPOLL.s]]);
   }
   // The station's panel (relative to its spot: x, y over the floor, z, yaw, and with free moving its rotation q) and its
   // scene (moved from where the story puts it, x, y, z, sized, s, and with free moving turned, q), moved here with the
@@ -7468,19 +7474,22 @@
       if (s.length > TRK.keep) s.shift();
     }
   }
-  // one tracker at the relay's time Tm: { id, name, kind, p, q, ok, age } (out filled in)
-  function trkPose(E, Tm, out) {
+  // one tracker at the relay's time Tm: { id, name, kind, p, q, ok, age } (out filled in; keep: into out's own p and q,
+  // v223, drawTrackers' every frame; otherwise new arrays, as callers outside keep what they are given)
+  function trkPose(E, Tm, out, keep) {
     const s = E.s, n = s.length, last = s[n - 1];
-    let p, q;
+    const p = keep && Array.isArray(out.p) ? out.p : [0, 0, 0], q = keep && Array.isArray(out.q) ? out.q : [0, 0, 0, 1];
     if (Tm >= last.at) {   // (past the last: carried on by its velocity for at most TRK.carry; one not seen well, held)
       const dt = last.ok ? Math.min(Tm - last.at, TRK.carry) / 1000 : 0;
-      p = [last.p[0] + last.v[0] * dt, last.p[1] + last.v[1] * dt, last.p[2] + last.v[2] * dt]; q = last.q.slice();
+      for (let k = 0; k < 3; k++) p[k] = last.p[k] + last.v[k] * dt;
+      for (let k = 0; k < 4; k++) q[k] = last.q[k];
     } else {
       let i = n - 1;
       while (i > 0 && s[i - 1].at > Tm) i--;
-      if (!i) { p = s[0].p.slice(); q = s[0].q.slice(); } else {
+      if (!i) { for (let k = 0; k < 3; k++) p[k] = s[0].p[k]; for (let k = 0; k < 4; k++) q[k] = s[0].q[k]; } else {
         const a = s[i - 1], b = s[i], f = (Tm - a.at) / (b.at - a.at);
-        p = [lerp(a.p[0], b.p[0], f), lerp(a.p[1], b.p[1], f), lerp(a.p[2], b.p[2], f)]; q = qSlerp(a.q, b.q, f);
+        for (let k = 0; k < 3; k++) p[k] = lerp(a.p[k], b.p[k], f);
+        _qa.fromArray(a.q).slerp(_qb.fromArray(b.q), f).toArray(q);
       }
     }
     const age = Math.max(0, Math.round(trkNow() - last.at));
@@ -7730,7 +7739,7 @@
     seen.clear();
     for (const E of TRK.list.values()) {
       if (E.kind !== 't' || !E.s.length) continue;
-      const P = trkPose(E, T, PUCK_T), o = TRK.pucks.get(E.id) || puckFor(E.id), name = P.name || E.id;
+      const P = trkPose(E, T, PUCK_T, true), o = TRK.pucks.get(E.id) || puckFor(E.id), name = P.name || E.id;
       seen.add(E.id);
       o.g.position.fromArray(P.p); o.body.quaternion.fromArray(P.q);
       if (o.name !== name) {

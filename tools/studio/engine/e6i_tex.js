@@ -15,7 +15,7 @@
 const TXS_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'], TXS_MAX = 16, TXS_PX = 2048;
 // (pics: each picture named, by its path: { state, img, t: [flipY off, on], gen, at, err }; want: each picture's flips
 // wanted, by the formats of the objects it goes on; sig, files: what texNeed last looked at)
-const TXS = { pics: new Map(), want: new Map(), sig: '', files: null, rev: 0, any: false, live: false };
+const TXS = { pics: new Map(), want: new Map(), gen: -1, irev: -1, listing: null, files: null, rev: 0, any: false, live: false };
 const isGltf = f => ['glb', 'gltf'].includes(extOf(f));
 // a cube's entries as a record keeps them: each one an object's id, a material's index (0 to 255), a slot and a picture
 // of the scene; one that is not is dropped, as is a second for the same object, material and slot; at most 16
@@ -98,8 +98,7 @@ const texReady = p => { const P = TXS.pics.get(p); return !!(P && P.state === 'r
 // pictures ready, lit or as scanned, its model built again: its signature); while Change texture or Fewer triangles is
 // open on it, nothing (their previews win)
 function texStep() {
-  const s0 = STU.gen + '|' + STU.rev + '|' + STU.listing;
-  if (TXS.sig !== s0 || TXS.files !== STU.files) { TXS.sig = s0; TXS.files = STU.files; texNeed(); }
+  if (TXS.gen !== STU.gen || TXS.irev !== STU.rev || TXS.listing !== STU.listing || TXS.files !== STU.files) { TXS.gen = STU.gen; TXS.irev = STU.rev; TXS.listing = STU.listing; TXS.files = STU.files; texNeed(); }   // (no string a frame, v223)
   if (!TXS.any && !TXS.live) return;   // (no cube changes a picture and none is on: nothing to do)
   const want = new Map();
   let live = false;

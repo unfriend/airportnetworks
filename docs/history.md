@@ -406,6 +406,19 @@ the one still pending is not sent again. Nothing is lost by that: on one socket 
 room on this device) answers every set with its broadcast or a refusal naming the keys, a slow reader's socket is closed
 rather than skipped, and every new socket's welcome clears what was pending and takes the room's values.
 
+### The studio's frame costs (v223, audit row E)
+
+The audit found the studio doing work every frame that changed nothing (docs/agents/studio.md, "Frame costs cut"). v223
+cut it without changing what anyone sees, `layout.json`, the room's keys, `state()` or `FORMAT`: the scene's record kept as
+one object while nothing in it changes, and turned into text by the shell only when it is new (or once a second); the
+pane's signature built once a frame, its per-item part only on the Item and Items tabs (walking into a trigger cube on the
+Scene tab: one full panel redraw and 4.9 MB sent before, none now); one whole-scene matrix walk fewer a frame on a page and
+in a headset (`updateMatrix` calls 1,951 to 1,512 a frame viewing a 39-item scene); ghost faces culled to the view; the
+trackers', screens' and texture swaps' checks only when the items change; the trackers' drawn pose without new arrays.
+Measured headless with a pretend headset; the gains on a Quest are reasoned, not measured. Not done: `LOOKS.fill`'s walk
+of the visible scene (measured 0.02 to 0.14 ms a frame; a registry of tags and lines would reorder the lines and hold
+dropped ones), `placeSync`'s and `drawPreviews`' small allocations.
+
 ### A room's running costs (v222, audit row D)
 
 The audit (docs/audit-2026-11) found a shared room doing work every frame or every 0.4 s that changed nothing. v222 cut

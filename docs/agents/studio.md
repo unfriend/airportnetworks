@@ -1184,6 +1184,25 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     preview, a stroke, a scan): it waits. `STUDIO.away({ stop, drop, free, force })` for tests (`force` stands in for `xrAway`).
   - Untested on a headset: the return pause after a free (a big scan loading again), the early uploads on a Quest, skin culling,
     and the drop and wake of a streamed sound and a screen's video there.
+  - Frame costs cut (v223, audit row E; nothing seen changes, no layout, `state()`, room key or `FORMAT` change):
+    `roomState()` gives the same object again while every value in it is the same one (`RSM`: the scene, settings, each item
+    and its record, the `qr`, `pr`, `sw` and `bt` values compared by identity; records are only ever replaced, never changed in
+    place), and the shell's `statePoll` turns a state into text only when it is a new object, or once a second all the same
+    (`SPOLL`, `publish`'s pairs take that text as a third element). The pane's signature is built once a frame (`PSIG`:
+    `paneStep`'s, taken by `sigMain` in the same frame, cleared at the end of `frame()`), and its per-item flags
+    (`itemFlags`: shown, in a cube, heard, model, cutting...) are in it only on the Item and Items tabs (`PANE_ITEMS`), so
+    walking into a cube or a sound's range redraws the headset panel (4.9 MB sent) only there. The scene's matrices: no walk
+    after render on a page (render has just made them), and `xrUpdate` takes only the rig's and the scene's own frames
+    (`GL.world.updateWorldMatrix(true, false)`); `wallsXR` too. Ghost faces are culled to the view as any mesh (they were
+    `frustumCulled = false`), `ghostStep` reuses one map. `trkStep`'s "any item follows a tracker", `screensStep`'s list of
+    screens and `texStep`'s check are worked out again only when the items change (`STU.rev`), not each frame. In the
+    shell, `trkPose` fills the trackers' drawing pose into the arrays it is given (`keep`). Measured headless (a 39-item
+    scene, pretend headset, 120 frames): the signature 2 to 1 a frame, `updateMatrix` calls 1,951 to 1,512 viewing and 2,189
+    to 1,734 editing, a cube walked into on the Scene tab 1 full redraw and 4.9 MB to none (the Items tab still 1 and 4.9 MB),
+    `roomState` plus its text 0.022 ms to 0.003 ms for a 4.8 KB scene (text grows with the scene, to 2 MB). Left as they
+    were: `LOOKS.fill`'s walk (0.02 to 0.14 ms a frame measured, a registry would change the lines' order), sequences (a
+    kind check per item when there are none), the room scan (counts once a second), `placeSync`'s and `drawPreviews`'
+    small allocations in `shared.js`. Untested on a headset: all of it there, ghosts culled at the edge of view.
 - **Editing without the cost** (`tools/studio/SPEC.md`, "Editing without the cost"). Edit mode must not do these every
   frame: the labels of what is pointed at and selected are made again only when their words change (`labelSet`, `L.key`;
   else a new canvas, texture, sprite material and shader program link every frame something is pointed at); the scene's

@@ -23930,17 +23930,34 @@ function collabSetView(v, now) { /* nothing to set */ }
 // v157's end-to-end round; v179); the device that reads the layout first sends it, and the others take the room's.
 const freshWait = () => STU.fresh && STU.write && !!STU.scene && !STU.items.size;
 function collabState() { exLeave(); return freshWait() ? undefined : roomState(); }
-// the station's state as this device has it (also the studio's own size checks: paths, paintings)
+// the station's state as this device has it (also the studio's own size checks: paths, paintings). The same object again
+// while every value in it is the same one (v223, audit row E: the shell polls it every frame and a scene's records reach
+// 2 MB; it turns into text only a new object, or the same one once a second: shared.js statePoll). Records, settings and
+// the qr, pr, sw and bt values are never changed in place, only replaced (putItem, collabApply, the setters), so the same
+// values mean the same text. Never change what it returns
+const RSM = { refs: [], n: 0, s: null };
 function roomState() {
   exLeave();   // (an example open here as this device came to the circle: back to the relay first, so what the shell polls is
   // never the example's, though the studio's frame has not come yet; e7g_examples.js)
+  // what it is made of, in order: compared with last time's, value by value (no text, no new object while nothing changed)
+  const R = RSM.refs;
+  let n = 0, same = !!RSM.s;
+  const ref = v => { if (same && (n >= RSM.n || R[n] !== v)) same = false; R[n++] = v; };
+  ref(STU.scene); ref(STU.settings);
+  for (const it of STU.items.values()) { ref(it); ref(it.rec); }
+  for (const [id, v] of STU.qr) if (seqRec(id)) { ref(id); ref(v); }
+  for (const [id, v] of STU.pr) if (STU.items.has(id)) { ref(id); ref(v); }
+  for (const [id, v] of STU.sw) { const it = STU.items.get(id); if (it && SW_KINDS.includes(it.kind)) { ref(id); ref(v); } }
+  ref(STU.bt || null);
+  if (same && n === RSM.n) return RSM.s;
+  R.length = RSM.n = n;
   const s = { scene: STU.scene, settings: STU.settings };
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
   for (const [id, v] of STU.qr) if (seqRec(id)) s['qr.' + id] = v;   // (a sequence's shared play state: e6s_seq.js)
   for (const [id, v] of STU.pr) if (STU.items.has(id)) s['pr.' + id] = v;   // (an item's press stamp: e6t_press.js)
   for (const [id, v] of STU.sw) { const it = STU.items.get(id); if (it && SW_KINDS.includes(it.kind)) s['sw.' + id] = v; }   // (an outside switch: e6u_send.js)
   if (STU.bt) s.bt = STU.bt;   // (the room's beat)
-  return s;
+  return (RSM.s = s);
 }
 // A station whose state names a scene and holds no item at all (a circle the shell made for that scene, "Studio: <scene>",
 // or one whose scene was just picked elsewhere): every device there opens the scene and writes its saved layout alike
@@ -26438,7 +26455,9 @@ function ghostBuild(it) {
   H.updateWorldMatrix(true, true);
   const inv = new THREE.Matrix4().copy(H.matrixWorld).invert();
   // (each part where it stands on its holder, its drawn turn taken out: the ghost's own pose is the placed one)
-  const add = (o, n, ro) => { o.matrixAutoUpdate = false; o.matrix.multiplyMatrices(inv, n.matrixWorld); o.renderOrder = ro; o.frustumCulled = false; g.add(o); return o; };
+  // (its faces culled to the view as any mesh, v223, audit row E: until then every ghost was drawn, both eyes, wherever it
+  // stood; a ghost is its rest pose, whose bounds its geometry's are. Its lines are drawn with the others: LOOKS' batches)
+  const add = (o, n, ro) => { o.matrixAutoUpdate = false; o.matrix.multiplyMatrices(inv, n.matrixWorld); o.renderOrder = ro; o.frustumCulled = !!o.isMesh; g.add(o); return o; };
   const hit = (n, geo) => { const h = add(new THREE.Mesh(geo, HIDDEN), n, 0); h.userData.id = it.id; h.userData.ghost = true; G.hits.push(h); };
   if (it.kind === 'o') {
     // (a model with an animation: its parts taken in their rest pose, then put back exactly as they were. Not by the
@@ -26498,8 +26517,10 @@ GHOST.build = 4;
 // its rest pose, the whole time its clip plays, selected or not (selected, its holder never leaves its placed pose, so
 // ghostFar alone would hide it)
 const clipMoves = it => it.kind === 'o' && !!it.model && ((!!it.action && it.dur > 0 && it.rec.anim !== 'off') || !!it.pupOn || !!(it.tl && it.tl.length));   // (worn with trackers too: e6l_puppet.js; a clip a cube plays on it, e6n_plays.js)
+const GH_WANT = new Map();   // (ghostStep's, cleared each frame: no new Map a frame)
 function ghostStep(editing, now) {
-  const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
+  const want = GH_WANT, sel = editing ? STU.items.get(STU.sel) : null;
+  want.clear();
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');
   if (sel) for (const m of sel.kind === 'g' ? members(sel) : [sel]) if (['o', 'p', 'e', 's'].includes(m.kind) && !want.has(m.id)) want.set(m.id, 'sel');
   if (editing) for (const it of STU.items.values()) if (['o', 'p', 'e', 's'].includes(it.kind) && !want.has(it.id) && (it.mX || (clipMoves(it) && !it.hid))) want.set(it.id, it.mX ? 'edit' : 'clip');
@@ -26581,7 +26602,7 @@ function tcStep() {
 const TXS_SLOTS = ['map', 'normalMap', 'roughnessMap', 'metalnessMap', 'aoMap', 'emissiveMap', 'alphaMap'], TXS_MAX = 16, TXS_PX = 2048;
 // (pics: each picture named, by its path: { state, img, t: [flipY off, on], gen, at, err }; want: each picture's flips
 // wanted, by the formats of the objects it goes on; sig, files: what texNeed last looked at)
-const TXS = { pics: new Map(), want: new Map(), sig: '', files: null, rev: 0, any: false, live: false };
+const TXS = { pics: new Map(), want: new Map(), gen: -1, irev: -1, listing: null, files: null, rev: 0, any: false, live: false };
 const isGltf = f => ['glb', 'gltf'].includes(extOf(f));
 // a cube's entries as a record keeps them: each one an object's id, a material's index (0 to 255), a slot and a picture
 // of the scene; one that is not is dropped, as is a second for the same object, material and slot; at most 16
@@ -26664,8 +26685,7 @@ const texReady = p => { const P = TXS.pics.get(p); return !!(P && P.state === 'r
 // pictures ready, lit or as scanned, its model built again: its signature); while Change texture or Fewer triangles is
 // open on it, nothing (their previews win)
 function texStep() {
-  const s0 = STU.gen + '|' + STU.rev + '|' + STU.listing;
-  if (TXS.sig !== s0 || TXS.files !== STU.files) { TXS.sig = s0; TXS.files = STU.files; texNeed(); }
+  if (TXS.gen !== STU.gen || TXS.irev !== STU.rev || TXS.listing !== STU.listing || TXS.files !== STU.files) { TXS.gen = STU.gen; TXS.irev = STU.rev; TXS.listing = STU.listing; TXS.files = STU.files; texNeed(); }   // (no string a frame, v223)
   if (!TXS.any && !TXS.live) return;   // (no cube changes a picture and none is on: nothing to do)
   const want = new Map();
   let live = false;
@@ -27269,7 +27289,7 @@ function normTrk(x) {
 // at: the trackers the shell gives this frame, by id ({ id, name, k ('t' a tracker, 'h' the Index, 'l' and 'r' its
 // controllers), p, q, ok }); last: each one's last pose seen here ({ p, q }), held while it is not seen; names: the names
 // the room gave them; st: the station they were seen at (another: none seen here yet); any: an item follows one
-const TRK = { at: new Map(), last: new Map(), names: new Map(), st: '', any: false };
+const TRK = { at: new Map(), last: new Map(), names: new Map(), st: '', any: false, rev: -1 };
 const trkKind = x => { const k = x.k || x.kind || 't'; return k === 'h' || k === 'hmd' ? 'h' : k === 'l' || k === 'r' ? k : k === 'ctl' ? (x.h === 'l' || x.h === 'r' ? x.h : 'c') : k === 'base' ? 'base' : 't'; };
 const trkArr = (v, n) => (Array.isArray(v) ? (v.length === n ? v : null) : v && typeof v === 'object' ? (n === 3 ? [v.x, v.y, v.z] : [v.x, v.y, v.z, v.w]) : null);
 // what the shell gives now (an older shell, or none: nothing)
@@ -27290,7 +27310,7 @@ function trkRead() {
 }
 // every frame, first of all (behaveStep): the trackers here now, and whether the pipeline's base stage is needed for them
 function trkStep(pn) {
-  TRK.any = [...STU.items.values()].some(it => MOTION_ITEMS.includes(it.kind) && it.rec.trk);
+  if (TRK.rev !== STU.rev) { TRK.rev = STU.rev; TRK.any = false; for (const it of STU.items.values()) if (MOTION_ITEMS.includes(it.kind) && it.rec.trk) { TRK.any = true; break; } }   // (again only when the items change, v223)
   const sid = atStation() ? stationId() || 'here' : '';
   if (sid !== TRK.st) { TRK.st = sid; TRK.last.clear(); }
   TRK.at.clear();
@@ -29102,7 +29122,7 @@ function wallsXR(frame, ref) {
   const now = performance.now();
   if (!(WALLS.dirty || now - WALLS.t > 1000) || now - WALLS.t < 500) return;
   WALLS.dirty = false; WALLS.t = now;
-  GL.world.updateMatrixWorld(true);
+  GL.world.updateWorldMatrix(true, false);   // (only the scene's own frame is read: not the whole scene's matrices, v223)
   _wli.copy(GL.world.matrixWorld).invert();
   const out = [];
   planes.forEach(pl => {
@@ -29673,11 +29693,12 @@ function svConnect(it, sv, ctx) {
 }
 const _srp = new THREE.Vector3(), _srq = new THREE.Quaternion(), _srf = new THREE.Vector3(), _sru = new THREE.Vector3();
 // every frame: which screens may play (shown, in explore mode, the nearest few), each one's element, picture, sound and bar
+const SCRL = { rev: -1, list: [] };   // (the screens, listed again only when the items change: v223, a scene without one does nothing a frame)
 function screensStep(editing, now, dt) {
-  const A = HOST.audio, ctx = A && A.fx ? A.fx() : null, wall = Math.round(screenClock()), headset = !!(XR.on && GL.renderer.xr.isPresenting);
-  const list = [];
-  for (const it of STU.items.values()) if (it.kind === 'v') list.push(it);
+  if (SCRL.rev !== STU.rev) { SCRL.rev = STU.rev; SCRL.list = []; for (const it of STU.items.values()) if (it.kind === 'v') SCRL.list.push(it); }
+  const list = SCRL.list;
   if (!list.length) return;
+  const A = HOST.audio, ctx = A && A.fx ? A.fx() : null, wall = Math.round(screenClock()), headset = !!(XR.on && GL.renderer.xr.isPresenting);
   // (where the viewer is, for the nearest first and the listener)
   if (headset) _srp.copy(XR.head); else GL.camera.getWorldPosition(_srp);
   const quiet = !!(A && A.muted) || APP.mode !== 'explore' || sfxHidden() || !STU.scene;
@@ -34873,7 +34894,15 @@ function act(a, v) {
 function pickTab(k) { if (!TABS.some(t => t[0] === k) || (k === 'upload' && (XR.on || OPT.visit)) || (k === 'paint' && !PAINT.on)) return; X.tab = k; dirty(true); }
 // the panes on the page: drawn again (at most about 7 times a second) when something they show changed
 function dirty(now) { X.dirty = true; if (now === true) renderPanes(); }
-function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, COPIES.list.length, COPIES.read, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, streamSig(), STU.badStream, loopSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, [...STU.items.values()].map(it => +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : '')).join('')].join('|'); }
+function paneSig() { return [X.tab, liteSig(), XR.hold, stickMode(), PV.rev, PV.make && PV.make.i + PV.make.path + PV.make.stop, PV.note, NS.open, NS.making, NS.asking, NS.note, canMake(), FROM.open, FROM.scene, FROM.loading, !!FROM.files, FROM.busy, FROM.note, FROM.orig, canCopy(), UP.rev, UP.busy, UP.scene, CV.note, CV.busy, JSON.stringify(X.texAdd && [X.texAdd.id, X.texAdd.mat, X.texAdd.slot, X.texAdd.pic && X.texAdd.pic.name, X.texAdd.pic && X.texAdd.pic.why]), X.orig, SRC.upload, STU.files.length, STU.rev, STU.libRev, STU.sel, STU.edit, STU.listing, SRC.state, SRC.scenes.length, COPIES.list.length, COPIES.read, STU.saving, STU.savedAt, STU.loadAsk, !!STU.draft, UNDO.length, STU.pick && STU.pick.id + STU.pick.list, STU.txp && [STU.txp.id, STU.txp.step, STU.txp.on, STU.txp.mat, STU.txp.slot, STU.txp.page].join(), STU.badTex, paintSig(), cpkSig(), STU.plp && [STU.plp.id, STU.plp.step, STU.plp.on, STU.plp.what, STU.plp.clip, STU.plp.how, STU.plp.when, STU.plp.page].join(), STU.badPlay, STU.badSeq, playSig(), seqSig(), pressSig(), sendSig(), STU.badSend, streamSig(), STU.badStream, loopSig(), STU.gpick && STU.gpick.id, STU.follow, STU.bones, STU.bonePage, STU.cutTo, [...STU.whole].join(), [...STU.cutF].join(), editLocked(), X.tcMode, STU.seen.size, STU.note, STU.saveNote, STU.upNote, CIRC.note, recSig(), animSig(false), exSig(), scrSig(), SCR.adding, SCR.listPage, SCR.addPage, SCR.note, WALLS.n, WALLS.list.length, (BEH.st.get(STU.sel) || {}).wall, PANE_ITEMS.includes(X.tab) ? itemFlags() : ''].join('|'); }
+// each item's flags as the Item and Items panes show them (shown, in a cube, heard, its model, cutting, a note...): only
+// those two panes' signature (v223, audit row E: on any other tab, walking into a trigger cube or a sound's range redrew
+// the whole headset panel, 4.9 MB sent, for nothing it shows)
+const PANE_ITEMS = ['item', 'items'];
+function itemFlags() { let s = ''; for (const it of STU.items.values()) s += +it.shown + +it.act + +it.heard + +!!it.model + +!!it.cutting + +!!it.over + (it.cutNote || it.note ? 'n' : '') + (it.notHere ? 'h' : '') + (it.on === false ? 'f' + (it.offBy ? it.offBy.id : '') : ''); return s; }
+// (the signature paneStep made this frame, for the headset's panel later in the same frame, xrUpdate: built once a frame,
+// not twice; frame() clears it as the frame ends, so nothing outside a frame takes an old one)
+const PSIG = { s: '', on: false };
 function buildExplore() {
   $('#explore').innerHTML = `<style>
     .stu-list { list-style: none; padding: 0; margin: 4px 0 14px; }
@@ -35077,7 +35106,8 @@ function paneStep(now) {
   if (GL.tc && GL.tc.object && (!editOn() || (!X.tcDrag && lockWhy(STU.items.get(STU.sel))))) tcAttach();   // (a lock, the end of editing or an item locked in place: the arrows go)
   liteStep();   // (Fewer triangles' and Change texture's previews follow their object)
   if (APP.mode !== 'explore') return;
-  const s = paneSig();
+  const s = PSIG.s = paneSig();
+  PSIG.on = true;
   if (s !== paneLast) { paneLast = s; X.dirty = true; }
   if (X.dirty && now - X.drawn > 150) renderPanes();
 }
@@ -39925,7 +39955,9 @@ function xrUpdate(S) {
   }
   GL.world.visible = !land && !away && !gogHide();   // (the VR goggles' game drawn here: the scene hidden for you, not unloaded)
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
-  GL.rig.updateMatrixWorld(true);
+  // (the rig's and the scene's own frames, for the two worldToLocal below: not the whole scene again, which xrBegin and
+  // frame() have walked this frame and render walks once more; v223, audit row E)
+  GL.world.updateWorldMatrix(true, false);
   XR.camLocal.copy(XR.head);
   GL.world.worldToLocal(XR.camLocal);
   // labels in 3D: each sign turns to you (placeLabelXR) from the world's frame back to the rig's, where your head is
@@ -40360,7 +40392,7 @@ function sigMain() {
     }
     return s;
   }
-  return ['x', audioLabel(), xrSig(), paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : ''].join('|');   // (not the item pointed at in the scene: nothing on the panel shows it; v136, it redrew the whole card as a ray moved between items)
+  return ['x', audioLabel(), xrSig(), PSIG.on ? PSIG.s : paneSig(), animSig(true), X.scroll[X.tab] || 0, HOST.room && HOST.room.inRoom() ? HOST.room.gripHint : ''].join('|');   // (not the item pointed at in the scene: nothing on the panel shows it; v136, it redrew the whole card as a ray moved between items)
 }
 const XR_HERE = 'studio';
 const XR_STORIES = HOST.list;
@@ -41171,10 +41203,12 @@ function frame(now, xrFrame) {
   updateExtraLabels();
   paneStep(performance.now());
   if (xr) xrUpdate(S);
+  PSIG.on = false;   // (paneStep's signature is this frame's only: e7_explore.js)
   if (VW.open && !xr) vwDraw(dt);   // (the viewer over the whole window: its scene in place of the studio's, e7f_viewer.js)
   else { if (VW.open) vwClose(); GL.renderer.render(GL.scene, GL.camera); }   // (a headset session: the viewer is a page's)
   if (!xr && !VW.open) {
-    GL.world.updateMatrixWorld(true);
+    // (no walk of the scene's matrices here: render has just made every one current, scene.autoUpdate, and nothing has
+    // moved since; v223, audit row E)
     if (APP.mode === 'story') placeLabels(LBL.storyAll, L => (L.kind === 'story' ? fadeVal(ts, L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0) : setLabelAlpha(L, S)));
     else placeLabels(LBL.exploreAll(), L => (L.kind === 'set' ? setLabelAlpha(L, S) : L.txt ? L.show : 0));
   }

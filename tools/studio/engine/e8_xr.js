@@ -974,7 +974,9 @@ function xrUpdate(S) {
   }
   GL.world.visible = !land && !away && !gogHide();   // (the VR goggles' game drawn here: the scene hidden for you, not unloaded)
   if (land !== XR.landShown) { XR.landShown = land; HOST.setUrl(land); }
-  GL.rig.updateMatrixWorld(true);
+  // (the rig's and the scene's own frames, for the two worldToLocal below: not the whole scene again, which xrBegin and
+  // frame() have walked this frame and render walks once more; v223, audit row E)
+  GL.world.updateWorldMatrix(true, false);
   XR.camLocal.copy(XR.head);
   GL.world.worldToLocal(XR.camLocal);
   // labels in 3D: each sign turns to you (placeLabelXR) from the world's frame back to the rig's, where your head is

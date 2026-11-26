@@ -225,10 +225,12 @@ function frame(now, xrFrame) {
   updateExtraLabels();
   paneStep(performance.now());
   if (xr) xrUpdate(S);
+  PSIG.on = false;   // (paneStep's signature is this frame's only: e7_explore.js)
   if (VW.open && !xr) vwDraw(dt);   // (the viewer over the whole window: its scene in place of the studio's, e7f_viewer.js)
   else { if (VW.open) vwClose(); GL.renderer.render(GL.scene, GL.camera); }   // (a headset session: the viewer is a page's)
   if (!xr && !VW.open) {
-    GL.world.updateMatrixWorld(true);
+    // (no walk of the scene's matrices here: render has just made every one current, scene.autoUpdate, and nothing has
+    // moved since; v223, audit row E)
     if (APP.mode === 'story') placeLabels(LBL.storyAll, L => (L.kind === 'story' ? fadeVal(ts, L.tIn, L.tOut, 0.5) * (S[L.set + '_a'] > 0.5 ? 1 : 0) : setLabelAlpha(L, S)));
     else placeLabels(LBL.exploreAll(), L => (L.kind === 'set' ? setLabelAlpha(L, S) : L.txt ? L.show : 0));
   }

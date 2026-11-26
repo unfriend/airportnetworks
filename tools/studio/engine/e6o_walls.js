@@ -94,7 +94,7 @@ function wallsXR(frame, ref) {
   const now = performance.now();
   if (!(WALLS.dirty || now - WALLS.t > 1000) || now - WALLS.t < 500) return;
   WALLS.dirty = false; WALLS.t = now;
-  GL.world.updateMatrixWorld(true);
+  GL.world.updateWorldMatrix(true, false);   // (only the scene's own frame is read: not the whole scene's matrices, v223)
   _wli.copy(GL.world.matrixWorld).invert();
   const out = [];
   planes.forEach(pl => {

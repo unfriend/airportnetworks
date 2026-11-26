@@ -247,11 +247,12 @@ function svConnect(it, sv, ctx) {
 }
 const _srp = new THREE.Vector3(), _srq = new THREE.Quaternion(), _srf = new THREE.Vector3(), _sru = new THREE.Vector3();
 // every frame: which screens may play (shown, in explore mode, the nearest few), each one's element, picture, sound and bar
+const SCRL = { rev: -1, list: [] };   // (the screens, listed again only when the items change: v223, a scene without one does nothing a frame)
 function screensStep(editing, now, dt) {
-  const A = HOST.audio, ctx = A && A.fx ? A.fx() : null, wall = Math.round(screenClock()), headset = !!(XR.on && GL.renderer.xr.isPresenting);
-  const list = [];
-  for (const it of STU.items.values()) if (it.kind === 'v') list.push(it);
+  if (SCRL.rev !== STU.rev) { SCRL.rev = STU.rev; SCRL.list = []; for (const it of STU.items.values()) if (it.kind === 'v') SCRL.list.push(it); }
+  const list = SCRL.list;
   if (!list.length) return;
+  const A = HOST.audio, ctx = A && A.fx ? A.fx() : null, wall = Math.round(screenClock()), headset = !!(XR.on && GL.renderer.xr.isPresenting);
   // (where the viewer is, for the nearest first and the listener)
   if (headset) _srp.copy(XR.head); else GL.camera.getWorldPosition(_srp);
   const quiet = !!(A && A.muted) || APP.mode !== 'explore' || sfxHidden() || !STU.scene;

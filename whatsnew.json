@@ -1,21 +1,22 @@
 {
-  "version": "networks-v222",
+  "version": "networks-v223",
   "date": "2026-11-26",
   "new": [
-    "Shared rooms do less work while someone carries a circle or moves a scene: the device no longer saves the whole room several times a second, and the list of circles is no longer rebuilt each time.",
-    "In a headset, other people's bodies that are behind you or out of view are no longer worked out and drawn. What you can see of them is the same.",
-    "The headset menu, the subtitles and the PC's trackers do less work on every frame.",
-    "A circle's 3D icon now appears as soon as its story's files arrive, not only at the next change in the room."
+    "In the studio, walking into a trigger cube no longer redraws the whole headset panel unless the Item or Items tab is open.",
+    "In a shared room the studio no longer turns its whole scene into text on every frame to see that nothing changed.",
+    "The studio's panel works out what it shows once a frame instead of twice, and the scene's positions are worked out fewer times a frame.",
+    "While editing, the grey copies of moving things are only drawn when they are in view.",
+    "Scenes without screens, trackers or picture changes do no work for them on every frame."
   ],
   "test": [
-    "In a shared room with two or more headsets, carry a circle across the room: the others see it move smoothly and land where you let go.",
-    "With bodies on, turn slowly and quickly while others stand round you: nobody's body pops in late or appears with odd feet at the edge of your view.",
-    "Carry a circle, then close the app at once and open the room again: the circle is where you left it.",
-    "Open the menu on the Circles tab while people come and go: the list follows within a moment.",
-    "Turn subtitles on in a story with live numbers on its panel: the captions read the same as before."
+    "In the studio in a headset, walk in and out of a trigger cube with the Scene tab open, then with the Items tab open: on Items the cube's line changes as you cross it.",
+    "In a shared room with two devices at the studio circle, move, add and delete items on one: the other follows within a moment.",
+    "Turn on Edit in a scene with moving models: their grey copies show where they are placed, also when you turn round to look at them again.",
+    "On a laptop, check the names over the items still follow them while you orbit and walk round the scene.",
+    "Hold a tracker or a controller tracked by the PC at the studio circle: a prop that follows it moves as before."
   ],
   "untested": [
-    "Everything in a headset: nothing in this release, v221 or v220 has been tried in one.",
+    "Everything in a headset: nothing since v220 has been tried in one.",
     "The calibration fault you saw (after the second cross both crosses were gone and the room was not lined up) could not be reproduced without a headset. One cause was found and fixed in v220: from the start page the trigger reached nothing. Whether that was your fault is not known: it may not be fixed.",
     "The install's download of every story on a Quest's storage and wifi, and a real host's deploy.",
     "Every synthetic voice is unheard."

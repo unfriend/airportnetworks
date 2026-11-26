@@ -64,7 +64,9 @@ function ghostBuild(it) {
   H.updateWorldMatrix(true, true);
   const inv = new THREE.Matrix4().copy(H.matrixWorld).invert();
   // (each part where it stands on its holder, its drawn turn taken out: the ghost's own pose is the placed one)
-  const add = (o, n, ro) => { o.matrixAutoUpdate = false; o.matrix.multiplyMatrices(inv, n.matrixWorld); o.renderOrder = ro; o.frustumCulled = false; g.add(o); return o; };
+  // (its faces culled to the view as any mesh, v223, audit row E: until then every ghost was drawn, both eyes, wherever it
+  // stood; a ghost is its rest pose, whose bounds its geometry's are. Its lines are drawn with the others: LOOKS' batches)
+  const add = (o, n, ro) => { o.matrixAutoUpdate = false; o.matrix.multiplyMatrices(inv, n.matrixWorld); o.renderOrder = ro; o.frustumCulled = !!o.isMesh; g.add(o); return o; };
   const hit = (n, geo) => { const h = add(new THREE.Mesh(geo, HIDDEN), n, 0); h.userData.id = it.id; h.userData.ghost = true; G.hits.push(h); };
   if (it.kind === 'o') {
     // (a model with an animation: its parts taken in their rest pose, then put back exactly as they were. Not by the
@@ -124,8 +126,10 @@ GHOST.build = 4;
 // its rest pose, the whole time its clip plays, selected or not (selected, its holder never leaves its placed pose, so
 // ghostFar alone would hide it)
 const clipMoves = it => it.kind === 'o' && !!it.model && ((!!it.action && it.dur > 0 && it.rec.anim !== 'off') || !!it.pupOn || !!(it.tl && it.tl.length));   // (worn with trackers too: e6l_puppet.js; a clip a cube plays on it, e6n_plays.js)
+const GH_WANT = new Map();   // (ghostStep's, cleared each frame: no new Map a frame)
 function ghostStep(editing, now) {
-  const want = new Map(), sel = editing ? STU.items.get(STU.sel) : null;
+  const want = GH_WANT, sel = editing ? STU.items.get(STU.sel) : null;
+  want.clear();
   if (REC && STU.items.get(REC.id) === REC.it) want.set(REC.id, 'rec');
   if (sel) for (const m of sel.kind === 'g' ? members(sel) : [sel]) if (['o', 'p', 'e', 's'].includes(m.kind) && !want.has(m.id)) want.set(m.id, 'sel');
   if (editing) for (const it of STU.items.values()) if (['o', 'p', 'e', 's'].includes(it.kind) && !want.has(it.id) && (it.mX || (clipMoves(it) && !it.hid))) want.set(it.id, it.mX ? 'edit' : 'clip');

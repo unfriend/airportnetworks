@@ -1939,17 +1939,34 @@ function collabSetView(v, now) { /* nothing to set */ }
 // v157's end-to-end round; v179); the device that reads the layout first sends it, and the others take the room's.
 const freshWait = () => STU.fresh && STU.write && !!STU.scene && !STU.items.size;
 function collabState() { exLeave(); return freshWait() ? undefined : roomState(); }
-// the station's state as this device has it (also the studio's own size checks: paths, paintings)
+// the station's state as this device has it (also the studio's own size checks: paths, paintings). The same object again
+// while every value in it is the same one (v223, audit row E: the shell polls it every frame and a scene's records reach
+// 2 MB; it turns into text only a new object, or the same one once a second: shared.js statePoll). Records, settings and
+// the qr, pr, sw and bt values are never changed in place, only replaced (putItem, collabApply, the setters), so the same
+// values mean the same text. Never change what it returns
+const RSM = { refs: [], n: 0, s: null };
 function roomState() {
   exLeave();   // (an example open here as this device came to the circle: back to the relay first, so what the shell polls is
   // never the example's, though the studio's frame has not come yet; e7g_examples.js)
+  // what it is made of, in order: compared with last time's, value by value (no text, no new object while nothing changed)
+  const R = RSM.refs;
+  let n = 0, same = !!RSM.s;
+  const ref = v => { if (same && (n >= RSM.n || R[n] !== v)) same = false; R[n++] = v; };
+  ref(STU.scene); ref(STU.settings);
+  for (const it of STU.items.values()) { ref(it); ref(it.rec); }
+  for (const [id, v] of STU.qr) if (seqRec(id)) { ref(id); ref(v); }
+  for (const [id, v] of STU.pr) if (STU.items.has(id)) { ref(id); ref(v); }
+  for (const [id, v] of STU.sw) { const it = STU.items.get(id); if (it && SW_KINDS.includes(it.kind)) { ref(id); ref(v); } }
+  ref(STU.bt || null);
+  if (same && n === RSM.n) return RSM.s;
+  R.length = RSM.n = n;
   const s = { scene: STU.scene, settings: STU.settings };
   for (const it of STU.items.values()) s[it.kind + '.' + it.id] = it.rec;
   for (const [id, v] of STU.qr) if (seqRec(id)) s['qr.' + id] = v;   // (a sequence's shared play state: e6s_seq.js)
   for (const [id, v] of STU.pr) if (STU.items.has(id)) s['pr.' + id] = v;   // (an item's press stamp: e6t_press.js)
   for (const [id, v] of STU.sw) { const it = STU.items.get(id); if (it && SW_KINDS.includes(it.kind)) s['sw.' + id] = v; }   // (an outside switch: e6u_send.js)
   if (STU.bt) s.bt = STU.bt;   // (the room's beat)
-  return s;
+  return (RSM.s = s);
 }
 // A station whose state names a scene and holds no item at all (a circle the shell made for that scene, "Studio: <scene>",
 // or one whose scene was just picked elsewhere): every device there opens the scene and writes its saved layout alike
