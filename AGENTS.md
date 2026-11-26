@@ -117,7 +117,8 @@ file gets at most a line per feature, and only when an agent needs it before it 
   (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as the main site's relay. Work goes to
   `dev` first, then `main` once the owner has tried it.
 - Left for later (the owner, 23 November 2026): the shared library and rewriting airports, proteins and spatial
-  onto the shared engine (`docs/packages-migration.md`, "Left for later").
+  onto the shared engine; (26 November 2026) a headset's Stories screen drawn by the shell with no story loaded
+  (`docs/packages-migration.md`, "Left for later").
 
 ## Rules every change must keep
 

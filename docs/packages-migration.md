@@ -132,3 +132,14 @@ to the millisecond).
 **Rough cost** (section 11): R1 about 1.5M on the strongest model plus 0.5M for checks (2 to 3 sessions), R2 1.2M plus
 0.4M (2), R3 2.0M plus 0.6M (3): about 4.7M plus 1.5M in all, with G3 0.7M before them; the full suites before `main`
 after each.
+
+### (c) The Stories screen without a story (the owner, 26 November 2026)
+
+**Today.** In a headset the Stories screen is drawn by the running story's own code (its landing screen, `GL.rig`,
+panel and XR loop). Since v219 the start page on a page loads no story, but a headset that enters VR or AR from the
+start page still loads the first story (airports) so that something can draw the cards.
+
+**Wanted.** The shell draws the headset's Stories screen itself, so it runs with no story loaded: "we need to be able
+to run the stories screen independently in the future, might be part of the rewriting airports anyway". It moves
+headset code from every story into the shell, so it goes with (b) or after it, as a release of its own; only a headset
+can confirm it.
