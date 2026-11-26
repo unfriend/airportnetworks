@@ -1,0 +1,22 @@
+{
+  "version": "networks-v219",
+  "date": "2026-11-26",
+  "new": [
+    "The start page shows only the cards: no story is started, built or fetched behind them until you pick one.",
+    "Enter VR or AR from the start page opens the headset's Stories screen, with the first story loading behind it.",
+    "Stories start faster on a second visit: a story's file is taken from this device and compiled once, with no trip to the network.",
+    "A release no longer downloads the whole app again: unchanged files are kept; every story's file is fetched two at a time, after the first story.",
+    "Still to try from v214 to v216: the limited menu and the staff unlock, Subtitles per headset, and the hands' turn."
+  ],
+  "test": [
+    "The start page on a phone and in a headset: the cards over a plain background, then picking a card starts that story.",
+    "Back to the story from the Stories screen, and Enter VR and Enter AR from the start page (the cards in the headset, Back to the story absent).",
+    "An installed copy taking this update and the next one; a story opened offline after Take all stories.",
+    "v214: the limited menu in a room and the 2-second hold on both sticks. v215: Subtitles in one headset's menu leaves the other as it was. v216: hands ahead and held up, in the mirror and in a room."
+  ],
+  "untested": [
+    "All of it on a headset and on an installed phone copy: the start page's Enter VR and AR, a story's start from the device's copy, a release's update.",
+    "v214: the limited menu and the unlock in a headset. v215: Subtitles per headset and the room's default. v216: the hands' turn against a real controller.",
+    "v213 and earlier as before: nothing since v200 has been in a headset; every synthetic voice is unheard."
+  ]
+}

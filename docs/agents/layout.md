@@ -58,17 +58,11 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
 - `sw.js` - service worker. Pages and app files come from the network first,
   checked with the server each time (`cache: 'no-cache'`), so the page and its
   story files are always the same version; the cache is the offline copy (and
-  the answer when the network takes more than 4 s). The narration MP3s are
-  served from the cache (with byte ranges), a cache of their own that outlives
-  the releases (`networks-narration`, v109): a narration goes in when a story
-  first plays it on this device, never all the stories at once (about 57 MB; ten
-  headsets at their first visit would pull 570 MB over one router while people
-  are already in a room), so offline a device has the narrations it has
-  played. A new worker asks the server only about those it holds, with their
-  ETag, and fetches only the ones that changed. Installing fetches straight
-  from the server (`cache: 'reload'`). The studio's scenes (any same-origin path with `/scenes/`: the relay's
-  `--scenes` and a static folder of them) are passed straight through, never cached (v111), by a rule before the
-  narration's, so a scene's own `audio/narration.mp3` is never taken for (and cached as) the app's, and so are the example
+  the answer when the network takes more than 4 s). A story package's file at an address with its version (`?v=<fp>`)
+  comes from the packages' cache at once when it is there (v219), narrations included (a package's own). The old
+  narrations' cache (`networks-narration`) is only emptied at activate since v219. Installing asks each shell file with
+  the ETag of an older release's copy and keeps that copy on a 304 (v219; until then `cache: 'reload'`, all of it). The studio's scenes (any same-origin path with `/scenes/`: the relay's
+  `--scenes` and a static folder of them) are passed straight through, never cached (v111), and so are the example
   scenes that ship with the app (`examples/`, v137: big models and streamed sounds, not offline); the upload page's
   POSTs and the navigation to `<relay>/upload` are left to the browser. Story packages (`packages/`) are fetched network
   first into a cache of their own that outlives the releases too (`networks-packages`), by a rule before the narration's;

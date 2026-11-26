@@ -893,7 +893,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 218, id: 'cd5c140e29a7120b', format: 'networks-61' },
+  shell: { n: 219, id: '7c05e5b3ba79e612', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -2875,18 +2875,23 @@ HOST.fingerprint = function (s) {
   b = Math.imul(b ^ (b >>> 16), 2246822507) ^ Math.imul(a ^ (a >>> 13), 3266489909);
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 };
-// A story's file: fetched as text (fresh: past every cache, for a swap or a story updated meanwhile), its fingerprint
-// noted (HOST.fp, compared with version.json and the relay's --watch), then run as a script, which registers its
-// factory (HOST.register). Resolves true when a new file ran, false when a fresh fetch brought the file already
-// running. A file that does not register (a syntax error while it is being edited) is refused, and the factory before
-// it stays.
+// A story's file, run as a script, which registers its factory (HOST.register); its fingerprint noted (HOST.fp, compared
+// with version.json and the relay's --watch). A story package's usual start (v219) loads its main.js?v=<the package's
+// fp> as a script element, so the browser compiles it off the main thread and keeps the compiled code, and the service
+// worker answers that address from its cache (sw.js): its fingerprint is the index's for main.js (tools/packages/scan.mjs
+// hashes the text as HOST.fingerprint does). A fresh load (a swap, a story updated meanwhile, the relay's --watch) and a
+// page that is not a package (the studio) fetch the text past every cache, hash it and run it as inline script, so a
+// fresh copy is compared with the one running. Resolves true when a new file ran, false when a fresh fetch brought the
+// file already running. A file that does not register (a syntax error while it is being edited) is refused, and the
+// factory before it stays.
 HOST.fp = {};
 HOST.load = function (key, fresh) {
   if (!fresh && this.loaded[key]) return this.loaded[key];
   // (a story package: its folder's main.js, the index's fingerprint of the whole folder in its address, HOST.packages)
   const pk = this.packages.get(key), url = pk ? pk.base + 'main.js?v=' + pk.fp : 'stories/' + key + '.js';
   if (pk && pk.refused) return Promise.reject(new Error(`The ${pk.title} story needs a newer version of the app`));
-  const p = (async () => {
+  const own = pk && !fresh && /^[0-9a-f]{16}$/.test(pk.files['main.js'] || '');
+  const p = own ? this.loadSrc(key, pk, url) : (async () => {
     let txt;
     try {
       const r = await fetch(fresh ? url + (pk ? '&' : '?') + 'fresh=' + Date.now() : url, { cache: fresh ? 'no-store' : 'default' });
@@ -2916,6 +2921,35 @@ HOST.load = function (key, fresh) {
   this.loaded[key] = p;
   p.catch(() => { if (this.loaded[key] === p) delete this.loaded[key]; });   // (asked again next time)
   return p;
+};
+// (HOST.load's usual path for a package: a script element; its handlers are properties and its error listener the
+// shell's, so a story change takes neither)
+HOST.loadSrc = function (key, pk, url) {
+  return new Promise((res, rej) => {
+    const was = this.factories[key];
+    delete this.factories[key];
+    let err = '';
+    const s = document.createElement('script'), abs = new URL(url, location.href).href;
+    const onErr = ev => { if (!ev.filename || ev.filename === abs) err = (ev.error && ev.error.message) || ev.message || 'an error'; };
+    const done = () => { window.removeEventListener('error', onErr); s.onload = s.onerror = null; s.remove(); };
+    const q = this.quiet;
+    this.quiet = true;
+    try { window.addEventListener('error', onErr); } finally { this.quiet = q; }
+    s.async = true; s.src = url;
+    s.onload = () => {
+      done();
+      if (!this.factories[key]) {
+        if (was) this.factories[key] = was;
+        rej(new Error(`The ${key} story's file did not run (${err || 'it registered no story'})`));
+        return;
+      }
+      this.fp[key] = pk.files['main.js'];
+      this.packages.ran(key, pk.fp);
+      res(true);
+    };
+    s.onerror = () => { done(); if (was && !this.factories[key]) this.factories[key] = was; rej(new Error('Could not load the ' + key + ' story')); };
+    document.body.appendChild(s);
+  });
 };
 // ---------------------------------------------------------- story packages --
 // A story in a folder of its own, packages/<key>/ (tools/packages/SPEC.md, docs/agents/packages.md): story.json, main.js
@@ -5997,6 +6031,16 @@ HOST.offline = (function () {
     setTimeout(() => { if (on() || installed()) take(true); }, 20000);
     // (a take the browser broke off, its worker stopped: asked again, and it carries on where it was)
     setInterval(() => { if (O.want && O.msg && O.msg.state === 'run' && Date.now() - O.at > 45000) take(); }, 15000);
+    // every listed story's main.js and miniatures (sw.js takeMains, v219: no longer at install), once a page load: 5 s
+    // after its first story is built, or half a minute after the start (the start page builds none)
+    const t0 = Date.now();
+    let builtAt = 0;
+    const mi = setInterval(() => {
+      if (!builtAt && HOST.cur && HOST.loading.built()) builtAt = Date.now();
+      if (!(builtAt && Date.now() - builtAt > 5000) && Date.now() - t0 < 30000) return;
+      clearInterval(mi);
+      SW.ready.then(r => { const w = (r && r.active) || SW.controller; if (w) w.postMessage({ type: 'mains' }); }).catch(() => {});
+    }, 1000);
     show();
   }
   return { take, on, installed, label, again: () => { if (on() && O.want) take(); }, state: () => O };

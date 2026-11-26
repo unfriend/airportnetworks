@@ -1,36 +1,14 @@
 // Offline support: the app shell is cached on install, so the installed app opens without a network connection; each
 // story package's files are cached as it is first opened (PKG). Bump VERSION when you change any shell file (a change
 // to one package's files alone needs none: its fingerprint in packages/index.json reaches the pages, v193).
-const VERSION = 'networks-v218';
+const VERSION = 'networks-v219';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
   './fonts/B612-Regular.woff2', './fonts/B612-Bold.woff2', './fonts/B612-Italic.woff2'];
 
-const AUDIO = [];   // (empty since audio/ went at v190: every story's narration is its package's, cached in PKG)
-// Until v187 the narrations (about 60 MB together, and seldom changed) kept a cache of their own that outlives the
-// releases (NARR, kept for its pruning below and AUDIO's rules, both idle while AUDIO is empty). A
-// narration goes into it when a story first plays it (the fetch handler below), never all of them at once: ten
-// headsets fetching every story's narration at their first visit was 570 MB over one router, while people were already
-// in a room. A new worker asks the server only about those this device holds, each with its copy's ETag (or date), and
-// fetches only those that changed; a copy in an older release's cache counts too (until v107 they were fetched again
-// in full at every release, on every device)
+// Until v190 the narrations lived in audio/ and kept a cache of their own (NARR) that outlived the releases; since then
+// every story's narration is its package's (PKG), so that cache is only cleared, at activate, on a device that kept one
 const NARR = 'networks-narration';
-async function narrFetch(n, a) {
-  const own = await n.match(a), old = own || await caches.match(a), h = {};
-  if (!old) return;   // (not held here: fetched when a story first plays it)
-  const et = old && old.headers.get('ETag'), lm = old && old.headers.get('Last-Modified');
-  if (et) h['If-None-Match'] = et; else if (lm) h['If-Modified-Since'] = lm;
-  try {
-    const r = await fetch(new Request(a, { cache: 'no-store', headers: h }));
-    if (r.status === 304) { if (!own) await n.put(a, old); }
-    else if (r.ok) await n.put(a, r);
-    else await n.delete(a);   // (taken away, or the server could not say: played from the network next time)
-  } catch (e) {
-    // (it could not be asked, or its new copy broke off: a copy that may be out of step with the new story's timing is
-    // dropped, and the next play fetches it; installing happens online, so this is a hiccup, not being offline)
-    await n.delete(a).catch(() => {});
-  }
-}
 // Story packages (packages/<key>/, tools/packages/SPEC.md) keep a cache of their own that outlives the releases too: a
 // package changes without a release (its files' addresses carry their fingerprints, HOST.pkgUrl), and one opened once
 // works offline
@@ -40,8 +18,7 @@ const PKG = 'networks-packages';
 const pkgAddr = (m, f) => new URL(`packages/${m.key}/${f}?v=${f === 'main.js' ? m.fp : m.files[f]}`, self.registration.scope).href;
 const listedPkgs = (j, hidden) => (j && Array.isArray(j.packages) ? j.packages : []).filter(m => m && typeof m.key === 'string' && m.files && typeof m.files === 'object' && (hidden || m.list !== 'hidden'));
 async function pkgPut(c, url, res) {
-  const bare = url.split('?')[0];
-  for (const k of await c.keys()) if (k.url !== url && k.url.split('?')[0] === bare) await c.delete(k);
+  await c.delete(url, { ignoreSearch: true });   // (every version of that file: the cache keeps one)
   await c.put(url, res);
 }
 // the packages' index: the server's, else the copy kept (offline)
@@ -54,21 +31,31 @@ async function pkgIndex() {
   const hit = await caches.open(PKG).then(c => c.match(u));
   return hit ? hit.json().catch(() => null) : null;
 }
-// At install, every listed package's main.js (the story itself, as SHELL takes each stories/<key>.js) and its
-// miniatures' file (story.json's minis: its stations' icon, and its props, which the design room's table showed until v217), so an installed
-// copy opens every story offline, moved into a package or not (silent until its narration is taken), and its rooms show
-// every station's icon; never fails the install
-async function takeMains() {
-  const j = await pkgIndex(), c = await caches.open(PKG);
-  const want = [];
-  for (const m of listedPkgs(j)) for (const f of ['main.js', m.minis]) if (typeof f === 'string' && m.files[f]) want.push(pkgAddr(m, f));
-  await Promise.all(want.map(async u => {
-    if (await c.match(u)) return;
-    try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await pkgPut(c, u, r); } catch (e) { /* taken when first asked for */ }
-  }));
+// Every listed package's main.js (the story itself) and its miniatures' file (story.json's minis: its stations' icon),
+// so an installed copy opens every story offline (silent until its narration is taken) and its rooms show every
+// station's icon. Asked for by the page (HOST.offline: { type: 'mains' }) once a page load, after its first story is
+// built or half a minute after the start, never at install (v219: about 43 files at once, 17 MB, while the first story
+// loaded); two at a time, files already held passed by, a failure taken when the file is first asked for
+let MAINS = null;
+function takeMains() {
+  if (MAINS) return MAINS;
+  return (MAINS = (async () => {
+    const j = await pkgIndex(), c = await caches.open(PKG);
+    const want = [];
+    for (const m of listedPkgs(j)) for (const f of ['main.js', m.minis]) if (typeof f === 'string' && m.files[f]) want.push(pkgAddr(m, f));
+    let i = 0;
+    const lane = async () => {
+      while (i < want.length) {
+        const u = want[i++];
+        if (await c.match(u)) continue;
+        try { const r = await fetch(u, { cache: 'no-cache' }); if (r.ok) await pkgPut(c, u, r); } catch (e) { /* taken when first asked for */ }
+      }
+    };
+    await Promise.all([lane(), lane()]);
+  })().catch(() => {}).finally(() => { MAINS = null; }));
 }
 // Take all stories (v185, docs/packages-migration.md "Decided route"): every file of every listed package (main.js,
-// models, data, its narration) into PKG and every narration still in audio/ (AUDIO) into NARR, two at a time, whole
+// models, data, its narration) into PKG, two at a time, whole
 // files at the addresses the app asks for; a file already held is passed by, so a broken-off take carries on where it
 // was (the page asks again at its next start: HOST.offline) and a changed package takes only its changed files. The
 // storage is checked first (free space for what is missing, and a fifth more); a file that fails is tried once more,
@@ -81,19 +68,12 @@ function takeAll(hidden) {
   return (TAKE.run = (async () => {
     const j = await pkgIndex();
     if (!j) return tell({ state: 'off', done: 0, total: 0, bytes: 0, need: 0, failed: 0 });
-    const pc = await caches.open(PKG), nc = await caches.open(NARR), want = [];
-    for (const m of listedPkgs(j, hidden)) for (const f of Object.keys(m.files)) {
-      const u = pkgAddr(m, f);
-      if (!(await pc.match(u))) want.push({ u, c: pc, pkg: true, size: 0 });
-    }
-    for (const a of AUDIO) if (!(await nc.match(a))) want.push({ u: a, c: nc, pkg: false, size: 0 });
-    // what is missing, in bytes: the index's for packages (each file's share is not listed: the package's bytes spread
-    // by its files' count is close enough), the server's Content-Length for a narration
-    const per = {};
-    for (const m of listedPkgs(j, hidden)) per[m.key] = (+m.bytes || 0) / Math.max(1, Object.keys(m.files).length);
-    for (const w of want) {
-      if (w.pkg) w.size = per[(/\/packages\/([^/]+)\//.exec(w.u) || [])[1]] || 0;
-      else try { const h = await fetch(w.u, { method: 'HEAD', cache: 'no-store' }); w.size = +h.headers.get('Content-Length') || 0; } catch (e) { /* offline: tried below */ }
+    const pc = await caches.open(PKG), want = [];
+    // what is missing, in bytes: the index's (each file's share is not listed: the package's bytes spread by its files'
+    // count is close enough)
+    for (const m of listedPkgs(j, hidden)) {
+      const size = (+m.bytes || 0) / Math.max(1, Object.keys(m.files).length);
+      for (const f of Object.keys(m.files)) { const u = pkgAddr(m, f); if (!(await pc.match(u))) want.push({ u, c: pc, size }); }
     }
     const need = want.reduce((n, w) => n + w.size, 0), total = want.length;
     try {
@@ -107,9 +87,9 @@ function takeAll(hidden) {
         try {
           const r = await fetch(w.u, { cache: 'no-cache' });
           if (r.status === 200) {
-            const b = await r.clone().arrayBuffer();
-            if (w.pkg) await pkgPut(w.c, w.u, r); else await w.c.put(w.u, r);
-            bytes += b.byteLength;
+            // (counted from the index's share, not by reading the whole file into memory again)
+            await pkgPut(w.c, w.u, r);
+            bytes += w.size;
             return true;
           }
         } catch (e) { /* once more */ }
@@ -125,13 +105,15 @@ self.addEventListener('message', e => {
   const d = e.data;
   if (!d || typeof d !== 'object') return;
   if (d.type === 'take') e.waitUntil(takeAll(!!d.hidden));
+  else if (d.type === 'mains') e.waitUntil(takeMains());
   else if (d.type === 'take?') e.waitUntil(TAKE.run ? tell(TAKE.msg) : tell(Object.assign({}, TAKE.msg)));
 });
-// the audio element (the fallback sound engine) asks for byte ranges; answer them from the
-// cached file, read once per file while this worker runs
+// the audio element (the fallback sound engine) asks for byte ranges offline; answer them from the cached file, read
+// once per file while this worker runs, the last two files only (a narration is up to 7 MB)
 const BYTES = new Map();
 async function rangeResponse(req, cached, key) {
-  if (!BYTES.has(key)) BYTES.set(key, cached.clone().arrayBuffer());
+  if (BYTES.has(key)) { const b = BYTES.get(key); BYTES.delete(key); BYTES.set(key, b); }   // (the latest last)
+  else { BYTES.set(key, cached.clone().arrayBuffer()); while (BYTES.size > 2) BYTES.delete(BYTES.keys().next().value); }
   const buf = await BYTES.get(key), size = buf.byteLength;
   const m = /bytes=(\d*)-(\d*)/.exec(req.headers.get('range') || '');
   let start = m && m[1] ? +m[1] : 0, end = m && m[2] ? +m[2] : size - 1;
@@ -147,34 +129,41 @@ async function rangeResponse(req, cached, key) {
 // file breaks (a story that ends opens explore mode although Repeat is on). So they are fetched
 // from the network first, checked with the server each time (hosts such as GitHub Pages let the
 // browser keep files for ten minutes), and the cache is only the copy for offline use.
+// At install each shell file is asked of the server past the browser's HTTP cache (which may still hold the old
+// version); a copy an older release's cache holds goes with its ETag (or date), and an unchanged file (304) is that copy
+// again, so a release no longer downloads the whole shell (5.5 MB) whatever changed (v219). A file the server cannot
+// give fails the install, as before
+async function shellTake(c, u) {
+  const a = new URL(u, self.registration.scope).href, old = await caches.match(a), h = {};
+  const et = old && old.headers.get('ETag'), lm = old && old.headers.get('Last-Modified');
+  if (et) h['If-None-Match'] = et; else if (lm) h['If-Modified-Since'] = lm;
+  const r = await fetch(new Request(a, { cache: 'no-store', headers: h }));
+  if (r.status === 304 && old) return c.put(a, old);
+  if (!r.ok) throw new Error(a + ': ' + r.status);
+  return c.put(a, r);
+}
 self.addEventListener('install', e => {
-  // straight from the server, not from the browser's HTTP cache, which may still hold the old version
-  const get = u => new Request(u, { cache: 'reload' });
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(SHELL.map(get)))
-    // the narrations this device holds, fetched again only where they changed
-    .then(() => caches.open(NARR)).then(n => Promise.all(AUDIO.map(a => narrFetch(n, a))))
-    // every listed story package's main.js (the stories moved into packages: offline as the others), never failing it
-    .then(() => takeMains().catch(() => {}))
+  e.waitUntil(caches.open(VERSION).then(c => Promise.all(SHELL.map(u => shellTake(c, u))))
     .then(() => self.skipWaiting()));
 });
 // the network's answer (and a fresh copy in the cache: this release's, or the one named); the cached copy when the
 // network fails, or when it has not answered within a few seconds and a copy exists
+// (v219: kept only when it differs from the copy held, by its ETag or else its date; with neither, kept as before)
+const sameCopy = (a, b) => { const e = a.headers.get('ETag'); if (e) return e === b.headers.get('ETag'); const m = a.headers.get('Last-Modified'); return !!m && m === b.headers.get('Last-Modified'); };
 function fresh(net, key, cache) {
   const cached = () => caches.match(key, { ignoreSearch: true });
   net = net.then(res => {
-    if (res.ok) { const copy = res.clone(); caches.open(cache || VERSION).then(c => c.put(key, copy)); }
+    if (res.ok) { const copy = res.clone(); caches.open(cache || VERSION).then(c => c.match(key).then(old => (old && sameCopy(copy, old) ? null : c.put(key, copy)))).catch(() => {}); }
     return res;
   });
   const safe = net.catch(() => cached().then(hit => hit || Response.error()));
   const slow = new Promise(r => setTimeout(r, 4000)).then(cached).then(hit => hit || safe);
   return Promise.race([safe, slow]);
 }
-// The narrations' own cache (NARR) holds only those still in audio/ (AUDIO, empty since v190): since v187 each story's narration is its
-// package's (PKG), so a copy of an old address (audio/narration*.mp3, up to about 60 MB on a device that played them
-// before v187) is dropped at activate; a current one is never touched
+// The narrations' old cache (NARR: up to about 60 MB on a device that played them before v187) is emptied at activate
 async function narrPrune() {
-  const n = await caches.open(NARR), keep = new Set(AUDIO.map(a => new URL(a, self.registration.scope).href));
-  for (const k of await n.keys()) if (!keep.has(new URL(k.url, self.registration.scope).href)) await n.delete(k);
+  const n = await caches.open(NARR);
+  for (const k of await n.keys()) await n.delete(k);
 }
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
@@ -199,13 +188,12 @@ self.addEventListener('fetch', e => {
   }
   // the studio's scenes (the relay's --scenes, or a static folder of them): the owner's own models, sounds and layouts,
   // large and changing while they work, so never kept here; the browser asks the server each time (no-cache, ETags).
-  // Before the narration's rule: a scene's own audio/narration.mp3 must never be taken for (and cached as) the app's.
   // The example scenes that ship with the app (examples/, v137) likewise: big models and streamed sounds, opened read only
   if (url.origin === self.location.origin && /\/(scenes|examples)\//.test(url.pathname)) return;
   // the developer notebook (v142): its notes page (notes/) is live like the relay's /api/notes it reads, never kept
   if (url.origin === self.location.origin && /\/notes(\/|$)/.test(url.pathname)) return;
-  // story packages: network first, checked with the server, kept in their own cache (PKG); before the narration's rule,
-  // so a package's audio/narration.mp3 is never taken for the app's. Their index (packages/index.json) is the server's
+  // story packages, kept in their own cache (PKG): a file at an address with its version (?v=<fp>) from the cache when it
+  // is there (v219), else from the network, checked with the server. Their index (packages/index.json) is the server's
   // whenever it answers, however slowly (the cached copy only offline); a byte range (the audio element) from the
   // network, or offline from the cached whole file
   if (url.origin === self.location.origin && /\/packages\//.test(url.pathname)) {
@@ -217,7 +205,7 @@ self.addEventListener('fetch', e => {
       }, () => cached().then(hit => hit || Response.error())));
     } else if (req.headers.has('range')) {
       e.respondWith(fetch(req).catch(() => caches.open(PKG).then(c => c.match(key, { ignoreSearch: true }))
-        .then(hit => (hit ? rangeResponse(req, hit, key) : Response.error()))));
+        .then(hit => (hit ? rangeResponse(req, hit, hit.url || key) : Response.error()))));
     } else {
       // kept under its whole address: the version (?v=<fp>) is part of it, so a slow network never gets an older file
       // for a newer address; storing a version drops that file's others. A fresh fetch (HOST.load's &fresh=<time>: a
@@ -227,34 +215,18 @@ self.addEventListener('fetch', e => {
       const bare = new URL(url.href), fresh = bare.searchParams.has('fresh');
       bare.searchParams.delete('fresh');
       const vkey = url.origin + url.pathname + bare.search, hit = () => caches.open(PKG).then(c => c.match(vkey));
-      const net = fetch(req, { cache: 'no-cache' }).then(res => {
-        if (res.ok) {
-          const copy = res.clone();
-          e.waitUntil(caches.open(PKG).then(async c => {
-            for (const k of await c.keys()) if (k.url !== vkey && k.url.split('?')[0] === key) await c.delete(k);
-            await c.put(vkey, copy);
-          }).catch(() => {}));
-        }
-        return res;
-      });
-      const safe = net.catch(() => hit().then(h => h || Response.error()));
-      e.respondWith(fresh ? safe : Promise.race([safe, new Promise(r => setTimeout(r, 4000)).then(hit).then(h => h || safe)]));
+      const go = () => {
+        const net = fetch(req, { cache: 'no-cache' }).then(res => {
+          if (res.ok) { const copy = res.clone(); e.waitUntil(caches.open(PKG).then(c => pkgPut(c, vkey, copy)).catch(() => {})); }
+          return res;
+        });
+        const safe = net.catch(() => hit().then(h => h || Response.error()));
+        return fresh ? safe : Promise.race([safe, new Promise(r => setTimeout(r, 4000)).then(hit).then(h => h || safe)]);
+      };
+      // (v219: an address with its version, ?v=<fp>, never changes what it holds: a copy kept is the answer at once, with no
+      // trip to the network; a new version is a new address. A fresh fetch, and an address without a version, ask the network)
+      e.respondWith(!fresh && bare.searchParams.has('v') ? hit().then(h => h || go(), go) : go());
     }
-    return;
-  }
-  // the narration: from the cache when it is there (as byte ranges), else the network, keeping a copy of a whole file
-  // (a story playing it for the first time on this device) for next time and offline
-  const narr = url.origin === self.location.origin && /\/audio\/(narration(-[a-z]+)*\.mp3)$/.exec(url.pathname);   // (narration-pass-de.mp3: a story's other language)
-  if (narr) {
-    const key = './audio/' + narr[1], range = req.headers.has('range');
-    e.respondWith(caches.match(key).then(hit => {
-      if (hit) return range ? rangeResponse(req, hit, narr[1]) : hit.clone();
-      // (past the browser's own cache, which a host may let keep an older copy for minutes after a release)
-      return fetch(range ? req : new Request(req, { cache: 'no-cache' })).then(res => {
-        if (!range && res.status === 200 && res.type === 'basic') { const copy = res.clone(); e.waitUntil(caches.open(NARR).then(n => n.put(key, copy)).catch(() => {})); }
-        return res;
-      });
-    }));
     return;
   }
   // the shared rooms' relay (when it serves the app): its API is live, never cached

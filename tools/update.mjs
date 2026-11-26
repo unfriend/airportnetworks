@@ -61,6 +61,8 @@ const isFrom = (r, V) => r.shell.every(t => V.shell.includes(t)) && r.story.leng
 const versions = async () => {
   for (let i = 0; i < 80; i++) {
     try {
+      // (v219: the start page starts no story: the airports story is opened as a person would, from its card)
+      await page.evaluate(() => { if (typeof HOST !== 'undefined' && HOST.picking && !HOST.cur && !HOST.busy && HOST.meta('airports')) HOST.go('airports'); });
       const r = await running();
       if (r) { const v = { shell: isFrom({ ...r, story: ['x'] }, { ...NEW, story: 'x' }), story: isFrom({ ...r, shell: [] }, NEW) }; if ((v.shell && v.story) || i === 79) return v; }
     } catch (e) { /* the page is reloading */ }
@@ -171,8 +173,9 @@ if (narrUrl) { const ranges = await rangesOf(narrUrl); report('offline: a packag
 await page.evaluate(() => HOST.go('lbi'));
 await page.waitForFunction(() => HOST.curKey === 'lbi' && HOST.cur, null, { timeout: 30000 }).catch(() => {});
 report('offline: another story loads', await page.evaluate(() => HOST.curKey === 'lbi' && !!HOST.cur));
-// a story moved into a story package (v185: packages/order.json names it, its folder is there): its main.js was taken at
-// the new worker's install (sw.js takeMains), so it opens offline though this page never played it
+// a story moved into a story package (v185: packages/order.json names it, its folder is there): its main.js was taken by
+// the worker (sw.js takeMains: at install until v218, since v219 when the page asks, after its first story), so it opens
+// offline though this page never played it
 {
   let moved = '';
   try { moved = (JSON.parse(fs.readFileSync(path.join(newDir, 'packages', 'order.json'), 'utf8')).order || []).find(k => k !== 'airports' && k !== 'lbi' && fs.existsSync(path.join(newDir, 'packages', k, 'main.js'))) || ''; } catch (e) { /* none yet */ }

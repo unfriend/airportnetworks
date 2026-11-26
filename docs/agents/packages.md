@@ -64,7 +64,11 @@ keeps").
   `HOST.packages.hidden()`. `HOST.meta(key)`
   finds every package. An entry whose key is one of the app's own is ignored.
 - `HOST.load(key)` loads a package's `packages/<key>/main.js?v=<fp>` (fresh: `&fresh=`), then everything as a story's:
-  the fingerprint of its text in `HOST.fp`, the factory kept when a new file does not register. `HOST.packages.ran(key)`
+  the fingerprint of its text in `HOST.fp`, the factory kept when a new file does not register. Since v219 a usual start
+  loads it as a script element (`HOST.loadSrc`: compiled off the main thread, the compiled code kept, the service worker's
+  copy at once), `HOST.fp` then the index's `files['main.js']` (the scan hashes the text as `HOST.fingerprint` does); a
+  fresh load (`HOST.swap`, a story `HOST.live` marked stale, the relay's `--watch`) still fetches the text past every
+  cache, hashes it and compares it with the one running. The refusals below are the index entry's, before either path. `HOST.packages.ran(key)`
   is the `fp` it last ran with; a fresh load of a package whose `main.js` is unchanged but whose `fp` moved runs again
   (its data's addresses changed).
 - A package whose `api` is above `HOST.storyApi`, or whose `needs` is above the shell's release (`HOST.shell.n`, on a
@@ -89,8 +93,10 @@ keeps").
 
 ## The service worker (`sw.js`)
 
-Packages are not in `SHELL`. Anything under `packages/` is fetched network first (`cache: 'no-cache'`; after 4 s
-without an answer a cached copy of the same address, version included) and kept, under its whole address with its
+Packages are not in `SHELL`. A file at an address with its version (`?v=<fp>`, not `&fresh=`) that `PKG` holds is answered
+from it at once, with no trip to the network (v219: a new version is a new address). Anything else under `packages/` is
+fetched network first (`cache: 'no-cache'`; after 4 s without an answer a cached copy of the same address, version
+included) and kept, under its whole address with its
 `?v=<fp>` (storing one version drops that file's others, so a slow network never gets an older file for a newer
 address), in a cache of its own, `networks-packages` (`PKG`), which a new `VERSION` does not clear (as `NARR`): a package changes
 without an app release, and one opened once works offline. The rule comes before the narration's, so a package's
@@ -102,16 +108,21 @@ clears it. A fresh fetch (`HOST.load`'s `&fresh=<time>`: a package that changed 
 it was kept under its one-off address, dropping the real one's copy, so the package had no offline copy until the app
 was opened again).
 
-**At install (v185)** the worker also takes every listed package's `main.js` (`takeMains`: the index read, each
-`main.js?v=<the package's fp>`, never failing the install), as `SHELL` takes each `stories/<key>.js`, so an installed
-copy opens every story offline, moved into a package or not.
+**Every story's file (v185; v219 no longer at install)**: the worker takes every listed package's `main.js` and
+miniatures (`takeMains`: the index read, each `main.js?v=<the package's fp>`, two at a time, files held passed by) when a
+page asks (`{ type: 'mains' }`, `HOST.offline`: once a page load, 5 s after its first story is built or 30 s after the
+start), so an installed copy opens every story offline.
+
+**At install (v219)** each `SHELL` file is asked past the HTTP cache with the ETag (or date) of the copy an older
+release's cache holds; a 304 keeps that copy, so a release downloads only what changed. `fresh()` (a shell file at every
+page start) writes the cache only when the answer's ETag (or date) differs from the copy held. `AUDIO`, `narrFetch` and
+the `audio/narration` rule are gone (v219); `narrPrune` still empties an old device's `networks-narration` at activate.
 
 **Take all stories (v185, `takeAll`; the page's `HOST.offline`).** A page posts `{ type: 'take', hidden }`; the worker
 reads the index and takes every file of every listed package (hidden ones too in developer mode) into `PKG` at the
-address the app asks for (`main.js` with the package's fp, the rest with their own: `pkgAddr`), and every narration
-still in `audio/` (`AUDIO`) into `NARR`; files already held are passed by, so a take broken off (the browser stopped the
+address the app asks for (`main.js` with the package's fp, the rest with their own: `pkgAddr`); files already held are passed by, so a take broken off (the browser stopped the
 worker) carries on where it was, and a changed package takes only its changed files. First the room: what is missing
-(the index's `bytes`, a narration's `Content-Length`) and a fifth more against `navigator.storage.estimate()`; too
+(the index's `bytes`, also what a file counts towards the progress) and a fifth more against `navigator.storage.estimate()`; too
 little says so (`state: 'full'`). Two files at a time, each tried twice; progress `{ type: 'take', state: 'run' | 'done'
 | 'full' | 'off', done, total, bytes, need, failed }` to every page. The page: a *Take all stories* button in the
 Stories screen's row (its label the progress), `navigator.storage.persist()` asked on a press; automatic 20 s after the

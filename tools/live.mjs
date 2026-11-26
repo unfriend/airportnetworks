@@ -37,7 +37,7 @@ function fingerprint(s) {   // (index.html's HOST.fingerprint)
 // shared engine parts and the kit, and tools/packages/ (the index the relay writes again after a package's build))
 const T = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-'));
 for (const f of ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'output.js', 'proteins.html', 'spatial.html']) fs.copyFileSync(path.join(REPO, f), path.join(T, f));
-for (const d of ['stories', 'packages', 'icons', 'audio', 'tools/engine', 'tools/packages']) if (fs.existsSync(path.join(REPO, d))) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });   // (audio/: gone since v190)
+for (const d of ['stories', 'packages', 'icons', 'fonts', 'audio', 'tools/engine', 'tools/packages']) if (fs.existsSync(path.join(REPO, d))) fs.cpSync(path.join(REPO, d), path.join(T, d), { recursive: true });   // (audio/: gone since v190; fonts/: in sw.js SHELL since v213, without it the worker's install fails)
 const file = f => path.join(T, f);
 const read = f => fs.readFileSync(file(f), 'utf8');
 const write = (f, t) => fs.writeFileSync(file(f), t);
