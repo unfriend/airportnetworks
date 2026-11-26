@@ -2,6 +2,9 @@
 
 @AGENTS.md
 
+`AGENTS.md` (imported above) is the core: structure, rules, conventions, testing. This file adds only what is
+particular to Claude Code. Keep it short.
+
 ## Notes for Claude Code
 
 **Warning: Claude Code runs without asking here.** This repository's `.claude/settings.json` allows every command, file
@@ -24,96 +27,55 @@ session and every agent and workflow it starts avoid them, and every agent promp
 - A background server or test is stopped by letting it end (`timeout <s> ...`), not by killing it afterwards.
 - If a prompt still comes, find which command caused it and add a line here so the next session avoids it too.
 - `node tools/notes/notes.mjs done <id>` (marking a developer note done): the session marks a note done once its
-  change is pushed to `dev`, and says which ones it marked (the owner, 25 November 2026: "change it so you can"; before
-  that Auto mode refused it as an unwanted action when nobody had asked). A note that is only discussed, or whose fix
-  is not pushed, stays new. Sub-agents still leave notes alone: the main conversation marks them.
+  change is pushed to `dev`, and says which ones it marked (the owner, 25 November 2026). A note that is only
+  discussed, or whose fix is not pushed, stays new. Sub-agents still leave notes alone: the main conversation marks
+  them.
 
-- The synthetic voice is rendered in the cloud session too (the owner, 25 November 2026: "you can do that on your
-  machine, did it before"): a fresh cloud machine has no Kokoro, but `tools/voice/README.md`'s "Setup (once)" takes a few
-  minutes there (`~/kokoro`, outside the repository; it goes with the machine). Never hand a render to the owner because
-  the tool "is not here"; set it up, render, and report the recording as unheard.
-- Builders started with the Agent tool cannot start agents of their own, so "run one Sonnet review" inside a builder's
-  prompt does not happen: the main conversation starts the review itself when the builder reports, then one fix round.
+**Working with agents**
+
+- Builders started with the Agent tool cannot start agents of their own: the main conversation starts the review
+  itself when the builder reports, then one fix round.
+- Sub-agents may not write report files with the Write tool: they return their findings as text (working notes
+  appended with a shell redirect in the scratchpad survive a cut-off).
 - While a builder is still running, its uncommitted files are its own work in progress: do not commit them because the
   stop hook asks (say that they are a running builder's). Two agents in one checkout: each commits its own files by
   explicit path, and only one of them touches `sw.js`, `version.json`, `whatsnew.json` and `index.html`.
+- A release under review is pushed once its review and fix round are in, not before, so the test site does not take a
+  version that changes again under the same number.
+
+**The machine and the checkout**
+
 - A cloud session starts with the checkout brought up to date by `.claude/hooks/session-start.sh` (its line *Checkout
   (session-start hook): ...* comes first). If it says behind, diverged or could not fetch, merge GitHub's branch before
-  working, as the line says (`git fetch origin <branch> && git merge origin/<branch>`, the branch it names; no rebase,
-  no force push).
-- Read `AGENTS.md` (imported above) first: it is the core (structure, rules, conventions, testing). The details are in
-  `docs/agents/`, read on demand; `docs/history.md` says why rules are as they are.
-- New features document themselves in the matching `docs/agents/` file (and the tool's `SPEC.md` where one exists).
-  `AGENTS.md` gets at most a line per feature and stays under 70 KB; this file stays short.
-- The story files are large (`packages/airports/main.js` is ~700 KB because of its embedded data). Search with Grep and read
-  line ranges; never read them whole. The same for the `docs/agents/` files.
-- Prefer small, exact edits. When a change touches the headset code, apply it to every story: their XR, panel
-  and landing-screen code is meant to stay identical apart from story-specific panes.
-- Verify visual changes by serving the folder and taking headless Chromium screenshots (hashes such as `#spatial&t=60`
-  jump straight to a moment). Report anything that can only be checked on a real headset as untested.
-- When the test suites run (the owner, 7 November 2026: "only running when pushing to main makes sense for now"): the
-  full suites (smoke, relay, shared rooms, and update, live, sound and room test where a change touches them) run only
-  before `main` moves. A push to `dev` gets the cheap checks only: `node --check` on the changed files, the builds'
-  `--check`, and `node tools/release.mjs --check`; no smoke test or shared-room run, and a red result is not chased on
-  `dev`. Every "run ... after touching" line in `AGENTS.md` and `docs/agents/` names what goes into that release run.
-  Why: running is free (CPU), but chasing red results costs tokens, and most were the tests' own or the machine's.
-- After any change to app files, bump `VERSION` in `sw.js`. After changing `sw.js` or how files load, run
-  `tools/update.mjs`.
-- Releasing: after the `VERSION` bump, run `node tools/release.mjs` (it writes `version.json` and stamps the shell's
-  release and `stories/list.js`'s fingerprint into `index.html`; commit both; `--check` says whether they are current), and rewrite `whatsnew.json` by hand
-  for the release (developer mode's box: what is new, what to test, what is untested; `--check` fails while it names
-  another release). Running pages take a release from it. The stories are packages (`packages/order.json`, the index by
-  `node tools/packages/scan.mjs`); `stories/list.js` holds only the design room and the studio. After touching
-  `HOST.live`, `HOST.swap`, `HOST.load`, the release script or the relay's `--watch`, run `node tools/live.mjs`; a swap
-  in a headset and the update panel there are untested until tried on one.
+  working, as the line says (`git fetch origin <branch> && git merge origin/<branch>`; no rebase, no force push).
+- The synthetic voice is rendered in the cloud session too (the owner, 25 November 2026): a fresh cloud machine has no
+  Kokoro, but `tools/voice/README.md`'s "Setup (once)" takes a few minutes there (`~/kokoro`, outside the repository).
+  Never hand a render to the owner because the tool "is not here"; set it up, render, and report the recording as
+  unheard.
 
-## Hard rules
+**Reading and checking**
 
-- Never put the owner's own scene files (models, textures, sounds, layouts) in the repository, not even as tests.
-- Never show patient or variant data.
-- Stories never create or close an `AudioContext`: sound is the shell's (`HOST.audio`).
-- Built files are edited in their sources and rebuilt (commit both; `--check` says when they are out of step):
+- The story files and `shared.js`, `index.html`, `tools/smoke.mjs`, `tools/collab.mjs` and the `docs/agents/` files are
+  large (up to 2 MB; some lines are hundreds of kilobytes of data). Search with Grep and read line ranges; never read
+  them whole. `docs/narration.md` and `docs/props.md` are print-outs: Grep them, do not open them.
+- Prefer small, exact edits.
+- Verify visual changes by serving the folder and taking headless Chromium screenshots (hashes such as
+  `#spatial&t=60` jump straight to a moment). Report anything that can only be checked on a real headset as untested.
 
-| Built file | Source | Build |
-| --- | --- | --- |
-| `stories/design.js`, `studio.js` | `tools/<key>/` | `node tools/<key>/build.mjs` (after a shared engine part in `tools/engine/`: `node tools/engine/all.mjs`) |
-| `packages/<key>/main.js` of a built story (every story but airports, proteins and spatial, whose `main.js` is hand-written: edit it, then the scan) | `packages/<key>/src/` | `node packages/<key>/src/build.mjs`, then `node tools/packages/scan.mjs` (`all.mjs` builds them too, and the readers of a shared source) |
-| `packages/index.json` | `packages/*/` and `packages/order.json` | `node tools/packages/scan.mjs` |
-| `lowpoly.js` (the shell's four), `packages/<key>/minis.js` (a story's miniatures, v190) | `tools/lowpoly/`, `packages/<key>/src/minis.js` and `src/props.json` | `node tools/lowpoly/build.mjs` |
-| `examples/bliss-xp` | `tools/studio/xp/` | `node tools/studio/xp/make.mjs` |
-| `examples/studio-tour` | `tools/studio/tour/` (and `tools/studio/xp/kit.js`) | `node tools/studio/tour/make.mjs` |
-| `examples/tracker-guide` | `tools/studio/tracker-guide/` (and the tour's `parts.js`, `ik.js`, `bodies.js`) | `node tools/studio/tracker-guide/make.mjs` (its voice: `voice.mjs` first) |
-| `tools/studio/test/scenes/` | `tools/studio/test/make.mjs` | the same, then `node tools/studio/scan.mjs tools/studio/test/scenes --check` |
-| `version.json` | `sw.js` `VERSION` | `node tools/release.mjs` |
-| `docs/narration.md` | the running stories | `node tools/narration.mjs` |
+## Models and token use
 
-## Where the details are
+Follow "Working economically" in `AGENTS.md`, and:
 
-- Sound, the two engines, the hum, the watchdog, effects, mute and narration defaults, headset settings, anchors,
-  stick moving, synthetic narration, `--watch` while developing: `docs/agents/shell.md`.
-- Shared rooms, their hooks in every story, smoothing, peer to peer, the PC's trackers: `docs/agents/shared-rooms.md`.
-- Each built story's sources, data and rules (spelling, permissions, hedges): `docs/agents/stories.md`.
-- The studio, its scenes, uploads and the Bliss XP room: `docs/agents/studio.md`.
-- Every test and what it checks: `docs/agents/testing.md`.
-- Every file and folder: `docs/agents/layout.md`.
-
-## Keeping token use down
-
-Follow "Working economically" in `AGENTS.md`. In particular:
-
-- Ask for (or read) a token budget before large work, and say roughly what a
-  multi-agent run will cost before starting one. Ultracode or other
-  "exhaustive" modes are for showpiece work, not routine changes.
-- Models (the owner, 15 November 2026: "opus is used for planning and code and
-  sonnet for the cheaper part"; 23 November 2026: the default is Fable, for narration only): the main conversation
-  runs on Fable (`"model": "fable"` in `.claude/settings.json`). It writes and rewrites narration (a story's spoken
-  script) itself, talks with the owner and hands everything else over unless the owner says otherwise: planning,
-  building, integrating and fixing code go to sub-agents and workflow agents with `model: 'opus'` (a larger job to
-  one Opus agent that integrates and reports back, so the main conversation reads reports, not code); reviewing,
-  verifying, running tests, sweeping screenshots, measuring, extracting data and writing docs go to `model: 'sonnet'`
-  (or `'haiku'` for mechanical checks), at low or medium effort. No agent but the main conversation runs on Fable
-  unless the owner asks for it.
-- One critique and one fix round; batch verification; only high-severity
-  findings get verified.
-- In the main conversation, view screenshots as small contact sheets, read line
-  ranges with Grep/Read instead of whole files, and delegate broad searches.
+- Ask for (or read) a token budget before large work. Ultracode or other "exhaustive" modes are for showpiece work,
+  not routine changes.
+- Models (the owner, 15 November 2026: "opus is used for planning and code and sonnet for the cheaper part"; 23
+  November 2026: the default is Fable, for narration only; 26 November 2026: "do everything possible with opus and only
+  the parts that are really smart with fable"): the main conversation runs on Fable (`"model": "fable"` in
+  `.claude/settings.json`). It writes and rewrites narration (a story's spoken script) itself, talks with the owner and
+  hands everything else over unless the owner says otherwise: planning, building, integrating and fixing code go to
+  sub-agents and workflow agents with `model: 'opus'` (a larger job to one Opus agent that integrates and reports back,
+  so the main conversation reads reports, not code); reviewing, verifying, running tests, sweeping screenshots,
+  measuring, extracting data and writing docs go to `model: 'sonnet'` (or `'haiku'` for mechanical checks), at low or
+  medium effort. No agent but the main conversation runs on Fable unless the owner asks for it; many Fable agents at
+  once reach the five-hour limit within minutes.
+- In the main conversation, view screenshots as small contact sheets and delegate broad searches.
