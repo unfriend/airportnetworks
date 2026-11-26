@@ -15,7 +15,7 @@
     "Leave a room on purpose, then stand in its place again: it is offered, not joined by itself."
   ],
   "untested": [
-    "Everything in a headset: nothing since v200 has been tried in one.",
+    "Everything in a headset: nothing in this release has been tried in one.",
     "The calibration fault you saw (after the second cross both crosses were gone and the room was not lined up) could not be reproduced without a headset. One cause was found and fixed: from the start page the trigger reached nothing. Whether that was your fault is not known: it may not be fixed.",
     "The install's download of every story on a Quest's storage and wifi, and a real host's deploy.",
     "Every synthetic voice is unheard."
