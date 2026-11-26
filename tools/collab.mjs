@@ -445,7 +445,7 @@ browser.newContext = async (o = {}) => {
   const { arc, ask, welcome, studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
   // (and the studio's textures JPEG/PNG at most 2,048 px, as the rounds written before v151 expect: a page makes KTX2 by
   // default, which their plain GLTFLoader cannot read back)
-  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); localStorage.setItem('xrTurn', 'steps'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
+  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('tutorialHold', 'off'); localStorage.setItem('xrTurn', 'steps'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
   return ctx;
 };
 const fails = [], errors = [];
@@ -4063,7 +4063,7 @@ async function arrRound() {
   const b = `http://127.0.0.1:${R.port}/`, pages = [];
   const aopen = async (hash, size) => {
     const ctx = await browser.newContext({ viewport: size || { width: 1280, height: 760 } });
-    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAskDefault', 'walk'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* none */ } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('collabAskDefault', 'walk'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* none */ } });
     const p = await ctx.newPage();
     p.on('pageerror', e => errors.push('arr round: ' + (e.stack || e.message)));
     p.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('arr round: ' + m.text()); });

@@ -36,7 +36,7 @@ generation, `{ n, by, at }`), `near` (*Show on this network*, `{ on, by, at }`: 
 *Rooms on this network*; set by anyone in the room, never refused by the circles lock) and `rid` (the room's own id, ten
 letters written once by the page that made or holds it: a room joined again by itself can be told from another room
 under the same code), `trk` (the PC's trackers in this room, `{ on, m: { a, b } | null, names, by, at }`: "Vive trackers"
-below; set by anyone, never refused by either lock; FORMAT networks-38), `name` (a label for the room, `{ v, by, at }`: "Room names" below), and `pcam` (the desktop preview camera's place, `{ p: [x, y, z], q: [x, y, z, w], fov, ts, by }` in room coordinates: "The desktop preview camera" below; set by anyone, never refused by either lock; FORMAT networks-48). The current `FORMAT` is networks-59 (`shared.js`; v208: the cell story's `collab.state()` gains `net`, a network shared through the relay, below; networks-58, v207, its `lim`; networks-57, v205, its `cx` and sides; networks-56, v197, the VR goggles' shape; networks-55, v172, a circle's `ask`; networks-54, v170: a station's `st.<id>.arr`, the copy of its story it runs; before it networks-53, v164: a studio object's `anim: 'move'` and its `idle` and `strideK`, "As it moves" in `tools/studio/SPEC.md`; before it networks-52, v158: the studio's `stream` and `trail` fields, a path's `sync`/`beats`, a sequence's `beats` and its events `press` and `send`, the scene's `hands`, `bt.bar`, "The output page" below and `tools/output/SPEC.md` "v158"; before it networks-51, the output page, MIDI and OSC: the studio's `send` entries, a motion's `beat`, its state's `sw.<id>` and `bt`, the effect `send`, and `out` in hello and presence; "The output page" below); bump it whenever the keys or a story's `state()` change shape (every bump so far only added fields and keys; their history is in the history notes). The shell's own circles: an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, arc, x, z, yaw }`, a lobby circle `{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`, `pg: 1` while the arc is a page's); a studio circle made for a scene `{ story: 'studio', sc: true, x, z, yaw }`.
+below; set by anyone, never refused by either lock; FORMAT networks-38), `name` (a label for the room, `{ v, by, at }`: "Room names" below), and `pcam` (the desktop preview camera's place, `{ p: [x, y, z], q: [x, y, z, w], fov, ts, by }` in room coordinates: "The desktop preview camera" below; set by anyone, never refused by either lock; FORMAT networks-48), `menus` (the headsets' menus, `{ full, by, at }`: absent or `full: false`, limited, the default; `full: true`, every headset's full menu: "Limited and full menus" under "The headset's menu" below; set by anyone from a page's Shared dialog or a full menu's Circles tab, never refused by either lock; FORMAT networks-60). The current `FORMAT` is networks-60 (`shared.js`; v214: the room's key `menus`; networks-59, v208: the cell story's `collab.state()` gains `net`, a network shared through the relay, below; networks-58, v207, its `lim`; networks-57, v205, its `cx` and sides; networks-56, v197, the VR goggles' shape; networks-55, v172, a circle's `ask`; networks-54, v170: a station's `st.<id>.arr`, the copy of its story it runs; before it networks-53, v164: a studio object's `anim: 'move'` and its `idle` and `strideK`, "As it moves" in `tools/studio/SPEC.md`; before it networks-52, v158: the studio's `stream` and `trail` fields, a path's `sync`/`beats`, a sequence's `beats` and its events `press` and `send`, the scene's `hands`, `bt.bar`, "The output page" below and `tools/output/SPEC.md` "v158"; before it networks-51, the output page, MIDI and OSC: the studio's `send` entries, a motion's `beat`, its state's `sw.<id>` and `bt`, the effect `send`, and `out` in hello and presence; "The output page" below); bump it whenever the keys or a story's `state()` change shape (every bump so far only added fields and keys; their history is in the history notes). The shell's own circles: an All stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, arc, x, z, yaw }`, a lobby circle `{ story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`, `pg: 1` while the arc is a page's); a studio circle made for a scene `{ story: 'studio', sc: true, x, z, yaw }`.
 The plan is `docs/shared-space-plan.md`.
 
 - All stories and Back to the lobby (the owner: a circle with all stories, like the single-player story menu, the default for new shared rooms; and a Back to the lobby circle). Two kinds of circle that are the shell's own, not stories: never in `stories/list.js`, never started
@@ -1114,7 +1114,7 @@ The plan is `docs/shared-space-plan.md`.
     Arrange all, Remove; *Lock circles* and *Lock this story* side by side, the latter at a station only; at an All
     stories circle its switch, *Own stories* / *With the room's circles*, and *Back to all stories*; *Show all
     rings* and *On this network*; *Circles: walk in* / *Circles: ask first* with a note (the room's, "Circles asked
-    first"); *Narration for everyone here*: *On for all* and *Off for all* (v124, "The narration" under "Sound effects");
+    first"); *Menus: limited* / *Menus: full* with a note (v214, the room's: "Limited and full menus" below); *Narration for everyone here*: *On for all* and *Off for all* (v124, "The narration" under "Sound effects");
     above them, for a headset in the room with the others, *Room setup* and how it lines up), people (at most `PEOPLE_ROWS`, 6, and as many as leave room for You), You (name,
     colour, Leave). *Join with a code* and *Another room* open a page in place of the rest of the tab (`codePage`, `PNL.code`): the code so far in three
     boxes, a keypad of the 26 letters (seven to a row; a fourth letter refused), Delete, Join (once there are three
@@ -1154,6 +1154,43 @@ The plan is `docs/shared-space-plan.md`.
     someone walking between circles drew the whole menu again whatever tab it showed. `HOST.collab.strip()` (`{ rows,
     patched, lines, at, x, w, lh, ver }`), `stripMs(ms)` and `fpsTest(v)` (the frame rate as a second's count would set
     it) are for tests.
+  - **Limited and full menus** (v214; the owner, 26 November 2026: "limited menu (which should be the default in shared
+    rooms)"; `ML`, `menuLevel`, `menuLimited`, `limitedPage`): in a shared room a headset shows the limited menu unless the
+    room's key `menus` says `full: true` (the page's Shared dialog, *Menus: limited / full* under the headsets' settings, with
+    a line saying what it does; a full menu's Circles tab, *Menus: limited / full* under *Circles: ask first*; a headset
+    showing the limited one has no row), a test page asks for full (`localStorage` `collabMenus` = `full` before the page
+    loads, `ML.force`) or staff unlocked this headset. Outside a room, in a phone's AR (its sheet's *The full menu*) and in
+    camera mode it is always the full one, as before. The limited menu is one page, no tabs (`limitedPage`, drawn by
+    `drawPanel` in place of the tabs; Close at its foot instead of its header): the story here's title (or *No story here:
+    walk into a circle*), *Play* / *Pause* (`lim:play`: the story's own play button, `APP.togglePlay`, the station's clock
+    for everyone at the circle; greyed in explore mode or with no story on show) and *Start again* (`lim:again`: the story's
+    timeline to its start, `APP.seek(0)`, or `APP.enterStory(0)` from explore mode, then play), *Sound: on/off* (`set:sound`)
+    and *Effects volume* (`sfxvol`, each press the next step: there is no single volume, so the Settings tab's two rows),
+    *Subtitles* (`subs`, the room's, as there), in the pass story *English* / *Deutsch* (`lim:lang:<l>`: the story panel's own
+    `lang:<l>` buttons, read from its `panels` hook's regions, so no story changed), *Leave the circle* (`tolobby`: Back to
+    the lobby's), *Line up again* with *Things in the wrong place?* (`realign`: the Debug tab's Re-align, `realignNow`;
+    greyed while calibrating or asking the question) and *Close*. In its place, as on the full menu, what comes by itself:
+    a keypad (`PNL.kp`), the room setup guide's pages (its check, and Calibrate behind *Not lined up?*), the relay's
+    password (its row and page) and the once-per-room question (`questionRows`, shared with the Circles tab); the check by
+    eye, the circles' question and *Getting around* are panels of their own and come as ever. A full page left open as it
+    locks goes back to the limited page. On a limited headset developer mode's *What is new* never opens by itself
+    (`devStep`), and the first time in a room with no stations the menu does not open by itself (it has no Arrange all).
+    Everything else of the menu is as on the full one: the same canvas, so the sharp-text quad layer, menu sharing, the
+    ray and the fingertip, the sound-effect lines and closing unused all work unchanged.
+    Staff unlock (the owner: "the staff unlock with two sticks pressed for 2 seconds sounds good"): both sticks
+    (`buttons[3]` on two input sources) held down together for 2 s (`HOLD`, in `sticks`; only in a room in a headset
+    session, not a phone or a camera) switch this headset between limited and full (`menuHold`, a notice *Full menu* or
+    *Limited menu*, the switch's sound; in a room whose switch says full, a notice saying so and nothing else). The hold
+    counts as nothing else: from the moment both are down (`HOLD.eat`) any click waiting is dropped and no click counts
+    until both are let go, and in a room a single click waits for its stick to be let go before it opens the menu (so a
+    stick pressed first and held into the hold is no click; a click held past 0.4 s opens the menu as it is let go). No
+    equivalent with tracked hands. The unlock (`ML.full`, `ML.code`, `ML.s`) is this headset's alone: never stored, never
+    in a `state()` or key, and not developer mode. It locks again (`menuLock`) on a second hold, joining a room (`join`),
+    leaving one (`leave`), the session starting or ending (`watch`) and the session's `visibilitychange` to `hidden` (the
+    headset taken off or asleep: the same event "Controllers after standby" uses); it is also tied to the session and the
+    room's code it was made in. `HOST.collab.menuLevel(o)` (`{ level, why, room, unlocked, force, hold, last }`; `o.force`
+    the test override, `o.holdMs` the hold's length) and `HOST.collab.setMenus(on)` are for tests. How the hold feels on
+    real controllers, whether taking a Quest off is noticed, and how the page reads in a headset are untested.
   With Sharp text (v177; `docs/agents/shell.md`, "Sharp text") the menu is also a WebXR quad layer in a headset:
   `HOST.collab.sharpMenu()` gives the shell its canvas, mesh, change count and the part shown.
   The canvas is 1920 px tall, more than any tab needs (Circles in a room with six people is about 1230 px, the room setup

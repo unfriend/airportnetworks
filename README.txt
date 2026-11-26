@@ -331,6 +331,10 @@ one card per story, in two rows in front of you; the sound, Sound check,
 Anchor, Exit, Recenter and Repeat are in the headset's menu: click a stick);
 entering from inside a story resumes it where you were. In a shared
 room a headset has no Stories screen: you walk to a story's station instead.
+In a shared room the headset's menu is a short one for visitors (play, start
+again, sound, subtitles, leave the circle, line up again) unless the Shared
+dialog's switch says Menus: full; staff unlock one headset by holding both
+sticks down for 2 seconds (the same again locks it).
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
 #proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #soil, #cdk5, #exposome, #ppicell, #pass, #flock, #robots or #tutorial in a story, so links can be shared and open that story

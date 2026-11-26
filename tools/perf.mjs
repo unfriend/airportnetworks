@@ -348,7 +348,7 @@ const results = [], pageErrors = new Map();
 
 async function open(fake) {
   const ctx = await browser.newContext({ viewport: { width: 640, height: 400 }, serviceWorkers: 'block' });
-  await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* blocked */ } });
+  await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* blocked */ } });
   await ctx.addInitScript(fake === 'occl' ? OCC_SRC.replace(/^function OCCL_FAKE\(\) \{/, '(function () {').replace(/\}\s*$/, '})();') : FPS_SRC.replace(/^function FPS_FAKE\(\) \{/, '(function () {').replace(/\}\s*$/, '})();'));
   await ctx.addInitScript(PERF_LIB);
   const page = await ctx.newPage(); page.setDefaultTimeout(180000);

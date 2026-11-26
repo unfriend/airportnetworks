@@ -8,6 +8,10 @@ There is no unit-test suite. When the suites run (the owner's rule: the full sui
 `dev` gets only `node --check` on the changed files, the builds' `--check` (`node tools/engine/all.mjs --check` covers the fourteen that share the engine parts), `node tools/packages/scan.mjs --check` (the story packages' index is current and no folder in `packages/` is left out: `docs/agents/packages.md`) and `node tools/release.mjs --check`, and a
 red result there is not chased. Each "after touching ..., run ..." below says what goes into that release run.
 
+Every test page sets `collabAutoAll`, `collabAutoWelcome` and `tutorialHold` to `off`, `collabAskDefault` to `walk`
+and (v214) `collabMenus` to `full` (the headsets' full menu in a shared room, which the rounds use) before the page loads,
+unless its round asks otherwise; keep that when adding a round.
+
 Every test and tool finds a story through `tools/stories.mjs` (v185: its file, sources, build and narrations, moved into
 a story package or not) or, in a page, `HOST.list` and `HOST.meta(k)` (`m.pkg ? m.base + 'main.js' : 'stories/<k>.js'`):
 smoke's `STORY_KEYS` are `HOST.list`'s stories (the app's own packages included, others' left out), collab's `STORIES`
@@ -255,6 +259,16 @@ shell's travel still; the box carried (the grip held): the left stick moving you
 nothing, the box staying in the hand (within 1 mm) and so 1.5 m through the scene, a flick turning it 30 degrees with
 you; two clicks back while carrying (*Sticks: the studio's*, nothing jumping), the right stick up pushing the box away
 again; Recenter taking the walk back (at the station the station's Recenter too); in AR two clicks saying *Not in AR*.
+Its step *the limited menu* (v214, `--only 'stick moving: the limited menu'`, about 20 s; the block's page sets no
+`collabMenus`, and the step clears the override with `HOST.collab.menuLevel({ force: false })`): the pretend headset's
+menu full outside a room (`why` *no room*); in a room on this device (*Somewhere else*) limited by default, its page's
+rows (`set:sound`, `sfxvol`, `subs`, `realign`, `close`; no tab, no Settings row, *Play* greyed with no story on show);
+both sticks held down (`buttons[3]` on both): 1 s in still limited and the hold eating clicks, 2.1 s in full (*unlocked*,
+the notice *Full menu*), let go: the menu, moving with the sticks and the ship as they were, the tabs and the Circles
+tab's *Menus* row there; a hold of 0.5 s nothing at all; a second 2 s hold limited again (*Limited menu*); unlocked again,
+then the session hidden and visible: limited (`last` *hidden*); the room's switch (`HOST.collab.setMenus(true)`): full
+for the room (`why` *room*) and the Shared dialog's button there, then limited again; unlocked, left, and a new room:
+limited there.
 
 ### smoke: goggles
 

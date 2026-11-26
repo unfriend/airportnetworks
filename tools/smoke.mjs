@@ -47,7 +47,7 @@ const browser = await chromium.launch({
 const newContext = browser.newContext.bind(browser);
 browser.newContext = async (o = {}) => {
   const { studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
-  await ctx.addInitScript(t => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); if (t) localStorage.setItem('studioTexKind', t); } catch (e) { /* storage blocked */ } }, studioTex);
+  await ctx.addInitScript(t => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('tutorialHold', 'off'); if (t) localStorage.setItem('studioTexKind', t); } catch (e) { /* storage blocked */ } }, studioTex);
   return ctx;
 };
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
@@ -5266,7 +5266,7 @@ if (runs('studio live')) {
 if (runs('talk')) {
   const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
   const TALK_INIT = () => {
-    try { for (const k of ['collabAutoAll', 'collabAutoWelcome', 'tutorialHold']) localStorage.setItem(k, 'off'); localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* storage blocked */ }
+    try { for (const k of ['collabAutoAll', 'collabAutoWelcome', 'tutorialHold']) localStorage.setItem(k, 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* storage blocked */ }
     const T = window.__tk = { gum: 0, ac: 0 };
     if (navigator.mediaDevices) navigator.mediaDevices.getUserMedia = async () => { T.gum++; throw new DOMException('no microphone in a test', 'NotFoundError'); };
     const RealAC = window.AudioContext;
@@ -7930,7 +7930,7 @@ if (runs('studio recorder')) {
   const rb = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined,
     args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'] });
   const rctx = await rb.newContext({ viewport: { width: 1280, height: 800 } });
-  await rctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } });
+  await rctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); } catch (e) { /* storage blocked */ } });
   const rp = await rctx.newPage();
   rp.on('pageerror', e => errors.push('studio recorder: ' + (e.stack || e.message)));
   rp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('studio recorder: ' + m.text()); });
@@ -12044,7 +12044,7 @@ if (runs('studio examples')) {
   // (the relay serves no tools/: the example's files given to the page by the test, the service worker kept out so they are)
   const exCtx = async () => {
     const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, serviceWorkers: 'block' });
-    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); } catch (e) { /* storage blocked */ } });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); } catch (e) { /* storage blocked */ } });
     await ctx.route('**/tools/studio/test/examples/**', route => {
       const rel = decodeURIComponent(new URL(route.request().url()).pathname).replace(/^.*\/tools\/studio\/test\/examples\//, '');
       const f = path.join(EXD, ...rel.split('/'));
@@ -14136,7 +14136,7 @@ if (!ONLY) {
 // line (the whole menu not sent as the frame rate changes; the row on the GPU the canvas's), the people's stations in
 // the signature only on Circles; the Foveation and Resolution rows
 function FPS_FAKE() {
-  try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* storage blocked */ }
+  try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('tutorialHold', 'off'); } catch (e) { /* storage blocked */ }
   const ident = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
   const rotX = (a, x, y, z) => { const c = Math.cos(a), s = Math.sin(a); return new Float32Array([1, 0, 0, 0, 0, c, s, 0, 0, -s, c, 0, x, y, z, 1]); };
@@ -15910,6 +15910,78 @@ if (runs('stick moving')) {
       await sx('(() => { while (UNDO.length) undo(); return 0; })()');
     }
     if (bad.length) errors.push(...bad.map(b => 'stick moving: ' + b));
+  });
+
+  // the limited menu (v214): in a room on this device the pretend headset's menu is limited (one page, its rows, no tabs);
+  // both sticks held 2 s unlock it (Full menu) with no menu toggle, no moving with the sticks and no ship, a second hold
+  // locks it, a short hold does nothing; the headset hidden locks it; the room's switch (menus) makes it full and puts a
+  // row on the Circles tab (the dialog has its button); an unlock does not carry into the next room. --only 'stick moving: the limited menu'
+  await step('stick moving: the limited menu in a shared room, the 2 s hold of both sticks, its locks and the room\'s switch', async () => {
+    const bad = [];
+    await openW('qubits');
+    const lv = () => wp.evaluate(() => HOST.collab.menuLevel());
+    const both = on => wp.evaluate(on => { for (const h of ['L', 'R']) window.__w[h].gamepad.buttons[3].pressed = on; window.__wtick(1); }, on);
+    const ids = () => wp.evaluate(() => HOST.collab.menuIds());
+    const state = () => wp.evaluate(() => [HOST.collab.menu, HOST.xr.walk(), !!(HOST.ships && HOST.ships.flying && HOST.ships.flying())]);
+    const room = async () => {
+      await wp.evaluate(() => { HOST.collab.autoAll(false); HOST.collab.autoGuide(false); HOST.collab.autoWelcome(false); HOST.collab.setPeer('off'); HOST.collab.create(); });
+      await wp.waitForFunction(() => HOST.collab.code && HOST.collab.local && HOST.collab.internals().welcomed, null, { timeout: 20000 });
+      await wp.evaluate(() => HOST.collab.setHere(false)); await tick(2);
+    };
+    try {
+      await wp.evaluate(() => HOST.collab.menuLevel({ force: false }));
+      const l0 = await lv();
+      if (l0.level !== 'full' || l0.why !== 'no room') bad.push('outside a room: ' + JSON.stringify(l0));
+      await room();
+      const l1 = await lv();
+      if (l1.level !== 'limited' || l1.why !== 'room') bad.push('in a room: not limited by default ' + JSON.stringify(l1));
+      await wp.evaluate(() => { HOST.collab.menuIdle(1e9); HOST.collab.panelOpen(true); }); await tick(2);
+      const i1 = await ids();
+      const want = ['set:sound', 'sfxvol', 'subs', 'realign', 'close'], miss = want.filter(k => !i1.includes(k));
+      if (miss.length || i1.some(k => /^tab:/.test(k)) || i1.includes('settings') || i1.includes('devmode')) bad.push('the limited page: ' + JSON.stringify({ miss, ids: i1 }));
+      if ((await wp.evaluate(() => HOST.collab.menuFind('lim:play'))) !== null) bad.push('Play not greyed with no story on show');
+      // the hold: both sticks down, 2.1 s, then let go; nothing else happens (the menu stays open, no moving, no ship)
+      const s0 = await state();
+      await both(true); await wp.waitForTimeout(1000); await tick(1);
+      const mid = await lv();
+      await wp.waitForTimeout(1100); await tick(1);
+      const l2 = await lv(), n2 = await note();
+      await both(false); await wp.waitForTimeout(500); await tick(2);
+      const s1 = await state(), i2 = await ids();
+      if (mid.level !== 'limited' || !mid.hold.eat) bad.push('1 s into the hold: ' + JSON.stringify(mid));
+      if (l2.level !== 'full' || l2.why !== 'unlocked' || !n2.startsWith('Full menu')) bad.push('the hold: ' + JSON.stringify({ l2, n2 }));
+      if (JSON.stringify(s0) !== JSON.stringify(s1)) bad.push('the hold counted as something else: ' + JSON.stringify({ before: s0, after: s1 }));
+      if (!i2.includes('tab:settings') || !i2.includes('menus')) bad.push('unlocked: no tabs, or no Menus row on Circles ' + JSON.stringify(i2));
+      // a short hold: nothing at all; a second 2 s hold: limited again
+      await both(true); await wp.waitForTimeout(500); await tick(1); await both(false); await wp.waitForTimeout(500); await tick(2);
+      const l3 = await lv(), s2 = await state();
+      if (l3.level !== 'full' || JSON.stringify(s2) !== JSON.stringify(s0)) bad.push('a short hold: ' + JSON.stringify({ l3, s2 }));
+      await both(true); await wp.waitForTimeout(2100); await tick(1); await both(false); await tick(1);
+      const l4 = await lv(), n4 = await note();
+      if (l4.level !== 'limited' || !n4.startsWith('Limited menu')) bad.push('the second hold: ' + JSON.stringify({ l4, n4 }));
+      // unlocked again, then the headset taken off (its session hidden): limited
+      await both(true); await wp.waitForTimeout(2100); await tick(1); await both(false); await tick(1);
+      await wp.evaluate(() => { const W = window.__w; W.s.visibilityState = 'hidden'; W.s.fire('visibilitychange', {}); W.s.visibilityState = 'visible'; W.s.fire('visibilitychange', {}); }); await tick(2);
+      const l5 = await lv();
+      if (l5.level !== 'limited' || l5.last !== 'hidden') bad.push('hidden: ' + JSON.stringify(l5));
+      // the room's switch: full for every headset, the dialog's button says so; back to limited
+      await wp.evaluate(() => HOST.collab.setMenus(true)); await tick(2);
+      const l6 = await lv(), b6 = await wp.evaluate(() => !!document.querySelector('#shared [data-sh="menus"]'));   // (the dialog is not drawn during a session)
+      if (l6.level !== 'full' || l6.why !== 'room' || !b6) bad.push('the room\'s switch: ' + JSON.stringify({ l6, b6 }));
+      await wp.evaluate(() => HOST.collab.setMenus(false)); await tick(2);
+      if ((await lv()).level !== 'limited') bad.push('the room\'s switch back: not limited');
+      // unlocked, then into another room: limited there
+      await both(true); await wp.waitForTimeout(2100); await tick(1); await both(false); await tick(1);
+      const l7 = await lv();
+      await wp.evaluate(() => HOST.collab.leave()); await tick(1);
+      const l8 = await lv();
+      await room();
+      const l9 = await lv();
+      if (l7.level !== 'full' || l8.why !== 'no room' || l9.level !== 'limited' || l9.unlocked) bad.push('into another room: ' + JSON.stringify({ l7, l8, l9 }));
+    } finally {
+      await wp.evaluate(() => { HOST.collab.panelOpen(false); HOST.collab.leave(); HOST.collab.menuIdle(20000); });
+    }
+    if (bad.length) errors.push(...bad.map(b => 'stick moving: the limited menu: ' + b));
   });
 
   // the same lines in every story and every page in STORY_EXTRA: the helper beside xrSig, the explore stick waiting on it,
@@ -17757,7 +17829,7 @@ if (['focus mode', 'phones', 'tablets', 'iPhone'].some(runs)) {
 // callbacks; select and selectend as it comes up), or does not. What reaches three.js's controllers (the story's) and the
 // session's listeners after the shell's is recorded
 function CTRL_FAKE() {
-  try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('arInvite', 'shown'); } catch (e) { /* storage blocked */ }
+  try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('arInvite', 'shown'); } catch (e) { /* storage blocked */ }
   const ident = () => new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]);
   const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
   const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };

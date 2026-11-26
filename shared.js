@@ -26,7 +26,9 @@
 // (or #debug in a link) prints them as well.
 (function () {
   const PROTO = 1;
-  const FORMAT = 'networks-59';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  const FORMAT = 'networks-60';   // the shared state's format (keys, the stories' state()): bump when it changes shape
+  // networks-60 (v214): the room's key menus ({ full, by, at }: the headsets' menus limited, the default, or full); an older
+  // device would ignore it and show every headset the full menu
   // networks-54 (v170): a station's key st.<id>.arr (the copy of its story it runs: an arrangement on the relay,
   // tools/engine/SPEC.md); an older device would play the story as its own
   // networks-48 (v153): the room's key pcam (the desktop preview camera's place) and a camera's presence pc
@@ -203,6 +205,20 @@
   };
   // what is shown for a key: our own unacknowledged write, else the room's value
   const val = k => { const p = C.pending.get(k); if (p) return p.v; const e = C.keys.get(k); return e ? e.v : undefined; };
+  // Two headset menus in a shared room (v214; the owner, 26 November 2026: "limited menu (which should be the default in
+  // shared rooms)"): limited, one short page for visitors (limitedPage), or full (the tabs, as ever). The room's key menus
+  // ({ full, by, at }; absent: limited) says which, set from a page's Shared dialog or a full menu's Circles tab. Staff
+  // unlock this headset alone by holding both sticks down for 2 s (HOLD, in sticks): never stored, never in a state() or a
+  // key, not developer mode; locked again by another hold, joining or leaving a room, the session's end and the headset
+  // taken off (its session hidden). Outside a room, in a phone's AR and in camera mode: the full menu, as before. Tests:
+  // localStorage collabMenus = full before the page loads (force), as collabAutoAll; HOST.collab.menuLevel()
+  const ML = { full: false, code: '', s: null, force: get('collabMenus') === 'full', at: 0, why: '' };
+  const roomMenusFull = () => { const v = val('menus'); return !!(v && v.full); };
+  function menuLock(why) {
+    if (!ML.full) return;
+    ML.full = false; ML.why = why; ML.at = performance.now();
+    log('menu level', { full: false, by: why });
+  }
   // a value as echo suppression compares it: a moving thing's (a station, its scene, panel and view: SM_RE) without when it
   // was written and whether it was still held (ts, h: smoothing, below), so the same place written again is no change
   const SM_RE = /^st\.([\w-]{1,32})(?:\.(place|panel|view))?$/;
@@ -537,6 +553,7 @@
       hereSet: typeof h === 'boolean' ? h : null });
     C.pres.clear();
     log('join', { code, relay: C.relay, via });
+    menuLock('joined');   // (a staff unlock never carries into a room: its limited menu again, developer mode or not)
     HOST.setUrl(HOST.picking);
     connect();
     R.joined();
@@ -548,6 +565,7 @@
   function leave(switching, purpose) {
     if (!C.code) return;
     log('leave', { code: C.code, purpose: !!purpose });
+    menuLock('left');
     C.want = false; clearTimeout(C.timer); clearTimeout(C.openTimer);
     const ws = C.ws, sp = C.spare;
     C.ws = null; C.spare = null;
@@ -4592,6 +4610,34 @@
     if (on && !C.code) { listRooms(); nearFind('menu'); }
   }
   const toggleMenu = why => menuOpen(!PNL.open, why);
+  // the menu this headset shows (ML, above): 'limited' in a shared room unless the room's switch says full, a test page
+  // asks for full or staff unlocked it here; why says which
+  const mlUnlocked = () => !!(ML.full && R.session && ML.s === R.session && ML.code === C.code);
+  function menuLevel() {
+    const why = !C.code ? 'no room' : CAM.on || camMode() ? 'camera' : phAR() ? 'phone' : ML.force ? 'test' : roomMenusFull() ? 'room' : mlUnlocked() ? 'unlocked' : '';
+    return { level: why ? 'full' : 'limited', why: why || 'room' };
+  }
+  const menuLimited = () => !!C.code && menuLevel().level === 'limited';
+  // the room's switch (anyone, a page's Shared dialog or a full menu's Circles tab; never refused by a lock)
+  function setMenusFull(on) {
+    if (!C.code) return false;
+    publish([['menus', { full: !!on, by: C.id, at: Math.round(now()) }]]);
+    log('room menus', { full: !!on });
+    changed();
+    return true;
+  }
+  // both sticks held down for HOLD.ms (sticks): this headset's menu full or limited again, saying which
+  function menuHold() {
+    if (!C.code || !R.session) return;
+    if (ML.force || roomMenusFull()) { log('menu hold', { full: true, room: true }); notice('Full menu', 'This room\'s menus are full for everyone: its Shared dialog has the switch.', 3500); return; }
+    const on = !mlUnlocked();
+    Object.assign(ML, { full: on, code: C.code, s: R.session, at: performance.now(), why: 'hold' });
+    log('menu level', { full: on, by: 'hold' });
+    sfx(on ? 'toggleOn' : 'toggleOff', null);
+    notice(on ? 'Full menu' : 'Limited menu', on ? 'Every tab on this headset. Hold both sticks for 2 seconds again to lock it.' : 'The visitors\' menu. Hold both sticks for 2 seconds to unlock it.', 3500);
+    if (OV.panel) OV.panel.sig = '';
+    changed();
+  }
   // the tabs, and the one it opens on: the one used last (kept on this headset)
   function setTab(t) { if (!TABS.some(x => x[0] === t)) return; kpEnd(null); PNL.tab = t; PNL.page = 'main'; PNL.code = ''; PNL.pass = ''; PNL.home = false; put('xrMenuTab', t); }
   // where a press on the open menu sounds from (a headset; null on a screen)
@@ -4655,6 +4701,8 @@
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
       PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
+      // (v214: the limited menu, the room's switch, and what the limited page shows that nothing above says)
+      (L => [L, roomMenusFull(), L ? (A => (A ? A.mode + A.playing : ''))(storyApp()) : '', L && HOST.curKey === 'pass' ? langButtons().map(o => o.l + o.on).join() : '', L ? R.state : ''])(menuLimited()),
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -5031,6 +5079,83 @@
     const lk = circlesLocked(), has = !!pageOne(key);
     return { label: w.here, fn: lk ? null : () => pageHere(key), note: lk ? 'Not while the circles are locked' : has ? w.moves : key === STUDIO && C.st.some(s => s.story === key && !s.kind) ? w.another : w.adds, col: m.col };
   }
+  // in VR, once per room: are you with the others (calibrate, share their room) or somewhere else? (the Circles tab's and
+  // the limited menu's)
+  function questionRows(S, x, y, w) {
+    const ctx = S.ctx, bw = (w - 16) / 2;
+    ctx.font = FONT(22, 700); ctx.fillStyle = '#ffb43b'; ctx.fillText('ONE QUESTION', x, y); y += 36;
+    ctx.font = FONT(26, 700); ctx.fillStyle = INK; y += wrapText(ctx, 'Are you in the same room as the others?', x, y, w, 34, 2) + 4;
+    ctx.font = FONT(21); ctx.fillStyle = MUTED;
+    y += wrapText(ctx, 'In this room: calibrate, and the stations stand where the others see them. Somewhere else: they stand round you.', x, y, w, 28, 3) + 12;
+    button(S, 'ask:in', x, y, bw, 60, 'In this room', () => setHere(true), { primary: true });
+    button(S, 'ask:away', x + bw + 16, y, bw, 60, 'Somewhere else', () => setHere(false));
+    return y + 84;
+  }
+  // The limited menu (v214, a shared room's default, ML): one short page for visitors, no tabs, each row calling what the
+  // full menu's (or the story panel's) matching row calls: Play or Pause and Start again (the story's play button and its
+  // timeline's start, APP.togglePlay and APP.seek: the station's clock for everyone at the circle), Sound and the effects'
+  // volume (the Settings tab's), Subtitles (the room's, as there), the pass story's language (its own panel's buttons),
+  // Leave the circle (Back to the lobby), Line up again (Re-align) and Close. What comes by itself still comes in its
+  // place: a keypad, the room setup guide (its check and Calibrate), the relay's password and the once-per-room question
+  const storyApp = () => {
+    const A = showing() && C.ready && C.hook && C.hook.APP;
+    return A && HOST.stories().some(m => m.key === HOST.curKey) && typeof A.togglePlay === 'function' ? A : null;
+  };
+  function langButtons() {   // the pass story's language switch, as its own panel has it ({ l, on, fn } each; [] elsewhere)
+    const sp = HOST.curKey === 'pass' ? storyPanels() : null, rs = sp && Array.isArray(sp.main.regions) ? sp.main.regions : [];
+    const el = document.getElementById('story'), cur = (el && el.getAttribute('lang')) || '';
+    return ['en', 'de'].map(l => ({ l, on: cur === l, r: rs.find(r => r.id === 'lang:' + l && typeof r.fn === 'function') })).filter(o => o.r);
+  }
+  function limitedPage(S, x, y, w) {
+    const ctx = S.ctx, bw = (w - 16) / 2;
+    const line = () => { ctx.fillStyle = 'rgba(149,166,189,0.22)'; ctx.fillRect(x, y, w, 2); y += 18; };
+    const note = (s, at) => { ctx.font = FONT(21); ctx.fillStyle = MUTED; wrapText(ctx, s, x + bw + 16, at + 2, bw, 28, 2); };
+    if (!/^(main|guide|pass)$/.test(PNL.page)) { if (PNL.page === 'notes') notesRelease(); PNL.page = 'main'; }   // (a full page left open as it locked)
+    if (PNL.page === 'guide') { if (guideOn()) return guidePage(S, x, y, w); PNL.page = 'main'; }
+    if (PNL.page === 'pass') { if (authAsk()) return passPage(S, x, y, w); PNL.page = 'main'; PNL.pass = ''; PNL.home = false; }
+    if (authAsk()) {   // (the relay wants its password: its keypad page, as on the Circles tab)
+      ctx.font = FONT(23); ctx.fillStyle = AUTH.state === 'need' || AUTH.state === 'checking' ? INK : '#ffb43b';
+      y += wrapText(ctx, AUTH_TEXT + ' ' + (AUTH.state === 'need' ? 'Enter it once on this headset.' : authLine()), x, y, w, 31, 2) + 10;
+      button(S, 'pass', x, y, w, 62, 'Relay password', () => { PNL.tab = 'circles'; PNL.page = 'pass'; PNL.pass = ''; PNL.home = false; }, { primary: true, px: 25 });
+      y += 78; line();
+    }
+    if (askHere()) { y = questionRows(S, x, y, w); line(); }
+    // the story here: its title, then Play or Pause and Start again
+    const A = storyApp(), m = A && meta(HOST.curKey), st = !!(A && A.mode === 'story');
+    ctx.font = FONT(22, 700); ctx.fillStyle = (m && m.col) || MUTED;
+    ctx.fillText(fit(ctx, A ? ((m && m.title) || '').toUpperCase() : away() ? 'NO STORY HERE: WALK INTO A CIRCLE' : 'NO STORY ON SHOW', w), x, y); y += 38;
+    button(S, 'lim:play', x, y, bw, 64, st && A.playing ? 'Pause' : 'Play', st ? () => A.togglePlay() : null, { primary: st && !A.playing, px: 26 });
+    button(S, 'lim:again', x + bw + 16, y, bw, 64, 'Start again', A ? () => { if (A.mode !== 'story') A.enterStory(0); else A.seek(0); if (A.mode === 'story' && !A.playing) A.togglePlay(); } : null, { px: 26 });
+    y += 80;
+    // the sound (this headset's own) and the effects' volume, each press the next step
+    const mu = !!HOST.audio.muted;
+    button(S, 'set:sound', x, y, bw, 60, mu ? 'Sound: off' : 'Sound: on', () => (HOST.audio.mute ? HOST.audio.mute(!mu) : HOST.audio.toggle()), { on: !mu, px: 23 });
+    if (HOST.sfx) button(S, 'sfxvol', x + bw + 16, y, bw, 60, 'Effects volume: ' + Math.round(HOST.sfx.volume() * 100) + '%', () => HOST.sfx.setVolume(HOST.sfx.nextVolume()), { px: 22 });
+    else note(mu ? 'Nothing plays until it is on' : 'This headset only', y);
+    y += 76;
+    const su = HOST.xr.subs();
+    button(S, 'subs', x, y, bw, 60, su ? 'Subtitles: on' : 'Subtitles: off', () => HOST.xr.setSubs(!su), { on: su, px: 23 });
+    note('The spoken words, low in your view', y);
+    y += 76;
+    const lg = langButtons();
+    if (lg.length) {
+      lg.forEach((o, i) => button(S, 'lim:lang:' + o.l, x + i * (bw + 16), y, bw, 60, o.l === 'de' ? 'Deutsch' : 'English', () => o.r.fn(), { on: o.on, tog: null, px: 23 }));
+      y += 76;
+    }
+    line();
+    // out of the circle (Back to the lobby: every circle again), and lining up again
+    const arcNow = arcSt();
+    button(S, 'tolobby', x, y, bw, 60, 'Leave the circle', HOST.session && !CAM.on && C.live && !(arcNow && arcNow.id === C.live) ? () => { sfx('enter'); toLobby(''); } : null, { px: 23 });
+    note('Back to the lobby: every circle again', y);
+    y += 76;
+    const ag = !!R.again, cal = R.state === 'mark-a' || R.state === 'mark-b';
+    button(S, 'realign', x, y, bw, 60, ag ? 'Lining up...' : 'Line up again', R.session && !cal && !askHere() ? () => realignNow() : null, { on: ag, px: 23 });
+    note('Things in the wrong place?', y);
+    y += 76;
+    line();
+    button(S, 'close', x, y, w, 64, 'Close', () => menuOpen(false, 'close'), { px: 26 });
+    return y + 64 + 24;
+  }
   function drawPanel() {
     const S = OV.panel, sig = panelSig();
     if (sig === S.sig) { panelHover(S); return; }
@@ -5041,11 +5166,12 @@
     const YOU = 36 + 70 + 46 + 28;   // the You section at the bottom (its label, name, colours and margin): kept free
     ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
     S.regions = [];
+    const lim = menuLimited();   // (v214: a shared room's limited menu, one page and no tabs, Close at its foot)
     // the header: Menu and the time (the watch's, gone), how it closes again, and Close
     ctx.font = FONT(34, 700); ctx.fillStyle = INK; ctx.fillText('Menu', x, 24);
     { const mw = ctx.measureText('Menu').width; ctx.font = FONT(30); ctx.fillStyle = MUTED; ctx.fillText(timeNow(), x + mw + 22, 27); }
-    ctx.font = FONT(20); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, menuHint(), w - 170), x, 72);
-    button(S, 'close', W - 34 - 150, 26, 150, 60, 'Close', () => menuOpen(false, 'close'));
+    ctx.font = FONT(20); ctx.fillStyle = MUTED; ctx.fillText(fit(ctx, menuHint(), lim ? w : w - 170), x, 72);
+    if (!lim) button(S, 'close', W - 34 - 150, 26, 150, 60, 'Close', () => menuOpen(false, 'close'));
     let y = 118;
     const line = () => { ctx.fillStyle = 'rgba(149,166,189,0.22)'; ctx.fillRect(x, y, w, 2); y += 18; };
     const label = (s, col) => { ctx.font = FONT(22, 700); ctx.fillStyle = col || MUTED; ctx.fillText(s.toUpperCase(), x, y); y += 36; };
@@ -5061,12 +5187,15 @@
       panelSend(S, H);
     };
     // the tabs (a press shows the tab's first page; the one used last is kept on this headset)
-    TABS.forEach(([k, l], i) => button(S, 'tab:' + k, x + i * (tw + 16), y, tw, 60, l, () => setTab(k), { on: PNL.tab === k, tog: null, px: 24 }));
-    y += 76;
+    if (!lim) {
+      TABS.forEach(([k, l], i) => button(S, 'tab:' + k, x + i * (tw + 16), y, tw, 60, l, () => setTab(k), { on: PNL.tab === k, tog: null, px: 24 }));
+      y += 76;
+    }
     line();
     PNL.mirror = null;
     // a keypad waiting for a word (HOST.collab.keypad), whatever the tab: in place of it
     if (PNL.kp) { finish(keyPage(S, x, y, w)); return; }
+    if (lim) { finish(limitedPage(S, x, y, w)); return; }
     if (PNL.tab === 'story') {
       // the story on show's own two panels (its text and explore panes, its play bar), drawn by the story and shown on
       // planes over this canvas in the room this leaves for them (mirrorStep); pointing there points at the story's
@@ -5545,16 +5674,7 @@
       button(S, 'add:cancel', x, y, 200, 58, 'Cancel', () => { PNL.page = 'main'; });
       y += 82; line();
     } else {
-      if (askHere()) {
-        // in VR, once per room: are you with the others (calibrate, share their room) or somewhere else?
-        label('One question', '#ffb43b');
-        ctx.font = FONT(26, 700); ctx.fillStyle = INK; y += wrapText(ctx, 'Are you in the same room as the others?', x, y, w, 34, 2) + 4;
-        ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, 'In this room: calibrate, and the stations stand where the others see them. Somewhere else: they stand round you.', x, y, w, 28, 3) + 12;
-        button(S, 'ask:in', x, y, bw, 60, 'In this room', () => setHere(true), { primary: true });
-        button(S, 'ask:away', x + bw + 16, y, bw, 60, 'Somewhere else', () => setHere(false));
-        y += 84; line();
-      }
+      if (askHere()) { y = questionRows(S, x, y, w); line(); }
       // the room setup guide (the steps, the check) and how this headset lines up, in a line beside it
       if (guideOn()) {
         const L = lineUp();
@@ -5603,6 +5723,12 @@
       button(S, 'askfirst', x, y, bw, 56, af ? 'Circles: ask first' : 'Circles: walk in', () => setAsk(!af), { px: 21, on: af });
       ctx.font = FONT(21); ctx.fillStyle = MUTED;
       wrapText(ctx, af ? 'For everyone here: press a card or icon to go in; no rings' : 'For everyone here: walk into a circle to go in', x + bw + 16, y + 2, bw, 27, 2);
+      y += 72;
+      // the room's menus (v214): limited for visitors, or full for everyone (a headset showing the limited one has no row)
+      const mf = roomMenusFull();
+      button(S, 'menus', x, y, bw, 56, mf ? 'Menus: full' : 'Menus: limited', () => setMenusFull(!mf), { px: 21, on: mf });
+      ctx.font = FONT(21); ctx.fillStyle = MUTED;
+      wrapText(ctx, mf ? 'Every headset here has every tab' : 'Headsets here get a short menu; both sticks held 2 s: full', x + bw + 16, y + 2, bw, 27, 2);
       y += 72;
       // the circle you are at, on its own (v172): the other way than the room's, then the room's again
       const AQ = A && A.kind !== LOBBY_ST ? A : null;
@@ -6836,7 +6962,7 @@
     }
     if (!R.session) return;
     if (NEWS.fl === 1 && !devShown()) { NEWS.fl = 3; NEWS.menu = false; log('whatsnew', { flow: 'closed' }); }   // (another tab, the menu closed: as Later)
-    if (NEWS.fl || !devOn() || !devCan(t)) { NEWS.ready = 0; return; }
+    if (NEWS.fl || !devOn() || !devCan(t) || menuLimited()) { NEWS.ready = 0; return; }   // (never by itself over a limited menu, v214)
     if (!NEWS.ready) NEWS.ready = t;   // (a moment after the last thing before it has gone)
     if (t - NEWS.ready < NEWS.gap || HOST.dev.busy()) return;
     if (HOST.dev.seen()) { NEWS.fl = 2; log('whatsnew', { flow: 'seen' }); return; }   // (Got it for this release, on this headset)
@@ -7826,6 +7952,7 @@
   // as a click (the menu's, both at once, the double click that lands) only with the stick within SHIPCLK.mid of its middle
   // as it goes down; pushed further it is a steer that clicked, and counts for nothing (logged at most once a second)
   const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 }, CLK = { src: null, at: 0, gap: 400 }, SHIPCLK = { mid: 0.5, logAt: 0 };
+  const HOLD = { ms: 2000, since: 0, done: false, eat: false };   // both sticks held down in a shared room: the staff unlock (v214)
   const pressed = (gp, i) => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
   // why moving with the sticks does not apply here (HOST.xr.walkWhy), for the notice and the menu's note. In a shared room
   // it applies to a headset elsewhere (v128; the owner, 9 November 2026: "should also work in shared rooms everywhere when
@@ -7863,13 +7990,14 @@
     try { list = R.session ? [...R.session.inputSources] : []; } catch (e) { /* gone */ }
     newsStick(list, performance.now());   // (What is new's lists scrolled by a stick, v144)
     const clicks = [];
-    let twice2 = false;
+    let twice2 = false, down = 0;
     const t = performance.now();
     for (const src of list) {
       const gp = src && !src.hand && src.gamepad, b = pressed(gp, 3);
       if (!src) continue;
       const was = STK.get(src);
       STK.set(src, b);
+      if (b) down++;
       if (b && was === false) {
         const steer = (HOST.ships && HOST.ships.claims && HOST.ships.claims(src) && !(HOST.ships.down && HOST.ships.down())) || (HOST.flight && HOST.flight.claims && HOST.flight.claims(src));   // (flying, not down; or the VR goggles' game, flight.js)
         const ax = steer && HOST.ships && HOST.ships.axes ? HOST.ships.axes(gp) : null;
@@ -7890,9 +8018,18 @@
       } else if (y && w.b === false) { if (w.at && t - w.at < BY.gap) { twice2 = true; w.at = 0; } else w.at = t; }
       w.b = y; BY.m.set(src, w);
     }
+    // in a shared room (v214), both sticks held down together: the staff unlock once they are held HOLD.ms, and nothing
+    // else meanwhile (HOLD.eat: no menu, no moving with the sticks, no spaceship) until both are let go; a click waiting
+    // for its 0.4 s waits there too until its stick is let go, so a stick pressed first and held for the hold is no click
+    const room = !!(C.code && HOST.session && !CAM.on && !phAR());
+    if (room && down >= 2) {
+      if (!HOLD.since) { HOLD.since = t; HOLD.eat = true; CLK.src = null; log('menu hold', { start: true }); }
+      if (!HOLD.done && t - HOLD.since >= HOLD.ms) { HOLD.done = true; menuHold(); }
+    } else { HOLD.since = 0; HOLD.done = false; if (!down) HOLD.eat = false; }
+    if (HOLD.eat) { CLK.src = null; clicks.length = 0; }
     // a first click waiting: no second one in time, the menu; the same stick again, moving with the sticks (never the
     // menu); the other stick meanwhile, the same click
-    const wait = !!CLK.src && t - CLK.at < CLK.gap;
+    const wait = !!CLK.src && (t - CLK.at < CLK.gap || (room && STK.get(CLK.src) === true));
     if (CLK.src && !wait) { CLK.src = null; if (HOST.session) toggleMenu('stick'); }
     if (wait && clicks.includes(CLK.src)) { const src = CLK.src; CLK.src = null; if (HOST.session) { if (src.handedness === 'right') shipPress(); else walkPress(); } }
     else if (!wait && clicks.length) { CLK.src = clicks[0]; CLK.at = t; }
@@ -8038,7 +8175,7 @@
     }
     // the first time in a room with no stations yet (nothing to see but the menu): the menu opens by itself, with Arrange
     // all in it (once per room)
-    if (HOST.session && C.code && C.welcomed && !C.st.length && PNL.empty !== C.code && OV.root && OV.root.visible && !(C.autoAll && here() && val('allp') === undefined)) { PNL.empty = C.code; menuOpen(true, 'empty'); }   // (not when this headset makes the room's arc in a moment)
+    if (HOST.session && C.code && C.welcomed && !C.st.length && PNL.empty !== C.code && OV.root && OV.root.visible && !(C.autoAll && here() && val('allp') === undefined)) { PNL.empty = C.code; if (!menuLimited()) menuOpen(true, 'empty'); }   // (not when this headset makes the room's arc in a moment; v214: a limited menu has no Arrange all to show)
     if (MV.src && f) carryStation(f, t);
     if (C.code) { placeSync(dt, t); viewSync(t); }
     leftHand(f, local);
@@ -10794,6 +10931,7 @@
     if (s && !CAM.on) setTimeout(() => { if (R.session === s && !PNL.open && !WEL.auto) notice('The menu', menuHow(), 6000); }, 2500);
     // what a story does by itself when a session starts or a headset wakes is not a person's action: not published
     holdTask();
+    menuLock('session');   // (a session's end, or a new one: limited again in a room, v214)
     if (!s) { dropStation(null); letGo(); setState('off'); HOST.audio.zone(null); if (HOST.sfx) HOST.sfx.listen(null); if (C.code) { upload(performance.now(), true); hello(); connect(); } changed(); return; }
     // in a headset a station is reached only by walking into its circle: one this page followed (or a session ended at)
     // is not its station
@@ -10805,7 +10943,8 @@
       holdTask();
       log('headset', { visibility: s.visibilityState });
       const t = performance.now();
-      if (s.visibilityState === 'hidden') { if (!R.hiddenAt) { R.hiddenAt = t; R.sleptRel = now(); } dropStation(null); }
+      // (hidden: the headset taken off, asleep, or the browser behind something: a staff unlock ends, v214)
+      if (s.visibilityState === 'hidden') { if (!R.hiddenAt) { R.hiddenAt = t; R.sleptRel = now(); } dropStation(null); menuLock('hidden'); }
       else if (R.hiddenAt) {   // back from off (or the system menu): the origin may have moved under the frame
         log('woke', { away: Math.round(t - R.hiddenAt), src: R.src, anchors: !!(R.anchors && R.anchorsOK) });
         placesWoke();   // (lined up by this room's own place as it went off? its anchors lost after standby are no move: places)
@@ -12344,6 +12483,7 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       else if (act === 'free') HOST.xr.setFree(!HOST.xr.free());
       else if (act === 'subs') HOST.xr.setSubs(!HOST.xr.subs());
       else if (act === 'ask') setAsk(!askFirst());
+      else if (act === 'menus') setMenusFull(!roomMenusFull());   // (the headsets' menus, limited or full: the room's, never locked)
       else if (act === 'sfx') { if (HOST.sfx) HOST.sfx.set(!HOST.sfx.on()); }   // (in a room the room's; turned on, the click's own sound says so)
       else if (act === 'voice') { const L = look(); if (L) setVoiceAll(!L.voice); else HOST.xr.setVoice(!HOST.xr.voice()); }   // (in a room: for everyone, every headset's own going)
       else if (act === 'panels') { const S = sessOf(C.stById.get(arg)), v = stPanels(S); if (S) setStPanels(S.id, PANELS[(PANELS.indexOf(v) + 1) % 3]); }   // (not locked with the circles; an All stories circle's: its session's)
@@ -12564,6 +12704,9 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
       // the room's circles: walked into, or asked first (headsets; not locked with the circles)
       const ab = $('[data-sh="ask"]'), af = askFirst();
       if (ab) { ab.textContent = af ? 'Circles: ask first' : 'Circles: walk in'; ab.setAttribute('aria-pressed', String(af)); }
+      // the headsets' menus (v214): limited (the default in a room) or full, the room's
+      const mb = $('[data-sh="menus"]'), mf = roomMenusFull();
+      if (mb) { mb.textContent = mf ? 'Menus: full' : 'Menus: limited'; mb.setAttribute('aria-pressed', String(mf)); }
       const fb = $('[data-sh="fresh"]'), fa = freshArmed();
       if (fb) { fb.hidden = !canFresh(); fb.textContent = fa ? 'Fresh space for everyone? Press again' : 'Fresh shared space'; fb.classList.toggle('armed', fa); }
       for (const q of DLG.el.querySelectorAll('[data-sh="arrange"], [data-sh="add"], #shAdd, [data-sh^="remove:"]')) q.disabled = lk;
@@ -13790,6 +13933,16 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     roomName: () => roomName(), setRoomName: v => setRoomName(v), roomSay: (c, n) => roomSay(c, n), roomNameClean: v => roomNameClean(v),
     rejoinable: () => rejoinable(), offer: () => offer(), netAgain: why => netAgain(why || 'api'), pretendNet: w => pretendNet(w), netHash: a => netHash(netName(a)),
     panelOpen(on) { menuOpen(on, 'api'); }, get menu() { return PNL.open; },   // the headset's menu, open or closed
+    // the menu's level (v214): { level: 'limited' | 'full', why: 'room' (limited) or 'no room', 'camera', 'phone', 'test'
+    // (collabMenus), 'room' (the room's switch), 'unlocked' (staff's hold), room: the switch, unlocked, force, hold: the
+    // two sticks' hold now ({ ms, since, eat }), last: the last lock's why }. o.force: the test override (true: full);
+    // o.holdMs: how long the hold takes (tests). setMenus(on): the room's switch, as the dialog's
+    menuLevel: o => {
+      if (o && o.force !== undefined) { ML.force = !!o.force; if (OV.panel) OV.panel.sig = ''; }
+      if (o && o.holdMs > 0) HOLD.ms = +o.holdMs;
+      return Object.assign(menuLevel(), { room: roomMenusFull(), unlocked: mlUnlocked(), force: ML.force, hold: { ms: HOLD.ms, since: HOLD.since, eat: HOLD.eat }, last: ML.why });
+    },
+    setMenus: on => setMenusFull(on),
     // the relay's password: whether one is wanted ({ state, at, kept: one kept here for this relay }), one tried, forgotten
     auth: () => ({ state: AUTH.state, at: AUTH.at, kept: !!(C.relay && tokens()[originOf(C.relay)]), waiting: C.status === 'auth', create: !!C.wantCreate, home: HOME.state, offer: homeOffer() }),
     // the relay this page offers (HOME_RELAY), for tests: homeRelay(url) offers another (null: the table's again); its

@@ -1,0 +1,22 @@
+{
+  "version": "networks-v214",
+  "date": "2026-11-26",
+  "new": [
+    "In a shared room the headset menu is now a short one for visitors by default: play or pause, start again, sound and effects volume, subtitles, the language in the pass story, leave the circle, line up again, close.",
+    "Staff unlock the full menu on one headset by holding both sticks down together for 2 seconds; the same hold locks it again. It also locks by itself on joining or leaving a room, at the session's end and when the headset is taken off.",
+    "The Shared dialog has a switch, Menus: limited / full, for the whole room (the full menu's Circles tab has it too). Outside a room nothing changes.",
+    "On a limited headset, developer mode's What is new no longer opens by itself."
+  ],
+  "test": [
+    "Join a room in a headset: the menu (click a stick) shows the short page. Try each row at a circle.",
+    "Hold both sticks down for 2 seconds: Full menu, and no menu toggle, no stick moving, no spaceship. Hold again: Limited menu.",
+    "Unlock, take the headset off for a moment and put it back on: the menu should be limited again.",
+    "Turn Menus: full in the Shared dialog on a laptop: every headset gets the tabs back."
+  ],
+  "untested": [
+    "How the 2-second hold feels on real controllers, and whether a stick held a moment longer than a click still opens the menu well.",
+    "Whether taking the headset off is noticed on a Quest (the session's hidden state) and locks the menu.",
+    "How the limited menu reads in a headset, and the pass story's language buttons there.",
+    "v213 and earlier as before: nothing since v200 has been in a headset; every synthetic voice is unheard."
+  ]
+}

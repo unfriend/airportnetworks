@@ -174,6 +174,8 @@ gets at most a line per feature and stays under 70 KB.
   the bone it is nearest to (`ik.js` `match`, `fit`), shown as lines before it is taken (`tools/trackers/SPEC.md`).
 - *Mirror the visitor* (v204, `puppet.mirror`): a studio character each headset sees as its own mirror, from its head, hands
   and nearby trackers, with a puck at each; nothing sent or saved (`tools/trackers/SPEC.md`, "The mirror").
+- Two headset menus in a shared room (v214): limited (one page for visitors, the default; the room's key `menus`) or full;
+  staff unlock one headset by holding both sticks down 2 s (`docs/agents/shared-rooms.md`, "Limited and full menus").
 - A studio object's clip may follow the distance it covers (*As it moves*, v164: `docs/agents/studio.md`).
 - A story's copy on the relay (v170, `HOST.arrange`): *Copy to relay* (developer mode), `#<key>&arr=<name>[&edit]`, the
   editor drawer, a station's `st.<id>.arr`; the contract `tools/engine/SPEC.md`, the shell's side `docs/agents/shell.md`.
@@ -431,8 +433,8 @@ chasing red results costs tokens, and most were the tests' own or the machine's.
   `phones`, `tablets`, `iPhone`, `design`, `talk`, `studio`, and `'studio <block>'` (textures, follow, cuts, groups, faces,
   tint, viewer, shapes, behaviours, motions, paths, walks, recorder, texture swaps, cube starts, cube switches, edit speed, everyone,
   walls, shows, screens (needs `ffmpeg`), paint, examples, trackers, puppet, sequences, press, sends, colour, xp, tour, guide).
-- Every test page sets `collabAutoAll`, `collabAutoWelcome` and `tutorialHold` to `off` and `collabAskDefault` to `walk` unless its
-  round asks otherwise: keep that when adding a round.
+- Every test page sets `collabAutoAll`, `collabAutoWelcome` and `tutorialHold` to `off`, `collabAskDefault` to `walk` and `collabMenus`
+  to `full` unless its round asks otherwise: keep that when adding a round.
 
 | Command | When |
 | --- | --- |
