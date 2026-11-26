@@ -77,7 +77,8 @@ let srv = await serve(oldDir);
 // the test only means something when the two versions differ in what it compares
 const same = FNS.filter(f => { const m = new RegExp('\\nfunction ' + f + '\\(').exec(OLD.story); return m && NEW.story.includes(OLD.story.slice(m.index + 1, OLD.story.indexOf('\n}\n', m.index) + 2)); });
 if (same.length === FNS.length && OLD.shell === NEW.shell) console.log('note: the two versions look the same to this test');
-await page.goto('http://127.0.0.1:8125/');
+// (#airports: an older version of v219 or later starts no story on its start page)
+await page.goto('http://127.0.0.1:8125/#airports');
 await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur, null, { timeout: 30000 });
 await page.evaluate(() => navigator.serviceWorker.ready);
 await wait(3000);
