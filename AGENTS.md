@@ -8,7 +8,7 @@ An installable web app that teaches network science in narrated stories
 (the airports about four minutes, the proteins and the cell map about six, the tour about ten and a half, the muscle
 story about nine, the endotype story about seven and a half, the PET story about six, the microanatomy story about eight,
 the ovary story about eight, the qubits story about nine, the mutation story about eight and a half, the tissue topology
-story about nine, the soil story about eleven, the CDK5 story about eight and a half, the exposome story about ten, the pass story about seven, the exposome story about ten, the flock and the robot gang about two), each
+story about nine, the soil story about eleven, the CDK5 story about eight and a half, the exposome story about ten, the pass story about seven, the flock and the robot gang about two), each
 followed by an explore mode. Everything works on desktop, phones and in VR/AR headsets (built for Meta
 Quest Browser, WebXR).
 
