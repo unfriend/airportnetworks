@@ -2780,7 +2780,8 @@ Phase 3 of the Vive trackers (`tools/trackers/SPEC.md`, "The studio, phase 3"). 
 - **The record** (an object's): `puppet: { on, rig, by, map, cal, s, floor }`, kept only when set: `on` (false when left
   out), `rig` `'full'` (trackers on the hips, head, both wrists and both feet; the chest, elbows and knees if worn, up to
   11) or `'feet'` (a tracker on each foot, the head and hands from a headset and its controllers; `'head'`, a headset
-  alone, waits: the owner), `by` (`'feet'`: `'index'`, the PC's Index, whose headset and controllers come with the
+  alone, waited: the owner; since v201 a line-up makes `rig: 'any'`, any mix of trackers, a headset and controllers with a
+  device at the head or the hips at least, so a headset alone is worn too), `by` (`'feet'`: `'index'`, the PC's Index, whose headset and controllers come with the
   trackers, or the performer's member id, their own headset; '' none), `map` (each part, `hips`, `head`, `chest`,
   `lhand`, `rhand`, `lfoot`, `rfoot`, `lelbow`, `relbow`, `lknee`, `rknee`: a tracker's id, or `'@head'`, `'@l'`,
   `'@r'` for the performer's own headset and controllers), `cal` (each part's offset from its tracker to its bone, seven

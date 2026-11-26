@@ -19,7 +19,7 @@ Read on demand; the rules every agent needs are in AGENTS.md.
   arch menu with the hidden and experimental things that are not in the main menu"): the main set is `HOST.list` (the
   packages with `list: "stories"` in their `story.json`, the tutorial last) and then a card *Experiments*; that set is
   `HOST.packages.experiments()` (`list: "experiments"`: proteins, the flock, the robot gang, the cell stress test, the
-  hello example) and then a card *Network stories* back. The same on the page (`HOST.cards`, `#picker.exp`, the title
+  hello example, and since v189 the CDK5 story, since v212 the exposome story; *Back into the cell* has been on the main cards since v188) and then a card *Network stories* back. The same on the page (`HOST.cards`, `#picker.exp`, the title
   and lede follow) and in the headset (the card arch: `xrLandList()` is `HOST.menu.cards()`, its header
   `xrLandTitle()`, a menu card's button says *Open*). A menu card's key (`experiments`, `stories`) is no story: the
   page's click and `HOST.go` open its set (`HOST.menu.open`, which moves `HOST.listRev` so every arch is built again).

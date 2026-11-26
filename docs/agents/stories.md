@@ -832,9 +832,11 @@ tour): the shared kit, the guide's script (`sets/script.js`: `GUIDE`, `SCRIPT`, 
 maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine parts adapted from the flock's.
 `packages/tutorial/src/SPEC.md` is the plan (v173); its Review notes say where the build differs.
 
-- An introduction, not one of the sixteen stories: first in `stories/list.js` with `intro: true` (the shell skips it for
+- An introduction, not one of the first sixteen stories: a package since v186, last in `packages/order.json` (since v180; it was first
+  in `stories/list.js`) with `intro: true` (the shell skips it for
   the default start, Repeat all and `HOST.count()`; `docs/agents/shell.md`), `needs: 173` (it needs `HOST.needBodies`
-  and the story sets of `bodies.js`). Seventeen cards on the Stories screen, seventeen stations in Arrange all.
+  and the story sets of `bodies.js`). It was the seventeenth card when written (v173); the main set has fifteen cards and the Experiments card now, and
+  Arrange all takes only the main set.
 - The guide is the people's armour figure, drawn by a draw set of the story's own (`HOST.bodies.set(2)`, attached to
   `GL.scene`, `I.toWorld` the set's frame; `docs/agents/shared-rooms.md`, "A story's own figures"), not by the overlay:
   so it draws on a page too. The load waits up to 8 s for `bodies.js` (`sceneJoin`); without it (an older shell, no

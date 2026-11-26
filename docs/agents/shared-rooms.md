@@ -1974,7 +1974,7 @@ The plan is `docs/shared-space-plan.md`.
   A page following a station (Follow) leaves its Stories screen: while that
   shows, nothing syncs.
 
-The hooks every story keeps (all sixteen, the same lines; the flock is the
+The hooks every story keeps (every story, "all sixteen" below being the count of v187; the same lines; the flock is the
 reference, `packages/flock/src/engine/`):
 
 - `collab: { APP, scene: () => (LOAD.done ? GL.scene : null), state, apply, view, setView, effect, hover, panel, place }`
@@ -2242,7 +2242,7 @@ room's own socket, WebCodecs, the shell's one context. The name is **Talk** ever
 `TKH`, `TKS`, `TH`), never `voice` (that is Narration).
 
 - **This device's own.** `localStorage` `talkOn`, `talkMic`, `talkRoom`; off until turned on (no microphone before).
-  Never in `state()` or `collab.state()`; FORMAT stays `networks-55` (Talk is relay presence, as `snd`, not a room key).
+  Never in `state()` or `collab.state()`; FORMAT did not change for it (it was `networks-55` then; Talk is relay presence, as `snd`, not a room key).
   *Talk: on*: this device hears the others who talk, and its microphone is open unless muted; turning it on turns this
   device's **Sound** on too and the Mic on (a press). *Mic: muted* closes the microphone (listening only). A browser
   without `AudioDecoder` cannot turn Talk on; one without `getUserMedia`, `MediaStreamTrackProcessor` or `AudioEncoder`

@@ -3,7 +3,8 @@
 A story in one folder, `packages/<key>/`, written by a colleague or someone the owner trusts and brought in through git
 (a pull request, or a fork they host themselves): the owner, 18 November 2026, "all contained within a folder and
 independent from the rest of the app". The contract is `tools/packages/SPEC.md`; this file says how the app keeps it.
-Since v187 the app's own sixteen stories are packages too (`packages/order.json` names them; `docs/packages-migration.md`);
+Since v187 the app's own stories (sixteen then; twenty in `packages/order.json` now, with the Experiments set's `cellstress`
+and `hello` beside them, `packages/index.json` lists 22 packages) are packages too (`docs/packages-migration.md`);
 only the design room and the studio stay in `stories/`.
 
 A package is code from a trusted person running with the app's full rights: it is not a sandbox. Only the folder in git

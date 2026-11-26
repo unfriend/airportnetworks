@@ -25,9 +25,14 @@ phase 3 (v125, "The solver (ik.js)" below), the bridge, the fake and the relay (
 ## Open and deferred
 
 - Reference trackers left on the spots for good (`ref`, below): later. Lining up is by hand only.
-- The headset-alone body for the studio's puppet (`rig: 'head'`, its legs stepping by themselves): built in `ik.js` but not
-  offered there. Its `'head'` setup poses every person's body in a shared room since v164 (`bodies.js`: "People's
-  bodies" in `docs/agents/shared-rooms.md`); Quest Browser's WebXR body tracking maybe later, after a probe on a headset.
+- The headset-alone body for the studio's puppet: offered since v201 (`rig: 'any'`, `e6l_puppet.js` `pupReady`: a worn
+  character needs only a device tied to its head or its hips, so a headset alone, or one tracker, is enough; `ik.js`'s
+  `match` ties each device to the part nearest it, `fit` sizes and moves the character; with nothing seen at all the card
+  says *Nothing is seen*), and v204's mirror wears it from head and hands alone. The older `rig: 'head'` setup of `ik.js`
+  (its legs stepping by themselves) is what poses every person's body in a shared room since v164 (`bodies.js`: "People's
+  bodies" in `docs/agents/shared-rooms.md`) and the mirror's; records of `full` and `feet` are still worn as they were.
+  Open: how a headset-only body looks on a real character, and Quest Browser's WebXR body tracking, maybe later, after a
+  probe on a headset.
 - Phases 2 and 4: on the maybe list.
 - `TRK_FLOOR` (the tracker's pose origin over the floor, lying on its base) is 0 until measured.
 - Untested on Windows: the bridge with SteamVR and real trackers, its rate, and the lag through the relay.
@@ -233,16 +238,18 @@ What the shell does with it:
     both knees (up to 11). Lined up by hand, every tracker is free for the body.
   - **Feet and headset**: a tracker on each foot; the head and hands from the performer's headset and controllers; the
     hips worked out from the head and the feet (below the head, back a little, turned with the feet and the head).
-  - **Headset only** (deferred, the owner, 8 November 2026: "skip that part for now, note it down for later and maybe the
+  - **Headset only** (planned as deferred, the owner, 8 November 2026; built since, in v201 as one of the mixes `rig: 'any'`
+    takes, and v204's mirror; the plan as written then: "skip that part for now, note it down for later and maybe the
     quest body tracking can solve it"): the headset and its two controllers; the hips from the head; the legs would need
     stepping of their own (feet kept planted and moved in a step when the hips leave them behind), which no JavaScript
     library does. Not offered for now; first a probe of Quest Browser's experimental WebXR body tracking (`body-tracking`,
     since Quest Browser 32: the upper body tracked, the legs estimated by the headset), which could give the whole body
-    without our own stepping. If the solver of v125 has stepping code, it stays unused until then.
+    without our own stepping. The solver's stepping code is what a headset alone gets today (v164, v201); the probe of
+    Quest Browser's body tracking has not been made.
   The headset and controllers are either the Index (through the bridge, in SteamVR's space with the trackers: exact, 90
   times a second) or a Quest (its own poses on that Quest, its presence in room coordinates on everyone else's, 15 a
   second and smoothed; lined up with the room through the spots, so a few centimetres off the trackers). *Headset only*
-  with a Quest would need no PC at all and work in any room, peer to peer too (deferred, above).
+  with a Quest needs no PC at all and works in any room, peer to peer too (its looks on a headset untested).
 - The object's record gains `puppet: { on, rig: 'full' | 'feet' (and later 'head'), by: <the performer's member id when a Quest's
   head and hands drive it, or 'index'>, map: { hips?, head?, lhand?, rhand?, lfoot?, rfoot?, chest?, lelbow?, relbow?,
   lknee?, rknee?: <serial, or '@head', '@l', '@r' for the performer's own headset> }, cal: { <slot>: [x, y, z, qx, qy, qz,
@@ -428,7 +435,7 @@ since v201. Not done yet: a character lined up anywhere but where the performer 
 or the performer steps into it: a leftover offset between
 the two, a few cm where the trackers' own offsets do not average out, turns with the performer); shoulders that shrug as the arms rise, a spine
 that bends more at its top than its foot, a forearm's twist shared with it (Mixamo's sits on the hand); rigs other than
-Mixamo's, elbows or knees that bend another way, non-uniform scales. *Headset only* (`head`) stays unused (deferred
+Mixamo's, elbows or knees that bend another way, non-uniform scales. *Headset only* (`head`) is what a headset alone gets (see
 above): its steps are quick and short (about three a second, 0.4 m), since straight legs reach little unless the head
 drops, and five of its twelve steps in the test were forced by reach. How any of it looks on a real character worn with
 real trackers, a headset and controllers is untested.

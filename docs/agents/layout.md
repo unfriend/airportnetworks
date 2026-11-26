@@ -61,7 +61,7 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   the answer when the network takes more than 4 s). The narration MP3s are
   served from the cache (with byte ranges), a cache of their own that outlives
   the releases (`networks-narration`, v109): a narration goes in when a story
-  first plays it on this device, never all sixteen at once (about 57 MB; ten
+  first plays it on this device, never all the stories at once (about 57 MB; ten
   headsets at their first visit would pull 570 MB over one router while people
   are already in a room), so offline a device has the narrations it has
   played. A new worker asks the server only about those it holds, with their
@@ -190,13 +190,18 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `tools/narration.mjs`; never edit it by hand).
 - `docs/working-on-a-story.md` (v193) - the guide for a story's author who is not the maintainer (the CDK5 story's):
   what to install, where things are, the preview, `tools/packages/publish.mjs`, what not to touch.
+- `tools/peer.mjs` - links two `p2p/` pages through the relay's `/peerjs` (`docs/agents/testing.md`); `tools/icons.html` - a page
+  that shows the station icons; `docs/props.md` (the catalogue of sets), `docs/pet-poster-comparison.md`,
+  `docs/sfx-phase2-plan.md` and `docs/sfx-phase2-lines.md` (the sound effects' second phase), `docs/packages-migration-review.md`
+  (the review of the packages migration): notes, not read by any tool.
 - `tools/perf.mjs` (v145) - measures what each scene costs per frame in a pretend headset (`node tools/perf.mjs [url] [--only
   words] [--json f] [--md f] [--frames N] [--list]`, `--from a.json,b.json --md r.md` merges runs); see "Testing".
 - `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration and sound effects test;
   `tools/sfx-cues.mjs` - the stories' sound cues checked without listening (see "Sound effects");
   `tools/update.mjs` - update test for the service worker; `tools/live.mjs` -
   hot reload and live updates test; `tools/release.mjs` - writes `version.json`
-  (a release step), and `sw.js`'s story files (`SHELL`) and narrations (`AUDIO`) from `stories/list.js` and `audio/`; `tools/collab.mjs` -
+  (a release step), and `sw.js`'s story files (`SHELL`: the design room and the studio, from `stories/list.js`) and narrations (`AUDIO`:
+  empty since v187, there is no `audio/` folder; each story's narration is in its package); `tools/collab.mjs` -
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
   `NARRATION_SYNC` that paces a story without a recording (see "Inside a story").
@@ -259,6 +264,18 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   story's palette; two sets, `net` and `core`; the story's own engine parts with the shared ones of `tools/engine/`;
   build script, set harness; it uses `tools/engine/kit.js` and the tissue topology story's look); see its `README.md`
   and `SPEC.md`.
+- `packages/ppicell/` - *Back into the cell* (a story package on the main cards since v188): `story.json`, `main.js` (built),
+  `audio/`, `data/` and `models/` (loaded through `HOST.pkgUrl`), `README.md`, and `src/` its sources (`build.mjs`, `engine/`,
+  `sets/` with the cell and the world's data `sets/data.js`, `models.json`, `export-wwiznet.mjs` (v211), `SPEC.md`,
+  `SCRIPT-sides.md`); `docs/agents/stories.md`, "Back into the cell". Its `src/sets/cell.js` is read at build time by the
+  exposome story.
+- `packages/cellstress/` - the cell stress test (*Measuring*, on the Experiments set since v188): `story.json`, `main.js`
+  (built), `README.md`, `src/` (`build.mjs`, `engine/`, `sets/`); `docs/agents/packages.md`, "The cell stress test".
+- `packages/exposome/` - *Invisible threads*, the chemical exposome (v212, on the Experiments set): `story.json`, `main.js`
+  (built), `minis.js`, `icon.png`, `audio/`, `data/` (derived numbers, `targets.bin`, `ppi.bin`, `diseases.bin`,
+  `names.json`), `README.md`, and `src/` its sources (`build.mjs`, `c-cut.mjs`, `engine/`, `sets/`, the data generator
+  `data/gen_data.py`, `test-data.mjs`, `SPEC.md`, `SCRIPT.md`); `docs/agents/stories.md`, "Invisible threads". It reads
+  `packages/airports/main.js` and `packages/ppicell/src/sets/cell.js` at build time.
 - `packages/pass/src/` - the sources of `packages/pass/main.js` (the build that cuts the airports story's globe and the cell map
   story's cell out of `packages/airports/main.js` and `packages/spatial/main.js`, unchanged; three sets, `fish`, `globe` and `cell`;
   the story's words in two languages; engine parts adapted from the qubits and flock stories'; set checks, harness); see

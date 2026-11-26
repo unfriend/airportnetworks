@@ -1520,8 +1520,8 @@ owner checks those on a real device.
 The collab arc round (`--all`, v188) steps the pretend headset until every card of the arch is drawn (the Stories screen
 draws two new cards a frame, `XR.landN`) and opens the set of cards (`HOST.menu`) of the card it presses (its
 `PICK_STORY`, proteins, is an Experiment); the ask round (`--ask`) gives the pretend headset frames until it is aligned
-(30 s at most). The main run places the Experiments set's stories that have rounds (proteins, the flock, the robots)
-with Add in a third row after Arrange all, which leaves them out.
+(30 s at most). The main run places the Experiments set's stories that have rounds (every Experiments key in `STORIES`: proteins, the flock,
+the robots, CDK5 and the exposome story) with Add in a third row after Arrange all, which leaves them out.
 
 `node relay/test.mjs --talk` runs only Talk's steps (v178, also in the main run after live sound's; `relay/README.md`
 "Talk (v178)"), eight of them: `/api/ping`'s `talk: true` and `welcome`'s `talk: 1`, no `@talk` on a join into a room
@@ -2394,6 +2394,11 @@ endotype story in `packages/endo/src/`, the PET story in `packages/pet/src/`, th
 `test-script.mjs`: the guide's script against the rules of its `SPEC.md`, section C, in story and in real time, a
 second; a cheap check, run on `dev` too; its harness loads `ik.js` and `bodies.js` itself: `harness.html?set=guide&t=60`,
 `mode=1` practice, `nofvt` the plain figure).
+The CDK5 story (`packages/cdk5/src/test-data.mjs`: its data and decoders), the exposome story (`packages/exposome/src/test-data.mjs`:
+its data against the paper's numbers, through `XDATA`) and the cell story (`packages/ppicell/src/data/test-sides.mjs`, the
+membrane sides and complexes; `test-pnet.mjs`, the method run in the page, its limits and a network chosen on a page;
+`test-wiz.mjs`, the wwiznet export) have their own data tests, run from the repository's root; the qubits and mutation stories'
+`test-qmath.mjs` and `test-mmath.mjs` check their maths. All are plain Node scripts that cost a second or two; AGENTS.md's "Testing" table names when each runs.
 
 ## The studio's tools (`scan.mjs`, `convert.mjs`, `test-images.mjs`, `test-ik.mjs`, `test-ktx2.mjs`)
 

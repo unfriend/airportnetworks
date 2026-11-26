@@ -333,7 +333,7 @@ entering from inside a story resumes it where you were. In a shared
 room a headset has no Stories screen: you walk to a story's station instead.
 The start screen is the landing page (no hash, or #stories). The address
 follows you: #stories on the Stories screen (page or headset), #airports,
-#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #soil, #cdk5, #exposome, #pass, #flock, #robots or #tutorial in a story, so links can be shared and open that story
+#proteins, #spatial, #lbi, #nmd, #endo, #pet, #micro, #ovary, #qubits, #mutation, #topo, #soil, #cdk5, #exposome, #ppicell, #pass, #flock, #robots or #tutorial in a story, so links can be shared and open that story
 directly (proteins.html and spatial.html forward there). Taking the headset off and on returns to the Stories menu
 (and, unless Anchor is on, places everything in front of the next wearer).
 A story builds in steps while it loads: the page shows a thin bar and the step
