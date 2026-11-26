@@ -901,7 +901,8 @@ The plan is `docs/shared-space-plan.md`.
 - Station icons and halos (v145): all stations' halos are one instanced billboard draw (`HALO`, `haloAdd` in `iconStep`; instanced
   quads in a small additive `ShaderMaterial`, not `Points`, whose size a GPU clamps; `I.halo` is only the colour holder); an
   icon's see-through mesh is hidden while its scale is under 0.3. Icon miniatures of a room's stations are built by `iconIdle`
-  (a 40 ms timer, 2 ms slices, in a headset browser or session) and `iconStep` builds only the missing ones, one a frame and only
+  (a 40 ms timer, 2 ms slices, in a headset browser or session; kicked again when a miniatures file or the packages' index
+  arrives, v222) and `iconStep` builds only the missing ones, one a frame and only
   on a frame that was not late (`ICON.okNow`).
 - Station icons (`makeIcon`, `iconDef`, `miniDef`, placed by `iconStep` in `shared.js`; made from the miniatures): over each station's ring, its middle 2.1 m
   above the floor (over the heads of people in the circle and above the card's top edge at 1.6 m, so from across the
@@ -1232,6 +1233,48 @@ The plan is `docs/shared-space-plan.md`.
   the head (notice, ask, eye, welcome, fps read-out, subtitles, rec) have no mipmaps (`sheet(..., flat)`). The page's Shared dialog
   does no work during a headset session (`DLG.stale`; one render when it ends). `detach()` lets the Story tab's mirror textures
   go; `HOST.collab.mirroring()` is true while the menu shows them.
+- A room's running costs cut (v222, audit row D; behaviour, keys, `state()` and `FORMAT` unchanged):
+  - The copy of a relay's room kept on the device (`mirror`, `locSave`, `locFlush`): a batch of moves still held (every
+    pair `h: 1`, `heldOnly`) only marks the copy out of date (`LOC.mirror`); any other change writes it 2 s later
+    (`locSave(2000)`; a room on this device or a peer-to-peer host's hub: 0.4 s as before, and its held moves likewise wait
+    for their release), and leaving the page (`pagehide`) writes it at once. The kept rooms are read and parsed to push the
+    oldest out (`localRooms().slice(LR_MAX)`) only when a room new on this device is first written (`LOC.kept`), not at
+    every write. Measured with a page in a room while someone carries a circle: see `docs/history.md`, v222.
+  - Carrying a circle (`stationsMoved`, called by `roomChanged` before `stationsChanged`): when every changed `st.<id>`
+    record differs from its entry in `C.st` only in `x`, `z` and `yaw` (the entry made by `stEntry`, as the full build
+    makes it), that entry is swapped for the new one in place in `C.st` and `C.stById`; anything else (a new, gone or
+    re-storied station, a kind, sync, arc, sc or ask change, `roomChanged(null)`) builds the list again as before.
+  - `publish`: a pending write keeps its text (`C.pending` entries `{ cid, v, s }`), so the poll's check against it and
+    the acknowledgement's compare (`onSet`, keys that are not moves) do not turn the value into text again: the studio's
+    whole scene record was turned into text up to three times a poll (5 a second). The studio's own `state()` still builds
+    and the poll still turns it into text once (row E of the audit).
+  - `member(id)`: a `Map` made again only when `C.members` is another array or another length (the relay's welcome and
+    members messages replace it whole; the smoke test's bodies block pushes into it).
+  - `drawPeople`: each person's smoothed pose is mixed into that person's own scratch (`personMixer`, `o.mix`: the same
+    numbers as `MIX.person`, which `HOST.collab.body` keeps using since it hands arrays out); a dot's colour written in place.
+  - `viewSync`: the room's view and this one turned into text once a frame each (`jr`, `jc`).
+  - The menu (`drawPanel`): `panelSig` is built at most every 100 ms (`S.sigAt`) unless `S.sig` was cleared (a press, a poke,
+    a page or tab change, the tests' `menuFind`/`menuRegions`), so something changed from outside shows up to 100 ms later;
+    the hover light is still drawn every frame (`panelHover`).
+  - Subtitles (`subText`): a cue's words are still re-read four times a second, but the walk over its text runs only when
+    the cue's text (`textContent`, or its `data-say`) is not what it was (a live number); the same words otherwise.
+  - The PC's trackers: `trkKeyNow()` keeps one read of the room's `trk` key while it is the same value (`trkPose`'s name,
+    `trkUsed`); `trkKey()` still makes a fresh one for the callers that hand it on (`trkState`, `setTrk`); `drawTrackers`
+    reuses one `Set`.
+  - Presence in (`onFx`, `p.<id>`): `P.lu` is kept while it says the same. What a presence carries is unchanged: sending
+    `bv`, `sp`, `al`, `lu` only on change was not done, since the relay skips presence when a socket is backed up (v220) and
+    a skipped change would then be lost.
+  - Station icons: `iconIdle` is kicked again when a miniatures file arrives (`iconAsk`'s `HOST.lowpoly(...)` resolving)
+    and when the packages' index arrives or changes (`HOST.listRev`, checked by the pump in a room), so a station whose
+    story or miniature was not known yet gets its icon then (before, only the next change of the room's keys built it).
+  - People's bodies out of view (`eyeCones`, `bodySeen`, `EYEC`; `bodies.js` `I.unseen`): in a headset's own session,
+    lined up, with this frame's viewer pose, each eye's view is a cone from the frame's own `views` (its pose in room
+    coordinates through `R.mi`, its half-angle the corner of its projection plus 5 degrees); a person's body is a sphere of
+    1.6 m round a point 0.7 m under their head. A body in no eye's cone is neither solved nor drawn: `addTo` only samples
+    its standing height (`eyeStep`, so its size comes out as if drawn) and marks it `away`; the frame it is seen again is a
+    jump (feet planted under it, hands where they are). Never culled: a camera (camera mode), a spaceship flying, the
+    goggles on, an unusual projection (not a plain perspective, or a view over about 160 degrees), your own body, a
+    story's figures. Untested on a headset: whether a body ever pops in at the edge of the view on a real Quest.
 - The menu's hover (v145): the light of what is pointed at is not in `panelSig`; `panelHover` redraws the old and new button
   rectangles (each region keeps a paint closure; 3 px pad) and sends them as `sheetPatch` patches with one mipmap pass, and a
   full redraw sends only rows 0 to H (`panelSend`) once the texture is on the GPU, so `tex.version` no longer moves on a redraw:

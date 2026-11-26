@@ -281,7 +281,14 @@
   const here = () => { const k = kind(); return k === 'cam' || (k !== 'desktop' && (C.local || (C.hereSet !== null ? C.hereSet : k === 'ar'))); };
   const askHere = () => !!(C.code && !C.local && kind() === 'vr' && C.hereSet === null);
   const heres = () => { try { return JSON.parse(get('collabHere') || '{}') || {}; } catch (e) { return {}; } };
-  const member = id => C.members.find(m => m.id === id);
+  // (v222: looked up in a map made again only when the members list is another one or another length (the relay sends a
+  // new list; a test pushes into it), not searched each frame per person)
+  const MEM = { list: null, n: -1, by: new Map() };
+  const member = id => {
+    const L = C.members;
+    if (MEM.list !== L || MEM.n !== L.length) { MEM.list = L; MEM.n = L.length; MEM.by = new Map(); for (const m of L) if (m && !MEM.by.has(m.id)) MEM.by.set(m.id, m); }
+    return MEM.by.get(id);
+  };
   // A fresh shared space (key sg, { n, by, at }): Quest Browser keeps one shared space per page address, and two
   // Quest 3s each kept their own copy of one (2.6 to 3.4 m apart by the tape, session after session). The relay
   // also serves the app under s/<n>/, so a room can move every page to a new address, where the headsets make a new
@@ -945,19 +952,22 @@
       // landing after someone else's change started a merge war between the two pages). Nothing is lost: on one socket every
       // set is acknowledged or refused, and a new socket's welcome clears what was pending
       const p = C.pending.get(k);
-      if (!force && C.synced.get(k) === s && (!p || sig(k, p.v) === s)) continue;
+      if (!force && C.synced.get(k) === s && (!p || (p.s !== undefined ? p.s : sig(k, p.v)) === s)) continue;   // (p.s: its text kept, v222: a studio's whole scene not turned into text twice a poll)
       if (v === null) C.synced.delete(k); else C.synced.set(k, s);
-      out.push([k, v]);
+      out.push([k, v, s]);
     }
     if (!out.length) return false;
     const cid = ++C.cid;
-    for (const [k, v] of out) C.pending.set(k, { cid, v });
+    for (const [k, v, s] of out) C.pending.set(k, { cid, v, s });
+    for (const o of out) o.length = 2;
     const sent = send({ t: 'set', batch: out, cid });
     if (!out.every(p => p[1] && p[1].h === 1)) log('publish', { cid, keys: out.map(p => p[0]), sent });   // (a move still held, 15 a second: not logged)
     roomChanged(out.map(p => p[0]), true);
     return true;
   }
   const X_RE = /^st\.[\w-]+\.x$/;
+  // a batch of moves still held (15 a second while someone carries something): its release follows
+  const heldOnly = b => b.length > 0 && b.every(p => p && p[1] && p[1].h === 1);
   function onSet(m) {
     const me = m.by === C.id, keys = [];
     C.seqMax = Math.max(C.seqMax, +m.seq || 0);
@@ -966,7 +976,7 @@
       if (k.startsWith('rp.')) AREAS.rev++;
       const p = C.pending.get(k);
       if (me && p) {   // our acknowledgement: the room now has our value (an explore state's new base)
-        if (p.cid === m.cid && J(p.v) === J(v)) { C.pending.delete(k); const L = sesSt(); if (L && k === kX(L.id)) C.xb = { id: L.id, v }; }
+        if (p.cid === m.cid && (p.s !== undefined && !SM_RE.test(k) && k !== 'pcam' ? p.s : J(p.v)) === J(v)) { C.pending.delete(k); const L = sesSt(); if (L && k === kX(L.id)) C.xb = { id: L.id, v }; }
         continue;
       }
       // our own later write is on its way: it wins everywhere. Not for an explore state: that merges (stateApply),
@@ -978,7 +988,7 @@
     }
     if (!(m.batch || []).every(p => p && p[1] && p[1].h === 1)) log('recv', { seq: m.seq, by: m.by, keys: (m.batch || []).map(p => p[0]) });
     if (keys.length) roomChanged(keys, false);
-    mirror();
+    mirror(heldOnly(m.batch || []));
   }
   // writes the relay did not store: drop them here, and show the room's value again
   function onError(m) {
@@ -1001,7 +1011,7 @@
   function roomChanged(keys, local, plain) {
     const all = !keys, has = re => all || keys.some(k => re.test(k));
     iconIdleKick();   // (a station or the room's look changed: miniatures to build, perhaps)
-    if (has(/^st\.[\w-]+$/)) stationsChanged();
+    if (has(/^st\.[\w-]+$/) && (all || !stationsMoved(keys))) stationsChanged();
     const L = sesSt();
     if (!local && L && C.ready && L.story === HOST.curKey) {
       // (not while our own clock write waits for its turn: it follows, and wins as an unacknowledged write would)
@@ -1040,11 +1050,13 @@
     }
     // (v136: a copy says the format it was written in, f; one an older app wrote is brought to this one: MIGRATE)
     if (o && typeof o.f === 'string' && o.f !== FORMAT) keys = migrate(keys, o.f);
-    Object.assign(LOC, { code, seq: (o && +o.seq) || 0, keys, mirror: false, net: o && typeof o.net === 'string' ? o.net : '',
+    Object.assign(LOC, { code, seq: (o && +o.seq) || 0, keys, mirror: false, kept: !!o, net: o && typeof o.net === 'string' ? o.net : '',
       relay: o && typeof o.relay === 'string' ? o.relay : '', left: !!(o && o.left), gone: !!(o && o.gone) });
     return LOC;
   }
-  function locSave() { if (!LOC.timer) LOC.timer = setTimeout(locFlush, 400); }
+  // (v222: ms, a later write: a relay's room mirrored here waits 2 s, so a carry writes it a few times, not 2.5 a second;
+  // leaving the page writes it at once)
+  function locSave(ms) { if (!LOC.timer) LOC.timer = setTimeout(locFlush, ms || 400); }
   function locFlush() {
     clearTimeout(LOC.timer); LOC.timer = 0;
     if (!LOC.code) return;
@@ -1057,8 +1069,8 @@
     if (C.code === LOC.code && C.want && C.welcomed && C.stranger !== C.code) { LOC.left = LOC.gone = false; LOC.relay = C.relay; if (C.net) LOC.net = C.net; }
     put(LR + LOC.code, J({ f: FORMAT, seq: LOC.seq, at: Date.now(), keys: Object.fromEntries(LOC.keys), net: LOC.net || undefined, relay: LOC.relay || undefined, left: LOC.left || undefined, gone: LOC.gone || undefined }));
     LOC.list = null;
-    for (const r of localRooms().slice(LR_MAX)) put(LR + r.code, null);
-    LOC.list = null;
+    // (only a room new here can push the oldest out: the kept rooms are read and parsed then, not at every write; v222)
+    if (!LOC.kept) { LOC.kept = true; for (const r of localRooms().slice(LR_MAX)) put(LR + r.code, null); LOC.list = null; }
   }
   // a room kept here, marked (left on purpose): only one this device has kept
   function keptMark(code, o) {
@@ -1095,11 +1107,12 @@
   }
   // a relay's room (or a peer-to-peer guest's) is kept here as it changes (written at most every 0.4 s); a host's hub
   // keeps its own
-  function mirror() {
+  // (held: a move still held only marks the copy out of date; its release, or leaving the page, writes it)
+  function mirror(held) {
     if (C.local || hosting() || !C.code || !C.welcomed || C.stranger === C.code) return;
     locLoad(C.code);
     LOC.mirror = true;
-    locSave();
+    if (!held) locSave(2000);
   }
   // the page goes: its copy is written, and a peer-to-peer host lets go of the room's id at once (the others take over)
   window.addEventListener('pagehide', () => { locFlush(); slotDrop(); for (const s of [C.ws, C.spare]) if (s && s.bye) s.bye(); });
@@ -1224,7 +1237,7 @@
         for (const k of gone) { L.keys.delete(k); out.push([k, null]); }
         for (const [k, v] of ok) { if (v === null) L.keys.delete(k); else L.keys.set(k, { v, seq, by: m.id }); out.push([k, v]); }
         this.cast({ t: 'set', batch: out, seq, by: m.id, cid });
-        locSave();
+        if (!heldOnly(ok)) locSave();   // (a move still held: kept when it is let go, or the page goes)
       }
       if (bad.length) this.refuse(m, cid, bad, 'not stored');
     }
@@ -2364,7 +2377,11 @@
       // how it lines up with the room (the room setup guide's lineUp), for the pages' list; an older headset sends none
       // (and one before v109 no ck: this session's check that stood, kept undefined then, so nothing is said about it)
       const lu = v.lu && typeof v.lu === 'object' ? v.lu : null, s8 = s => (typeof s === 'string' ? s.slice(0, 8) : '');
-      P.lu = lu ? { k: s8(lu.k), h: s8(lu.h), w: s8(lu.w), c: Number.isFinite(lu.c) ? Math.round(lu.c) : null, ck: typeof lu.ck === 'string' ? lu.ck.slice(0, 2) : undefined } : null;
+      if (!lu) P.lu = null;
+      else {   // (v222: the one kept while it says the same, 15 times a second per person)
+        const k = s8(lu.k), h = s8(lu.h), w = s8(lu.w), c = Number.isFinite(lu.c) ? Math.round(lu.c) : null, ck = typeof lu.ck === 'string' ? lu.ck.slice(0, 2) : undefined, o = P.lu;
+        if (!o || o.k !== k || o.h !== h || o.w !== w || o.c !== c || o.ck !== ck) P.lu = { k, h, w, c, ck };
+      }
       // (their spaceship, ships.js: a presence without one has landed; a camera flies none)
       if (HOST.ships && HOST.ships.presIn && !P.cam) { try { HOST.ships.presIn(id, v.sh, v.ts); } catch (e) { /* a bad one */ } }
     } else if (m.k === SHIP_KEY) { if (HOST.ships && HOST.ships.fxIn && m.by) { try { HOST.ships.fxIn(m.v, m.by); } catch (e) { /* a bad one */ } }   // (the spaceships' bolts, hits and pickups: the shell's, never a story's)
@@ -2399,17 +2416,39 @@
   }
 
   // ------------------------------------------------------------ stations --
+  // a station's entry in C.st from its record (null: not shown)
+  function stEntry(id, v) {
+    if (!v || typeof v !== 'object' || !meta(v.story)) return null;
+    // (the shell's own kinds: the lobby shows only itself; an All stories circle its cards or a story of the list)
+    const kd = v.kind === LOBBY_ST || v.story === LOBBY_ST ? LOBBY_ST : v.kind === ALL || v.story === ALL ? ALL : '';
+    if (kd === LOBBY_ST ? v.story !== LOBBY_ST : kd === ALL ? v.story !== ALL && KINDS[v.story] : false) return null;
+    // (a studio circle made for a scene by Add's scene entries is marked so in its record, sc: never the room's plain one)
+    return Object.assign({ id, story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true, arc: v.arc === true } : {},
+      !kd && v.story === STUDIO && v.sc === true ? { sc: true } : {}, kd !== LOBBY_ST && ASKS.includes(v.ask) ? { ask: v.ask } : {});
+  }
+  // v222: a circle carried (15 writes a second) changes only where stations stand: their entries are swapped in place
+  // (the list's order, the live station and its session cannot change with x, z and yaw); anything else: false, and the
+  // list is built again
+  const ST_POS = new Set(['x', 'z', 'yaw']);
+  function stationsMoved(keys) {
+    const sw = [];
+    for (const k of keys) {
+      const m = ST_RE.exec(k);
+      if (!m) continue;
+      const o = C.stById.get(m[1]), e = o && stEntry(m[1], val(k)), i = e ? C.st.indexOf(o) : -1;
+      if (i < 0) return false;
+      const ko = Object.keys(o), ke = Object.keys(e);
+      if (ko.length !== ke.length || ke.some(f => !ST_POS.has(f) && e[f] !== o[f])) return false;
+      sw.push([i, e]);
+    }
+    for (const [i, e] of sw) { C.st[i] = e; C.stById.set(e.id, e); }
+    return true;
+  }
   function stationsChanged() {
     const out = [];
     for (const k of new Set([...C.keys.keys(), ...C.pending.keys()])) {
-      const m = ST_RE.exec(k), v = m && val(k);
-      if (!v || typeof v !== 'object' || !meta(v.story)) continue;
-      // (the shell's own kinds: the lobby shows only itself; an All stories circle its cards or a story of the list)
-      const kd = v.kind === LOBBY_ST || v.story === LOBBY_ST ? LOBBY_ST : v.kind === ALL || v.story === ALL ? ALL : '';
-      if (kd === LOBBY_ST ? v.story !== LOBBY_ST : kd === ALL ? v.story !== ALL && KINDS[v.story] : false) continue;
-      // (a studio circle made for a scene by Add's scene entries is marked so in its record, sc: never the room's plain one)
-      out.push(Object.assign({ id: m[1], story: v.story, x: +v.x || 0, z: +v.z || 0, yaw: +v.yaw || 0 }, kd ? { kind: kd } : {}, kd === ALL ? { sync: v.sync === true, arc: v.arc === true } : {},
-        !kd && v.story === STUDIO && v.sc === true ? { sc: true } : {}, kd !== LOBBY_ST && ASKS.includes(v.ask) ? { ask: v.ask } : {}));
+      const m = ST_RE.exec(k), e = m && stEntry(m[1], val(k));
+      if (e) out.push(e);
     }
     // (the pages that are not stories after the stories, in their list's order: the studio's; then the
     // All stories circles and the lobby)
@@ -3327,6 +3366,34 @@
       // (the grips, left and right: places in a line, turns by slerp; one that comes or goes, as it is)
       g: [0, 1].map(i => { const A = a.g && a.g[i], H = b.g && b.g[i]; return !H ? null : !A ? H : [lerp(A[0], H[0], f), lerp(A[1], H[1], f), lerp(A[2], H[2], f), ...qSlerp(A.slice(3), H.slice(3), f)]; }) }),
   };
+  // MIX.person into a person's own scratch (drawPeople, every frame for everyone in a headset: v222, no arrays made per
+  // person per frame). The same numbers; what it returns is overwritten at the next call, so it is read at once and
+  // never kept (bodyOf copies the grips; HOST.collab.body uses MIX.person, which makes new arrays)
+  function personMixer() {
+    const S = { head: [0, 0, 0, 0, 0, 0, 1], hands: [], g: [null, null] }, hs = [], gs = [[0, 0, 0, 0, 0, 0, 1], [0, 0, 0, 0, 0, 0, 1]];
+    return (a, b, f) => {
+      const h = S.head, ah = a.head, bh = b.head;
+      for (let j = 0; j < 3; j++) h[j] = lerp(ah[j], bh[j], f);
+      _qa.fromArray(ah, 3).slerp(_qb.fromArray(bh, 3), f).toArray(h, 3);
+      S.hands.length = b.hands.length;
+      for (let i = 0; i < b.hands.length; i++) {
+        const H = b.hands[i], A = a.hands[i];
+        if (!A) { S.hands[i] = H; continue; }
+        const o = hs[i] || (hs[i] = [0, 0, 0, 0, 0, 0, 0]), dx = lerp(A[3], H[3], f), dy = lerp(A[4], H[4], f), dz = lerp(A[5], H[5], f), l = Math.hypot(dx, dy, dz) || 1;
+        o[0] = lerp(A[0], H[0], f); o[1] = lerp(A[1], H[1], f); o[2] = lerp(A[2], H[2], f); o[3] = dx / l; o[4] = dy / l; o[5] = dz / l; o[6] = lerp(A[6], H[6], f);
+        S.hands[i] = o;
+      }
+      for (let i = 0; i < 2; i++) {
+        const A = a.g && a.g[i], H = b.g && b.g[i];
+        if (!H || !A) { S.g[i] = H || null; continue; }
+        const o = gs[i];
+        for (let j = 0; j < 3; j++) o[j] = lerp(A[j], H[j], f);
+        _qa.fromArray(A, 3).slerp(_qb.fromArray(H, 3), f).toArray(o, 3);
+        S.g[i] = o;
+      }
+      return S;
+    };
+  }
   // a moving key's value as it is drawn (its story is checked where it is used), or null: not a move (no ts), so the glide
   const SAMPLE = {
     place: v => (validPlace(v, v) ? { x: v.x, y: v.y, z: v.z, s: clampS(v.s), q: roomQ(v) } : null),
@@ -3434,15 +3501,16 @@
     if (VW.id !== L.id) { Object.assign(VW, { id: L.id, seen: '', at: 0, moving: false, gap: true, here: '', none: true, glide: '', home: null }); BUF.delete(k); }   // a station reached: as the room has it
     let cur = null;
     try { cur = C.hook.view(); } catch (e) { return; }
+    const jr = J(room), jc = J(cur);   // (v222: each turned into text once a frame, not up to five times)
     if (!cur) VW.gap = true;   // (flying, or in story mode: what comes after is no turn)
     if (cur && VW.none && !VW.glide) VW.home = { id: L.id, story: L.story, v: cur.slice() };   // (none while a view from the room glides in)
-    if (cur && (VW.none || VW.glide === J(cur))) VW.glide = '';
+    if (cur && (VW.none || VW.glide === jc)) VW.glide = '';
     VW.none = !cur;
     const B = BUF.get(k);
     if (B && B.story === L.story && !C.pending.has(k)) {   // someone else turning it
       if (cur) bufSeed(B, cur);
       const v = bufAt(B, MIX.view);
-      VW.seen = k + J(room); VW.moving = false; VW.gap = !cur;
+      VW.seen = k + jr; VW.moving = false; VW.gap = !cur;
       if (v && !bufDone(B)) { set(v, true); return; }
       // landed: exactly where it was let go, and the buffer done with (a turn here goes out again from the next frame).
       // What the story shows then is the room's view here (here), never a turn made here, even if it reads a little
@@ -3452,20 +3520,20 @@
       return;
     }
     // from the room without ts (a view after a flight, the first at a station, a write by hand): it glides in
-    const seen = k + J(room);
-    if (room && seen !== VW.seen && !C.pending.has(k)) { VW.seen = seen; VW.moving = false; if (J(cur) !== J(room)) { log('view', { st: L.id }); set(room); } return; }
+    const seen = k + jr;
+    if (room && seen !== VW.seen && !C.pending.has(k)) { VW.seen = seen; VW.moving = false; if (jc !== jr) { log('view', { st: L.id }); set(room); } return; }
     // turned here
     if (!cur || t - VW.at < SMOOTH.SEND) return;
-    const moved = J(cur) !== J(room) && J(cur) !== VW.here;
+    const moved = jc !== jr && jc !== VW.here;
     if (VW.gap) {   // (after a flight, or the first here: plain, the others glide to it)
       VW.gap = false; VW.moving = false;
-      if (moved) { VW.at = t; VW.here = ''; publish([[k, { v: cur, story: L.story }]]); VW.seen = k + J(cur); }
+      if (moved) { VW.at = t; VW.here = ''; publish([[k, { v: cur, story: L.story }]]); VW.seen = k + jc; }
       return;
     }
     if (!moved && !VW.moving) return;
     VW.at = t; VW.moving = moved; VW.here = '';
     publish([[k, Object.assign({ v: cur, story: L.story, ts: Math.round(now()) }, moved ? { h: 1 } : {})]], true);
-    VW.seen = k + J(cur);
+    VW.seen = k + jc;
   }
 
   // ------------------------------------------- the pump: five times a second --
@@ -3478,6 +3546,7 @@
     if (HOST.collab) { liveStep(); talkStep(); }   // (the room's live sound and Talk: subscribed or not, v162, v178; not while this file is still being read)
     // (in no room, with the dialog or the menu open: the rooms on this network looked for again now and then)
     if (!C.code) { if ((C.listing.dialog || (C.listing.menu && HOST.session)) && C.nearAt && t - C.nearAt > 15000 && !C.nearBusy) nearFind('again'); return; }
+    if (HOST.listRev !== C.iconRev) { C.iconRev = HOST.listRev; iconIdleKick(); }   // (the packages' index came, or changed: a station's icon may be known now, v222)
     if (C.local) probe(t);
     slotStep(t);   // (a peer-to-peer host: shown on its network)
     if (C.ws && C.ws.readyState === 1) {
@@ -3763,7 +3832,7 @@
     const now = performance.now();
     if (!HOST.lowpoly || now < (ICON.ask.get(name) || 0)) return;
     ICON.ask.set(name, now + 30000);
-    HOST.lowpoly(name).catch(e => log('icons', { name, err: String(e && e.message || e) }));
+    HOST.lowpoly(name).then(() => iconIdleKick(), e => log('icons', { name, err: String(e && e.message || e) }));   // (its file here: the icons built, v222)
   }
   // the miniature mk once its file is here (else asked for: null until then)
   function iconModel(mk) {
@@ -4244,9 +4313,45 @@
   // a person's body this frame (drawPeople): their head as drawn, their grips (smoothed as the head is: between the
   // samples, else eased), else a hand from its ray (an app before v126 sent no grips), else hanging; on their own room
   // floor; their feet planted again when they jump (shown again, another station)
-  const BIN = { head: [0, 0, 0, 0, 0, 0, 1], g: [null, null], ray: [null, null], floor: 0, toWorld: null, rgb: null, self: false, dt: 0, jump: false };
+  const BIN = { head: [0, 0, 0, 0, 0, 0, 1], g: [null, null], ray: [null, null], floor: 0, toWorld: null, rgb: null, self: false, dt: 0, jump: false, unseen: false };
+  // People's bodies nobody here can see (v222; the audit's step 4): a person out of every eye's view this frame is neither
+  // solved nor drawn (bodies.js: unseen). Each eye's view is a cone from this frame's own views (the same pose and
+  // projection the frame is drawn with), widened by EYEC.margin; a body is a sphere round its middle (EYEC.r: feet, raised
+  // hands, glows and the pools of light at its boots inside). Only in a headset's own session, lined up, with its head:
+  // never a camera (camera mode), a spaceship flying or the goggles on (the view is not the head's then)
+  const EYEC = { n: 0, r: 1.6, down: 0.7, margin: 5 * Math.PI / 180, eyes: [0, 1, 2, 3].map(() => ({ p: new THREE.Vector3(), f: new THREE.Vector3(), a: 0 })) };
+  const _ec = new THREE.Vector3(), _eq = new THREE.Quaternion();
+  function eyeCones() {
+    EYEC.n = 0;
+    const V = HD.views;
+    if (!V || !V.length || V.length > 4 || !R.headOK || !R.session || CAM.on || (HOST.ships && HOST.ships.flying && HOST.ships.flying()) || (HOST.flight && HOST.flight.on && HOST.flight.on())) return false;
+    for (const v of V) {
+      const e = v && v.projectionMatrix, T = v && v.transform;
+      if (!e || !T || e[11] !== -1 || !(e[0] > 0) || !(e[5] > 0)) { EYEC.n = 0; return false; }   // (not a plain perspective: everyone drawn)
+      const tx = Math.max(Math.abs(1 + e[8]), Math.abs(1 - e[8])) / e[0], ty = Math.max(Math.abs(1 + e[9]), Math.abs(1 - e[9])) / e[5];
+      const a = Math.atan(Math.hypot(tx, ty)) + EYEC.margin;
+      if (!(a < Math.PI * 0.9)) { EYEC.n = 0; return false; }
+      const E = EYEC.eyes[EYEC.n++], P = T.position, O = T.orientation;
+      E.p.set(P.x, P.y, P.z).applyMatrix4(R.mi);
+      E.f.set(0, 0, -1).applyQuaternion(_eq.set(O.x, O.y, O.z, O.w)).transformDirection(R.mi);
+      E.a = a;
+    }
+    return EYEC.n > 0;
+  }
+  // a person's body (its head at h, room coordinates) seen by an eye here this frame (eyeCones true first)
+  function bodySeen(h) {
+    const r = EYEC.r;
+    for (let i = 0; i < EYEC.n; i++) {
+      const E = EYEC.eyes[i];
+      _ec.set(h.x, h.y - EYEC.down, h.z).sub(E.p);
+      const L = _ec.length();
+      if (L <= r) return true;
+      if (Math.acos(Math.max(-1, Math.min(1, _ec.dot(E.f) / L))) <= E.a + Math.asin(r / L)) return true;
+    }
+    return false;
+  }
   const _bv = new THREE.Vector3(), _bgq = new THREE.Quaternion();
-  function bodyOf(o, id, g, k, jump, dt) {
+  function bodyOf(o, id, g, k, jump, dt, unseen) {
     if (!o.body) o.body = HOST.bodies.person(id);
     if (!o.body) return false;
     const E = o.e, H = BIN.head;
@@ -4270,7 +4375,7 @@
         if (!BIN.g[i] && !BIN.ray[i]) BIN.ray[i] = Ry;
       }
     }
-    BIN.floor = 0; BIN.toWorld = R.m; BIN.rgb = o.rgb; BIN.self = false; BIN.dt = dt; BIN.jump = jump;
+    BIN.floor = 0; BIN.toWorld = R.m; BIN.rgb = o.rgb; BIN.self = false; BIN.dt = dt; BIN.jump = jump; BIN.unseen = !!unseen;
     return HOST.bodies.add(o.body, BIN);
   }
   // your own body (My body): your head and your grips (or a tracked hand's grip space, else its wrist) as this frame
@@ -4419,6 +4524,7 @@
   const tagMode = () => (CAM.pc ? pcShown(PC.opt.labels, cardMode(), 'fixed') : cardMode());
   const stCardMode = () => (CAM.pc ? pcShown(PC.opt.cards, cardMode(), 'fixed') : cardMode());
   const _M = new THREE.Matrix4(), _c = new THREE.Color(), _ONE = new THREE.Vector3(1, 1, 1);
+  const NOM = Object.freeze({});   // (a person the members list does not have yet)
   function drawPeople(dt) {
     const k0 = 1 - Math.exp(-dt / 0.06);   // without ts: eased towards the latest presence (time constant 60 ms)
     const vr = HOST.mode !== 'immersive-ar', cm = tagMode();
@@ -4426,10 +4532,11 @@
     for (const id of OV.people.keys()) if (!C.pres.has(id) || !C.pres.get(id).head || C.pres.get(id).cam || (CAM.on && !CAM.people)) dropPerson(id);
     const L = liveSt(), all = !L || peopleAll() || CAM.on;
     let nH = 0, nHa = 0, nD = 0, nR = 0, nS = 0;
+    const cones = eyeCones();   // (v222: bodies out of view are not solved or drawn)
     const cap = PPL.cap, B = PPL.g ? { h: PPL.heads, ha: PPL.hands, d: PPL.dots, s: PPL.signs, r: PPL.rays } : null;
     for (const [id, P] of C.pres) {
       if (!P.head || P.cam || (CAM.on && !CAM.people)) continue;
-      const o = personFor(id), m = member(id) || {}, col = m.color || '#f2f6fc', name = m.name || 'Someone';
+      const o = personFor(id), m = member(id) || NOM, col = m.color || '#f2f6fc', name = m.name || 'Someone';
       if (!B) return drawPeople(dt);   // (made just now: again with the meshes)
       o.g.visible = all || P.st === L.id;
       if (!o.g.visible) { o.e = null; continue; }   // (shown again where they are then, not gliding from where they were)
@@ -4446,7 +4553,7 @@
         tagDraw(o);
       }
       // where they were DELAY ago, between the samples around that moment (smoothing), exactly; else eased to the latest
-      const S = bufAt(P.buf, MIX.person), k = S ? 1 : k0, h = S ? S.head : P.head, hands = S ? S.hands : P.hands;
+      const S = bufAt(P.buf, o.mix || (o.mix = personMixer())), k = S ? 1 : k0, h = S ? S.head : P.head, hands = S ? S.hands : P.hands;
       // (shown again, or at another station: a body's feet planted afresh under it, not walked over from where they were)
       const jump = !o.e || o.st !== P.st;
       o.st = P.st;
@@ -4488,12 +4595,12 @@
           const pa = B.r.geometry.attributes.position.array, ca = B.r.geometry.attributes.color.array, j = nR * 6;
           pa[j] = E.o.x; pa[j + 1] = E.o.y; pa[j + 2] = E.o.z; pa[j + 3] = o.dots[i].position.x; pa[j + 4] = o.dots[i].position.y; pa[j + 5] = o.dots[i].position.z;
           for (let v = 0; v < 2; v++) { ca[j + v * 3] = o.rgb[0]; ca[j + v * 3 + 1] = o.rgb[1]; ca[j + v * 3 + 2] = o.rgb[2]; }
-          if (nD < cap * 2) { _M.compose(o.dots[i].position, _q.identity(), _ONE).toArray(B.d.instanceMatrix.array, nD * 16); B.d.instanceColor.array.set([o.rgb[0] + (1 - o.rgb[0]) * 0.5, o.rgb[1] + (1 - o.rgb[1]) * 0.5, o.rgb[2] + (1 - o.rgb[2]) * 0.5], nD * 3); nD++; }
+          if (nD < cap * 2) { _M.compose(o.dots[i].position, _q.identity(), _ONE).toArray(B.d.instanceMatrix.array, nD * 16); const ic = B.d.instanceColor.array; for (let c = 0; c < 3; c++) ic[nD * 3 + c] = o.rgb[c] + (1 - o.rgb[c]) * 0.5; nD++; }
           nR++;
         }
         if (o.hands[i].visible && !o.asBody && nHa < cap * 2) { _M.compose(E.o, _q.identity(), _ONE).toArray(B.ha.instanceMatrix.array, nHa * 16); B.ha.instanceColor.array.set(o.rgb, nHa * 3); nHa++; }
       }
-      if (o.asBody && !bodyOf(o, id, S ? S.g : P.g, k, jump, dt)) o.asBody = false;   // (no room left: the head next frame)
+      if (o.asBody && !bodyOf(o, id, S ? S.g : P.g, k, jump, dt, cones && !bodySeen(o.e.p))) o.asBody = false;   // (no room left: the head next frame)
     }
     if (!B) return;
     const set = (m, n, cl) => {
@@ -5225,7 +5332,12 @@
     return y + 64 + 24;
   }
   function drawPanel() {
-    const S = OV.panel, sig = panelSig();
+    const S = OV.panel, t = performance.now();
+    // (v222: what the menu shows is asked at most 10 times a second, not every frame; a press, a page or a poke clears
+    // S.sig and it is drawn on the next frame, as before; what is pointed at is lit every frame)
+    if (S.sig && t - (S.sigAt || 0) < 100) { panelHover(S); return; }
+    S.sigAt = t;
+    const sig = panelSig();
     if (sig === S.sig) { panelHover(S); return; }
     S.sig = sig; S.draws = (S.draws || 0) + 1; S.hdrawn = S.hover;
     if (sig !== S.csig) { S.csig = sig; S.cver = (S.cver || 0) + 1; }   // (what it shows, the light of what is pointed at aside)
@@ -7370,7 +7482,7 @@
       }
     }
     const age = Math.max(0, Math.round(trkNow() - last.at));
-    out.id = E.id; out.name = trkKey().names[E.id] || ''; out.kind = E.kind; out.p = p; out.q = q; out.ok = !!last.ok && age < TRK.lost; out.age = age;
+    out.id = E.id; out.name = trkKeyNow().names[E.id] || ''; out.kind = E.kind; out.p = p; out.q = q; out.ok = !!last.ok && age < TRK.lost; out.age = age;
     return out;
   }
   function trackers() {
@@ -7398,6 +7510,10 @@
     if (m && typeof v.m.k === 'string' && AREA_ID.test(v.m.k) && ptOK(v.m.ra) && ptOK(v.m.rb)) Object.assign(m, { k: v.m.k, ra: v.m.ra.slice(), rb: v.m.rb.slice() });
     return { on: v.on === true, m, names, by: typeof v.by === 'string' ? v.by : '', at: +v.at || 0 };
   }
+  // (v222: the same read kept while the room's key is the same value: trkPose and trkUsed ask for it per tracker per frame.
+  // Read only here; trkKey() itself still makes a fresh one for callers that hand it on)
+  const TKM = { v: undefined, K: null };
+  const trkKeyNow = () => { const v = val('trk'); if (!TKM.K || TKM.v !== v) { TKM.v = v; TKM.K = trkKey(); } return TKM.K; };
   // the room's key written: on, m or names (a write keeps what it does not change, also fields of a newer app's)
   function setTrk(o) {
     if (!C.code || !C.welcomed) return false;
@@ -7424,7 +7540,7 @@
     return setTrk({ names });
   }
   // the room uses the PC's trackers, and they are lined up and heard
-  const trkUsed = () => !!C.code && trkKey().on && TRK.l === 'hand' && !!TRK.heard && performance.now() - TRK.heard < 3000;
+  const trkUsed = () => !!C.code && trkKeyNow().on && TRK.l === 'hand' && !!TRK.heard && performance.now() - TRK.heard < 3000;
   // the Index's head, as the trackers see it (the first seen), and whether it is seen now
   function trkHead() { for (const E of TRK.list.values()) if (E.kind === 'h' && E.s.length) return E; return null; }
   const trkHeadOK = () => { const H = trkHead(), L = H && H.s[H.s.length - 1]; return !!(L && L.ok && trkNow() - L.at < TRK.lost); };
@@ -7608,7 +7724,8 @@
     if (!TRK.grp) { TRK.grp = new THREE.Group(); TRK.grp.name = 'trackers'; }
     if (TRK.grp.parent !== OV.room) OV.room.add(TRK.grp);
     TRK.grp.visible = true;
-    const T = trkT(), seen = new Set();
+    const T = trkT(), seen = TRK.seen || (TRK.seen = new Set());
+    seen.clear();
     for (const E of TRK.list.values()) {
       if (E.kind !== 't' || !E.s.length) continue;
       const P = trkPose(E, T, PUCK_T), o = TRK.pucks.get(E.id) || puckFor(E.id), name = P.name || E.id;
@@ -7624,7 +7741,7 @@
       if (o.ok !== P.ok) { o.ok = P.ok; o.ring.material.color.set(P.ok ? CYAN : '#6c7d94'); o.ring.material.opacity = P.ok ? 1 : 0.5; }
       if (R.headOK) o.sign.rotation.set(0, Math.atan2(R.hr.x - P.p[0], R.hr.z - P.p[2]), 0);
     }
-    for (const id of [...TRK.pucks.keys()]) if (!seen.has(id)) dropPuck(id);
+    for (const id of TRK.pucks.keys()) if (!seen.has(id)) dropPuck(id);   // (a Map lets go of a key while it is walked)
   }
 
   // ---- the Index in the room: the PC's page in VR with the Index lines up from its head as the trackers see it (its kind
@@ -7781,6 +7898,10 @@
   function subText(el, t) {
     const k = SUB.txt.get(el);
     if (k && t - k.at < 250) return k.s;
+    // (v222: read again four times a second only when its text changed, a live number: the text as the browser has it is
+    // compared, and the walk below runs then, not for every cue of the chapter each time)
+    const raw = el.hasAttribute('data-say') ? '\u0001' + (el.dataset.say || '') : el.textContent;
+    if (k && k.raw === raw) { k.at = t; return k.s; }
     let s = '', lp = null;
     // a line's own spoken words (data-say: what a live number would show wrongly; empty, no caption), as the voice says it
     if (el.hasAttribute('data-say')) s = el.dataset.say || '';
@@ -7801,7 +7922,7 @@
     }
     s = s.replace(/\s+/g, ' ').trim();
     if (!/\p{L}{2}/u.test(s)) s = '';   // (a chart's numbers are not read)
-    SUB.txt.set(el, { s, at: t });
+    SUB.txt.set(el, { s, at: t, raw });
     return s;
   }
   // a line (its cues' texts joined by a new line, which always breaks) in captions: as few as fit two lines each, broken
@@ -8170,7 +8291,7 @@
   // ---------------------------------------------------------- every frame --
   // From the shell's own frame callback in a headset (and from HOST.anchor.frame, which every story calls):
   // the room frame, your head in the room, your station, presence, the sound zone and the overlay
-  const HD = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false };
+  const HD = { p: new THREE.Vector3(), q: new THREE.Quaternion(), ok: false, views: null };   // (views: this frame's eyes, bodySeen)
   // your head where it really is, into p (and its turn into q): HD is where three.js has it, and moving with the sticks in
   // VR (a headset elsewhere in a room, v128; index.html) moves that, so what compares the head with the real floor's origin
   // or spaces takes the travel back first (HOST.xr.toReal: as it is with none, or with an older index.html)
@@ -8234,11 +8355,11 @@
     if (C.code) renderStep();   // (the time others' moves are drawn at, smoothed)
     attachCheck();
     const local = refSpace();
-    HD.ok = false;
+    HD.ok = false; HD.views = null;
     if (f && local) {
       let vp = null;
       try { vp = f.getViewerPose(local); } catch (e) { /* not in this frame */ }
-      if (vp) { const p = vp.transform.position, q = vp.transform.orientation; HD.p.set(p.x, p.y, p.z); HD.q.set(q.x, q.y, q.z, q.w); HD.ok = true; }
+      if (vp) { const p = vp.transform.position, q = vp.transform.orientation; HD.p.set(p.x, p.y, p.z); HD.q.set(q.x, q.y, q.z, q.w); HD.ok = true; HD.views = vp.views || null; }
     }
     if (HD.ok && HOST.sfx) HOST.sfx.listen(HD.p, HD.q);   // (the sound effects hear from your head)
     if (HOST.collab && TH.talkers.size) talkPlace(t);   // (Talk's voices from the talkers' heads, v178)

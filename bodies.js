@@ -19,7 +19,9 @@
 //                        g: [left, right] grips as [x, y, z, qx, qy, qz, qw] or null, ray: [left, right] { o, d } or
 //                        null (a hand from its ray where no grip came), floor, toWorld (a Matrix4 from the frame the
 //                        poses are in to the world, or null), rgb, self (your own body: the head and neck folded away),
-//                        dt (s), jump (feet planted again under them) }
+//                        dt (s), jump (feet planted again under them), unseen (v222: out of every eye's view this
+//                        frame: its standing height still sampled, nothing solved or drawn; back in view its feet are
+//                        planted again under it, as after a jump) }
 //   warm(renderer)       its two programs linked ahead of the first body (shared.js calls it as it loads)
 //   info(B), stats()     for tests: where a body's feet are, its steps; how many were drawn and in how many draws
 // What a story uses for figures of its own (v173, the tutorial's guide; loaded by HOST.needBodies(), shared.js):
@@ -844,12 +846,19 @@ void main() {
   function addTo(S, B, I) {
     if (!B || !S || S.dead || !valid(I.head)) return false;
     const only = !!I.warm;
-    if (!only && S.n >= S.cap) return false;
     const dt = I.dt > 0 ? Math.min(I.dt, 0.25) : 0, head = I.head, hp = _v.fromArray(head), ease = I.ease == null || !(I.ease >= 0) ? 0.2 : +I.ease;
+    // (unseen: nobody here sees it, so no solve and no row; its eye height goes on being sampled as when drawn)
+    if (I.unseen && !only && !I.self) {
+      B.hp.copy(hp); B.hpOK = true; B.away = true;
+      if (!B.fixed) eyeStep(B, head[1] - I.floor, dt);
+      B.cal.floor = I.floor;
+      return true;
+    }
+    if (!only && S.n >= S.cap) return false;
     // (a jump: a change of station, coming back into view, a head leaping or rushing (JUMP): the feet planted
     // again under it, the hands where they are)
-    const moved = B.hpOK ? hp.distanceTo(B.hp) : 0, jump = !!I.jump || moved > JUMP.m || (dt > 0 && moved > JUMP.min && moved / dt > JUMP.v);
-    B.hp.copy(hp); B.hpOK = true;
+    const moved = B.hpOK ? hp.distanceTo(B.hp) : 0, jump = !!I.jump || !!B.away || moved > JUMP.m || (dt > 0 && moved > JUMP.min && moved / dt > JUMP.v);
+    B.hp.copy(hp); B.hpOK = true; B.away = false;
     if (jump) { B.st = {}; for (const H of B.H) H.shOK = false; }
     if (!B.fixed) eyeStep(B, head[1] - I.floor, dt);
     B.cal.floor = I.floor;

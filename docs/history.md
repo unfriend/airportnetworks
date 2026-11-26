@@ -406,6 +406,22 @@ the one still pending is not sent again. Nothing is lost by that: on one socket 
 room on this device) answers every set with its broadcast or a refusal naming the keys, a slow reader's socket is closed
 rather than skipped, and every new socket's welcome clears what was pending and takes the room's values.
 
+### A room's running costs (v222, audit row D)
+
+The audit (docs/audit-2026-11) found a shared room doing work every frame or every 0.4 s that changed nothing. v222 cut
+it without changing what anyone sees, the room's keys, any `state()` or `FORMAT` (docs/agents/shared-rooms.md, "A room's
+running costs cut"). Measured headless, a page in a room while someone else carried a circle for 6 s (91 writes) with
+seven other rooms kept on the device (about 60 KB each), over 9 s: local storage writes 13 (7.0 KB) to 1 (0.5 KB); reads
+108 (6.4 MB) to 4 (none of a kept room); `JSON.parse` 208 calls (6.4 MB) to 103 (13 KB, the relay's messages); the
+station list built again 91 times to 0; the circle and the kept copy ended at the same place in both. The people's pose
+mix (`personMixer`) gives the same numbers as `MIX.person` (20,000 random cases) in 0.43 instead of 0.78 microseconds
+and with about 50 times fewer garbage collections. Only reasoned, not measured (they need a headset session): the menu's
+signature built at most 10 times a second instead of every frame, the subtitles' walk only when a cue's text changed,
+the trackers' key read once per value, a pending write's text kept (the studio's whole scene record turned into text
+once a poll instead of up to three times), and bodies out of view not solved or drawn (each a full IK solve and about 3,300
+triangles per eye per person). Sending a presence's fixed fields only on change was not done: the relay skips presence
+when a socket is backed up (v220), so a change could be lost.
+
 ### Getting around (v124)
 
 (v124; the owner, 8 November 2026: "a little popup toast at the beginning after alignment that tells

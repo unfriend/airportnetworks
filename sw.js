@@ -2,7 +2,7 @@
 // story package's files are cached as it is first opened (PKG). Bump VERSION when you change any shell file (a change
 // to one package's files alone needs none: its fingerprint in packages/index.json reaches the pages, v193). Every listed
 // story's main.js and miniatures are taken at install too (takeMains), its other files as it is first opened.
-const VERSION = 'networks-v221';
+const VERSION = 'networks-v222';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
   './fonts/B612-Regular.woff2', './fonts/B612-Bold.woff2', './fonts/B612-Italic.woff2'];
