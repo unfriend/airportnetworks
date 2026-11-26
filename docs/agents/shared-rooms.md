@@ -1181,9 +1181,14 @@ The plan is `docs/shared-space-plan.md`.
     (`buttons[3]` on two input sources) held down together for 2 s (`HOLD`, in `sticks`; only in a room in a headset
     session, not a phone or a camera) switch this headset between limited and full (`menuHold`, a notice *Full menu* or
     *Limited menu*, the switch's sound; in a room whose switch says full, a notice saying so and nothing else). The hold
-    counts as nothing else: from the moment both are down (`HOLD.eat`) any click waiting is dropped and no click counts
-    until both are let go, and in a room a single click waits for its stick to be let go before it opens the menu (so a
-    stick pressed first and held into the hold is no click; a click held past 0.4 s opens the menu as it is let go). No
+    counts as nothing else: from the moment both are down (`HOLD.eat`) a click waiting is taken into it and no click
+    counts until both are let go; both let go within 0.4 s of the first press (a brief click of both, together or the
+    second within the 0.4 s) is the one click it always was (its first stick's, waiting as before: the menu once); a longer
+    hold given up before 2 s does nothing. In a room a single click waits for its stick to be let go before it opens the
+    menu (so a stick pressed first and held into the hold is no click; a click held past 0.4 s opens the menu as it is let
+    go). A gap of more than 0.5 s between frames with both down starts the hold again (`HOLD.gap`); a controller gone from
+    the session's input sources drops its waiting click and its stick's state (`STKS`), as a new session does; outside a
+    room and in `menuLock` the hold is cleared (`holdReset`), and the room counts as full only for `full: true`. No
     equivalent with tracked hands. The unlock (`ML.full`, `ML.code`, `ML.s`) is this headset's alone: never stored, never
     in a `state()` or key, and not developer mode. It locks again (`menuLock`) on a second hold, joining a room (`join`),
     leaving one (`leave`), the session starting or ending (`watch`) and the session's `visibilitychange` to `hidden` (the

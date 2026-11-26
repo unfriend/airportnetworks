@@ -263,9 +263,11 @@ Its step *the limited menu* (v214, `--only 'stick moving: the limited menu'`, ab
 `collabMenus`, and the step clears the override with `HOST.collab.menuLevel({ force: false })`): the pretend headset's
 menu full outside a room (`why` *no room*); in a room on this device (*Somewhere else*) limited by default, its page's
 rows (`set:sound`, `sfxvol`, `subs`, `realign`, `close`; no tab, no Settings row, *Play* greyed with no story on show);
-both sticks held down (`buttons[3]` on both): 1 s in still limited and the hold eating clicks, 2.1 s in full (*unlocked*,
+a brief click of both sticks (together, and the second 0.1 s after the first) the menu once each; the left controller
+gone from the input sources with its stick down and back, then a click still opening the menu; both sticks held down (`buttons[3]` on both): 1 s in still limited and the hold eating clicks, 2.1 s in full (*unlocked*,
 the notice *Full menu*), let go: the menu, moving with the sticks and the ship as they were, the tabs and the Circles
-tab's *Menus* row there; a hold of 0.5 s nothing at all; a second 2 s hold limited again (*Limited menu*); unlocked again,
+tab's *Menus* row there; a hold of 0.5 s nothing at all; both down across 2.1 s with no frames not firing on the first frame back; a second 2 s
+hold (frames every 0.1 s) limited again (*Limited menu*); unlocked again,
 then the session hidden and visible: limited (`last` *hidden*); the room's switch (`HOST.collab.setMenus(true)`): full
 for the room (`why` *room*) and the Shared dialog's button there, then limited again; unlocked, left, and a new room:
 limited there.

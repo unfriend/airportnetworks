@@ -213,8 +213,14 @@
   // taken off (its session hidden). Outside a room, in a phone's AR and in camera mode: the full menu, as before. Tests:
   // localStorage collabMenus = full before the page loads (force), as collabAutoAll; HOST.collab.menuLevel()
   const ML = { full: false, code: '', s: null, force: get('collabMenus') === 'full', at: 0, why: '' };
-  const roomMenusFull = () => { const v = val('menus'); return !!(v && v.full); };
+  const roomMenusFull = () => { const v = val('menus'); return !!(v && v.full === true); };
+  // both sticks held down in a shared room: the staff unlock (sticks). since: when both went down (0: not both), first and
+  // src: the first press of the two (a brief click of both still counts as that one click), last: the last frame seen
+  // with both down (a gap restarts the hold), eat: no click counts until both are let go
+  const HOLD = { ms: 2000, gap: 500, since: 0, first: 0, src: null, last: 0, done: false, eat: false };
+  const holdReset = () => Object.assign(HOLD, { since: 0, first: 0, src: null, last: 0, done: false, eat: false });
   function menuLock(why) {
+    holdReset();
     if (!ML.full) return;
     ML.full = false; ML.why = why; ML.at = performance.now();
     log('menu level', { full: false, by: why });
@@ -7952,7 +7958,7 @@
   // as a click (the menu's, both at once, the double click that lands) only with the stick within SHIPCLK.mid of its middle
   // as it goes down; pushed further it is a steer that clicked, and counts for nothing (logged at most once a second)
   const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 }, CLK = { src: null, at: 0, gap: 400 }, SHIPCLK = { mid: 0.5, logAt: 0 };
-  const HOLD = { ms: 2000, since: 0, done: false, eat: false };   // both sticks held down in a shared room: the staff unlock (v214)
+  const STKS = { s: null, list: [] };   // the session and input sources sticks() saw last (a source gone: its stick and click forgotten)
   const pressed = (gp, i) => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
   // why moving with the sticks does not apply here (HOST.xr.walkWhy), for the notice and the menu's note. In a shared room
   // it applies to a headset elsewhere (v128; the owner, 9 November 2026: "should also work in shared rooms everywhere when
@@ -7989,6 +7995,11 @@
     let list = [];
     try { list = R.session ? [...R.session.inputSources] : []; } catch (e) { /* gone */ }
     newsStick(list, performance.now());   // (What is new's lists scrolled by a stick, v144)
+    // (a new session, or a controller gone: a click it left waiting is dropped and its stick forgotten, so a stick down as it
+    // went never holds the next clicks back)
+    if (STKS.s !== R.session) { STKS.s = R.session; STKS.list = []; CLK.src = null; holdReset(); }
+    for (const src of STKS.list) if (!list.includes(src)) { STK.delete(src); if (CLK.src === src) CLK.src = null; if (HOLD.src === src) HOLD.src = null; }
+    STKS.list = list;
     const clicks = [];
     let twice2 = false, down = 0;
     const t = performance.now();
@@ -8019,13 +8030,27 @@
       w.b = y; BY.m.set(src, w);
     }
     // in a shared room (v214), both sticks held down together: the staff unlock once they are held HOLD.ms, and nothing
-    // else meanwhile (HOLD.eat: no menu, no moving with the sticks, no spaceship) until both are let go; a click waiting
-    // for its 0.4 s waits there too until its stick is let go, so a stick pressed first and held for the hold is no click
+    // else meanwhile (HOLD.eat: no menu, no moving with the sticks, no spaceship) until both are let go. Both let go within
+    // CLK.gap of the first press: the one click it always was (its first stick's, waiting as before); a longer hold given
+    // up before HOLD.ms: nothing. A click waiting for its 0.4 s waits too until its stick is let go, so a stick pressed
+    // first and held for the hold is taken into it. Frames stopped for a while with both down start the hold again
     const room = !!(C.code && HOST.session && !CAM.on && !phAR());
-    if (room && down >= 2) {
-      if (!HOLD.since) { HOLD.since = t; HOLD.eat = true; CLK.src = null; log('menu hold', { start: true }); }
+    if (!room) { if (HOLD.since || HOLD.eat) holdReset(); }
+    else if (down >= 2) {
+      if (!HOLD.since) {
+        Object.assign(HOLD, { since: t, last: t, eat: true, done: false, first: CLK.src ? CLK.at : t, src: CLK.src || clicks[0] || null });
+        CLK.src = null; log('menu hold', { start: true });
+      }
+      if (!HOLD.done && t - HOLD.last > HOLD.gap) { HOLD.since = t; log('menu hold', { again: true }); }   // (no frames for a while: from now)
+      HOLD.last = t;
       if (!HOLD.done && t - HOLD.since >= HOLD.ms) { HOLD.done = true; menuHold(); }
-    } else { HOLD.since = 0; HOLD.done = false; if (!down) HOLD.eat = false; }
+    } else if (HOLD.eat) {
+      HOLD.since = 0;
+      if (!down) {
+        if (!HOLD.done && HOLD.src && t - HOLD.first < CLK.gap) { CLK.src = HOLD.src; CLK.at = HOLD.first; }   // (a brief click of both: its first press waits as ever)
+        holdReset(); clicks.length = 0;
+      }
+    }
     if (HOLD.eat) { CLK.src = null; clicks.length = 0; }
     // a first click waiting: no second one in time, the menu; the same stick again, moving with the sticks (never the
     // menu); the other stick meanwhile, the same click

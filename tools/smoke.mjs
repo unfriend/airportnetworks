@@ -15922,6 +15922,8 @@ if (runs('stick moving')) {
     const lv = () => wp.evaluate(() => HOST.collab.menuLevel());
     const both = on => wp.evaluate(on => { for (const h of ['L', 'R']) window.__w[h].gamepad.buttons[3].pressed = on; window.__wtick(1); }, on);
     const ids = () => wp.evaluate(() => HOST.collab.menuIds());
+    // both sticks held down for ms, with frames every 0.1 s as a headset draws them (a gap of more than 0.5 s restarts it)
+    const holdFor = async ms => { await both(true); const t0 = Date.now(); while (Date.now() - t0 < ms) { await wp.waitForTimeout(100); await tick(1); } };
     const state = () => wp.evaluate(() => [HOST.collab.menu, HOST.xr.walk(), !!(HOST.ships && HOST.ships.flying && HOST.ships.flying())]);
     const room = async () => {
       await wp.evaluate(() => { HOST.collab.autoAll(false); HOST.collab.autoGuide(false); HOST.collab.autoWelcome(false); HOST.collab.setPeer('off'); HOST.collab.create(); });
@@ -15940,11 +15942,27 @@ if (runs('stick moving')) {
       const want = ['set:sound', 'sfxvol', 'subs', 'realign', 'close'], miss = want.filter(k => !i1.includes(k));
       if (miss.length || i1.some(k => /^tab:/.test(k)) || i1.includes('settings') || i1.includes('devmode')) bad.push('the limited page: ' + JSON.stringify({ miss, ids: i1 }));
       if ((await wp.evaluate(() => HOST.collab.menuFind('lim:play'))) !== null) bad.push('Play not greyed with no story on show');
+      // a brief click of both sticks (together, then the second 0.1 s after the first): one click each, the menu once
+      const btn = (h, on) => wp.evaluate(([h, on]) => { window.__w[h].gamepad.buttons[3].pressed = on; window.__wtick(1); }, [h, on]);
+      await wp.evaluate(() => HOST.collab.panelOpen(false)); await wp.waitForTimeout(500); await tick(1);
+      await both(true); await both(false); await wp.waitForTimeout(500); await tick(2);
+      const bc1 = await state();
+      await btn('L', true); await wp.waitForTimeout(100); await btn('R', true); await both(false); await wp.waitForTimeout(500); await tick(2);
+      const bc2 = await state();
+      if (!bc1[0] || bc2[0] || bc1[1] || bc2[1]) bad.push('a brief click of both sticks in a room: ' + JSON.stringify({ together: bc1, staggered: bc2 }));
+      // the clicking controller gone with its stick down, then back: a new click still opens the menu
+      await btn('L', true);
+      await wp.evaluate(() => { window.__w.s.inputSources = [window.__w.R]; window.__wtick(1); }); await wp.waitForTimeout(500); await tick(2);
+      await wp.evaluate(() => { window.__w.L.gamepad.buttons[3].pressed = false; window.__w.s.inputSources = [window.__w.L, window.__w.R]; window.__wtick(2); });
+      await click('L', 1); await wp.waitForTimeout(500); await tick(2);
+      const gone = await state();
+      if (!gone[0]) bad.push('a click after its controller went with the stick down: no menu ' + JSON.stringify(gone));
+      await wp.evaluate(() => HOST.collab.panelOpen(true)); await tick(2);
       // the hold: both sticks down, 2.1 s, then let go; nothing else happens (the menu stays open, no moving, no ship)
       const s0 = await state();
-      await both(true); await wp.waitForTimeout(1000); await tick(1);
+      await holdFor(1000);
       const mid = await lv();
-      await wp.waitForTimeout(1100); await tick(1);
+      await holdFor(1100);
       const l2 = await lv(), n2 = await note();
       await both(false); await wp.waitForTimeout(500); await tick(2);
       const s1 = await state(), i2 = await ids();
@@ -15953,14 +15971,19 @@ if (runs('stick moving')) {
       if (JSON.stringify(s0) !== JSON.stringify(s1)) bad.push('the hold counted as something else: ' + JSON.stringify({ before: s0, after: s1 }));
       if (!i2.includes('tab:settings') || !i2.includes('menus')) bad.push('unlocked: no tabs, or no Menus row on Circles ' + JSON.stringify(i2));
       // a short hold: nothing at all; a second 2 s hold: limited again
-      await both(true); await wp.waitForTimeout(500); await tick(1); await both(false); await wp.waitForTimeout(500); await tick(2);
+      await holdFor(500); await both(false); await wp.waitForTimeout(500); await tick(2);
       const l3 = await lv(), s2 = await state();
       if (l3.level !== 'full' || JSON.stringify(s2) !== JSON.stringify(s0)) bad.push('a short hold: ' + JSON.stringify({ l3, s2 }));
-      await both(true); await wp.waitForTimeout(2100); await tick(1); await both(false); await tick(1);
+      // (both down, then no frames for 2.1 s: the first frame back starts the hold again, nothing yet)
+      await both(true); await wp.waitForTimeout(2100); await tick(1);
+      const lg = await lv();
+      if (lg.level !== 'full') bad.push('a hold across a gap of frames fired at once: ' + JSON.stringify(lg));
+      await both(false); await tick(1);
+      await holdFor(2100); await both(false); await tick(1);
       const l4 = await lv(), n4 = await note();
       if (l4.level !== 'limited' || !n4.startsWith('Limited menu')) bad.push('the second hold: ' + JSON.stringify({ l4, n4 }));
       // unlocked again, then the headset taken off (its session hidden): limited
-      await both(true); await wp.waitForTimeout(2100); await tick(1); await both(false); await tick(1);
+      await holdFor(2100); await both(false); await tick(1);
       await wp.evaluate(() => { const W = window.__w; W.s.visibilityState = 'hidden'; W.s.fire('visibilitychange', {}); W.s.visibilityState = 'visible'; W.s.fire('visibilitychange', {}); }); await tick(2);
       const l5 = await lv();
       if (l5.level !== 'limited' || l5.last !== 'hidden') bad.push('hidden: ' + JSON.stringify(l5));
@@ -15971,7 +15994,7 @@ if (runs('stick moving')) {
       await wp.evaluate(() => HOST.collab.setMenus(false)); await tick(2);
       if ((await lv()).level !== 'limited') bad.push('the room\'s switch back: not limited');
       // unlocked, then into another room: limited there
-      await both(true); await wp.waitForTimeout(2100); await tick(1); await both(false); await tick(1);
+      await holdFor(2100); await both(false); await tick(1);
       const l7 = await lv();
       await wp.evaluate(() => HOST.collab.leave()); await tick(1);
       const l8 = await lv();
