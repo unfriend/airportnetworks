@@ -735,6 +735,9 @@ async function standbyRound() {
   await H.evaluate(() => window.__xr.head([-6, 1.6, 6, 0]));   // (away from the stations, as in the main run)
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
   await frames(H, 300);
+  // (a frame from someone else is taken only once this page's socket has been open 5 s, the members known: a page
+  // that loaded quickly gets here sooner, so wait for it)
+  await until(H, () => { window.__xr.step(); return HOST.room.src === 'adopted'; }, null, 8000);
   const fr = await H.evaluate(() => HOST.room.frame && { o: HOST.room.frame.o, x: HOST.room.frame.x, src: HOST.room.src });
   const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
   check('standby: the pretend headset aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),
@@ -5171,6 +5174,32 @@ async function guideRound() {
   const sk3 = await tap(H2, 'guide:skip');
   check('guide: back again and lined up, the flow opens again at Line up (no spots yet), and Skip for now closes it', f3 && n3.step === 1 && n3.case === 'none' && n3.status.k === 'ok' && sk3 && !(await G(H2)).open,
     JSON.stringify({ f3, n3 }));
+  // (v220; the owner, 26 November 2026: "add calibrate to the limited menu too") the limited menu, its flow skipped: how it
+  // lines up, Calibrate; opened again mid-calibration it says Stop calibrating, which stops it; Room setup opens the guide
+  const LM = async () => H2.evaluate(() => { const X = window.__xr; X.step(); X.step(); const S = HOST.collab.overlay().panel, ids = HOST.collab.menuIds(), f = id => { const r = HOST.collab.menuFind(id); return r ? !!r.fn : null; };
+    const r = S.regions.find(q => q.id === 'lim:cal'), c = S.regions.find(q => q.id === 'close');
+    return { level: HOST.collab.menuLevel().level, tabs: ids.some(i => i.startsWith('tab:')), cal: f('lim:cal'), guide: f('lim:guide'), label: r && r.label, calib: !!HOST.room.internals().calib, fits: !!c && c.y + c.h <= S.vis && S.vis <= S.h }; });
+  await H2.evaluate(() => { HOST.collab.menuLevel({ force: false }); HOST.collab.panelOpen(true); });
+  const lm0 = await LM();
+  const lmStart = lm0.level === 'limited' && !lm0.tabs && lm0.cal === true && lm0.guide === true && lm0.fits && await tap(H2, 'lim:cal');
+  const lm1 = await LM();
+  await H2.evaluate(() => { HOST.collab.panelOpen(false); window.__xr.step(); HOST.collab.panelOpen(true); });
+  const lm2 = await LM();
+  const lmStop = lm2.calib && lm2.cal === true && await tap(H2, 'lim:cal');
+  const lm3 = await LM();
+  await menuPic(H2, 'guide-13b-limited.png');
+  const lmGuide = await tap(H2, 'lim:guide'), lm4 = await G(H2);
+  check('guide: the limited menu (its flow skipped): Calibrate starts a calibration by hand; opened again mid-calibration it says Stop calibrating, which stops it; Room setup opens the guide (the flow left skipped)',
+    lmStart && lm1.calib && lmStop && lm2.label === 'Stop calibrating' && !lm3.calib && lm3.label === 'Calibrate' && lmGuide && lm4.open && lm4.flow === 'skipped' && lm4.src === 'adopted',
+    JSON.stringify({ lm0, lm1, lm2, lm3, lmGuide, lm4: [lm4.open, lm4.step, lm4.flow, lm4.src] }));
+  // (the review of v220) the guide opened from the limited menu never offers the room-wide rows: no Fresh shared space on
+  // its page 4, no Add spots for another area that works on its page 5 (greyed, or below the fold)
+  const lmPg = async n => { for (let i = 0; i < 5 && (await G(H2)).step !== n; i++) await tap(H2, (await G(H2)).step < n ? 'guide:next' : 'guide:back'); return (await G(H2)).step === n; };
+  const lm3p = await lmPg(3), lmFresh = await has(H2, 'guide:fresh'), lm4p = await lmPg(4), lmArea = await has(H2, 'guide:areaadd');
+  check('guide: from the limited menu its pages offer no room-wide rows (no Fresh shared space; Add spots for another area greyed)',
+    lm3p && lmFresh !== true && lm4p && lmArea !== true, JSON.stringify({ lm3p, lmFresh, lm4p, lmArea }));
+  await tap(H2, 'guide:close');
+  await H2.evaluate(() => { HOST.collab.panelOpen(false); HOST.collab.menuLevel({ force: true }); window.__xr.step(); });
   // ------------------------------------------------------------ the spots --
   // the first headset (the room's origin, no spots in the room) calibrates on two from Line up: its calibration sets the
   // room (rm, and a frame from the spots for its shared space); on to Check by itself; Check at A 3 cm off: green, done
@@ -5984,6 +6013,11 @@ async function areasRound() {
     // Lab's marks far off: logged, never compared as split; one from spots A and B's marks is compared
     await mark(H1, 'test areas compare');
     await H1.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'AR1'; for (const fn of X.resets.shared || []) fn({ transform: null }); HOST.room.internals().visibleAt = 0; });
+    // (headset 1, calibrated, publishes its own frame for the new space at once (publishOwn): the frame from Lab's goes
+    // in after it, or the two race at the relay and headset 1's, last, overwrites it)
+    const h1Id = await H1.evaluate(() => HOST.collab.id);
+    let ownAR1 = false;
+    for (let i = 0; i < 50 && !ownAR1; i++) { await frames(H1, 100); const k = (await roomInfo(code)).keys['rf.AR1']; ownAR1 = !!k && k.by === h1Id; }
     const fr = frameFor([RW[0] + 0.8, 0, RW[2] - 0.6, RW[3] + 0.3], 'AR1', pId, Date.now());
     await P.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), ['rf.AR1', Object.assign({ g: 'marks', m: { k: lab.id, a: tC, b: tD } }, fr)]);
     const cx = await until(H1, () => { window.__xr.step(); return window.__collabLog.some(e => e.ev === 'compare across areas'); }, null, 12000);
@@ -5992,7 +6026,7 @@ async function areasRound() {
     await P.evaluate(([k, v]) => HOST.collab.publish([[k, v]]), ['rf.AR1', Object.assign({ g: 'marks', m: [TIP, 2, TIP] }, fr, { at: Date.now() + 1 })]);
     const cmp2 = await until(H1, () => { window.__xr.step(); return !!HOST.room.cmp; }, null, 12000);
     check('areas: a frame from Lab\'s marks through the shared space, 1 m off, is not compared with spots A and B\'s (logged; the space not called split); one from spots A and B\'s marks is',
-      cx && !cmp1 && !split1 && cmp2, JSON.stringify({ cx, cmp1, split1, cmp2 }));
+      ownAR1 && cx && !cmp1 && !split1 && cmp2, JSON.stringify({ ownAR1, cx, cmp1, split1, cmp2 }));
     await P.evaluate(() => HOST.collab.publish([['rf.AR1', { uuid: 'AR1', o: [0, 0, 0], x: [1, 0, 0], g: 'shared', by: 'nobody', at: 1 }]]));
     // lined up through the shared space from a frame whose spots are Lab's: the crosses shown and checked are the area
     // nearest this headset, not the publisher's (Lab's only at Lab)
@@ -9137,6 +9171,9 @@ try {
   // the id arrives with the space's reset event, a moment later
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
   await frames(H, 300);
+  // (a frame from someone else is taken only once this page's socket has been open 5 s, the members known: a page
+  // that loaded quickly gets here sooner, so wait for it)
+  await until(H, () => { window.__xr.step(); return HOST.room.src === 'adopted'; }, null, 8000);
   const fr = await H.evaluate(() => HOST.room.frame && { o: HOST.room.frame.o, x: HOST.room.frame.x, src: HOST.room.src });
   const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
   check('headset: aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),

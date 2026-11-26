@@ -1170,7 +1170,13 @@ The plan is `docs/shared-space-plan.md`.
     *Subtitles* (`subs`, this headset's own choice over the room's default since v215, as there), in the pass story *English* / *Deutsch* (`lim:lang:<l>`: the story panel's own
     `lang:<l>` buttons, read from its `panels` hook's regions, so no story changed), *Leave the circle* (`tolobby`: Back to
     the lobby's), *Line up again* with *Things in the wrong place?* (`realign`: the Debug tab's Re-align, `realignNow`;
-    greyed while calibrating or asking the question) and *Close*. In its place, as on the full menu, what comes by itself:
+    greyed while calibrating or asking the question), and in a headset session in the room with the others (`here()`, not
+    camera mode; v220, the owner, 26 November 2026: "add calibrate to the limited menu too") how it lines up above it
+    (`lineUp()`'s text in its colour, as the Circles tab's), then *Calibrate* (`lim:cal`: the Debug tab's row, `guideCal`;
+    *Stop calibrating* while `R.calib` is set, which cancels it; greyed while the once-per-room question is unanswered)
+    and *Room setup* (`lim:guide`: the guide by hand, `guideOpen(PNL.gs, 'hand')`, which leaves the flow as it is; only
+    while `guideOn()`, else a note: on this headset alone; while the menu is limited the guide offers no room-wide row:
+    no *Fresh shared space*, *Add spots for another area* and *Replace* greyed, the review of v220) and *Close*. In its place, as on the full menu, what comes by itself:
     a keypad (`PNL.kp`), the room setup guide's pages (its check, and Calibrate behind *Not lined up?*), the relay's
     password (its row and page) and the once-per-room question (`questionRows`, shared with the Circles tab); the check by
     eye, the circles' question and *Getting around* are panels of their own and come as ever. A full page left open as it
@@ -1699,7 +1705,8 @@ The plan is `docs/shared-space-plan.md`.
     id as a rejoin is; the room left is not marked left on purpose), answers *In this room* for it (unless *Somewhere else* was answered for that room: kept, the Debug tab changes it), says so (*Room ABC:
     You are in its place, so this headset joined it*), lines up from its marks at once and the check by eye asks (why
     `place`), unless the room joined now holds (below); in a room joined by hand, or into a room left on purpose (or
-    whose code is another room's now), never by itself: the Debug tab offers *Join ABC: you are standing in its place*
+    whose code is another room's now: such rooms' places are looked for all the same, in a room or in none; v218 left
+    them out in no room and so never offered them, put back in v220), never by itself: the Debug tab offers *Join ABC: you are standing in its place*
     (a join by hand, which since v131 counts as joined by its place: `C.byPlace`, so a later move is by itself) and a notice says so once a session. Never while calibrating. The room joined now holds (`ownState`,
     `placeDecide`; the review of v130: never leave a room the headset may well be standing in because another room's
     anchor answered first), and the other room is then offered only:

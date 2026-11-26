@@ -4752,7 +4752,7 @@
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
       PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
       // (v214: the limited menu, the room's switch, and what the limited page shows that nothing above says)
-      (L => [L, roomMenusFull(), subsDefault(), L ? (A => (A ? A.mode + A.playing : ''))(storyApp()) : '', L && HOST.curKey === 'pass' ? langButtons().map(o => o.l + o.on).join() : '', L ? R.state : ''])(menuLimited()),
+      (L => [L, roomMenusFull(), subsDefault(), L ? (A => (A ? A.mode + A.playing : ''))(storyApp()) : '', L && HOST.curKey === 'pass' ? langButtons().map(o => o.l + o.on).join() : '', L ? R.state : '', L ? [guideOn(), (U => U.text + U.c)(lineUp()), !!R.calib, !!R.session, CAM.on] : ''])(menuLimited()),
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
         GD.fl, GD.red && GD.red.d, !!GD.ok, PNL.page === 'guide' ? [lineCase(), !!roomMk()] : '']]);
   }
@@ -4988,10 +4988,11 @@
       para('2. Calibrate on the two spots, on every headset: the bright ring at the controller\'s tip on spot A on the floor, hold still, pull the trigger; then spot B. Nothing overrides it, and it is found again next time.');
       calBtn(x, bw, false);
       y += 76;
-      const fr = canFresh(), fa = freshArmed();
+      // (room-wide rows, never from the limited menu: a visitor lines up only themselves, v220)
+      const lim = menuLimited(), fr = canFresh() && !lim, fa = freshArmed();
       para('3. Still out: check that each headset has scanned this room and runs the same browser version. Then a fresh shared space: everyone leaves AR, one headset enters first, the others after Room ready.');
       if (fr) { button(S, 'guide:fresh', x, y, bw, 58, fa ? 'Sure? Press again' : 'Fresh shared space', freshAsk, { px: 22, color: fa ? '#ffb43b' : undefined, on: fa }); y += 76; }
-      else { ctx.font = FONT(21); ctx.fillStyle = MUTED; y += wrapText(ctx, 'A fresh shared space needs the laptop relay serving this page.', x, y, w, 28, 2) + 14; }
+      else { ctx.font = FONT(21); ctx.fillStyle = MUTED; y += wrapText(ctx, lim ? 'A fresh shared space is for the room\'s staff (the full menu).' : 'A fresh shared space needs the laptop relay serving this page.', x, y, w, 28, 2) + 14; }
     } else {
       // Areas (v131): more tape crosses in other parts of the room, all in the one room frame. Add spots for another area
       // (a headset lined up with the room: best by its own spots), and check each area's crosses (a second headset lined
@@ -5001,7 +5002,7 @@
       if (D && D.step === 'replace') {
         const old = areaOf(D.k);
         para(`These crosses are ${old ? old.name + '\'s (' + old.L.join(' and ') + ')' : 'an area\'s'}: replace them with the ones you touched?`, AMBER);
-        button(S, 'guide:areareplace', x, y, bw, 60, 'Replace', () => { GD.touched = true; areaWrite(); }, { primary: true, px: 23 });
+        button(S, 'guide:areareplace', x, y, bw, 60, 'Replace', menuLimited() ? null : () => { GD.touched = true; areaWrite(); }, { primary: !menuLimited(), px: 23 });
         button(S, 'guide:areastop', x + bw + 16, y, bw, 60, 'Cancel', () => { GD.touched = true; areaStop(); }, { px: 23 });
         y += 76;
       } else if (D) {
@@ -5009,11 +5010,11 @@
         button(S, 'guide:areastop', x, y, bw, 60, 'Stop adding', () => { GD.touched = true; areaStop(); }, { on: true, px: 23 });
         y += 76;
       } else {
-        const can = canArea();
+        const lim = menuLimited(), can = canArea() && !lim;
         button(S, 'guide:areaadd', x, y, w, 60, 'Add spots for another area', can ? () => { GD.touched = true; areaAsk(); } : null, { primary: can, px: 23 });
         y += 68;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
-        y += wrapText(ctx, can ? 'This headset is lined up by its own spots: it measures where the new crosses are in the room.' : areasAll().length >= AREA.max ? `A room has at most ${AREA.max} areas.` : R.calib ? 'Not while calibrating' : R.aligned && R.frame && !areaFrom() ? 'Calibrate this headset on the room\'s crosses first (Line up): lined up through the shared space, its own floor would go into the new crosses.' : 'Once this headset is lined up', x, y, w, 28, 3) + 14;
+        y += wrapText(ctx, lim ? 'Adding an area is for the room\'s staff (the full menu).' : can ? 'This headset is lined up by its own spots: it measures where the new crosses are in the room.' : areasAll().length >= AREA.max ? `A room has at most ${AREA.max} areas.` : R.calib ? 'Not while calibrating' : R.aligned && R.frame && !areaFrom() ? 'Calibrate this headset on the room\'s crosses first (Line up): lined up through the shared space, its own floor would go into the new crosses.' : 'Once this headset is lined up', x, y, w, 28, 3) + 14;
       }
       const cs = checkState(), can2 = canCheck();
       for (const A of areasAll()) {
@@ -5144,7 +5145,8 @@
   // full menu's (or the story panel's) matching row calls: Play or Pause and Start again (the story's play button and its
   // timeline's start, APP.togglePlay and APP.seek: the station's clock for everyone at the circle), Sound and the effects'
   // volume (the Settings tab's), Subtitles (this headset's own, as there), the pass story's language (its own panel's buttons),
-  // Leave the circle (Back to the lobby), Line up again (Re-align) and Close. What comes by itself still comes in its
+  // Leave the circle (Back to the lobby), Line up again (Re-align), in the room with the others how it lines up, Calibrate
+  // (Stop calibrating) and Room setup (v220), and Close. What comes by itself still comes in its
   // place: a keypad, the room setup guide (its check and Calibrate), the relay's password and the once-per-room question
   const storyApp = () => {
     const A = showing() && C.ready && C.hook && C.hook.APP;
@@ -5198,9 +5200,21 @@
     note('Back to the lobby: every circle again', y);
     y += 76;
     const ag = !!R.again, cal = R.state === 'mark-a' || R.state === 'mark-b';
+    // calibrating by hand here too (the owner, 26 November 2026: "add calibrate to the limited menu too"): how this
+    // headset lines up (as the Circles tab says it), Calibrate (Stop calibrating while it runs: the full menu's guideCal)
+    // and Room setup (the guide by hand), only in the room with the others
+    const hand = !!(C.code && HOST.session && here() && !CAM.on);
+    if (hand) { const L = lineUp(); ctx.font = FONT(21, 700); ctx.fillStyle = luCol(L); y += wrapText(ctx, L.text || 'Lining up with the room...', x, y, w, 28, 2) + 10; }
     button(S, 'realign', x, y, bw, 60, ag ? 'Lining up...' : 'Line up again', R.session && !cal && !askHere() ? () => realignNow() : null, { on: ag, px: 23 });
     note('Things in the wrong place?', y);
     y += 76;
+    if (hand) {
+      const on = !!R.calib;
+      button(S, 'lim:cal', x, y, bw, 60, on ? 'Stop calibrating' : 'Calibrate', on || (R.session && !askHere()) ? guideCal : null, { on, px: 23 });
+      if (guideOn()) button(S, 'lim:guide', x + bw + 16, y, bw, 60, 'Room setup', () => guideOpen(PNL.gs, 'hand'), { px: 23 });
+      else note(on ? 'Touch the tape crosses, A then B' : 'Touch the tape crosses on the floor', y);
+      y += 76;
+    }
     line();
     button(S, 'close', x, y, w, 64, 'Close', () => menuOpen(false, 'close'), { px: 26 });
     return y + 64 + 24;
@@ -9664,8 +9678,9 @@
     if (SV.at && t - SV.at < gap) return;
     SV.at = t; SV.n++;
     // (the other rooms' places, and this room's other areas': v131)
-    // (in no room, only the places of rooms that could be joined: one left on purpose or gone is never looked for, v218)
-    const cand = PLC.list.filter(p => p.code && p !== R.saved && placeKept(p) && !(p.code === C.code && placeStale(p)) && (C.code || !placeBarred(p.code)));
+    // (a room left on purpose or gone is looked for too: never joined by itself, but offered where you stand, placeDecide;
+    // v218 left those out in no room and lost the offer)
+    const cand = PLC.list.filter(p => p.code && p !== R.saved && placeKept(p) && !(p.code === C.code && placeStale(p)));
     if (!cand.length) { placeDecide([], t); return; }
     const g = ++SV.gen;
     SV.busy = true;
