@@ -3642,13 +3642,17 @@ async function trackersRound(dir) {
     // while the performer wears all six parts as trackers, LHR-HEAD0002 its head)
     await sp(A, `(setEdit(true), select('pup001'), itemAct('pwear', 'any', 'pup001'), itemAct('pupby', 'none', 'pup001'), itemAct('pupline', '', 'pup001'), 0)`);
     const count = await sp(A, `!!PUP.line`);
-    const lu = await sUntil(A, `!PUP.line && !!(STU.items.get('pup001').rec.puppet || {}).on`, 15000);
+    // (since v203 the countdown ends in the matches shown, PUP.line's phase 'check', and Take these (pupok) wears it: the
+    // test waited for it to be worn by itself; now it presses Take these once the matches are shown)
+    const lineShown = await sUntil(A, `!!PUP.line && PUP.line.phase === 'check'`, 20000);
+    if (lineShown) await sp(A, `(itemAct('pupok', '', 'pup001'), 0)`);
+    const lu = lineShown && await sUntil(A, `!PUP.line && !!(STU.items.get('pup001').rec.puppet || {}).on`, 15000);
     const pr = await sp(A, `[STU.items.get('pup001').rec, PUP.note]`), rec = pr[0];
     const mapOk = !!rec.puppet && !!rec.puppet.map && Object.keys(rec.puppet.map).length === 6 && PF.parts.every(s => rec.puppet.map[s] === PF.ID[s]) && Object.keys(rec.puppet.cal || {}).length === 6;
     const recs = [];
     for (const p of [B, C, H]) recs.push(await sUntil(p, `JSON.stringify(STU.items.get('pup001').rec.puppet) === ${JSON.stringify(JSON.stringify(rec.puppet))} && STUDIO.puppet('pup001').on`, 10000));
     check('trackers: the puppet scene picked for the circle; the rig worn whole body and lined up from the performer\'s T-pose (after its 5 s countdown) through the relay\'s trackers: its six parts found, moved to where the performer stands (within 3 mm), sized to them, the record and its solving on every device',
-      pu.every(Boolean) && count && lu && mapOk && Math.hypot(rec.p[0] - AT.x, rec.p[2] - AT.z) < 0.003 && Math.abs(rec.s - 1) < 0.002 && recs.every(Boolean), JSON.stringify({ pu, count, lu, mapOk, rec, note: pr[1], recs }));
+      pu.every(Boolean) && count && lu && mapOk && Math.hypot(rec.p[0] - AT.x, rec.p[2] - AT.z) < 0.003 && Math.abs(rec.s - 1) < 0.002 && recs.every(Boolean), JSON.stringify({ pu, count, lineShown, lu, mapOk, rec, note: pr[1], recs }));
 
     // ---- the performer walks: at one held time every device's solved bones within 1 degree of each other (and its hands
     // and feet where the performer's are)
@@ -4898,31 +4902,36 @@ async function smoothRound() {
     // (its let-go, not the first turn's: the buffer that turn left, a let-go already, could start the grip before this
     // second turn had sent anything, and the case went untested while the check stayed green: so it waits for a let-go
     // stamped after this turn began, t1, and the check asks that the grip came after it)
-    const t1 = Date.now();
-    const rgP = H.evaluate(async ([kPl, t1]) => {
-      const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z), R = HOST.cur.peek('GL.rig');
-      const at = p => X.aim(0, new THREE.Matrix4().compose(V(...p).applyMatrix4(R.matrixWorld), R.quaternion.clone(), V(1, 1, 1)));
-      const grab = on => HOST.cur.peek(`(c => { if (${on}) c.hover = { kind: "globe", i: -1, point: c.o.clone() }; xrGrab(c, ${on}); })(XR.ctrls[0])`);
-      const B = () => HOST.collab.smooth().BUF.get(kPl), w0 = performance.now();
-      const ended = () => { const b = B(), l = b && b.s[b.s.length - 1]; return !!l && !l.h && l.ts > t1 && b.s.filter(q => q.ts > t1).length > 3; };
-      while (!ended() && performance.now() - w0 < 8000) { X.step(); await new Promise(r => setTimeout(r, 4)); }
-      const waited = ended();
-      at([0.1, -0.2, -0.6]); X.step();
-      const x0 = HOST.cur.xrPose().off.x, gripAt = Date.now();
-      const had = HOST.collab.smooth().BUF.has(kPl);
-      grab(true); X.step();
-      const dropped = !HOST.collab.smooth().BUF.has(kPl);
-      // (its frames back to back, without yielding: the page draws the story's own frames in software in between, which
-      // can take a second, and the let-go must come well within their samples' second)
-      const t0 = performance.now();
-      for (let i = 1; i <= 10; i++) { at([0.1 + 0.03 * i, -0.2, -0.6]); X.step(); }
-      grab(false); X.step();
-      X.ctrl(0, null); X.step();
-      return { x0, x1: HOST.cur.xrPose().off.x, had, dropped, ms: performance.now() - t0, gripAt, at: Date.now(), waited };
-    }, [kPl, t1]);
-    await sleep(200);
-    const sr = await drive((a, ts, h) => W.set(kPl, Object.assign({ x: 0, y: 0, z: 0, s: 1, q: qAt(a), story: K, ts }, h ? { h: 1 } : {})), 1000, s => s * W2);
-    const rg = await rgP;
+    // (up to three tries: the grip must come while their samples are still being drawn, before the let-go has landed (DELAY
+    // after it); a frame drawn in software can take longer than that, and then the case was not tried, so it is tried again)
+    let rg = null, sr = null;
+    for (let attempt = 0; attempt < 3 && !(rg && rg.had); attempt++) {
+      const t1 = Date.now();
+      const rgP = H.evaluate(async ([kPl, t1]) => {
+        const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z), R = HOST.cur.peek('GL.rig');
+        const at = p => X.aim(0, new THREE.Matrix4().compose(V(...p).applyMatrix4(R.matrixWorld), R.quaternion.clone(), V(1, 1, 1)));
+        const grab = on => HOST.cur.peek(`(c => { if (${on}) c.hover = { kind: "globe", i: -1, point: c.o.clone() }; xrGrab(c, ${on}); })(XR.ctrls[0])`);
+        const B = () => HOST.collab.smooth().BUF.get(kPl), w0 = performance.now();
+        const ended = () => { const b = B(), l = b && b.s[b.s.length - 1]; return !!l && !l.h && l.ts > t1 && b.s.filter(q => q.ts > t1).length > 3; };
+        while (!ended() && performance.now() - w0 < 8000) { X.step(); await new Promise(r => setTimeout(r, 4)); }
+        const waited = ended();
+        at([0.1, -0.2, -0.6]); X.step();
+        const x0 = HOST.cur.xrPose().off.x, gripAt = Date.now();
+        const had = HOST.collab.smooth().BUF.has(kPl);
+        grab(true); X.step();
+        const dropped = !HOST.collab.smooth().BUF.has(kPl);
+        // (its frames back to back, without yielding: the page draws the story's own frames in software in between, which
+        // can take a second, and the let-go must come well within their samples' second)
+        const t0 = performance.now();
+        for (let i = 1; i <= 10; i++) { at([0.1 + 0.03 * i, -0.2, -0.6]); X.step(); }
+        grab(false); X.step();
+        X.ctrl(0, null); X.step();
+        return { x0, x1: HOST.cur.xrPose().off.x, had, dropped, ms: performance.now() - t0, gripAt, at: Date.now(), waited };
+      }, [kPl, t1]);
+      await sleep(200);
+      sr = await drive((a, ts, h) => W.set(kPl, Object.assign({ x: 0, y: 0, z: 0, s: 1, q: qAt(a), story: K, ts }, h ? { h: 1 } : {})), 1000, s => s * W2);
+      rg = await rgP;
+    }
     const regrip = await record(H, 1500, 'x'), back = Math.max(...regrip.map(f => Math.abs(f[3] - rg.x1)));
     console.log(`      a grip right after someone else let go: gripped ${rg.gripAt - sr.end} ms after they let go, held ${rg.ms.toFixed(0)} ms, moved ${(rg.x1 - rg.x0).toFixed(3)} m, let go ${rg.at - sr.end} ms after them; then at most ${back.toFixed(4)} m from there in ${regrip.length} frames`);
     check('smooth: a grip here right after someone else let go drops their samples and stays where it is let go (never pulled back to theirs)',
@@ -8619,7 +8628,11 @@ async function reloadRound() {
     ed('shared.js', /const FORMAT = '[^']+'/, `const FORMAT = '${format}'`);
     ed('sw.js', /const VERSION = '[^']+'/, `const VERSION = 'networks-v${v}'`);
     fs.rmSync(path.join(d, 'version.json'), { force: true });
-    execFileSync(process.execPath, [path.join(root, 'tools/release.mjs'), '--root', d], { encoding: 'utf8' });
+    // (a copy from git made by that release's own tools/release.mjs: today's wants the story packages, which v135 had not,
+    // and refused its copy, so its cases were skipped)
+    let rel = path.join(root, 'tools/release.mjs');
+    if (git) { rel = path.join(d, '.release-' + git + '.mjs'); fs.writeFileSync(rel, execFileSync('git', ['-C', root, 'show', git + ':tools/release.mjs'], { encoding: 'utf8' })); }
+    execFileSync(process.execPath, [rel, '--root', d], { encoding: 'utf8' });
     return d;
   };
   const OLD = copy('old', F, 9001), NEW = copy('new', G, 9002);
