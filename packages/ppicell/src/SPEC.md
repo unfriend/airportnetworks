@@ -1,5 +1,9 @@
 # Back into the cell (`ppicell`): the spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 A story package (`tools/packages/SPEC.md`): an interactome put back into a cell, and why a spatial interactome that is
 true to a real cell is so hard to build. About nine minutes of story at first, 15 minutes 8 seconds since v205 and its voice (v210), then explore mode. For a biological audience,
 kept as simple as possible: short sentences, every term glossed once. British English. Synthetic narration (Kokoro,

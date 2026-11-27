@@ -1,5 +1,9 @@
 # The microanatomy story: 3D sets and engine spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 We are adding a tenth story to the web app in `/home/user/airportnetworks`: `packages/micro/main.js`, built from
 `packages/micro/src/` like the PET story `packages/pet/main.js` is built from `packages/pet/src/`. It turns a preprint, a poster and a
 talk into a narrated, about five-minute 3D story with an explore mode, on desktop, phones and in VR/AR headsets

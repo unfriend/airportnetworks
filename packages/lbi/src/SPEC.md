@@ -1,5 +1,9 @@
 # The LBI story: 3D sets spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 We are adding a fourth story to the web app in `/home/user/airportnetworks` (read its `AGENTS.md` once for
 context and conventions). The story, `packages/lbi/main.js`, turns a 43-slide institute presentation
 ("Welcome to the Ludwig Boltzmann Institute for Network Medicine", Jörg Menche, LBG visit 2026; PDF at

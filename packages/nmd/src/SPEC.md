@@ -1,5 +1,9 @@
 # The muscle story: 3D sets spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 We are adding a fifth story to the web app in `/home/user/airportnetworks`: `packages/nmd/main.js`, built from
 `packages/nmd/src/` like the tour `packages/lbi/main.js` is built from `packages/lbi/src/`. It turns a conference talk (ISMB 2026,
 "Deep integrative multiplex network-based analysis of rare neuromuscular disorders reveals overlapping multiscale

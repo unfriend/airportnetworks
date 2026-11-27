@@ -1,5 +1,9 @@
 # The endotype story: 3D sets and engine spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 We are adding an eighth story to the web app in `/home/user/airportnetworks`: `packages/endo/main.js`, built from
 `packages/endo/src/` like the muscle story `packages/nmd/main.js` is built from `packages/nmd/src/`. It turns a poster (ISMB 2026,
 "Introducing EndotypY: a Python package for network-based disease endotyping", Chloé Bûcheron, Iker

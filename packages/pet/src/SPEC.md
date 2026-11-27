@@ -1,5 +1,9 @@
 # The PET story: 3D sets and engine spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 **Changed in October 2026, after feedback on the story:** the poster's one-scan network, its index, survival and the
 immunotherapy test were taken out (they did not match the poster), with the set `people` and explore's One scan and
 People tabs (the explore-only `liver` scene went too and came back the same day); the Network chapter goes straight from the organs' values to the network of all scans on the

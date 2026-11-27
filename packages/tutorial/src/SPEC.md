@@ -1,5 +1,9 @@
 # The tutorial: spec (`packages/tutorial/main.js`, built from `packages/tutorial/src/`)
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 A new story for the app in `/home/user/airportnetworks` (read `AGENTS.md` once for context and conventions, `CLAUDE.md`
 for the working rules). A robot guide stands in your room and shows you how the app works in a headset: pointing,
 playing a story, explore mode, the menu, Recenter, shared rooms. About three and a half minutes of story (187 s of story time, at least 3:26 recorded), then explore

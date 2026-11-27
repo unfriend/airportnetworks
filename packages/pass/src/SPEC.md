@@ -1,5 +1,9 @@
 # "Pass it on" (`pass`): the sets and their contract
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 The twelfth story built (v187: a package), for the lab's outreach (school classes, open days; about 12 and up): how things spread through
 networks, at three scales. About 5 minutes of story time before pacing, six chapters, then explore mode. English and
 German. Read with `packages/lbi/src/SPEC.md` (the set contract) and the manifests `sets/fish.md`, `sets/globe.md`,

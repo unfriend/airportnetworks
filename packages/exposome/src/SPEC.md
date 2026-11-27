@@ -1,5 +1,9 @@
 # Invisible threads (the exposome story): the contract
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 Key `exposome`, a story package (`packages/exposome/`, `#exposome`), title *Invisible threads*, kick *Chemical exposome*.
 On the Experiments set (`story.json` `"list": "experiments"`, in `packages/order.json` after cdk5; integrated 25 November
 2026). The script is `src/SCRIPT.md` (the main conversation's): chapters, keys, order and

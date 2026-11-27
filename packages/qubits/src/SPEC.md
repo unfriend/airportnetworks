@@ -1,5 +1,9 @@
 # The qubits story: 3D sets, maths and engine spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 The eleventh story of the app: `packages/qubits/main.js`, built from `packages/qubits/src/` like the microanatomy story is built from
 `packages/micro/src/`. It explains, step by step, how a large gene network is compressed onto a handful of qubits and how the
 compressed network breaks down into simple building blocks (Pauli strings), after **Joel Hancock**'s brief for this

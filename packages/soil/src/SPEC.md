@@ -1,5 +1,9 @@
 # Holding on to nitrogen: 3D sets, data and engine spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 The sixteenth story built (the app now has more: `packages/order.json`): `packages/soil/main.js`, built from `packages/soil/src/` like the tissue topology story is built from
 `packages/topo/src/`. It is made for the Global Peter Drucker Forum in Vienna (a lay, business audience), from the slides
 **"Exploring the Effects of Biological Nitrification Inhibition on the Rhizosphere Microbiome of a BNI-enabled Winter

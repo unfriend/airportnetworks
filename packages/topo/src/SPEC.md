@@ -1,5 +1,9 @@
 # The shape of tissue: 3D sets, data and engine spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 The fifteenth story of the app: `packages/topo/main.js`, built from `packages/topo/src/` like the mutation story is built from
 `packages/mutation/src/`. It follows the poster **"topocyte: scale-resolved topological phenotyping of tissue architecture
 across spatial modalities"** by **Simon Schindler, André Rendeiro and Jörg Menche** (Ludwig Boltzmann Institute for

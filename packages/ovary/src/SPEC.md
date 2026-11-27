@@ -1,5 +1,9 @@
 # The aging ovary: 3D sets and engine spec
 
+> This is the builder's brief from when the story was made, so it is written in the future tense ("we are adding...", "copy ... and rename").
+> It is not how the story is now: the `README.md` beside it (where there is one), the package's `README.md` and
+> `docs/agents/stories.md` say that, and where they differ from this file they are right.
+
 **Changed in October 2026, after the owner's rule against 2D graphs:** the story draws no trend, comparison or score
 charts and no illustrative dots any more. The Agree? chapter went (its agreement r are a sentence in Age); Age is the
 big cut-away ovary aging from 20 to 70 with live count tags (`organ_counts`, read off the poster's lines:
