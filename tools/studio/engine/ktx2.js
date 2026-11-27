@@ -1,5 +1,5 @@
 // ==================================================================== KTX2 ==
-// Compressed textures (tools/studio/SPEC.md, "Compressed textures (KTX2)"; the owner, 16 November 2026: "yes build it,
+// Compressed textures (docs/agents/studio.md, "Compressed textures (KTX2)"; the owner, 16 November 2026: "yes build it,
 // encoding in browser since that can be done on a desktop and be fast"). A GLB the converter writes may carry its
 // pictures as KTX2 (glTF's KHR_texture_basisu: Basis Universal UASTC LDR 4x4, zstd), which a headset transcodes as it
 // loads them to what its GPU keeps compressed (ASTC 4x4 on a Quest: 8 bits a pixel, a quarter of RGBA's 32), so its
@@ -265,7 +265,7 @@ function makeKTX2(THREE, hooks) {
   // (the encoder's effort, 0 to 10. Measured on scan-like pictures, 3 workers on 4 slow cloud cores: efforts 0 and 1 write
   // the same file in the same time (4,096 px 2.5 s, 8,192 px 8 s; 45.2 dB on a busy one, 52.4 on a smoother one); 2 takes
   // 4.5 times as long for at most 0.2 dB, 4 seven times as long for 0.1 to 0.8 dB: none that a headset would show. So the
-  // fastest, 1: tools/studio/SPEC.md, "Compressed textures (KTX2)")
+  // fastest, 1: docs/agents/studio.md, "Compressed textures (KTX2)")
   const EFFORT = 1;
   // ---- the encoder's workers: each a worker made from a Blob that imports the served encoder (basis/basis_encoder.js),
   // its WebAssembly compiled once here and given to each. A job: one strip (RGBA, its size, colour or data, alpha forced

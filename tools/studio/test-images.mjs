@@ -139,7 +139,7 @@ const rb = IM.renamePsd(bin), bt = Buffer.from(rb.bytes).toString('latin1');
 ok(rb.count === 2 && bt.includes('C:\\art\\Skin.ps~') && bt.includes('Skin.psd.backup') && bt.includes('xx.psd') && bt.includes('tex/b.PS~') && bt.length === bin.length, 'a binary FBX\'s .psd string records made .ps~ (and nothing else)', JSON.stringify(bt.slice(27)));
 ok(IM.psdBack('http://h/s/x.ps~?v=2') === 'http://h/s/x.psd?v=2' && IM.psdBack('C:/a/X.PS%7E') === 'C:/a/X.PSD' && IM.psdBack('x.psd') === 'x.psd', 'and back');
 
-// ---- the gaps between a picture's pieces (cover, fillGaps: "Fewer triangles: the fill" in tools/studio/SPEC.md)
+// ---- the gaps between a picture's pieces (cover, fillGaps: "Fewer triangles and Change texture": the fill in docs/agents/studio.md)
 // cover: two triangles splitting a 16 x 16 picture (the diagonal's centres in both), a tiny one marking its texel
 {
   const c1 = new Uint8Array(256), c2 = new Uint8Array(256), c3 = new Uint8Array(256);

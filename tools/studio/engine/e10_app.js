@@ -260,10 +260,20 @@ function init() {
       for (const k of SET_ORDER) GL.sets[k].setAlpha(0);
       buildStory(); buildSetLabels(); buildTimeline();
     }],
-    ['Setting up explore mode', () => { buildExplore(); tcSetup(); bindCanvas(); editLooks(); }],
+    ['Setting up explore mode', editWait], ['Setting up explore mode', () => { buildExplore(); tcSetup(); bindCanvas(); editLooks(); }],
     ['Making the headset panels', () => { audioInit(); xrSetup(); xrWarm(); LOAD.done = true; initEnd(); }]);
   if (HOST.progress) HOST.progress(0, S.length, S[0][0]);
   loadStep();
+}
+// The page's arrows (TransformControls) are the edit part (v226: stories/studio-edit.js, tools/studio/build.mjs): fetched
+// while the studio loads, so they are there before anything can be selected; never with &visit, which edits nothing. A
+// part that does not load leaves the page without its arrows, as before when three.js lacked them (tcSetup), and says why
+// in the console
+const EDITP = { s: '' };
+function editWait() {
+  if (OPT.visit || EDITP.s === 'done') return false;
+  if (!EDITP.s) { EDITP.s = 'wait'; partLoad('edit').catch(e => console.warn(e.message)).then(() => { EDITP.s = 'done'; }); }
+  return EDITP.s !== 'done';
 }
 // (short steps run on in one task, as each yield costs a frame; a step left half done, or 40 ms gone, yields)
 function loadStep() {

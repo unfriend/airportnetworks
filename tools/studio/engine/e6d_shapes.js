@@ -1,5 +1,5 @@
 // ========================================================== SHAPES, EMPTIES, LOCKS, THE SCENE'S SETTINGS ==
-// The owner, 6 November 2026 (tools/studio/SPEC.md, "Shapes and empties", "Locked in place", "The scene's settings"):
+// The owner, 6 November 2026 (docs/agents/studio.md, "Shapes, empties, locks, the scene's settings and the lobby"):
 // "Needs invisible occlusion cubes and other primitives to hide things and just in general"; "Needs empty objects for
 // example to place sounds in space"; "There should be an option to lock things in space so we cannot accidentally move
 // them"; "there should be an option to hide all other icons and circles in studio mode" (a setting saved with each scene,

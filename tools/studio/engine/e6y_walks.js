@@ -1,6 +1,6 @@
 // ================================================================== WALKS ==
 // Clip by distance (v164; the owner, 18 November 2026, of characters that move about: "would also need feet solver for npcs
-// that move around?", and of the ways discussed, clip by distance first; foot locking maybe later; tools/studio/SPEC.md,
+// that move around?", and of the ways discussed, clip by distance first; foot locking maybe later; docs/agents/studio.md,
 // "As it moves"). An object's Animation may be anim: 'move' (*As it moves*): the clip its record names is its walk, and
 // its time follows the distance it covers along the floor, one cycle of the clip a stride, instead of the clock:
 // - on its recorded path (e6f_path.js; no behaviour or tracker giving its place, not held here) the distance is the

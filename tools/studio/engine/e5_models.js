@@ -13,10 +13,13 @@
 const LIB = new Map();   // path -> entry
 // the converter (engine/convert.js): its loaders read every format here, its guess sets a model's starting scale and
 // turn, and its toGLB converts (the exporter is defined only then: exporterLoad, from the vendored GLTFExporter; and the
-// simplifier for Fewer triangles only when first asked: meshoptLoad, from the vendored meshopt_simplifier.js)
+// simplifier for Fewer triangles only when first asked: meshoptLoad, from the vendored meshopt_simplifier.js). Since v226
+// both, and the loaders of FBX, OBJ, PLY, STL and TGA, are the convert part (stories/studio-convert.js, tools/studio/build.mjs),
+// fetched the first time one is needed: each is awaited inside the converter's own async steps, which already show their
+// busy words, so nothing waits silently
 // (and its KTX2 encoder and transcoder from the app's own basis/ folder, next to index.html: engine/ktx2.js)
 const basisUrl = () => new URL('basis/', location.href).href;
-const CONV = makeConverter(THREE, { exporter: () => exporterLoad(), simplifier: () => meshoptLoad(), basis: basisUrl });
+const CONV = makeConverter(THREE, { exporter: () => exporterLoad(), simplifier: () => meshoptLoad(), loaders: () => partLoad('convert'), basis: basisUrl });
 // The scene's KTX2 pictures as the GPU keeps them: three.js r133's KTX2Loader (vendored, pasted in by build.mjs), one for
 // the studio (made when a model first loads, given back in dispose: its transcoding workers stopped), its transcoder the
 // app's basis/ folder, its formats what this renderer offers (ASTC on a Quest, BC7 on a desktop, ETC2 or ASTC on a phone;

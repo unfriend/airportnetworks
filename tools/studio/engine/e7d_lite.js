@@ -1,5 +1,5 @@
 // ======================================================== FEWER TRIANGLES ==
-// An object's card, page and headset alike (tools/studio/SPEC.md, "Fewer triangles" and "Change texture"; the owner, 6
+// An object's card, page and headset alike (docs/agents/studio.md, "Fewer triangles and Change texture"; the owner, 6
 // November 2026: "models need to be way less triangles", "a percentage ... adjustable per model with a preview", "20
 // percent by default for everything", "preview in ar/vr would really be helpful", and "a change texture button on models
 // placed in the scene").

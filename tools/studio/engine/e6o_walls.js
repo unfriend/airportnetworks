@@ -1,7 +1,7 @@
 // ================================================================ ON WALLS ==
 // Things on the room's walls (v137; the owner, 11 November 2026, of a room built as a studio scene: its elements
 // "dynamisch auf detected walls", "losgelöst und auf raum gemappt", and "it may need to be reactive and react to user
-// movements, where the user goes, instead of a static variant"; tools/studio/SPEC.md, "Things on walls"). An object's, a
+// movements, where the user goes, instead of a static variant"; docs/agents/studio.md, "Things on walls"). An object's, a
 // shape's or an empty's behaviour may be of the kind 'wall':
 // - { kind: 'wall', at: 'direction' }: on the first wall a ray meets from the walls' middle along its placed direction
 //   from the scene's origin (its placed middle's x and z; at the origin -z);

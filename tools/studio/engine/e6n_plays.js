@@ -1,7 +1,7 @@
 // =================================================== CUBES THAT START THINGS ==
 // A trigger cube may start things on a character or a prop as you walk in or out (v136; the owner, 11 November 2026:
 // "Trigger cube should also be able to trigger things like an animation or a soundfile being played on a character or
-// prop"; tools/studio/SPEC.md, "Trigger cubes that start things"). Its record's plays: up to 16 entries
+// prop"; docs/agents/studio.md, "Trigger cubes that start things"). Its record's plays: up to 16 entries
 // { on, what, clip?, how, when? }:
 // - on: the item it starts something on (an object's, a sound's, a shape's or an empty's id);
 // - what: 'clip' (one of an object's animations, named in clip), 'sound' (a sound), 'path' (an object's, a shape's, an

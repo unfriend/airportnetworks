@@ -1,7 +1,7 @@
 // ============================================================ THE VIEWER ==
 // A model looked at closely, over the whole window (v125; the owner, 8 November 2026: "Studio uploader needs better
 // preview, also for the reductions, can use the whole viewport, show the model and be able to spin it etc";
-// tools/studio/SPEC.md, "The viewer"). Pages only, never in a headset. Opened by an Upload row's Preview, by Look closer on
+// docs/agents/studio.md, "The viewer"). Pages only, never in a headset. Opened by an Upload row's Preview, by Look closer on
 // a placed model's Fewer triangles card and by an Add card's Look. It is the studio's own renderer and canvas, raised over
 // the page while it is open (never a second renderer), drawing a scene of its own instead of the studio's: the studio's
 // frame goes on (its items, sounds, the shared room). The model lit as the studio lights it, or as scanned, on an orbit

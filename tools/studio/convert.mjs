@@ -1,7 +1,7 @@
 // node tools/studio/convert.mjs <model> [out.glb] [--max-texture 4096] [--no-weld] [--keep 0.2] [--no-fill] [--shots <dir>]
 //                                [--texture <name>=<picture>] [--texture <material>:<slot>=<picture>] [--textures <dir>]
 //                                [--ktx2] [--effort <0 to 10>]
-// A model made lighter for a headset (tools/studio/SPEC.md, "GLB first, and converting"), in headless Chromium with the
+// A model made lighter for a headset (docs/agents/studio.md, "GLB first"), in headless Chromium with the
 // studio's own converter (tools/studio/engine/convert.js, the same module the studio's Convert to GLB and Upload pane
 // use) and three.js r128's own loaders and exporter (tools/studio/vendor/, and three.min.js from the repository's root).
 // It reads FBX, glTF (with its .bin and textures), GLB, OBJ (with its MTL and textures), PLY (vertex colours kept) and
@@ -33,7 +33,7 @@
 // --ktx2 writes its pictures as KTX2 (KHR_texture_basisu: Basis Universal UASTC LDR 4x4, zstd; tools/studio/engine/ktx2.js,
 // the studio's own), which a headset keeps compressed on its GPU (ASTC on a Quest), so --max-texture is 8,192 by default
 // then; every level of each picture is encoded in strips by workers in the page (the computer's cores less one, at most
-// 6), with the basis/ folder's encoder; --effort <0 to 10> the encoder's effort (1 by default: see the studio's SPEC.md).
+// 6), with the basis/ folder's encoder; --effort <0 to 10> the encoder's effort (1 by default: see docs/agents/studio.md).
 // The GLB is checked loaded back with its KTX2 pictures read back to plain ones, as the studio reads them to convert.
 // Needs Playwright with a Chromium build (as tools/smoke.mjs; PLAYWRIGHT_MODULE and CHROMIUM_PATH as there).
 import fs from 'node:fs';

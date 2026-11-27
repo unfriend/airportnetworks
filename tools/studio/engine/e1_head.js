@@ -5,7 +5,7 @@
 // from a plain folder with an index.json (&scenes=<folder>).
 // Runs inside index.html, which owns the page, the renderer and the headset session.
 // Built by tools/studio/build.mjs from the tour's kit, three.js r128's own loaders (tools/studio/vendor/), the sets
-// and the engine in tools/studio: edit those, not this file. The contract is tools/studio/SPEC.md.
+// and the engine in tools/studio: edit those, not this file. The contract is docs/agents/studio.md.
 HOST.register('studio', function (HOST) {
 'use strict';
 const D2R = Math.PI / 180;

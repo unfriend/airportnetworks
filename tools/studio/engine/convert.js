@@ -1,5 +1,5 @@
 // ================================================================ CONVERT ==
-// The converter (tools/studio/SPEC.md, "GLB first, and converting"): one module in two places, the studio's page (its
+// The converter (docs/agents/studio.md, "GLB first"): one module in two places, the studio's page (its
 // Convert to GLB and the Upload pane; pasted into stories/studio.js by tools/studio/build.mjs) and
 // tools/studio/convert.mjs (in its headless page). Nothing in it knows where files come from: the caller says how a name
 // a model gives becomes an address (url). makeConverter(THREE, hooks) gives:
@@ -26,7 +26,9 @@
 //                       the GPU keeps them through o.ktx2 (three.js r133's KTX2Loader: the studio's scene), else back as
 //                       plain pictures at most o.maxTex (everything that re-exports, reads pixels or makes pictures)
 // hooks.exporter(): defines THREE.GLTFExporter (the studio does so only when converting); hooks.simplifier(): meshoptimizer's
-// simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.renderer(w, h): a WebGL
+// simplifier (the studio makes it only when first asked; convert.mjs's page has MeshoptSimplifier); hooks.loaders(): defines
+// the loaders of FBX, OBJ, PLY, STL and TGA (the studio's convert part, v226; convert.mjs's page has them); each may give
+// back a promise; hooks.renderer(w, h): a WebGL
 // renderer for drawing both to compare their looks (convert.mjs only: the app's one renderer is the shell's); hooks.basis():
 // the address of the app's basis/ folder (the KTX2 encoder and transcoder: engine/ktx2.js)
 function makeConverter(THREE, hooks) {
@@ -64,6 +66,7 @@ function makeConverter(THREE, hooks) {
       return img;
     }
     if (k === 'tga') {
+      if (H.loaders) await H.loaders();
       if (!T.TGALoader) throw new Error('a TGA, and no TGA reader here');
       let r;
       try { r = new T.TGALoader().parse(buf); } catch (e) { throw new Error('a TGA that could not be read (' + String(e.message || e).replace(/^THREE\.TGALoader:\s*/, '') + ')'); }
@@ -268,6 +271,7 @@ function makeConverter(THREE, hooks) {
     const settle = () => new Promise(res => { if (W.n <= 0) res(); else { W.done = res; setTimeout(res, 60000); } });
     let root = null, clips = [], guess, asset = null;
     const u8 = new Uint8Array(o.data);
+    if (H.loaders && ext !== 'glb' && ext !== 'gltf') await H.loaders();   // (the FBX, OBJ, PLY and STL loaders: the studio's convert part)
     // (the pictures read here given back whether the model loads or not: each may be as big as a texture)
     try {
       if (ext === 'fbx') {
@@ -500,7 +504,7 @@ function makeConverter(THREE, hooks) {
     return { attrs: attrs.map(([nm, a]) => [nm, pick(a)]), morphs: morphs.map(([nm, i, a]) => [nm, i, pick(a)]), index: new T.BufferAttribute(first.length < 65536 ? new Uint16Array(remap) : remap, 1), was: cnt, now: first.length };
   }
 
-  // ---- fewer triangles (tools/studio/SPEC.md, "Fewer triangles"): meshoptimizer's simplifier (vendored: the studio's
+  // ---- fewer triangles (docs/agents/studio.md, "Fewer triangles and Change texture"): meshoptimizer's simplifier (vendored: the studio's
   // meshoptLoad(), or convert.mjs's MeshoptSimplifier; its WebAssembly made when first asked). Every mesh keeps the same
   // share of its triangles (keep, 0.02 to 1), its corners welded first. Its normals and texture coordinates weigh in, so
   // a texture stays where it was (its seams are kept); corners a part shares with another part (another mesh or material
@@ -511,7 +515,7 @@ function makeConverter(THREE, hooks) {
   // Map(old geometry -> new), notes, morph (meshes left as they were), err (the largest error, a share of the size), ms }
   const KEEP_MIN = 0.02;
   const simplifier = async () => {
-    const S = H.simplifier ? H.simplifier() : typeof MeshoptSimplifier !== 'undefined' ? MeshoptSimplifier : null;   // eslint-disable-line no-undef
+    const S = H.simplifier ? await H.simplifier() : typeof MeshoptSimplifier !== 'undefined' ? MeshoptSimplifier : null;   // eslint-disable-line no-undef
     if (!S) throw new Error('no simplifier here (meshoptimizer)');
     await S.ready;
     return S;
@@ -670,7 +674,7 @@ function makeConverter(THREE, hooks) {
     return { from, to, keep, geos, notes, morph, err, ms: Math.round(performance.now() - t0) };
   }
 
-  // ---- the gaps between a picture's pieces filled (tools/studio/SPEC.md, "Fewer triangles": the fill; the owner, 6
+  // ---- the gaps between a picture's pieces filled (docs/agents/studio.md, "Fewer triangles and Change texture": the fill; the owner, 6
   // November 2026: "leaves black artifacts in the textured models"). A scan's texture is an atlas of many small pieces
   // with black, unused texels between them; a lighter model keeps its seams joined in 3D but straightens each piece's
   // outline in the picture, so at 10 % its triangles sample the black between pieces: black wedges along the seams (and
@@ -879,7 +883,7 @@ function makeConverter(THREE, hooks) {
   async function toGLB(m, o) {
     o = o || {};
     const step = o.step || (() => {}), maxTex = o.maxTex || 4096, notes = [];
-    if (H.exporter) H.exporter();
+    if (H.exporter) await H.exporter();
     if (!T.GLTFExporter) throw new Error('no GLTFExporter');
     // (its pictures as KTX2: refused here, before anything is done, where this page cannot encode them)
     const ktx = o.ktx2 ? { effort: Number.isInteger(o.ktx2.effort) ? o.ktx2.effort : KT ? KT.EFFORT : 1, max: maxTex } : null;

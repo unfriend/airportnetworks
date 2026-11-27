@@ -1,7 +1,7 @@
 // ================================================= SENDS TO THE OUTPUT PAGE ==
 // MIDI and OSC from the shared rooms and the studio (v157; the owner, 16 November 2026: "make it opt in by default and say
 // who entered", "both" (MIDI and OSC), "in and out", "output page and then midi or local relay for osc and trackers";
-// tools/output/SPEC.md is the contract, tools/studio/SPEC.md "Sends to the output page (MIDI and OSC)" the studio's part).
+// tools/output/SPEC.md is the contract, docs/agents/studio.md "Sends to the output page (MIDI and OSC)" the studio's part).
 // A cube, a press record (an object's or a shape's) and a sequence may carry send entries (the scene's own mapping):
 //   send: [{ on, t, osc, note, cc, val, ch, hold }]   (fields in this order, only those set; at most 8)
 // on: a cube's 'enter' | 'leave' | 'on' | 'off'; a press's 'press' | 'hover' | 'unhover'; a sequence's 'start' | 'stop' |

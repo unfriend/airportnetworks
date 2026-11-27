@@ -2710,7 +2710,7 @@ if (runs('studio')) {
   await step('studio: Fewer triangles (a ball made in the page: previewed in place at 20 % within a few percent, its texture where it was, Save a GLB with tris in its record, switched where it stands, the headset\'s card), Change texture (shown, cancelled, saved) and the Upload pane\'s share and Preview (the viewer)', async () => {
     const bad = [];
     const b64 = await ss(`(async () => {
-      exporterLoad();
+      await exporterLoad();
       const T = THREE, g = new T.SphereGeometry(0.5, 128, 96), p = g.attributes.position;
       for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.04 * Math.sin(20 * x) * Math.sin(20 * y) * Math.sin(20 * z); p.setXYZ(i, x * k, y * k, z * k); }
       g.computeVertexNormals();
@@ -2877,7 +2877,7 @@ if (runs('studio')) {
   await step('studio: the gaps between a picture\'s pieces filled (an atlas ball made in the page: the 10 % preview and the saved GLB with far fewer black pixels than without, filled once and cached, its record and card, not filled again, a tiling picture left alone; a picture drawn down without a dark rim, a see-through one with clear gaps left alone)', async () => {
     const bad = [];
     const b64 = await ss(`(async () => {
-      exporterLoad();
+      await exporterLoad();
       const T = THREE, g = new T.SphereGeometry(0.5, 128, 96).toNonIndexed(), p = g.attributes.position, uv = g.attributes.uv, n = p.count, S = 512;
       // each triangle's piece: 16 x 8 by where it is on the sphere; within its piece the coordinates bent into waves, so
       // its outline in the picture is wavy (as a scan's pieces are), 6 px of black round each piece
@@ -5724,7 +5724,7 @@ if (runs('studio viewer')) {
   const before = () => ss(`[UNDO.length, JSON.stringify(collabState()), unsaved(), STU.items.size]`);
   // the dense ball (24,320 triangles, a red and green checker), made in the page as the Fewer triangles step makes it
   const ballB64 = () => ss(`(async () => {
-    exporterLoad();
+    await exporterLoad();
     const T = THREE, g = new T.SphereGeometry(0.5, 128, 96), p = g.attributes.position;
     for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.04 * Math.sin(20 * x) * Math.sin(20 * y) * Math.sin(20 * z); p.setXYZ(i, x * k, y * k, z * k); }
     g.computeVertexNormals();

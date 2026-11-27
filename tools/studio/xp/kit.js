@@ -588,7 +588,7 @@
     pm.dispose();
     return ENV;
   };
-  // the picture for the studio's Add pane (tools/studio/SPEC.md, "Pictures in the Add pane"): lit as the studio lights a
+  // the picture for the studio's Add pane (docs/agents/studio.md, "Pictures in the Add pane"): lit as the studio lights a
   // scene, a little above and in front, framed on its box, drawn at twice the size and made smaller, on a dark ground
   XP.picture = (root, view) => {
     const S = 512, r = renderer(), sc = new T.Scene(), cam = new T.PerspectiveCamera(30, 1, 0.01, 1000);

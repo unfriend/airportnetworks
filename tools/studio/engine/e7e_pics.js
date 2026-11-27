@@ -1,5 +1,5 @@
 // =============================================================== PICTURES ==
-// The Add pane's pictures of the scene's models (tools/studio/SPEC.md, "Pictures in the Add pane"; the owner, 6 November
+// The Add pane's pictures of the scene's models (docs/agents/studio.md, "Pictures in the Add pane"; the owner, 6 November
 // 2026: "Models in add dialogue should have preview images and show in a grid", "add pane with pictures sounds good,
 // leave 3d models for now"). A picture is a 256 x 256 JPEG of a model, lit and seen from a little above, on a dark
 // background, kept in the scene as previews/<the model's path>.jpg (eva.glb's: previews/models/eva.glb.jpg; the relay's

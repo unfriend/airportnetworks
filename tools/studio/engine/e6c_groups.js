@@ -1,6 +1,6 @@
 
 // ================================================================= GROUPS ==
-// A group is a named set of items that move together (tools/studio/SPEC.md, "Groups"): objects, sounds, trigger cubes,
+// A group is a named set of items that move together (docs/agents/studio.md, "Groups"): objects, sounds, trigger cubes,
 // shapes and empties (a cut-out belongs to its object and moves with it, so it is never a member). Its record: { name, items } (the
 // members' ids). An item is in one group at most: an id two groups name stays in the one with the lower id (groupOf, the
 // same on every device); no groups in groups; 50 a scene. A click (the trigger, a pinch) on a member selects its group,

@@ -1,7 +1,7 @@
 // ========================================================= PRESSED AND POINTED AT ==
 // An object or a shape may react when it is pressed, and while it is pointed at (v146; the owner, 15 November 2026: "press
 // an item (anyone, visitors too, editing off too) ... does what a cube can start or starts a sequence; plus 'only while
-// pointed at' (hover) reactions"; tools/studio/SPEC.md, "Pressed and pointed at"). Its record's press:
+// pointed at' (hover) reactions"; docs/agents/studio.md, "Press and hover"). Its record's press:
 //   press: { do: [entries], hover: [entries], who }   (kept only when it has an entry; who: 'own' or absent, everyone)
 // each entry { on, what, clip?, how?, fade? }: the item it acts on (often itself), what ('clip', 'sound', 'path', 'motion',
 // 'show', 'hide' or 'seq': what a cube's entry or a sequence's event does), how (once, loop, stop; hold too for a clip or a

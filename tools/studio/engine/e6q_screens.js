@@ -1,5 +1,5 @@
 // ================================================================ SCREENS ==
-// The owner, 14 November 2026 (tools/studio/SPEC.md, "Screens: video and audio players"): "is it possible to have a
+// The owner, 14 November 2026 (docs/agents/studio.md, "Screens: video and audio players"): "is it possible to have a
 // video/audio player with playlist and an option to show controls even outside studio mode that can playback video or audio
 // files from the relay"; in studio scenes, "shared per default, personal optional if easy".
 // A screen (kind v, the state's v.<id>, layout.json's screens): a flat panel playing a playlist of the scene's video and

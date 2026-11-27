@@ -1,5 +1,5 @@
 // ============================================================ THE LANE VIEW ==
-// A sequence's timeline on a page (v146; tools/studio/SPEC.md, "Sequences": "The page's lane view"): a panel docked at the
+// A sequence's timeline on a page (v146; docs/agents/studio.md, "Sequences": "The page's lane view"): a panel docked at the
 // bottom of the window while editing with a sequence selected, over the canvas and beside the side panel (never in a headset:
 // its card has the bar and the event list). A 2D canvas drawn only when something changed: a ruler (a drag scrubs this
 // device's preview), a lane per item the events act on, each event a block (a clip, a path or a sound with its length where it

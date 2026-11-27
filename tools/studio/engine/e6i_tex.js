@@ -1,7 +1,7 @@
 // ====================================================== CUBES THAT RE-TEXTURE ==
 // A trigger cube may change pictures on objects while it is active for you (the owner, 8 November 2026: "trigger cube
 // replace texture mode so that it can replace a texture on a model in the scene", then "no crossfade needed";
-// tools/studio/SPEC.md, "Trigger cubes that change textures"). Its record's tex: up to 16 entries { on, mat, slot, file }:
+// docs/agents/studio.md, "Trigger cubes that change textures"). Its record's tex: up to 16 entries { on, mat, slot, file }:
 // the object it changes (an object's id; models only), one of its materials (its index as Change texture lists the
 // object's materials: those with texture coordinates, ctMats), a slot (three.js's names: map, normalMap, roughnessMap,
 // metalnessMap, aoMap, emissiveMap, alphaMap) and a picture of the scene (its path in the listing). For each object,

@@ -1,7 +1,7 @@
 // ============================================================== STREAMS ON A CARD ==
 // Values from the scene sent as MIDI and OSC (v158; the owner, 17 November 2026: "xyz plus velocity plus what else", then the
-// scene's streams set on an item's card; tools/output/SPEC.md "v158" section 2 is the contract, tools/studio/SPEC.md "Streams
-// on a card" the studio's part). An object's, a shape's, an empty's, a sound's or a cube's record may carry stream entries:
+// scene's streams set on an item's card; tools/output/SPEC.md "v158" section 2 is the contract, docs/agents/studio.md "Streams,
+// trails and loops on the beat" the studio's part). An object's, a shape's, an empty's, a sound's or a cube's record may carry stream entries:
 //   stream: [{ v, min, max, curve, smooth, hz, cc, wide, note, at, vel, val, ch, osc }]   (fields in this order, only those set)
 // v what is measured (STREAM_V): where it is drawn and how it moves (the output page measures those itself from out.pose()),
 // its state (out.value(), worked out here), people near it, and a cube's count of heads inside. min and max the range mapped

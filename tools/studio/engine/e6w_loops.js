@@ -1,7 +1,7 @@
 // ============================================================== LOOPS ON THE BEAT ==
 // Movement and events locked to the room's beat (v158; the owner, 17 November 2026: a loop recorder, "movement for now, both
 // clocks should be possible", then "also do the events"; tools/output/SPEC.md "v158" section 4 is the contract,
-// tools/studio/SPEC.md "Loops on the beat" the studio's part). The room's beat is bt (e6u_send.js: written only by the output
+// docs/agents/studio.md "Streams, trails and loops on the beat" the studio's part). The room's beat is bt (e6u_send.js: written only by the output
 // page, from MIDI clock, OSC or its own tempo), with bar, beats a bar, and at a downbeat.
 // - A recorded path may carry sync: 'beat' and beats (1 to 256, both or neither): while the room has a beat its moment is
 //   ((beatPos mod beats) / beats) × its length, so it loops exactly on the beat and stretches with the tempo (its play, speed

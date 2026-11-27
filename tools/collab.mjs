@@ -6750,7 +6750,7 @@ async function studioRound(dir) {
     // every page's and the headset's ball switched to it, as light as the page previewed it; then a picture put in its colour
     // slot from the headset's card and saved from the headset: made again from ball.glb with the share kept
     const ballB64 = await sp(A, `(async () => {
-      exporterLoad();
+      await exporterLoad();
       const T = THREE, g = new T.SphereGeometry(0.5, 128, 96), p = g.attributes.position;
       for (let i = 0; i < p.count; i++) { const x = p.getX(i), y = p.getY(i), z = p.getZ(i), k = 1 + 0.04 * Math.sin(20 * x) * Math.sin(20 * y) * Math.sin(20 * z); p.setXYZ(i, x * k, y * k, z * k); }
       g.computeVertexNormals();

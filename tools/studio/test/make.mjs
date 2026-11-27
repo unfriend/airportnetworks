@@ -12,7 +12,7 @@
 //               pane in the smoke test (with figure.fbx and figure.png, tone.wav and sounds/long.wav)
 //   layout.json one object of each model, a cube showing the figure and the sound and hiding the box, and the sound
 // and the second test scene, tools/studio/test/scenes/textures/ (no layout: the tests place what they need), for the
-// textures a model names and the scene lacks or holds in a kind the browser cannot show (tools/studio/SPEC.md, "Textures:
+// textures a model names and the scene lacks or holds in a kind the browser cannot show (docs/agents/studio.md, "Textures:
 // found, added, converted"; the pictures from tools/studio/test/pictures.mjs, which tools/studio/test-images.mjs reads back):
 //   crate.obj + crate.mtl   its colour tex/wood.tif (a TIFF, LZW: the ladder's 'path'), its bump crate_height.png (made a
 //               normal map when converted)
@@ -25,7 +25,7 @@
 //   broken.obj + broken.mtl broken.tif, a TIFF compressed with JPEG (refused, with a sentence)
 //   plain.obj   texture coordinates and no material (Add a texture)
 //   tex/rough.tif (16-bit grey, Deflate), tex/glass.dds (DXT5, see-through), paint.png: pictures to pick
-// and the third, tools/studio/test/scenes/rig/, for sounds that follow a model or a bone (tools/studio/SPEC.md, "Sounds
+// and the third, tools/studio/test/scenes/rig/, for sounds that follow a model or a bone (docs/agents/studio.md, "Sounds
 // that follow a model"):
 //   dancer.glb  a small skinned figure (1.87 m, two materials, about 13 KB), its bones named in mixed conventions so the
 //               lenient match is used (Mixamo's mixamorig:Hips, mixamorig:Spine2, mixamorig:Neck and mixamorig:Head,
@@ -37,7 +37,7 @@
 //   voice.wav   a short sung vowel (0.8 s, 8 kHz, 8-bit)
 //   layout.json the dancer, the box, a cube (Curtain) that hides the dancer, and Voice at her mouth, following her head
 //               by the name an FBX would give it (mixamorig:Head)
-// and the fourth, tools/studio/test/scenes/cuts/, for cut-outs (tools/studio/SPEC.md, "Cut-outs"):
+// and the fourth, tools/studio/test/scenes/cuts/, for cut-outs (docs/agents/studio.md, "Cut-outs"):
 //   wall.obj + wall.mtl  a wall 3 m wide, 2.4 m high and 20 cm thick (an OBJ in metres, lit, a warm grey)
 //   dancer.glb, box.glb, figure.fbx, figure.png  as in the rig scene (a skinned figure; one file placed twice; a Z-up
 //               model in centimetres, whose GLB has a turn and a scale baked in)
@@ -53,14 +53,14 @@
 //               legs and arms swing, the elbows bend only about their hinge, forward, and the knees only about theirs,
 //               back). Never Mixamo's own files
 //   layout.json the rig, walking
-// and the sixth, tools/studio/test/scenes/walks/, for clip by distance (tools/studio/SPEC.md, "As it moves"):
+// and the sixth, tools/studio/test/scenes/walks/, for clip by distance (docs/agents/studio.md, "As it moves"):
 //   walker.glb  the puppet's rig in a dark suit with glowing neon bands, and three clips made here: Walk (in place, a stride
 //               of 1.27 m by design), Idle and Walk forward (Walk with root motion: its hips go 1.27 m a cycle)
 //   layout.json Walker on a recorded path (2 s standing, then round a circle), walking as it moves and standing with Idle,
 //               and Follower following it (an item behaviour), walking as it moves
 // and then index.json and files.json, by tools/studio/scan.mjs (node tools/studio/scan.mjs tools/studio/test/scenes --check
 // says whether they are current).
-// And an example scene, as the app ships them in examples/ (v137; tools/studio/SPEC.md, "Example scenes"), in a folder of
+// And an example scene, as the app ships them in examples/ (v137; docs/agents/studio.md, "Example scenes"), in a folder of
 // examples of its own, tools/studio/test/examples/ (the studio's &examples= points the tests there), listed by scan.mjs too:
 //   tiny/models/box.glb, tiny/sounds/tone.wav  the test box and tone in folders (so a copy to the relay makes them)
 //   tiny/layout.json the box, the tone over it and a cube that works for everyone
@@ -788,7 +788,7 @@ let ptotal = 0;
 fs.mkdirSync(pout, { recursive: true });
 for (const [f, b] of Object.entries(pfiles)) { fs.writeFileSync(path.join(pout, f), b); ptotal += b.length; }
 
-// ---- the walks scene: a walker for clip by distance (tools/studio/SPEC.md, "As it moves"; tools/studio/engine/e6y_walks.js)
+// ---- the walks scene: a walker for clip by distance (docs/agents/studio.md, "As it moves"; tools/studio/engine/e6y_walks.js)
 // The puppet's rig and skeleton in a dark suit with neon bands (cyan and magenta, glowing: a visor ring, a collar, a chest
 // ring, a belt, cuffs, shin and ankle rings, glowing toes) and three clips made here:
 // - Walk (1.1 s, 24 keys, in place): each foot on the ground for 60 % of a cycle, moving straight back under the hips at

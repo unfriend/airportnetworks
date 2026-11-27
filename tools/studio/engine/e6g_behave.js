@@ -1,7 +1,7 @@
 // ============================================================= BEHAVIOURS ==
 // The owner, 6 November 2026: "Add follow the player/avoid the player/an object etc to objects", then "behaviours should
 // be shared for each headset so only react to one headset, example closest or first player who walks close". An object, a
-// shape or an empty may have a behaviour in its record (tools/studio/SPEC.md, "Behaviours"), absent for none, with only
+// shape or an empty may have a behaviour in its record (docs/agents/studio.md, "Behaviours"), absent for none, with only
 // the fields its kind uses:
 // - look { who, range }: its front (+z as it is placed: a glTF model's own front) turns to face the person, about the
 //   vertical through its middle;

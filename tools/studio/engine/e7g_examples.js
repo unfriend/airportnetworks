@@ -1,5 +1,5 @@
 // ========================================================= EXAMPLE SCENES ==
-// Scenes that ship with the app (v137; tools/studio/SPEC.md, "Example scenes"): a folder examples/ at the app's root holding
+// Scenes that ship with the app (v137; docs/agents/studio.md, "Example scenes"): a folder examples/ at the app's root holding
 // scene folders and their listings exactly as tools/studio/scan.mjs writes them (examples/index.json and
 // examples/<name>/files.json; &examples=<a relative folder> picks another, as the tests do). The first is bliss-xp, the XP
 // room (tools/studio/xp/make.mjs). The Scene pane lists them, page and headset:

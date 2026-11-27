@@ -1,5 +1,5 @@
 // ================================================================ PAINTINGS ==
-// The owner, 14 November 2026 (tools/studio/SPEC.md, "Paintings: drawing in the air"): "Paint mode in studio mode,
+// The owner, 14 November 2026 (docs/agents/studio.md, "Paintings: drawing in the air"): "Paint mode in studio mode,
 // optionally with brushes and a spraycan etc?" A painting (kind d, the state's d.<id>, layout.json's paintings) is a set of
 // strokes drawn in the air: a ribbon, a tube, a glow pen or a spray can, in a colour and a width, kept in the painting's own
 // frame so it moves, turns, sizes, shows and hides, groups, locks and is deleted as one item. The strokes are in the record

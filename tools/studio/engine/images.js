@@ -1,5 +1,5 @@
 // ================================================================= IMAGES ==
-// Pictures and their names (tools/studio/SPEC.md, "Textures: found, added, converted"). Plain JavaScript, no page needed:
+// Pictures and their names (docs/agents/studio.md, "Textures: found, added, converted"). Plain JavaScript, no page needed:
 // one module in three places, the studio (pasted into stories/studio.js before the converter by
 // tools/studio/build.mjs), tools/studio/convert.mjs's headless page and tools/studio/test-images.mjs (Node).
 // makeImages(z) gives, z being fflate (unzlibSync, inflateSync; Node's zlib in the test):
@@ -501,7 +501,7 @@ function makeImages(z) {
   }
   const psdBack = url => String(url).replace(/\.(p)(s)(~|%7e)(?=$|[?#])/i, (m, p, q) => '.' + p + q + (q === 'S' ? 'D' : 'd'));   // (in the name's own case)
 
-  // ---- the gaps between a picture's pieces (tools/studio/SPEC.md, "Fewer triangles": the fill). A scan's texture is an
+  // ---- the gaps between a picture's pieces (docs/agents/studio.md, "Fewer triangles and Change texture": the fill). A scan's texture is an
   // atlas of many small pieces with black, unused texels between them; a lighter model keeps its seams joined in 3D but
   // straightens each piece's outline in the picture, so its triangles sample the black between pieces (black wedges along
   // the seams). cover() marks the texels a model's triangles use; fillGaps() fills every other texel from the nearest that

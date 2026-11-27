@@ -26,6 +26,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   finds a key in either list (start, load, swap, title), while everything that
   lists the stories sees only `STORY_LIST` (and, since v185, the app's own story packages: `HOST.list` merges them in
   `packages/order.json`'s order, `docs/agents/packages.md`).
+- `stories/studio.js`, `stories/studio-convert.js`, `stories/studio-edit.js` - the studio, built by
+  `tools/studio/build.mjs` without comments; the two parts (v226) are loaded on demand (`docs/agents/studio.md`, "The
+  studio is built the same way").
 - `packages/order.json` - hand-written (v185): every one of the app's stories in the Stories screen's order, moved into
   a package or not; the scan copies it into `packages/index.json`.
 - `tools/stories.mjs` - where each story is (v185): its file, sources, build and narrations, moved into a package or

@@ -598,7 +598,7 @@ function holdBlocks(it, B, dis) {
         : 'the left stick up makes it larger and down smaller, left or right turns it; the right stick up pushes it away and down pulls it in, left or right turns it too.') + (stickMode() === 'own' ? ' Click the left stick twice to move with them instead.' : ''), c: 'faint' });
 }
 const nameOf = id => { const it = STU.items.get(id); return it ? it.rec.name : '?'; };
-// ---- a group's card (tools/studio/SPEC.md, "Groups"): its members (each selects it on its own; picking, puts it out), Add
+// ---- a group's card (docs/agents/studio.md, "Groups"): its members (each selects it on its own; picking, puts it out), Add
 // or remove items... (a pick mode), its place and size (about its pivot, the middle of its members on the floor),
 // Duplicate, Ungroup and Delete (every member)
 function groupBlocks(g, B, dis, ed) {
@@ -645,7 +645,7 @@ function tintBlocks(objs, B, dis) {
 // the model a new cut-out would go on: the one selected, or the one the selected cut-out cuts
 const selModel = () => { const it = STU.items.get(STU.sel); return !it ? null : it.kind === 'o' ? it : it.kind === 'x' ? cutObj(it) : null; };
 const cmOrM = d => (d < 1 ? Math.max(1, Math.round(d * 100)) + ' cm' : metres(d));
-// ---- a sound's card: what it follows (tools/studio/SPEC.md, "Sounds that follow a model"): an object, picked by pointing
+// ---- a sound's card: what it follows (docs/agents/studio.md, "Sounds that follow a model"): an object, picked by pointing
 // at it (or from a list), then one of its bones (the short list where the model has them, then every bone; a model with
 // no bones offers the parts its animation moves), Move onto it and Stop following; each keeps the sound where it is now
 function followBlocks(it, B, dis) {
@@ -677,7 +677,7 @@ function followBlocks(it, B, dis) {
   B.push({ page: true, list: all }, { xr: true, list: all.slice(pg * per, pg * per + per) });
   if (pages > 1) B.push({ xr: true, label: `${pg * per + 1} to ${Math.min(all.length, pg * per + per)} of ${all.length}`, row: [{ id: 'bonepg:-', label: '◂ Previous', act: 'i:bonePage', v: -1, dis: pg <= 0 }, { id: 'bonepg:+', label: 'Next ▸', act: 'i:bonePage', v: 1, dis: pg >= pages - 1 }] });
 }
-// ---- an object's textures (tools/studio/SPEC.md, "Textures: found, added, converted"): what is missing, each with
+// ---- an object's textures (docs/agents/studio.md, "Textures: found, added, converted"): what is missing, each with
 // pictures of the scene to use (the ladder's and the likeliest by name) or one from this computer; what the ladder found
 // under another name or read from a TIFF, PSD or DDS; and Add a texture (a picture, a material, a slot). A press
 // converts at once (texGo): the pictures are baked into the model's GLB, never stored in the layout. Pages only: a

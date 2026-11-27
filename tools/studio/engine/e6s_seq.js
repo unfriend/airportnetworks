@@ -1,5 +1,5 @@
 // ================================================================ SEQUENCES ==
-// The owner, 15 November 2026 (tools/studio/SPEC.md, "Sequences"): "A kind of timeline that can playback animations, show
+// The owner, 15 November 2026 (docs/agents/studio.md, "Sequences"): "A kind of timeline that can playback animations, show
 // items, hide them, play audiofiles on items, etc". A sequence is an item of kind q (no place, no holder of its own, as a
 // group has none): { name, len, loop, start, sync, col, ev, locked }, its events { t, on, what, clip?, how?, fade?, mat?,
 // slot?, file? } sorted by time. What each event does is what a cube's entry does (e6n_plays.js: clips, sounds, recorded

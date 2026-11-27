@@ -1,7 +1,7 @@
 
 // =============================================================== CUT-OUTS ==
 // A cut-out is a box that hides the part of one object's model inside it (a door in a wall), without changing the
-// model's file (tools/studio/SPEC.md, "Cut-outs"). Its record: the object it cuts (on), and its middle (p), turn (q, a
+// model's file (docs/agents/studio.md, "Cut-outs"). Its record: the object it cuts (on), and its middle (p), turn (q, a
 // full turn) and size in that object's frame, turned but not scaled (metres), so it stays on the same part of the model
 // when the object is moved or turned; sized here, the object scales its cut-outs' records with it (scaleFollowers), and
 // switched to its GLB they are turned by the turn baked in (switchToGLB). An object's model takes a small addition to

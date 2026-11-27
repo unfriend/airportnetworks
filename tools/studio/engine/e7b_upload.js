@@ -1,5 +1,5 @@
 // ================================================================= UPLOAD ==
-// GLB first (tools/studio/SPEC.md, "GLB first, and converting" and "The upload page"). What the studio makes goes into
+// GLB first (docs/agents/studio.md, "GLB first" and "The upload page"). What the studio makes goes into
 // folders of the scene: models/ (GLB), sounds/ and originals/ (the files as they were given, so a model can be converted
 // again). A GLB the converter wrote records what it was made from (asset.extras.studio): read from its head (a byte
 // range) so the Add list shows the GLB and folds the original under Originals. Convert to GLB (an object's card, and
@@ -79,7 +79,7 @@ function sceneLists() {
 // 8,192 or 4,096 px, or JPEG/PNG at most 4,096 or 2,048), written as a GLB, loaded back and checked. With a relay that takes uploads it goes to models/<base name>.glb (again for one made
 // from this file before, else a free name) and every object placed from the original switches to it; else it is
 // downloaded. A failure changes nothing. Pictures laid on by hand (o.tex: [{ name, mat, slot, from, url }], "Textures:
-// found, added, converted" in tools/studio/SPEC.md) are baked in and recorded in the GLB (asset.extras.studio.tex), so
+// found, added, converted" in docs/agents/studio.md) are baked in and recorded in the GLB (asset.extras.studio.tex), so
 // converting the original again lays them on again; o.into: the GLB to write (an object's own: replaced where it is,
 // the old one first kept under originals/ when it is made again from itself); o.label: the note's first words; o.keep: the
 // share of its triangles kept (Fewer triangles: the converter's reduce; 0 or none, all); o.any: from a headset too

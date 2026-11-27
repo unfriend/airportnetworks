@@ -1,6 +1,6 @@
 // ================================================================== TRAILS ==
 // Trails (v158; the owner, 17 November 2026: trails "for both [items and people's hands] and show to everyone at the
-// circle"; tools/output/SPEC.md "v158" section 3 is the contract, tools/studio/SPEC.md "Trails" the studio's part). An
+// circle"; tools/output/SPEC.md "v158" section 3 is the contract, docs/agents/studio.md "Streams, trails and loops on the beat" the studio's part). An
 // object's, a shape's, an empty's or a sound's record may carry
 //   trail: { len, w, col }   (len 0.5..10 s, w 0.005..0.1 m, col '#rrggbb': absent the kind's own colour)
 // and the scene's settings may carry hands: { len, w } (people's hand trails, in their colours; absent: off). Each device

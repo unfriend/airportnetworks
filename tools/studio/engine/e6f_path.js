@@ -1,7 +1,7 @@
 // ========================================================= RECORDED PATHS ==
 // The owner, 6 November 2026: "just animate objects by dragging them? Animation recorder?", then "animations do 1 and 2"
 // (1: simple motions, e6e_motion.js; 2: this file, the recorder). An object, a shape, an empty or a sound may have a
-// recorded path in its record (tools/studio/SPEC.md, "Recorded paths"): { k, play, start, speed }, absent for none. A
+// recorded path in its record (docs/agents/studio.md, "Recorded paths"): { k, play, start, speed }, absent for none. A
 // group has none (its members each keep their own, and move with it), nor do cubes and cut-outs (a cut-out goes with its
 // object's path).
 // - k: its keys, each [t, dx, dy, dz, qx, qy, qz, qw]: t seconds from 0 (to the ms; the first 0, strictly increasing, the

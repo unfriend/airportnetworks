@@ -1,7 +1,7 @@
 // ================================================================ MOTIONS ==
 // The owner, 6 November 2026: "Add little animations like spin and wobble etc for models?", then "animations do 1 and 2"
 // (1: simple motions, this file; 2: a recorder of paths, to come; curves later). An object, a shape or an empty may have
-// a motion in its record (tools/studio/SPEC.md, "Motions"): { kind, speed, amount, axis, start }, absent for none:
+// a motion in its record (docs/agents/studio.md, "Motions"): { kind, speed, amount, axis, start }, absent for none:
 // - spin: turns about the axis through its middle (speed: turns a minute);
 // - wobble: tilts by amount degrees away from the axis, the tilt going round it (wobbles a minute);
 // - bob: up and down along the axis by amount metres (bobs a minute);

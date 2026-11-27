@@ -1,6 +1,6 @@
 // ============================================= LONG RECORDINGS AND VOICES ==
 // The owner, 8 November 2026: "Add voice recording option to the motion recorder, make length up to ten minutes possible?"
-// (tools/studio/SPEC.md, "Recorded paths": "Ten minutes, as a file" and "A voice with the movement").
+// (docs/agents/studio.md, "Recorded paths": "Ten minutes, as a file" and "A voice with the movement").
 //
 // Long recordings. With a relay that takes uploads a recording may run up to 600 s (recCap). One longer than 120 s, or of
 // more than 600 keys once simplified, is kept as a file of the scene, recordings/<the item's name>-<n>.json (the first n
