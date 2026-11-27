@@ -753,6 +753,11 @@ const frames = (page, ms) => page.evaluate(async ms => {
   const t0 = performance.now();
   while (performance.now() - t0 < ms) { window.__xr.step(); await new Promise(r => setTimeout(r, 16)); }
 }, ms);
+// frames on pretend headsets, all at once, until each is lined up (30 s at most). A headset takes a frame published for
+// its shared space only once its socket has been open 5 s (the room's members known: shared.js align's early); since
+// v219's quicker start (no story behind the start page, a story's file run as a script element) a fixed 300 ms after the
+// space's id came in can fall before then, and a headset whose frames stop between steps stays waiting
+const alignedAll = (hs, ms = 30000) => Promise.all(hs.map(h => until(h, () => { window.__xr.step(); return HOST.room.aligned; }, null, ms)));
 const rigOf = page => page.evaluate(() => { const r = HOST.cur.peek('GL.rig'); return [r.position.x, r.position.y, r.position.z, 2 * Math.atan2(r.quaternion.y, r.quaternion.w)]; });
 // where a story's rig must stand at station s: its spot at eye height, in this headset's local space
 const rigAt = (s, L) => { L = L || LOCAL; const w = apply(ROOM, [s.x, 1.6, s.z]); return [...unapply(L, w), ROOM[3] + s.yaw - L[3]]; };
@@ -1701,7 +1706,7 @@ async function headsetRound(dir) {
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
-  await frames(H, 300);
+  await alignedAll([H]);
   const sts = await A.evaluate(() => HOST.collab.stations()), [S1, S2, S3] = KEYS.map(k => sts.find(s => s.story === k)), ids = [S1.id, S2.id, S3.id];
   check('round: the pretend headset aligns in a room of its own with three stations', await H.evaluate(() => HOST.room.aligned) && !!S1 && !!S2 && !!S3);
   const seenRound = () => H.evaluate(ids => { window.__xr.step(); const O = HOST.collab.overlay();
@@ -2871,6 +2876,7 @@ async function menusRound(dir) {
     if (u) fs.writeFileSync(path.join(dir, `menus-${n}-picture.png`), Buffer.from(u.split(',')[1], 'base64'));
     await headView(B, path.join(dir, `menus-${n}-seen.png`), 0.86, -0.12, [640, 400]);
   };
+  await alignedAll(H);
   try {
     check('menus: three pretend headsets align in a room of their own with two story circles', (await Promise.all(H.map(h => h.evaluate(() => HOST.room.aligned)))).every(Boolean) && !!S1 && !!S2);
     const inA = await walk(A, S1, K1, 0, 150000), inB = await walk(B, S1, K1, Math.PI, 150000), inC = await walk(C, S2, K2, 0, 150000);
@@ -3086,7 +3092,7 @@ async function behaveRound() {
     }
     await Promise.all([frames(H1, 400), frames(H2, 400)]);
     for (const H of [H1, H2]) await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
-    await Promise.all([frames(H1, 300), frames(H2, 300)]);
+    await alignedAll([H1, H2]);
     const st = await A.evaluate(id => HOST.collab.station(id), sid);
     const al = (await H1.evaluate(() => HOST.room.aligned)) && (await H2.evaluate(() => HOST.room.aligned));
     // both walk into the circle (the studio opens there, its one scene by itself), the page follows it
@@ -3630,7 +3636,7 @@ async function outputRound(dir) {
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 400);
     await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
-    await frames(H, 300);
+    await alignedAll([H]);
     const al = await H.evaluate(() => HOST.room.aligned && HOST.room.src === 'adopted');
     // a plain studio circle; the headset walks in, A follows it and picks the test scene on its Scene pane (that page writes
     // the scene's records for the room). (Not a circle made for the scene, addScene: there every device writes the layout
@@ -6421,7 +6427,7 @@ async function studioRound(dir) {
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 400);
     await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
-    await frames(H, 300);
+    await alignedAll([H]);
     const al = await H.evaluate(() => HOST.room.aligned && HOST.room.src === 'adopted');
 
     // ---- the menu's Studio here: the circle at the headset's feet, facing its way, for every page
