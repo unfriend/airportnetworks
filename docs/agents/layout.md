@@ -313,8 +313,9 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `narration-de.mp3` too), `README.md`, `src/`); the entries above and below give their sources' contents. A build reads
   another story's shared set from that story's `src/` (`'../../packages/lbi/src/sets/body'`).
 - `packages/airports/`, `proteins/`, `spatial/` - the three hand-written stories, wrapped in v187: `story.json`, `main.js`
-  (the old `stories/<key>.js` as it was: its own source, no `src/`), `audio/narration.mp3` (the airports' the human
-  recording), `README.md`.
+  (the old `stories/<key>.js` as it was: its own source, no build), `audio/narration.mp3` (the airports' the human
+  recording), `README.md`. Only spatial has a `src/`: `packages/spatial/src/layout.mjs` (v225) runs `solveLayout()` in
+  headless Chromium and writes `main.js`'s `LAYOUT_DATA` (`--check`: whether it is current).
 - `packages/tutorial/src/` - the sources of `packages/tutorial/main.js` (v173: the guide's script `sets/script.js` and its Node
   check `test-script.mjs`, the guide set drawn by `bodies.js`, engine parts adapted from the flock's, build script, set
   harness that loads `ik.js` and `bodies.js`; shots in `shots/`, git-ignored); see its `README.md` and `SPEC.md`.

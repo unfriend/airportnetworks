@@ -1,27 +1,27 @@
 # The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, CDK5, pass, flock, robots, tutorial, design room)
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 32: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (3.0 KB)
-- 63: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
-- 155: The tour (`packages/lbi/main.js`) is built from sets (2.8 KB)
-- 195: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
-- 262: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
-- 284: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
-- 332: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
-- 355: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
-- 402: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.8 KB)
-- 432: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
-- 480: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
-- 544: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.3 KB)
-- 616: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (7.9 KB)
-- 690: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
-- 776: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
-- 859: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
-- 921: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
-- 971: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.3 KB)
-- 1023: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.1 KB)
-- 1073: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1124: From CLAUDE.md (6.4 KB)
+- 32: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (3.2 KB)
+- 67: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
+- 159: The tour (`packages/lbi/main.js`) is built from sets (2.8 KB)
+- 199: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
+- 266: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
+- 288: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
+- 336: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
+- 359: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
+- 406: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.8 KB)
+- 436: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
+- 484: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
+- 548: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.3 KB)
+- 620: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (7.9 KB)
+- 694: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
+- 780: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
+- 863: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
+- 925: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
+- 975: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
+- 1024: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.1 KB)
+- 1074: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1125: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and
@@ -47,15 +47,19 @@ topo's look, lbi's web), resolved through the moved build's `src()`; its harness
 
 The three hand-written stories (airports, proteins, spatial) were wrapped in v187: `packages/<key>/main.js` is the old
 `stories/<key>.js` (the narration literal through `HOST.pkgUrl` and the comments naming it the only changes), with no
-`src/` and no build; edit it, then `node tools/packages/scan.mjs` (and rebuild pass after airports or spatial).
+build; edit it, then `node tools/packages/scan.mjs` (and rebuild pass after airports or spatial). Only spatial has a
+`src/` (v225): `src/layout.mjs`, which stores its cell's layout (below).
 `proteins.html` and `spatial.html` still redirect to `#proteins` and `#spatial`.
 
 The cell map's layout is stored (v225): `packages/spatial/main.js`'s `solveLayout()` (the old `LAYOUT` code, unchanged;
-two relaxations, about 0.1 s on a laptop and run before any loading card) is run once by `node
+two relaxations, about 0.1 s on a laptop, measured headless, and run before any loading card; a headset's time is
+not measured) is run once by `node
 packages/spatial/src/layout.mjs` (`--check`) in headless Chromium, which writes `LAYOUT_DATA` (positions as Float32,
 organelle per copy as Int32, base64, with `layoutSig()` and the browser's version). The page uses it while
 `layoutSig()` (the copies, places, hints, links, `TOGETHER` and the cell's organelles, fractions to 5 places) matches,
-and solves as before otherwise; after editing the lists, run it, then the pass build. Why Chromium and not Node: the
+and solves as before otherwise; after editing the lists, the cell or `solveLayout()` itself (its code and constants,
+the seed, the steps and the springs, are not in the signature: only `--check` sees such a change), run it, then the
+pass build. Why Chromium and not Node: the
 380 relaxation steps magnify last-digit differences in `sin`, `cos`, `acos` and `pow`, and Node 22 and Chromium 158
 differ there (the cell came out up to 0.11 of its radius apart). So a browser whose maths differs (an older Quest
 Browser, Safari, Firefox) made a slightly different cell before v225 and now shows Chromium 158's.
@@ -185,11 +189,11 @@ faded in and out by the story; the camera flies between views.
 - Explore mode has a Scenes tab (any set, with its own controls, as HTML and
   canvas twins) and a Proteins tab (search, partners and routes on the
   interactome's named proteins).
-- Memory (v225): a geometry that is written once at load and never read or rewritten after drops each attribute's copy
-  in memory once it is on the graphics card (`onUpload`, an empty array of its kind in its place), all but `position`,
-  which the bounds and the headset's keep-clear sampler read: the DNA set's meshes (`geoOf`, which also copies the used
-  part out of its builders' doubled capacity), the interactome's links, the internet's and the globe's. Before adding
-  `needsUpdate` or a read of such an attribute, take it out of that list. The shared `body.js` lets its 60,000-point
+- Memory (v225): the DNA set's meshes (`geoOf`) copy the used part out of their builders' doubled capacity. No
+  attribute drops its array once on the graphics card (`onUpload`): three.js r128 uploads every attribute again from
+  its array after a lost WebGL context is restored (`webglcontextrestored`, index.html), and an emptied array leaves a
+  zero-length buffer, so the mesh no longer draws (v225 dropped them for about 20 MB; its review round took that back).
+  The shared `body.js` lets its 60,000-point
   staging arrays go once its geometry holds its copies, `tissue.js` its cells and splats before it hands the set over.
 
 ## The muscle story (`packages/nmd/main.js`) is built the same way
@@ -974,14 +978,11 @@ maths, no THREE), one set (`sets/guide.js`, manifest `sets/guide.md`) and engine
   Sets in `src/sets/` (`cell`, `ball`, `crowd`, `walls`, `lens`, `sites`, `next`) over `PDATA` (`pdata.js`, the
   interactome and the Atlas's places) and, since v205, `PSIDES` (`psides.js` over `sides.js`: UniProt's membrane sides
   and the Complex Portal's complexes, `src/data/gen_sides.py`; `node packages/ppicell/src/data/test-sides.mjs`).
-- Its protein models load late (v225, `LATE` and `lateSet` in `src/engine/e2_scene.js`): the load waits only for the
-  walls' seven (its views come from them); the lenses' and the sites' (3.6 MB) are asked for by their sets' steps,
-  after the walls' have come (each set's `molPrep` fetches its own), and until they are in a stand-in (the set made
-  without its models, as when they fail)
-  gives the load what it reads (params, views, labels, anchors). The set itself is made in a hidden frame once its
-  models are in, compiled in the next (`compileLate`), or at once when a seek or explore mode asks for it; its group sits
-  in the stand-in's, at the same place in the scene. A set whose views depend on its models cannot be late (the walls').
-  The credits come from `models/index.json` (`MOL_CREDITS`, pasted in by `build.mjs`); the crowd's four molecules are
+- Its protein models: the load waits for all sixteen it draws (`molPrep`'s first call fetches them side by side). v225
+  made the lenses' and the sites' sets after the load (a stand-in without models until theirs came); its review round
+  took that back, since a seek, a room's jump, explore mode or an opening `&t=` into chapter 6 or 8 before those models
+  came showed the chapter without its lenses or sites, with no loading card. A set made after the load needs a hold
+  (the clock and the narration waiting, the loading card shown) before it can come back. The credits come from `models/index.json` (`MOL_CREDITS`, pasted in by `build.mjs`); the crowd's four molecules are
   drawn only as balls (`structs.js`, now only those balls: `src/data/gen_structs.py`) and their models are not fetched.
 - The judgement (v205): carried sides (UniProt's where it names the place, else the protein's own build; no signal
   taken as the cytosol's side, said in the story to be a rule with exceptions), the unknown ones strict; the cell's

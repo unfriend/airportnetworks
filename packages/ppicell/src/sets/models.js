@@ -1,17 +1,16 @@
 // The protein models the sets draw (src/models.json, built by tools/mol/build.py into the package's models/ folder;
-// drawn by the engine's molMesh and molInstanced). molPrep(names): a set's prep, true once its models have come (its
-// first call starts fetching them; the lenses' and the sites' sets are made after the load: LATE, engine/e2_scene.js). molCredit:
+// drawn by the engine's molMesh and molInstanced). molPrep(names): a set's prep, true once its models have come (the
+// first call starts fetching every model the story uses, so they load side by side while the sets build). molCredit:
 // a model's credit ('PDB 1GRI (Maignan et al., Science 1995)'). molPts: its residues' anchors (angstroms, the model's
 // frame); molAxis: the longest axis of such points (models built with orient: false, cut from one entry, line up).
 const MOL_URL = f => pkgUrl('models/' + f);
-// (v225) each set's prep fetches its own models: the walls' while the load waits for them, the lenses' and the sites'
-// once the walls' have come (their sets come later in the load: LATE, engine/e2_scene.js), so the ones the load waits for
-// do not share the line with the rest. The crowd's own four, ubiquitin, actin, GAPDH and tubulin, are drawn as balls
-// from structs.js, never from their models: not fetched (their credits: MOL_CREDITS)
-const molPrep = names => () => molReady(MOL_URL, names);
+// (v225) the crowd's own four, ubiquitin, actin, GAPDH and tubulin, are drawn as balls from structs.js, never from their
+// models: not fetched (their credits: MOL_CREDITS). The load waits for all the others, as before v225: making the
+// lenses' and the sites' sets after it showed a seek into their chapters without them until their models came
+const MOL_ALL = ['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'b2ar', 'b2lig', 'gs', 'ras', 'raf', 'igg', 'bira', 'jak2', 'p300', 'cam', 'fxn'];
+const molPrep = names => () => { molLoad(MOL_URL, MOL_ALL); return molReady(MOL_URL, names); };
 const molHead = n => (MOLS.m[n] && MOLS.m[n].head) || null;
-// every model's credit, from models/index.json (pasted in by build.mjs): the story's credits are written at load, before
-// the later chapters' models have come
+// every model's credit, from models/index.json (pasted in by build.mjs): the crowd's four are never fetched
 const MOL_CREDITS = /*@@MOL_CREDITS@@*/{};
 const molCredit = n => (molHead(n) ? molHead(n).credit : MOL_CREDITS[n] || '');
 const molPts = n => { const m = MOLS.m[n]; return m && m.res ? Array.from({ length: m.res.n }, (_, i) => Array.from(m.res.pos.subarray(3 * i, 3 * i + 3))) : []; };

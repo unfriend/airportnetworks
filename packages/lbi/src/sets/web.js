@@ -555,9 +555,6 @@ void main() {
   // ties (Local only: back to the local ones; All: on from there); a change of View, or reopening, replays the growth.
   let xView = '', xTies = '', xT = 0, xKeep = false;
 
-  // (v225: these geometries are written once, above, and never read again: all but position, which the bounds and the
-  // headset's keep-clear sampler read, drop their copy in memory once on the graphics card, an empty array in its place)
-  for (const g of [ng, lg, LIGHTS, GT.g]) for (const k in g.attributes) if (k !== 'position') g.attributes[k].onUpload(function () { this.array = new this.array.constructor(0); });
   return Object.assign(set, {
     params: { web_a: 1, web_net: 1, web_globe: 0, web_ties: 0, web_spin: 0 },
     update(S, t) {

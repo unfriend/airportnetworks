@@ -1234,9 +1234,6 @@ void main() {
     }
     attr(g, 'position', pa, 3); attr(g, 'aOth', po, 3); attr(g, 'aFlat', fa, 3); attr(g, 'aOthF', fo, 3); attr(g, 'aCol', ca, 3);
     attr(g, 'aGc', gc, 3); attr(g, 'aHood', hd, 3); attr(g, 'aG', ga, 4); attr(g, 'aH', ha, 4); attr(g, 'aE', ea, 4);
-    // (v225: never read or rewritten after this: all but position, which the bounds and the headset's keep-clear sampler
-    // read, drop their copy in memory once on the graphics card, some 10 MB: an empty array of its kind in its place)
-    for (const k in g.attributes) if (k !== 'position') g.attributes[k].onUpload(function () { this.array = new this.array.constructor(0); });
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.6);
     const m = mat(`
 attribute vec3 aOth, aFlat, aOthF, aCol, aGc, aHood; attribute vec4 aG, aH, aE;
@@ -3861,9 +3858,6 @@ void main() {
   // ties (Local only: back to the local ones; All: on from there); a change of View, or reopening, replays the growth.
   let xView = '', xTies = '', xT = 0, xKeep = false;
 
-  // (v225: these geometries are written once, above, and never read again: all but position, which the bounds and the
-  // headset's keep-clear sampler read, drop their copy in memory once on the graphics card, an empty array in its place)
-  for (const g of [ng, lg, LIGHTS, GT.g]) for (const k in g.attributes) if (k !== 'position') g.attributes[k].onUpload(function () { this.array = new this.array.constructor(0); });
   return Object.assign(set, {
     params: { web_a: 1, web_net: 1, web_globe: 0, web_ties: 0, web_spin: 0 },
     update(S, t) {
@@ -3955,18 +3949,11 @@ SETS.dna = function (K) {
     }
     if (b.ni + ni > b.idx.length) { let c = b.idx.length * 2; while (c < b.ni + ni) c *= 2; const x = new Uint32Array(c); x.set(b.idx); b.idx = x; }
   }
-  // (v225: copies of the used part, the builder's doubled capacity let go; nothing reads or rewrites these meshes after
-  // the build, so every attribute but position, which the bounds and the headset's keep-clear sampler read, drops its
-  // copy in memory once it is on the graphics card: an empty array of its kind in its place, so a lost and restored
-  // WebGL context finds an array, not null)
-  const dropArray = function () { this.array = new this.array.constructor(0); };
+  // (v225: copies of the used part, the builder's doubled capacity let go. The attributes keep their arrays: three.js
+  // uploads them again from those after a lost WebGL context is restored)
   function geoOf(b) {
     const g = new THREE.BufferGeometry();
-    for (const k in b.sz) {
-      const at = new THREE.BufferAttribute(b.a[k].slice(0, b.nv * b.sz[k]), b.sz[k]);
-      if (k !== 'position') at.onUpload(dropArray);
-      g.setAttribute(k, at);
-    }
+    for (const k in b.sz) g.setAttribute(k, new THREE.BufferAttribute(b.a[k].slice(0, b.nv * b.sz[k]), b.sz[k]));
     g.setIndex(new THREE.BufferAttribute(b.nv > 65535 ? b.idx.slice(0, b.ni) : Uint16Array.from(b.idx.subarray(0, b.ni)), 1));
     b.a = {}; b.idx = null;
     return g;

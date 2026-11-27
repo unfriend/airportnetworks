@@ -800,8 +800,8 @@ const CELL = (() => {
 // ------------------------------------------------------------------ layout --
 // Places every copy where it belongs (on a membrane, inside an organelle, in the
 // cytoplasm), with interacting proteins pulled together. Seeded, so the cell
-// looks the same on every visit. It takes about 0.1 s on a desktop (several times
-// that in a headset, before any loading card), so its result is stored below in
+// looks the same on every visit. It takes about 0.1 s on a desktop (measured headless;
+// a headset is likely slower, not measured; before any loading card), so its result is stored below in
 // LAYOUT_DATA by node packages/spatial/src/layout.mjs, which runs this same code;
 // the page solves it again only when the lists or the cell no longer match.
 function solveLayout() {

@@ -970,9 +970,6 @@ void main() {
     }
     attr(g, 'position', pa, 3); attr(g, 'aOth', po, 3); attr(g, 'aFlat', fa, 3); attr(g, 'aOthF', fo, 3); attr(g, 'aCol', ca, 3);
     attr(g, 'aGc', gc, 3); attr(g, 'aHood', hd, 3); attr(g, 'aG', ga, 4); attr(g, 'aH', ha, 4); attr(g, 'aE', ea, 4);
-    // (v225: never read or rewritten after this: all but position, which the bounds and the headset's keep-clear sampler
-    // read, drop their copy in memory once on the graphics card, some 10 MB: an empty array of its kind in its place)
-    for (const k in g.attributes) if (k !== 'position') g.attributes[k].onUpload(function () { this.array = new this.array.constructor(0); });
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.6);
     const m = mat(`
 attribute vec3 aOth, aFlat, aOthF, aCol, aGc, aHood; attribute vec4 aG, aH, aE;

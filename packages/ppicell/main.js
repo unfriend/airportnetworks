@@ -1371,19 +1371,18 @@ Sources and credit: the interactome: J. Menche, A. Sharma, M. Kitsak, S. D. Ghia
 const PPI_STRUCTS = {"bira":{"coarse":[[110,-143,9,108],[254,-180,3,96],[222,-133,-110,98],[94,53,81,101],[9,-60,55,95],[-99,111,124,100],[-44,69,-73,106],[-58,-6,160,100],[72,11,-80,104],[-141,131,5,100],[-239,59,-93,113]]},"ubq":{"coarse":[[-22,-59,-85,84],[-10,88,-17,81],[80,0,-13,82],[63,48,108,88],[-45,-56,33,95],[-82,-10,-58,77]]},"cam":{"coarse":[[-157,56,117,96],[-42,183,111,112],[-86,187,-1,103],[-60,-13,20,90],[106,-109,-71,117],[110,-241,-100,97]]},"gapdh":{"coarse":[[89,218,248,131],[177,232,70,120],[243,171,215,117],[-121,79,287,129],[41,58,284,122],[-99,54,65,129],[-209,-290,64,125],[-156,-221,-116,121],[-300,-197,-29,118],[-54,-181,261,129],[-180,-151,165,127],[54,-86,83,128],[-106,266,-186,131],[-200,220,-2,121],[-267,197,-153,118],[108,177,-245,127],[-53,127,-255,121],[92,87,-38,128],[238,-233,-151,124],[186,-229,44,121],[324,-167,-33,118],[72,-80,-304,129],[195,-71,-200,127],[-40,-55,-109,129]]},"tub":{"coarse":[[360,-9,24,105],[149,22,190,110],[50,122,47,109],[254,134,98,106],[216,118,-47,105],[147,6,8,104],[270,-85,118,107],[214,-202,41,112],[200,-19,-163,115],[343,-49,-161,111],[362,-151,-19,110],[41,104,-135,113],[-236,-45,11,109],[-138,8,215,111],[-290,37,155,104],[-340,126,35,105],[-159,137,61,117],[-282,26,-132,121],[-221,-208,37,110],[-90,-11,-129,120],[-86,-150,-63,120],[78,-113,-5,107],[-63,-69,79,103],[-391,115,-127,107]]},"actin":{"coarse":[[160,-41,-149,107],[25,-57,-74,104],[214,-104,117,109],[149,2,32,97],[65,93,-42,99],[170,113,-145,106],[-35,23,42,98],[-42,-146,184,113],[-146,-67,80,96],[-228,-118,160,93],[-115,61,136,87],[-110,145,-80,105],[-203,64,-30,107],[1,12,-173,104]]}};
 
 // The protein models the sets draw (src/models.json, built by tools/mol/build.py into the package's models/ folder;
-// drawn by the engine's molMesh and molInstanced). molPrep(names): a set's prep, true once its models have come (its
-// first call starts fetching them; the lenses' and the sites' sets are made after the load: LATE, engine/e2_scene.js). molCredit:
+// drawn by the engine's molMesh and molInstanced). molPrep(names): a set's prep, true once its models have come (the
+// first call starts fetching every model the story uses, so they load side by side while the sets build). molCredit:
 // a model's credit ('PDB 1GRI (Maignan et al., Science 1995)'). molPts: its residues' anchors (angstroms, the model's
 // frame); molAxis: the longest axis of such points (models built with orient: false, cut from one entry, line up).
 const MOL_URL = f => pkgUrl('models/' + f);
-// (v225) each set's prep fetches its own models: the walls' while the load waits for them, the lenses' and the sites'
-// once the walls' have come (their sets come later in the load: LATE, engine/e2_scene.js), so the ones the load waits for
-// do not share the line with the rest. The crowd's own four, ubiquitin, actin, GAPDH and tubulin, are drawn as balls
-// from structs.js, never from their models: not fetched (their credits: MOL_CREDITS)
-const molPrep = names => () => molReady(MOL_URL, names);
+// (v225) the crowd's own four, ubiquitin, actin, GAPDH and tubulin, are drawn as balls from structs.js, never from their
+// models: not fetched (their credits: MOL_CREDITS). The load waits for all the others, as before v225: making the
+// lenses' and the sites' sets after it showed a seek into their chapters without them until their models came
+const MOL_ALL = ['grb2', 'tp53', 'stat3a', 'stat3b', 'stat3dna', 'b2ar', 'b2lig', 'gs', 'ras', 'raf', 'igg', 'bira', 'jak2', 'p300', 'cam', 'fxn'];
+const molPrep = names => () => { molLoad(MOL_URL, MOL_ALL); return molReady(MOL_URL, names); };
 const molHead = n => (MOLS.m[n] && MOLS.m[n].head) || null;
-// every model's credit, from models/index.json (pasted in by build.mjs): the story's credits are written at load, before
-// the later chapters' models have come
+// every model's credit, from models/index.json (pasted in by build.mjs): the crowd's four are never fetched
 const MOL_CREDITS = {"grb2":"PDB 1GRI (Maignan et al., Science 1995)","tp53":"PDB 1TSR (Cho et al., Science 1994)","stat3a":"PDB 1BG1 (Becker et al., Nature 1998)","stat3b":"PDB 1BG1 (Becker et al., Nature 1998)","stat3dna":"PDB 1BG1 (Becker et al., Nature 1998)","b2ar":"PDB 3SN6 (Rasmussen et al., Nature 2011)","b2lig":"PDB 3SN6 (Rasmussen et al., Nature 2011)","gs":"PDB 3SN6 (Rasmussen et al., Nature 2011)","ras":"PDB 4G0N","raf":"PDB 4G0N","igg":"PDB 1IGT (Harris et al., 1997)","bira":"PDB 1BIA (Wilson et al., 1992)","jak2":"PDB 2B7A","p300":"PDB 3BIY (Liu et al., 2008)","ubq":"PDB 1UBQ (Vijay-Kumar et al., 1987)","cam":"PDB 1CLL (Chattopadhyaya et al., 1992)","actin":"PDB 1ATN (Kabsch et al., 1990)","gapdh":"PDB 1U8F (Jenkins and Tanner, 2006)","tub":"PDB 1JFF (Lowe et al., 2001)","fxn":"PDB 1EKG (Dhe-Paganon et al., J Biol Chem 2000)"};
 const molCredit = n => (molHead(n) ? molHead(n).credit : MOL_CREDITS[n] || '');
 const molPts = n => { const m = MOLS.m[n]; return m && m.res ? Array.from({ length: m.res.n }, (_, i) => Array.from(m.res.pos.subarray(3 * i, 3 * i + 3))) : []; };
@@ -3772,6 +3771,15 @@ function buildScene(canvas) {
   // the sets themselves: each built on its own, a step of the load (buildSet, LOAD)
   GL.sets = {};
 }
+// one set, built as a step of the load (LOAD) and hidden until the story fades it in; what a set needs built first (the
+// PET scanner's vision row: its 3D organs) is built a slice a step until done (prep; the step runs again while it says no)
+function buildSet(k) {
+  if (SETS[k].prep && !SETS[k].prep(25)) return true;
+  const s = SETS[k](K);
+  GL.sets[k] = s;
+  GL.world.add(s.group);
+  s.setAlpha(0);
+}
 // once every set is built (a step of the load): what joins them (nothing here)
 function sceneJoin() {}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
@@ -4067,63 +4075,6 @@ function molInstanced(set, name, opts = {}) {
     mesh.setMatrixAt(i, M.compose(pos, quat, S.setScalar(s * k)).multiply(B));
     mesh.instanceMatrix.needsUpdate = true;
   } };
-}
-// (v225) The sets whose models come after the load: the lenses' (chapter 6, 442 s) and the sites' (chapter 8, 581 s),
-// 3.6 MB of the 5.8 MB of models the load waited for. Their models are fetched from the load on (molPrep: the walls'
-// first, which the load still waits for: its views come from its models); until they are in, a stand-in takes the set's
-// place: made by the set's own code without the models (as when they fail to load), for what the load reads (params,
-// views, controls, labels, anchors), its group empty. Once they have come, the set itself is made in a frame of its own
-// while it is hidden (idle: the stand-in's group holds it, at the same place in the scene), its materials compiled in
-// the next (compileLate); a set asked to show before then (a seek, explore mode) is made at once if its models are in.
-// Everything the story asks of the set goes to the set itself once it is made, to the stand-in until then.
-const LATE = { lens: true, sites: true };
-function buildSet(k) {
-  if (LATE[k] && !SETS[k].prep(25)) {
-    const s = lateSet(k);
-    GL.sets[k] = s;
-    GL.world.add(s.group);
-    s.setAlpha(0);
-    return;
-  }
-  if (SETS[k].prep && !SETS[k].prep(25)) return true;
-  const s = SETS[k](K);
-  GL.sets[k] = s;
-  GL.world.add(s.group);
-  s.setAlpha(0);
-}
-function lateSet(k) {
-  const W = { dry: SETS[k](K), real: null, a: 0, compiled: false }, group = new THREE.Group();
-  group.name = k;
-  const of = () => W.real || W.dry, fwd = (o, key) => (typeof o[key] === 'function' ? (...a) => (W.real || W.dry)[key](...a) : o[key]);
-  const make = () => {
-    const s = SETS[k](K);
-    // (what the load took from the stand-in must be the set's own: its views and params do not depend on its models)
-    if (JSON.stringify([s.cam, s.params]) !== JSON.stringify([W.dry.cam, W.dry.params])) console.warn(`${k}: its views differ with its models`);
-    W.real = s; W.dry = null;
-    group.add(s.group);
-    s.setAlpha(W.a);
-  };
-  const ready = () => SETS[k].prep(25);
-  const w = Object.assign({}, W.dry, {
-    group, late: true,
-    setAlpha(a) { W.a = a; group.visible = a > 0.003; if (W.real) W.real.setAlpha(a); },
-    update(S, t, dt) {
-      if (!W.real && ready()) { make(); compileLate(W.real.group); W.compiled = true; }   // (asked for before it was made: at once)
-      if (W.real) W.real.update(S, t, dt);
-    },
-    // hidden: made once its models are in (a frame), compiled (the next); idle(dt, 0) only asks whether work is left
-    idle(dt, ms) {
-      if (W.real && W.compiled) return false;
-      if (ms === 0 || !ready()) return true;
-      if (!W.real) make(); else { compileLate(W.real.group); W.compiled = true; }
-      return !W.compiled;
-    },
-    labels: (W.dry.labels || []).map((L, i) => { const o = {}; for (const key in L) o[key] = typeof L[key] === 'function' ? (...a) => of().labels[i][key](...a) : L[key]; return o; }),
-    anchors: new Proxy(W.dry.anchors || {}, { get: (o, key) => (of().anchors || {})[key] }),
-    dispose() { if (W.real && W.real.dispose) W.real.dispose(); },
-  });
-  for (const key in W.dry) if (typeof W.dry[key] === 'function' && !(key in { setAlpha: 1, update: 1, idle: 1, dispose: 1 })) w[key] = fwd(W.dry, key);
-  return w;
 }
 
 // ================================================================== STORY ==

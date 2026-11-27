@@ -2,18 +2,18 @@
 
 <!-- toc (tools/docs/toc.mjs) -->
 - 24: When the suites run (1.5 KB)
-- 40: Which suite after which change (1.9 KB)
-- 67: Listing the tests and the docs' tools (2.5 KB)
-- 99: The smoke test (`tools/smoke.mjs`) (9.9 KB)
-  - 113: Smoke blocks (7.6 KB)
-  - 178: `--only <words>` (0.7 KB)
-  - 187: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-- 197: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.6 KB)
-- 257: Other tools (3.4 KB)
-- 280: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 289: Known red results on this machine (2.4 KB)
-- 313: Traps for a test writer (2.1 KB)
-- 336: Useful URL hashes and the console (4.8 KB)
+- 40: Which suite after which change (2.2 KB)
+- 68: Listing the tests and the docs' tools (2.5 KB)
+- 100: The smoke test (`tools/smoke.mjs`) (9.9 KB)
+  - 114: Smoke blocks (7.6 KB)
+  - 179: `--only <words>` (0.7 KB)
+  - 188: Playwright, SwiftShader and what only a headset shows (0.5 KB)
+- 198: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.6 KB)
+- 258: Other tools (3.4 KB)
+- 281: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 290: Known red results on this machine (2.4 KB)
+- 314: Traps for a test writer (2.1 KB)
+- 337: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -58,6 +58,7 @@ which start their own relay or server.
 | the studio's images or converter | `node tools/studio/test-images.mjs`, `tools/studio/convert.mjs <model>` |
 | an example's generator | that folder's `make.mjs --check` |
 | the room and depth test page (`room-test/`) | `node tools/room-test.mjs` |
+| `packages/spatial/main.js`'s lists, cell or `solveLayout()` | `node packages/spatial/src/layout.mjs --check` (headless Chromium; no other check runs it, and `layoutSig()` does not see `solveLayout()`'s own code or constants), then the pass build |
 | the shared engine, meant to change nothing | `tools/engine/same.mjs`, `xrsame.mjs`, `panelsame.mjs` (below; not in the release run) |
 
 After any change to an app file, bump `VERSION` in `sw.js` (AGENTS.md, "Releases and files"). Real-headset behaviour

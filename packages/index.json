@@ -74,11 +74,11 @@
       "minis": "minis.js",
       "icon": "lbi.int",
       "needs": 185,
-      "fp": "22dc8166c3e9fbb2",
-      "bytes": 6005259,
+      "fp": "38560d251bb3b062",
+      "bytes": 6004077,
       "files": {
         "audio/narration.mp3": "3845dddd3829424b",
-        "main.js": "e9de840ffa21ebfb",
+        "main.js": "de996fc7e5cc0765",
         "minis.js": "c8a81245a10692e4",
         "story.json": "8c1a003b96ce5b3a"
       }
@@ -344,12 +344,12 @@
       "minis": "minis.js",
       "icon": "pass.fish",
       "needs": 185,
-      "fp": "ce232a76fdff373f",
-      "bytes": 7557277,
+      "fp": "64207f0fa37e85fb",
+      "bytes": 7557305,
       "files": {
         "audio/narration-de.mp3": "1d3995bde9711a52",
         "audio/narration.mp3": "0c33c976e1f19b54",
-        "main.js": "737565466c3259bb",
+        "main.js": "264fa46c4e21aa53",
         "minis.js": "cd39558cecb01581",
         "story.json": "d98bd9920210db13"
       }
@@ -375,11 +375,11 @@
       "minis": "minis.js",
       "icon": "soil.soil",
       "needs": 185,
-      "fp": "eda8ffcae05ada20",
-      "bytes": 6313700,
+      "fp": "2473840b80a985de",
+      "bytes": 6313278,
       "files": {
         "audio/narration.mp3": "63ea6285de3f657a",
-        "main.js": "1b0ed7b74809daf6",
+        "main.js": "b4a4bb6ce48a3411",
         "minis.js": "a50061896396d475",
         "story.json": "f0050c838eb7d1cf"
       }
@@ -510,11 +510,11 @@
       "minis": "minis.js",
       "icon": "spatial.cell",
       "needs": 185,
-      "fp": "48fbbc5f52319041",
-      "bytes": 3023815,
+      "fp": "48562cdeee7db70a",
+      "bytes": 3023843,
       "files": {
         "audio/narration.mp3": "00886ba8d141ecf8",
-        "main.js": "1c852ebb792f6ed5",
+        "main.js": "a9b751e278440706",
         "minis.js": "c0520a8890297ce2",
         "story.json": "8898c19432e2e881"
       }
@@ -539,13 +539,13 @@
       "list": "stories",
       "icon": "spatial.cell",
       "needs": 178,
-      "fp": "fe764e7a5a52b268",
-      "bytes": 16888759,
+      "fp": "0f5e85191b5d5f7c",
+      "bytes": 16885976,
       "files": {
         "audio/narration.mp3": "e81b0d96f86c37bd",
         "data/example.txt": "b2dfaa92699cd80d",
         "data/lookup.json": "785c12fae4328469",
-        "main.js": "4d55194f6ca76666",
+        "main.js": "00a1a09790113e6a",
         "models/actin.mol": "0480e2bdb7510b92",
         "models/b2ar.mol": "797dba67cff0e8c5",
         "models/b2lig.mol": "7a30550ecf5cecd8",

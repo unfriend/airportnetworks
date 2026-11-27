@@ -413,11 +413,13 @@ rather than skipped, and every new socket's welcome clears what was pending and 
 
 The audit found stories waiting at the load for things their first chapter does not need, keeping copies they never
 read again, and working out the same layouts on every visit. v225, without changing what anyone sees (pixel hashes at
-the opening and after seeks, compared with v224 headless) or any `state()` or `FORMAT`: Back into the cell waits only
-for its walls' four models and fetches the lenses' and sites' after the load (a stand-in made without models until
-then; at 20 Mbit/s ready in about 5.1 s instead of 6.9 s, 7.3 MB fetched before it instead of 11.1 MB) and no longer
-fetches the crowd's four models, drawn only as balls; the tour drops the JavaScript copies of its never-updated
-buffers after upload (ArrayBuffers at ready 77 to 56 MB) and the body and tissue sets their staging arrays (micro 35 to
+the opening and after seeks, compared with v224 headless) or any `state()` or `FORMAT`: Back into the cell no longer
+fetches the crowd's four models, drawn only as balls (it also fetched the lenses' and sites' models after the load,
+ready about 1.8 s sooner at 20 Mbit/s; the review round took that back: a seek, a room's jump or a link into those
+chapters before the models came showed them without lenses or sites, with no loading card); the tour copies its DNA
+meshes out of their builders' doubled capacity (it also dropped the JavaScript copies of its never-updated buffers
+after upload, 77 to 56 MB; taken back likewise: three.js uploads them again from those arrays after a lost WebGL
+context is restored, and emptied arrays drew nothing) and the body and tissue sets their staging arrays (micro 35 to
 28 MB, PET 32 to 26, topo 25 to 22, ovary 33 to 30, soil 25 to 23 with its unseen tree cut to 1,000 nodes); the ovary
 sections and the muscle heart make 40% and 25% less garbage while built. The cell map's layout (about 0.1 s, before
 any loading card) and the quantum story's two load layouts (about 90 ms cold) are stored instead of solved (the cell's

@@ -2,16 +2,14 @@
   "version": "networks-v225",
   "date": "2026-11-27",
   "new": [
-    "Back into the cell is ready sooner: it waits only for the protein models of its walls and fetches the lenses' and the sites' models while the story plays (on a slow connection it was ready about one and a half seconds sooner and had fetched a third less).",
-    "Back into the cell no longer fetches four protein models it only ever drew as balls.",
+    "Back into the cell no longer fetches four protein models it only ever drew as balls while it loads.",
     "The tour, Tissue microanatomy, Whole-body PET, the tissue topology, ovary and soil stories keep less in memory once their scenes are built.",
     "Building the ovary sections and the heart in the muscle story makes far less rubbish for the browser to clear up.",
-    "The cell map story no longer works out where its proteins go each time it opens: the result is stored, so it starts about a tenth of a second sooner on a laptop and more in a headset.",
+    "The cell map story no longer works out where its proteins go each time it opens: the result is stored, so it starts about a tenth of a second sooner on a laptop (measured in a test browser; a headset should gain more, not measured).",
     "The quantum network story stores its two starting layouts the same way."
   ],
   "test": [
-    "Open Back into the cell and jump straight to a late chapter (the lenses, then the binding sites) within a few seconds: say whether they are there at once or appear a moment later.",
-    "The same offline: install the app, let it take all stories, turn the network off and open Back into the cell at a late chapter: the lenses and sites appear.",
+    "Open Back into the cell and jump straight to the lenses, then the binding sites: they are there, with their models, as before.",
     "Watch the cell map story and Networks for everyone's cell: the proteins sit where they did before.",
     "Open the tour, Tissue microanatomy and the ovary story and jump between chapters: everything shows as before."
   ],
