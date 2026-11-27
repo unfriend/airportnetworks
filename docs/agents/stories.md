@@ -1,30 +1,33 @@
 # The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, CDK5, pass, flock, robots, tutorial, design room)
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 29: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (2.0 KB)
-- 50: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
-- 142: The tour (`packages/lbi/main.js`) is built from sets (2.2 KB)
-- 176: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
-- 243: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
-- 265: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
-- 313: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
-- 336: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
-- 383: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.2 KB)
-- 407: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
-- 455: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
-- 519: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.0 KB)
-- 587: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (6.8 KB)
-- 653: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
-- 739: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
-- 822: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
-- 884: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
-- 934: Back into the cell (`packages/ppicell/`, a story package) is built the same way (4.4 KB)
-- 977: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.1 KB)
-- 1027: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1078: From CLAUDE.md (6.4 KB)
+- 32: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (2.0 KB)
+- 53: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
+- 145: The tour (`packages/lbi/main.js`) is built from sets (2.2 KB)
+- 179: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
+- 246: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
+- 268: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
+- 316: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
+- 339: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
+- 386: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.2 KB)
+- 410: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
+- 458: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
+- 522: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.0 KB)
+- 590: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (7.9 KB)
+- 664: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
+- 750: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
+- 833: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
+- 895: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
+- 945: Back into the cell (`packages/ppicell/`, a story package) is built the same way (4.4 KB)
+- 988: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.1 KB)
+- 1038: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1089: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
-Read on demand; the rules every agent needs are in AGENTS.md.
+Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and
+`buildTurn`, `keepClear` and the 0.35 m head distance, life size, `xrCap`) are under "The muscle story ... is built the same way" and
+"Shared engine parts": Grep them by name. The last section, "From CLAUDE.md", holds old rule bullets that repeat the above (the
+sound-effect lines, the narration commands, the anchor rule).
 
 ## Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass)
 
@@ -599,7 +602,7 @@ unchanged), two sets (`net`: 16,376 points flowing between the authors' six arra
 halo, its partners, its cousins, a pathway or a disease term lit, its 30 nearest in the landscape, the process knots,
 and a veil that clears the view to the map's centre; `core`: each scene's centre proteins as lit balls and tubes with
 names; each with a manifest) and the engine: the shared parts (`tools/engine/`) and the story's own (`src/README.md`
-lists them). `packages/cdk5/src/SPEC.md` is the contract.
+lists them). `packages/cdk5/src/SPEC.md` is the builder's brief (its rework; the superseded v189 brief, word for word, is `docs/history/specs/cdk5-superseded.md`).
 
 - Brought onto today's engine (v189) by a three-way merge of its engine files (the fork's soil engine, the fork's CDK5
   engine, today's `packages/soil/src/engine/`): the story's own lines kept, every other line a `//#use` of the shared
@@ -645,6 +648,14 @@ lists them). `packages/cdk5/src/SPEC.md` is the contract.
 - Explore: Scenes (the nine, with switches per scene, Stand inside), Proteins (search, partners, terms, pathways),
   Diseases (88 terms, CDK5's own first) and About. Shared state `{ v, tab, scene, ctl, prot, term, path }` (never the
   search text, the camera or standing inside). Links: `src/README.md`; the smoke test's `cdk5` step checks five of them.
+- Rules kept from the v189 brief (the rest of it is in `docs/history/specs/cdk5-superseded.md`; the rework overrides it where
+  they differ): every number the story shows is read from `CDATA` at load, never typed (the list is there under "The data").
+  The layouts' places mean "similar processes" or "similar diseases" only roughly (UMAP): distances on them are not
+  measurements. Real (the authors'): the interactome, every layout, every colour, every scene's links, the pathways' members,
+  the proteins' Disease Ontology associations; ours: the over-representation counts, the close-ups' balls, tubes and names, the
+  tags; the one drawn link, CDK5 - calpain of scene 3, is not an interaction in the interactome: say so. In the `inside` view the
+  camera is at the origin and points must not pop near the camera (fade those within 0.15 of it). Names: every centre protein its
+  gene symbol, the key ones with a short role, and not all at once on a phone (`core_names` 1 all, 0.5 the key ones only).
 - Miniatures `cdk5.net` (its station icon, `icon` in `story.json`) and `cdk5.core` (`packages/cdk5/src/minis.js`, kit
   b), both props of the design room (their cards from `packages/cdk5/src/props.json`).
 - British spelling, English only. The open questions are C1 to C10 in `docs/questions-for-authors.md`; its permission row

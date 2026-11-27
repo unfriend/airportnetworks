@@ -1,18 +1,19 @@
 # Testing: when to run what, one row a block, the known red results
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 23: When the suites run (1.5 KB)
-- 39: Which suite after which change (1.9 KB)
-- 66: Listing the tests and the docs' tools (2.5 KB)
-- 98: The smoke test (`tools/smoke.mjs`) (9.5 KB)
-  - 112: Smoke blocks (7.2 KB)
-  - 176: `--only <words>` (0.7 KB)
-  - 185: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-- 195: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.1 KB)
-- 251: Other tools (3.4 KB)
-- 274: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 283: Known red results on this machine (2.4 KB)
-- 307: Useful URL hashes and the console (2.2 KB)
+- 24: When the suites run (1.5 KB)
+- 40: Which suite after which change (1.9 KB)
+- 67: Listing the tests and the docs' tools (2.5 KB)
+- 99: The smoke test (`tools/smoke.mjs`) (9.9 KB)
+  - 113: Smoke blocks (7.6 KB)
+  - 178: `--only <words>` (0.7 KB)
+  - 187: Playwright, SwiftShader and what only a headset shows (0.5 KB)
+- 197: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.6 KB)
+- 257: Other tools (3.4 KB)
+- 280: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 289: Known red results on this machine (2.4 KB)
+- 313: Traps for a test writer (2.1 KB)
+- 336: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -22,9 +23,9 @@ heading per block, the full old retelling).
 
 ## When the suites run
 
-There is no unit-test suite. When the suites run (the owner's rule: the full suites only before `main` moves): every suite below that a change touches runs before `main` moves, the smoke test always; a push to
+There is no unit-test suite. When the suites run (the owner's rule, 7 November 2026: the full suites only before `main` moves): every suite below that a change touches runs before `main` moves, the smoke test always; a push to
 `dev` gets only `node --check` on the changed files, the builds' `--check` (`node tools/engine/all.mjs --check` covers the fourteen that share the engine parts), `node tools/packages/scan.mjs --check` (the story packages' index is current and no folder in `packages/` is left out: `docs/agents/packages.md`) and `node tools/release.mjs --check`, and a
-red result there is not chased. Each "after touching ..., run ..." below says what goes into that release run.
+red result there is not chased. The table under "Which suite after which change" says what goes into that release run.
 
 Every test page sets `collabAutoAll`, `collabAutoWelcome` and `tutorialHold` to `off`, `collabAskDefault` to `walk`
 and (v214) `collabMenus` to `full` (the headsets' full menu in a shared room, which the rounds use) before the page loads,
@@ -159,6 +160,7 @@ quiet machine; "own page" means it opens a page (or two) of its own.
 | `studio sequences` | about 2 min | the record's rules and every event kind. See the known red step below |
 | `studio press` | a few minutes | `pr.<id>` presses, `who: 'own'`, hover sends |
 | `studio streams`, `studio loops`, `studio trails` | 1-2 min each | stream entries, loops on the beat, trails |
+| `studio sends` | a couple of minutes, its own page at `&scene=test&edit` with the studio's clocks held by the test | the send entries' rules (a cube's, a press's, a sequence's: `on`, note and cc, a hold on leaving, a bad address, at most 8), the state and `layout.json` carrying them, the cards on both twins (`tools/studio/SPEC.md`, "Sends to the output page (MIDI and OSC)"; `docs/history/testing.md`, "smoke: studio sends") |
 | `studio edit speed` | about 1 min | edit mode costs nothing when idle (hover, selection) |
 | `studio everyone` | two own pages, about 1 min | each-person cubes with another person's head |
 | `studio walls` | about 1 min | shapes on pretend walls |
@@ -202,14 +204,18 @@ rule, `fx`, timeouts, bad frames, static serving, the password), rooms on this n
 introduction server at `/peerjs`, `--watch`, the logs, the notebook, video conversion, OSC, live sound, Talk, trackers
 and the shared networks. Its parts run alone with `--nets`, `--logs`, `--notes`, `--video`, `--rooms`, `--osc`, `--snd`,
 `--talk` or `--trackers`. It checks every file `sw.js` `SHELL` names. After a relay change that delays replies (v220's
-20 ms corking) a straggler after a reply can break a `q.length = 0` pattern: the test waits 60 ms.
+20 ms corking) a straggler after a reply can break a `q.length = 0` pattern: the test waits 60 ms. The full list of what
+`relay/test.mjs` checks is `relay/docs/testing.md`; the old retelling is in `docs/history/testing.md`, section "relay/test.mjs".
 
 **`node tools/collab.mjs`** (about 15 minutes; starts its own relay with `--static .`, so no server is needed). The main
 run is the per-story part (three pages in a room follow each story's station: play, pause, jumps, mode changes, Replay,
 the relay's clock, the explore state, the story's effect, its sound cues), then the rounds marked *main* below, then
 peer to peer, rooms on this network and room names. `--quick` runs only the last story of the per-story part; `--port
 <n>` fixes the relay's port; `--shots <dir>` saves pictures. Every round uses its own room. Since 436195f the rounds wait
-until the pretend headsets are lined up (the 5 s gate), not a fixed 300 ms: keep that when adding a round.
+until the pretend headsets are lined up (the 5 s gate), not a fixed 300 ms: keep that when adding a round, with `alignedAll(headsets)`
+(`tools/collab.mjs`; it steps the frames until `HOST.room.aligned`, 30 s at most). The reason: a headset takes a frame published for
+its shared space only once its socket has been open 5 s (the room's members known: `shared.js` align's early), so a fixed wait
+can fall before that and a headset whose frames stop between steps stays waiting.
 
 | Flag | Round (function) | What it protects |
 | --- | --- | --- |
@@ -296,7 +302,7 @@ written down in the repository: the first person to chase one writes it here and
 | collab `--trackers`: the four puppet checks | the test's own | `itemAct('pwear', 'full')`: since v203 the studio takes only `'any'` (audit run, row D) |
 | smoke `studio sequences`: *a second page at the same held room time draws the same moment* (it reads the alpha, among other things) | red on this machine | no cause recorded |
 | smoke `spaceship: pickups (times shortened)` | flaky | a timing flake; the block's steps wait past the first second since 8c59e50 |
-| relay stopped and restarted (`relay/test.mjs --watch`, collab `--reload`) | red on this machine | on Windows the 5 `--watch` failures about a relay stopped by SIGTERM come from Windows, with or without the fix; here no cause recorded |
+| `relay/test.mjs --watch` (a relay stopped and restarted) | on Windows only: 5 failures about a relay stopped by SIGTERM | they come from Windows, with or without the fix; on this machine `--watch` passes |
 | `tools/live.mjs`, the step "within about 2 s" | misses by a little on a loaded machine (seen once in v190) | it allows 3 s |
 | smoke, `developer mode`: the two *Older and Newer* steps | fail on Windows with or without the v149 fix | they wait for v142 to be served |
 
@@ -304,11 +310,51 @@ A harness-only difference is never red: WebGL runs in software (SwiftShader), fr
 needs a real headset (controllers, placement, comfort, sound, occlusion, ships, frame rate) is untested until tried
 there.
 
+## Traps for a test writer
+
+Found only by being bitten (the whole account is in `docs/history/testing.md`).
+
+- **Steps wait on frames, not time.** In this suite's software drawing a layer's write takes a few hundred ms (Sharp text:
+  only that block's page, and any page given Quest Browser's user agent, as the `phone ar` block's Quest is, asks for `layers`;
+  every other pretend headset has Sharp text off by default, as a desktop browser does).
+- **A frame can take over 250 ms in software.** So the window for a press's own events coming late is 5 s (`lateMs` in
+  `tools/smoke.mjs`), not 250 ms.
+- **The pretend controllers are held as a Quest's are** (`HOLD` in `tools/smoke.mjs`: grip -z ahead along the hand, +y
+  up; the raised one straight up): they point as a person's do, palms in (v216).
+- **The output page's live sound starves headlessly.** It reads and encodes the input on the page's main thread, which a
+  page drawing in software (frames a hundred ms and more apart) starves: the pace (50 frames a second), the kbit/s and the
+  count of frames are then printed as `note ... cannot be checked here`, never failed; alone the same pipe gives 50 a second
+  headless. The owner checks those on a real device.
+- **Windows.** On Windows `path.dirname(new URL(import.meta.url).pathname)` gives `/C:/...`, which makes `C:\C:\...`: a tool
+  takes its folder with `fileURLToPath(import.meta.url)` (inside a smoke block that loads its modules with `await import()`,
+  `(await import('node:url')).fileURLToPath(import.meta.url)`); a search for `import.meta.url).pathname` finds a slip. The Python
+  data generators that write story data (`packages/endo/src`, `packages/soil/src`, `packages/topo/src` `data/gen_data.py`) open
+  their output with `newline='\n'`, so a run on Windows writes LF too. A checkout whose files are still CRLF (made before
+  `.gitattributes`' `* text=auto eol=lf`) turns LF on a clean tree with `git rm --cached -r -q .`, then `git reset --hard`
+  (two commands: Windows PowerShell 5.1 has no `&&`; untracked and ignored files are kept: a person's step, never an agent's).
+
 ## Useful URL hashes and the console
 
-The short list; every story's own explore hashes (`#lbi&explore&scene=atp&view=network&now=1`, `#soil&explore&tab=field&date=4&show=chl`,
-`#qubits&explore&tab=network&net=blurred&cut=random&bits=2` and the like) are in `docs/history/testing.md`, "Useful URL hashes and
-the console", and in each story's `README.md`.
+The short list, then each story's own explore hashes in a table (the old one-paragraph list is in `docs/history/testing.md`,
+"Useful URL hashes and the console"; some stories' `README.md` carry more).
+
+| Story | Explore hashes |
+| --- | --- |
+| `spatial` | `#spatial&t=95`, `#spatial&explore&tab=moves&move=nfkb&now=1` |
+| `proteins` | `#proteins&explore&q=TP53` |
+| `lbi` | `#lbi&t=140`, `#lbi&explore&scene=atp&view=network&now=1`, `#lbi&explore&route=TP53,BRCA1` |
+| `nmd` | `#nmd&explore&group=Cardiomyopathies`, `#nmd&explore&pick=5:13,11:7` (group:number), `#nmd&explore&walk=5` or `&walk=TTN,DES`, `#nmd&explore&inside` |
+| `endo` | `#endo&explore&endo=2`, `#endo&explore&gene=COLQ`, `#endo&explore&tab=method&step=1&k=20`, `#endo&explore&scene=syn&view=cleft`, `#endo&explore&inside` |
+| `pet` | `#pet&t=40`, `#pet&explore&tab=networks&net=C_high`, `#pet&explore&organ=muscle`, `#pet&explore&scene=scan&view=ring`, `#pet&explore&life` |
+| `micro` | `#micro&t=100`, `#micro&explore&organ=Ovary`, `#micro&explore&tab=age&age=70`, `#micro&explore&scene=atlas&view=volcano` |
+| `ovary` | `#ovary&t=200`, `#ovary&explore&kind=follicle`, `#ovary&explore&tab=age&age=60`, `#ovary&explore&scene=section&view=forest`, `#ovary&explore&scene=section&view=kinds&age=60`, `#ovary&explore&method=seg` |
+| `qubits` | `#qubits&t=100`, `#qubits&explore&tab=network&net=blurred&cut=random&bits=2`, `#qubits&explore&brick=X2X1&alg=so6`, `#qubits&explore&sum=10`, `#qubits&explore&tab=depth&ex=on`, `#qubits&explore&scene=pairs&view=hoods` |
+| `mutation` | `#mutation&t=100`, `#mutation&explore&tab=letters&mix=G` (or `mix=rule&time=0.45&reads=100`), `&tab=rule&model=even&start=C&time=0.8`, `&tab=rule&view=steps&parent=T`, `&tab=tree&seed=3&speed=2&branch=5`, `&tab=stem&src=live&w=20` (`&rebuild=2` its seed), `&scene=tree&view=up` (`up`, `stand`, `crown`) |
+| `topo` | `#topo&t=100`, `&explore&tab=patch&r=13.5&tower=on` (`tower=off`: the balls; `view=bars`: the barcode; `lit=loops`), `&tab=cohort&dim=1&view=space&slide=17` (`dim=0`: pieces; `view=rack\|space\|held`), `&tab=scales&dim=1&from=5&to=15` (`to=above`), `&tab=cells&cell=1234&r=4.8&delta=50` (`show=map\|split\|genes\|proteins`), `&scene=slide&mode=points`, `&scene=body&liver=slice`, `&scene=tower&view=up` (`up`, `stand`) |
+| `soil` | `#soil&t=100`, `&explore&tab=field&date=4&show=chl` (`show=nh4\|no3\|n2o\|ph`, `line=0\|1`, `fert=0\|1\|2`, `view=jars`; `plot=1` a group of plots, line * 3 + regime), `&tab=nitrogen&wheat=bni&dcd=on`, `&tab=microbes&colour=guild&kind=215` (a kind by its number), `&tab=network&mod=3&rho=0.7` (`&shuffle`, `&split=line\|fert\|random`), `&scene=web` (`&now=1` skips the glide) |
+| `pass` | `#pass&t=180&lang=de`, `#pass&explore&tab=fish&k=1&links=on&shark`, `#pass&explore&start=LHR&spread=high&cut=50&day=20&city=SYD`, `#pass&explore&protein=CFTR&move=cf`, `#pass&explore&scene=globe&pillars=on` |
+| `tutorial` | `#tutorial&t=60`, `#tutorial&explore&net=badge&view=side` (practice; `&signal` sends a signal from the hub) |
+| `flock`, `robots` | in the list below |
 
 - `#<key>&t=95`: any story open at that second of the timeline, paused (`#lbi&t=140`, `#spatial&t=95`, `#pass&t=180&lang=de`
   for German, `#tutorial&t=60` the guide on its markers, `&focus` the 3D alone).

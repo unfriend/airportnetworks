@@ -11,6 +11,9 @@ file, the detail file says what is current.
 - The studio (`docs/agents/studio.md`).
 - Testing (`docs/agents/testing.md`).
 
+The longer retellings that were moved out of the detail files, word for word, are in `docs/history/<file>.md` (`testing.md`, `shell.md`,
+`shared-rooms.md`, `studio-spec.md`, `specs/cdk5-superseded.md`); `docs/agents/layout.md` lists them.
+
 ## The shell (moved out of AGENTS.md, now docs/agents/shell.md)
 
 ### Loading

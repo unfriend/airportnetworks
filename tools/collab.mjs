@@ -97,7 +97,7 @@
 // --net only the cell story's room and shared networks (netRound, v208, not in the main run: relays of its own with
 // --scenes and --no-nets; packages/ppicell/src/SPEC.md "Stage 3"): limits, a switch and picks between two pages, a network
 // of one's own shared with the room and followed, a late joiner, back to the built-in network, the address, Remove, and a
-// relay that keeps none (docs/agents/testing.md, "collab.mjs --net").
+// relay that keeps none (docs/agents/testing.md, the `--net` row of the rounds table; the old retelling: docs/history/testing.md, "collab.mjs --net").
 // A story without arrange yet gets a stand-in made from its own CH, NARRATION_SYNC and TR (the test's, never the app's);
 // --behave only the studio's behaviours shared (behaveRound, also in the main run after the studio's scenes as circles: a
 // relay of its own with --scenes on the test scene alone; two pretend headsets at a studio circle and a page following it:

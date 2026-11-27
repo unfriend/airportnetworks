@@ -3,7 +3,7 @@
 This file was the studio's contract, 361 KB, written section by section as each feature was built and kept up to
 about v165. It is now an index. **`docs/agents/studio.md` is the one live description** of what the studio does and
 what every change must keep; it holds the rules of every section below (the ones this file had and that
-`studio.md` lacked were added to it, each under its feature's bullet as *Also from the v165 contract*).
+`studio.md` lacked were added to it, each under its feature's bullet as *Also from the v165 contract*; the sentences were taken from this file's paragraphs and hung under the feature bullets, so a sentence's "it" is the feature of its bullet, and a detail not yet in `studio.md` is still in the history file).
 
 The old text, word for word and unchanged, is `docs/history/studio-spec.md` (Grep it by the old heading; it holds the
 owner's words behind each section and the reasons). Read it for why a rule is as it is, never as the current state:

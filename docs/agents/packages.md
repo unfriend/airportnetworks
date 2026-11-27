@@ -16,7 +16,7 @@
   - 379: The example (`packages/hello/`) (2.5 KB)
   - 408: The cell stress test (`packages/cellstress/`) (2.6 KB)
   - 431: Back into the cell (`packages/ppicell/`, in development) (2.4 KB)
-  - 455: Checking one (`tools/packages/check.mjs`) (0.4 KB)
+  - 455: Checking one (`tools/packages/check.mjs`) (0.5 KB)
 <!-- /toc -->
 
 A story in one folder, `packages/<key>/`, written by a colleague or someone the owner trusts and brought in through git
@@ -454,6 +454,6 @@ placeholder until builder B's.
 
 ### Checking one (`tools/packages/check.mjs`)
 
-`node tools/packages/check.mjs packages/<key> [--load] [--phone] [--shots <dir>]` (`docs/agents/testing.md`, "Story
-packages"): the rules of `SPEC.md`, statically and with `--load` headless. A package's author runs it after building;
+`node tools/packages/check.mjs packages/<key> [--load] [--phone] [--shots <dir>]` (`docs/agents/testing.md`, "Other tools", the `check.mjs` and `scan.mjs` rows; the old text:
+`docs/history/testing.md`, "Story packages"): the rules of `SPEC.md`, statically and with `--load` headless. A package's author runs it after building;
 `packages/hello` passes it with `--load --phone`, and a copy with the rules broken fails on each.

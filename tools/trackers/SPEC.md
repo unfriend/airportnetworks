@@ -497,7 +497,7 @@ run on v124, v125 or v126.
   the relay's answers stubbed (the switch, spots taken and refused, `trk.m` written, names, a row lit while its tracker
   moves, the status, the room map's dots); a pretend VR headset: the `'trackers'` frame within 1 cm and 0.5 degrees,
   turned and moved, followed, a fast turn with the clocks apart adding nothing, `lineUp()`, the question answered; the
-  pucks; `body()` and presence's grips. docs/agents/testing.md's Testing section has the numbers.
+  pucks; `body()` and presence's grips. docs/agents/testing.md's rows for the trackers (the smoke blocks `trackers`, `studio trackers`, `studio puppet` and collab's `--trackers`) say what is checked; the numbers are in `docs/history/testing.md`.
 - `tools/studio/test-ik.mjs` (Node, seconds): a generated Mixamo-named test rig (`tools/studio/test/make.mjs`, our own
   mesh, never Mixamo's files) walked by a generated clip; its trackers worked out from the clip with random offsets; the
   solver's hands and feet within 5 mm of the truth and the bones within 3 degrees where the trackers determine them.

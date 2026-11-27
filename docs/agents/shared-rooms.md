@@ -55,40 +55,40 @@
 - 1703: At a station: the scene, the panel and the first question (4.0 KB)
   - 1733: No Stories screen in a shared room (0.9 KB)
   - 1747: The question the menu asks in VR (0.3 KB)
-- 1753: The room's floor, the shared space and calibration (33.8 KB)
+- 1753: The room's floor, the shared space and calibration (34.1 KB)
   - 1780: Floor spots (4.1 KB)
   - 1824: The shared space (3.3 KB)
-  - 1859: Standby with the shared space in use (1.6 KB)
-  - 1878: Off and on again (2.6 KB)
-  - 1906: The browser's store of saved anchors can be full (0.9 KB)
-  - 1921: Calibrating (1.5 KB)
-  - 1939: Areas: more tape crosses in one room (6.8 KB)
-  - 2004: Places: a calibration kept per room (10.4 KB)
-- 2105: The explore view and others' moves (4.1 KB)
-  - 2116: Others' moves, smooth (3.1 KB)
-- 2149: The relay (25.0 KB)
-  - 2187: Updating a room (8.7 KB)
-  - 2272: The relay's password (2.8 KB)
-  - 2302: The studio's scenes on the relay (4.7 KB)
-  - 2349: The studio's scenes in R2 (5.1 KB)
-- 2400: How a story hooks into the room (13.4 KB)
-  - 2412: The hooks every story keeps (6.2 KB)
-  - 2481: The pointer, grab, begin and update lines (2.3 KB)
-  - 2513: The lines that changed in v145, and the idle frame (4.4 KB)
-- 2560: What stories share (14.4 KB)
-  - 2565: What each story shares (9.9 KB)
-  - 2592: The cell story's shared networks (1.7 KB)
-  - 2610: Rules that matter most (1.5 KB)
-  - 2636: Testing and what is not confirmed on headsets (1.3 KB)
-- 2651: Live sound (v162, `shared.js` "live sound: hearing"; `tools/output/SPEC.md` "v162") (3.7 KB)
-- 2688: Talk (v178, `shared.js` "talk: shared", "talk: sending", "talk: hearing") (14.3 KB)
-  - 2704: The wire and who hears whom (3.3 KB)
-  - 2738: Sending, hearing and voices (4.0 KB)
-  - 2779: The rows, the API, tests and the departures from the plan (5.6 KB)
-- 2835: Vive trackers (`tools/trackers/`, `relay/trackers.mjs`) (11.8 KB)
-  - 2843: The bridge and the relay (v126) (3.6 KB)
-  - 2878: The shell (v126, `shared.js`: "the PC's trackers") (7.7 KB)
-- 2952: From CLAUDE.md (2.0 KB)
+  - 1859: Standby with the shared space in use (2.0 KB)
+  - 1879: Off and on again (2.6 KB)
+  - 1907: The browser's store of saved anchors can be full (0.9 KB)
+  - 1922: Calibrating (1.5 KB)
+  - 1940: Areas: more tape crosses in one room (6.8 KB)
+  - 2005: Places: a calibration kept per room (10.4 KB)
+- 2106: The explore view and others' moves (4.1 KB)
+  - 2117: Others' moves, smooth (3.1 KB)
+- 2150: The relay (25.0 KB)
+  - 2188: Updating a room (8.7 KB)
+  - 2273: The relay's password (2.8 KB)
+  - 2303: The studio's scenes on the relay (4.7 KB)
+  - 2350: The studio's scenes in R2 (5.1 KB)
+- 2401: How a story hooks into the room (13.4 KB)
+  - 2413: The hooks every story keeps (6.2 KB)
+  - 2482: The pointer, grab, begin and update lines (2.3 KB)
+  - 2514: The lines that changed in v145, and the idle frame (4.4 KB)
+- 2561: What stories share (14.4 KB)
+  - 2566: What each story shares (9.9 KB)
+  - 2593: The cell story's shared networks (1.7 KB)
+  - 2611: Rules that matter most (1.5 KB)
+  - 2637: Testing and what is not confirmed on headsets (1.3 KB)
+- 2652: Live sound (v162, `shared.js` "live sound: hearing"; `tools/output/SPEC.md` "v162") (3.7 KB)
+- 2689: Talk (v178, `shared.js` "talk: shared", "talk: sending", "talk: hearing") (14.3 KB)
+  - 2705: The wire and who hears whom (3.3 KB)
+  - 2739: Sending, hearing and voices (4.0 KB)
+  - 2780: The rows, the API, tests and the departures from the plan (5.6 KB)
+- 2836: Vive trackers (`tools/trackers/`, `relay/trackers.mjs`) (11.8 KB)
+  - 2844: The bridge and the relay (v126) (3.6 KB)
+  - 2879: The shell (v126, `shared.js`: "the PC's trackers") (7.7 KB)
+- 2953: From CLAUDE.md (2.0 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. History (old versions, the owner's dated words) is kept apart; this file says what is true now.
@@ -138,7 +138,7 @@ either lock; FORMAT networks-48), `menus` (the headsets' menus, `{ full, by, at 
 the default; `full: true`, every headset's full menu: "Limited and full menus" under "The headset's menu" below; set
 by anyone from a page's Shared dialog or a full menu's Circles tab, never refused by either lock; FORMAT networks-60).
 The current `FORMAT` is networks-61 (`shared.js`); bump it whenever the keys or a story's `state()` change shape
-(every bump so far only added fields and keys; their history is in the history notes). The shell's own circles: an All
+(every bump so far only added fields and keys; their history is in `docs/history/shared-rooms.md` and `docs/history.md`). The shell's own circles: an All
 stories circle `st.<id>` = `{ story: 'all' | <a story's key>, kind: 'all', sync, arc, x, z, yaw }`, a lobby circle `{
 story: 'lobby', kind: 'lobby', x, z, yaw }`, with the room's key `allp` (`{ by, at }`, `pg: 1` while the arc is a
 page's); a studio circle made for a scene `{ story: 'studio', sc: true, x, z, yaw }`. The plan is
@@ -1858,6 +1858,7 @@ page's); a studio circle made for a scene `{ story: 'studio', sc: true, x, z, ya
 
 ### Standby with the shared space in use
 
+- Do not add a hold after a floor reset with no wake, and do not count a headset in the room since earlier as someone here: both were tried after two Quest 3s could not align, and both were taken out again (a headset first in the shared space but later in the room then never became the room; `docs/history/shared-rooms.md`).
 - Standby with the shared space in use (an adopted frame, or the space's own origin): one headset was offset after
   waking in a test, and one of two after a night's standby. The frame the floor's resets carried over holds
   (`R.wakeHold`, only after a wake the session reported) until the shared space agrees with it again (10 cm and 3

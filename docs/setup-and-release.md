@@ -115,7 +115,7 @@ python3 -m http.server 8123         # or: npx http-server -p 8123 -c-1 .
 ```
 
 Open `http://127.0.0.1:8123/`. A hash opens a story at a given point, for example `#pet&t=40` or
-`#nmd&explore&group=Cardiomyopathies` (the full list is "Useful URL hashes" in docs/agents/testing.md "Testing"). The browser
+`#nmd&explore&group=Cardiomyopathies` (the short list and each story's explore hashes are "Useful URL hashes and the console" in docs/agents/testing.md; the old full paragraph is in docs/history/testing.md). The browser
 treats `127.0.0.1` as a secure address, so the service worker (the script that keeps the offline copy) runs here too.
 It asks the server first for every file, so a reload shows your edits.
 
@@ -192,6 +192,8 @@ check still fails once on a busy machine, run the test once more. A second failu
 **What these tests cannot show.** Anything that needs a real headset: controllers, placement, anchors, calibration,
 shared spaces, and whether sound comes out. Report those as untested. What two Quest 3 headsets showed is in
 [quest-shared-space-findings.md](quest-shared-space-findings.md) and docs/agents/shared-rooms.md "Shared rooms".
+
+**Windows.** A tool finds its own folder with `fileURLToPath(import.meta.url)`; the Python data generators open their output with `newline='\n'` so a run on Windows writes LF; a checkout still CRLF is repaired with `git rm --cached -r -q .` and then `git reset --hard` (two commands: PowerShell 5.1 has no `&&`). The reasons are in docs/agents/testing.md "Traps for a test writer".
 
 ## 4. Release checklist
 
