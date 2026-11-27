@@ -10214,10 +10214,9 @@
   }
   function update(f) {
     if (!R.session || !C.code || !f) return;
-    // (once a frame: tick and HOST.anchor.frame's place(f) both ask with the same frame; a real XRFrame is new each
-    // frame, a test's pretend one may be reused, so only a real one is remembered)
-    if (f === R.lastF) return;
-    if (typeof XRFrame === 'function' && f instanceof XRFrame) R.lastF = f;
+    // (run on every call, as up to v217: tick and HOST.anchor.frame's place(f) both ask in a frame. v218 skipped the second
+    // call of a frame, keyed on the XRFrame, and on a Quest a calibration then never lined up: after spot B the crosses went
+    // and the room stayed unaligned; the owner bisected it to v218, and no pretend headset showed it, so the skip is gone)
     begin();
     const local = refSpace();
     if (!local) return;

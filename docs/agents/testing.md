@@ -8,12 +8,12 @@
   - 114: Smoke blocks (7.6 KB)
   - 179: `--only <words>` (0.7 KB)
   - 188: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-- 198: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.6 KB)
-- 258: Other tools (3.4 KB)
-- 281: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 290: Known red results on this machine (2.4 KB)
-- 314: Traps for a test writer (2.1 KB)
-- 337: Useful URL hashes and the console (4.8 KB)
+- 198: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.9 KB)
+- 259: Other tools (3.4 KB)
+- 282: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 291: Known red results on this machine (2.4 KB)
+- 315: Traps for a test writer (2.1 KB)
+- 338: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -227,6 +227,7 @@ can fall before that and a headset whose frames stop between steps stays waiting
 | `--code` | `codeRound` (main) | Join with a code from a headset's menu: keypad, Join greyed until three letters |
 | `--all` | `allRound` (main) | the All stories and Back to the lobby circles; a landing card starts a story for everyone |
 | `--guide` | `guideRound` (main) | the room setup guide and Touch the spot |
+| `--calib` | `calibRound` (not in the main run) | the owner's calibration alone in a fresh room in AR (limited menu, a new XRFrame each frame, the shell's frame before or after the story's): lined up, the crosses and their line on the spots |
 | `--places` | `placesRound` (main) | a calibration kept per room |
 | `--areas` | `areasRound` (main) | more tape crosses in one room |
 | `--reload` (`--cases a,b`) | `reloadRound` (main) | rooms across updates and Update the room: six cases on its own relay (port 8712), restarted as a deploy |

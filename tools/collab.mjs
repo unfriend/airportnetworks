@@ -205,6 +205,7 @@ const FLAGS = [
   ['--standby', 'only the pretend headset\'s standby with the shared space in use: standbyRound, in a room of its own (main)'],
   ['--ships', 'only the spaceships in a shared room: shipsRound, in a room of its own (main)'],
   ['--walk', 'only moving with the sticks for a VR headset elsewhere in a room: walkRound, in a room of its own (main)'],
+  ['--calib', 'only the owner\'s calibration steps alone in a fresh room in AR: calibRound, rooms of their own (not in the main run)'],
   ['--places', 'only places, a calibration kept per room: placesRound, rooms of their own (main)'],
   ['--areas', 'only areas, more tape crosses in one room: areasRound, a room of its own (main)'],
   ['--trackers', 'only the PC\'s Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge (main)'],
@@ -478,6 +479,7 @@ const PREVIEW_ONLY = argv.includes('--preview');   // (only the desktop preview 
 const STANDBY_ONLY = argv.includes('--standby');   // (only the pretend headset's standby with the shared space in use: standbyRound, in a room of its own)
 const SHIPS_ONLY = argv.includes('--ships');   // (only the spaceships in a shared room: shipsRound, in a room of its own)
 const WALK_ONLY = argv.includes('--walk');   // (only moving with the sticks for a VR headset elsewhere in a room: walkRound, in a room of its own)
+const CALIB_ONLY = argv.includes('--calib');   // (only the owner's calibration steps alone in a fresh room in AR: calibRound, rooms of their own; not in the main run)
 const PLACES_ONLY = argv.includes('--places');   // (only places, a calibration kept per room: placesRound, rooms of their own)
 const AREAS_ONLY = argv.includes('--areas');   // (only areas, more tape crosses in one room: areasRound, a room of its own)
 const TRACKERS_ONLY = argv.includes('--trackers');   // (only the PC's Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge)
@@ -5541,6 +5543,64 @@ async function floorSpots({ H1, H2, A, xr, inSpace, stepUntil, tap, touch, selfC
 // Forget one place (two presses) keeps the other; a fifth place with two anchors drops the one used least recently; one
 // anchor per room (the menu's row), turned towards spot B, found again within 1 cm and 0.5 degrees on another floor;
 // eight one-anchor places fit; an older single calibration (roomFrame) taken by the first room it lines up in
+// the owner's steps (v225 report; bisected to v218 on a Quest): a headset in AR, alone, starts a fresh room itself, opens its
+// menu (the limited one, a room's default), presses Calibrate and touches spot A and spot B. Each frame is a new XRFrame given
+// to every callback of that frame, as Quest Browser gives it, with the shell's callback after the story's or before it, and the
+// room's automatic arc on, as on a headset. Lined up from the spots, the crosses and their line on the spots with the menu open
+async function calibRound() {
+  const A0 = [1.0, TIP, -0.4], B0 = [2.6, TIP, 0.5];
+  const one = async (name, shellFirst) => {
+    const ctx = await browser.newContext({ viewport: { width: 320, height: 200 }, arc: true });
+    await ctx.addInitScript(() => { try { localStorage.setItem('collabMenus', 'limited'); } catch (e) { /* storage blocked */ } });
+    const H = await ctx.newPage();
+    H.on('pageerror', e => errors.push(e.stack || e.message));
+    H.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
+    try {
+      await H.goto(base() + 'index.html#airports', { timeout: 90000 });
+      await H.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
+      await ready(H, 'airports');
+      await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: 'C1', head: [1.6, 1.6, 0, 0.3], guide: true, autoAll: true });
+      await H.evaluate(first => {   // (a new XRFrame each frame, the same one to every callback of the frame)
+        const X = window.__xr, F0 = X.frame, story = f => { if (HOST.cur && HOST.cur.peek('typeof XR !== "undefined" && XR.on')) HOST.cur.peek('xrBegin')(f, 0.016); };
+        window.XRFrame = class XRFrame {};   // (the page's own stand-in: Chromium's XRFrame has getters a plain object cannot answer)
+        X.step = () => {
+          const f = X.frame = Object.setPrototypeOf({ getPose: F0.getPose, getViewerPose: F0.getViewerPose, getJointPose: F0.getJointPose, createAnchor: F0.createAnchor }, window.XRFrame.prototype);
+          if (!first) story(f);
+          for (const cb of X.raf.splice(0)) cb(performance.now(), f);
+          if (first) story(f);
+        };
+      }, shellFirst);
+      await H.evaluate(() => window.__xr.begin());
+      await frames(H, 300);
+      await H.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
+      const open = await until(H, () => { window.__xr.step(); return HOST.collab.status === 'open'; }, null, 15000);
+      await frames(H, 1000);
+      const cal = await H.evaluate(() => { HOST.collab.panelOpen(true); const r = HOST.collab.menuFind('lim:cal'); if (r && r.fn) { r.fn(); return r.id; } return null; });
+      const touch = async p => {   // (held still on the spot, the controller pointing down, then the trigger)
+        await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650);
+        await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150);
+      };
+      await touch(A0);
+      const a = await H.evaluate(() => [HOST.room.state, HOST.collab.overlay().calA.visible]);
+      await touch(B0);
+      await H.evaluate(() => window.__xr.ctrl(0, null));
+      const look = () => H.evaluate(() => {
+        const X = window.__xr, O = HOST.collab.overlay(), w = o => { o.updateWorldMatrix(true, false); return o.getWorldPosition(new THREE.Vector3()).applyMatrix4(X.W.local).toArray(); };
+        return { state: HOST.room.state, src: HOST.room.src, aligned: HOST.room.aligned, menu: HOST.collab.menu, room: O.room.visible, marks: O.marks.visible, line: O.markLine.visible,
+          a: w(O.crossA), b: w(O.crossB), log: window.__collabLog.slice(-12).map(e => e.ev) };
+      });
+      const good = s => s.aligned && s.src === 'marks' && s.menu && s.room && s.marks && s.line && near(s.a, A0, 0.02) && near(s.b, B0, 0.02);
+      await frames(H, 3000);
+      const s1 = await look();
+      await frames(H, 7000);
+      const s2 = await look();
+      check(`calibration (${name}): alone in a fresh room it started in AR, the limited menu's Calibrate, spot A then B: lined up from the spots, the crosses and their line on them with the menu open, 3 s and 10 s after`,
+        open && cal === 'lim:cal' && a[0] === 'mark-b' && a[1] && good(s1) && good(s2), JSON.stringify({ open, cal, a, s1, s2 }));
+    } finally { await ctx.close(); }
+  };
+  await one('the story\'s frame first', false);
+  await one('the shell\'s frame first', true);
+}
 async function placesRound() {
   const room = async () => {
     const P = await open('#stories');
@@ -8770,6 +8830,7 @@ try {
   if (PREVIEW_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await previewRound(shots); break main; }
   if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
   if (OUTPUT_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await outputRound(shots); break main; }
+  if (CALIB_ONLY) { await calibRound(); break main; }
   if (PLACES_ONLY) { await placesRound(); break main; }
   if (AREAS_ONLY) { await areasRound(); break main; }
   if (RELOAD_ONLY) { await reloadRound(); break main; }
@@ -11154,8 +11215,8 @@ try {
     console.log('pictures in ' + shots);
   }
   }   // (main)
-  if (!NEAR_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await p2p();
-  if (!P2P && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
+  if (!NEAR_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !CALIB_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await p2p();
+  if (!P2P && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !CALIB_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
 } catch (e) {
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');
