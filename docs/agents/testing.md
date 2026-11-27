@@ -11,9 +11,9 @@
 - 239: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
 - 306: Other tools (4.5 KB)
 - 331: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 340: Known red results on this machine (7.0 KB)
-- 372: Traps for a test writer (4.7 KB)
-- 420: Useful URL hashes and the console (4.8 KB)
+- 340: Known red results on this machine (7.6 KB)
+- 373: Traps for a test writer (4.7 KB)
+- 421: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -349,7 +349,8 @@ written down in the repository: the first person to chase one writes it here and
 | collab `--walk` (`walkRound`): the `headAt` crash | fixed (row K, 27 November 2026) | the test's: the room-on-this-device block walked to the flock's station, and Arrange all never places Experiments, so `headAt(undefined)` threw. It walks to a station the room has |
 | collab main run, pretend-headset part: *headset: unused, the menu closes by itself; a ray resting on it keeps it open ...* (`idleHeld`) | flaky under load, row K's `--quick` | the test's: the ray counts as use only in a frame that finds its rest under 250 ms old (`shared.js` `hovOf`), and with `menuIdle(600)` one or two long software frames closed the menu. Since the review round the hold is 3.2 s against an idle time of 1.5 s; not yet run green at load |
 | collab main run: *a room on this device: Re-align ... the menu fits* | intermittent (red in two `--quick` runs of three) | the Circles tab drawn with only its header and tabs (vis 264 px, panel shown); cause not found. The check's detail now prints the rows drawn and whether the panel shows |
-| collab `--reload`, case (5): *peer to peer, an order from a guest* | red four times at a load average near 20, green in the full run at 3 | after the relay restarts as a deploy, the host's `HOST.collab.members` held only itself while each guest listed three, and `st.t2`, published by the host 3 s after the restart, reached neither guest in 20 s. Possibly the app's (`shared.js` about lines 1394-1432, the peer transport's `error()`/`lost()`: "once open, the links go on without the server"), possibly heartbeat time-outs under CPU starvation; not established. Steps: `node tools/collab.mjs --reload --cases 5` on a loaded machine; the check prints the room before the press (`preS`) |
+| collab `--reload`, case (5): *peer to peer, an order from a guest* | red in five runs of five (four at a load average near 20, one alone at 3); a green full run at 3 is not explained by this cause | the app's (established 27 November 2026, not fixed: tests only): `shared.js` `claim()` (line 1409) runs `host()` on every PeerJS `open`, and PeerJS emits `open` again when `lost()` (line 1433) reconnects the host to the introduction server. So after a relay restart (or any drop of the host's socket to `/peerjs`) the host builds a second, empty `Hub` and `LocalSocket` (its log: a second *hosting*, then *welcome* with 1 member): its own writes go to the new hub alone, the guests stay linked to the old one, which still answers their pings. The check is right; the fix (in words): host only on the first `open` (`!this.hub`), a later one only logs the server back. Steps: `node tools/collab.mjs --reload --cases 5`; the check prints the room before the press (`preS`) |
+| collab `--token`: *the right one is accepted ... the field goes* | no longer (27 November 2026; red on v225 too) | the test's: the dialog redraws through `changed()` 60 ms after the password is accepted, about 45 ms after the room opens, and the field was read once at once (measured: open at 40 ms, field gone at 85 ms, read at 100-130 ms; a busy machine read it first). Now waited for, 5 s: it proves the field goes |
 | collab main run, pretend-headset part: *with tracked hands two quick pinches ... open and close the menu* | red once in the review round's `--quick` at a load average near 10 (`pinch2Closed` false, so every later pinch read the menu still open); green in the next run at 5 | timing under load: a pair must land within 0.4 s, on timers the loaded page runs late |
 | collab `--places`: the budget and one-anchor checks | red once (q10: `fit10` null, the *places fitted* log never came), green in four other runs | cause unknown |
 | collab, timing under heavy load | green alone or in the full run | smooth steadiness, preview keys and keyboard rate, the p2p clock *without a jump*, the studio voice *heard* timing, `--all` page B following, `--near` rejoin |
