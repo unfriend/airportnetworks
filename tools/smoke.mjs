@@ -306,6 +306,28 @@ for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
     ${L}
     XR.inStory = was; XR.stories = false; XR.on = false;
   })()`), LAND_CHECK));
+  // (v226) a draw hook (onBeforeRender) leaves the camera it is given as it is: in a headset that camera is one of three.js
+  // r128's eye cameras, whose pose is only in its matrix (position and quaternion unset, matrixAutoUpdate on), so a
+  // camera.getWorldDirection / getWorldPosition there (updateWorldMatrix) set that eye at the space's origin for everything
+  // drawn after it, the scene and the controllers' rays and the shell's read-outs stuck to the head (the exposome's cloud,
+  // v212 to v225: the owner's "my virtual beams are way lower than the hands and the exposome is stuck to my head")
+  await step(`${key}: draw hooks leave a headset's eye camera where it is`, async () => {
+    const bad = await page.evaluate(() => HOST.cur.peek(`(() => {
+      const eye = new THREE.PerspectiveCamera(), out = [];
+      eye.matrix.compose(new THREE.Vector3(0.4, 1.3, -0.6), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0.7), new THREE.Vector3(1, 1, 1));
+      const reset = () => { eye.matrixWorld.copy(eye.matrix); eye.matrixWorldInverse.copy(eye.matrixWorld).invert(); };
+      const want = eye.matrix.clone(), same = (a, b) => a.elements.every((v, i) => Math.abs(v - b.elements[i]) < 1e-9);
+      const none = THREE.Object3D.prototype.onBeforeRender;
+      GL.scene.traverse(o => {
+        if (!o.onBeforeRender || o.onBeforeRender === none) return;
+        reset();
+        try { o.onBeforeRender(GL.renderer, GL.scene, eye, o.geometry, o.material, null); } catch (e) { return; }
+        if (!same(eye.matrixWorld, want) || !same(eye.matrixWorldInverse, want.clone().invert())) out.push((o.name || o.type) + ' (' + o.uuid.slice(0, 6) + ')');
+      });
+      return out;
+    })()`));
+    if (bad.length) errors.push(`${key}: a draw hook moved the eye camera it was given (in a headset: the scene stuck to the head): ${bad.join(', ')}`);
+  });
   if (key === 'lbi') await step('lbi: every scene and control in explore mode', () => page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms));
     for (const [k] of HOST.cur.peek('SCENES')) {

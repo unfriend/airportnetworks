@@ -19,9 +19,9 @@
 - 863: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
 - 925: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
 - 975: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
-- 1024: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.1 KB)
-- 1074: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1125: From CLAUDE.md (6.4 KB)
+- 1024: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.5 KB)
+- 1077: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1128: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and
@@ -1063,7 +1063,10 @@ nine minutes and fifty seconds (`NARRATION_SYNC` provisional until the voice is 
   fade within 0.35 m of your head; `cell`, `ppi` and `globe` keep clear (`keepClear`: the engine's `xrCap~2` with the
   frame's time and its sampling, `xrPrep`, run from `frameFloor` since this story keeps the engine's plain `frame`; the
   interactome's points move in their shaders, so `ppi` keeps a hidden stand-in of every protein in the cell and sorted
-  for the sampling). Untested on a headset.
+  for the sampling). Untested on a headset. (v226) The cloud's and the globe's draw hooks read the camera only from its
+  `matrixWorld`: v212 to v225 the cloud called `camera.getWorldDirection`, which on three.js r128's eye camera (its pose
+  only in its matrix) put both eyes at the space's origin for all drawn after it, the owner's "beams way lower than the
+  hands, the exposome stuck to my head" (smoke: `<key>: draw hooks leave a headset's eye camera where it is`).
 - Explore: Scene, Substances (families as swatches in the shelves' colours), Groups, Diseases, Countries, each pane
   twice (HTML and the headset's canvas, the notes under every card in both). Address: `&sub=`, `&group=`, `&dis=`
   (opens the Diseases tab and the interactome), `&country=` (the Countries tab and the globe), `&csub=`. Shared state

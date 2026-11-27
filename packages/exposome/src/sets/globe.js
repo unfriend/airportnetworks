@@ -97,7 +97,9 @@ SETS.globe = function (K) {
     const mw = R.matrixWorld, xr = !!(renderer.xr && renderer.xr.isPresenting), rig = set.group.parent && set.group.parent.parent;
     atmMat.uniforms.uCenter.value.setFromMatrixPosition(mw);
     atmMat.uniforms.uRadius.value = _s.setFromMatrixScale(mw).x;
-    if (xr && rig) rig.getWorldQuaternion(_q); else cam.getWorldQuaternion(_q);
+    // (the camera's turn from its matrixWorld as it stands: cam.getWorldQuaternion would recompose a headset's eye camera
+    // from its unset position, as the cloud's eye once did, sets/cloud.js)
+    if (xr && rig) rig.getWorldQuaternion(_q); else _q.setFromRotationMatrix(cam.matrixWorld);
     LVg.set(-0.55, 0.42, 1.0).normalize().applyQuaternion(_q);
     globeMat.uniforms.uL.value.copy(LVg);
   };

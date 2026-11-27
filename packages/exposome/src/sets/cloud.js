@@ -246,10 +246,13 @@ void main() {
 
   // ---------------------------------------------------------------- the eye (each render: the camera drawing the points)
   const EYE = [0, 0, 4], FWD = [0, 0, -1], _mi = new THREE.Matrix4(), _cp = new THREE.Vector3(), _cd = new THREE.Vector3();
+  // (read from the camera's matrixWorld only, never camera.getWorldDirection: in a headset this camera is three.js r128's
+  // eye camera, its pose only in its matrix, and updateWorldMatrix would put that eye at the space's origin for all that
+  // is drawn after the points, the scene, the rays and the shell's read-outs stuck to the head: v212 to v225)
   points.onBeforeRender = (rd, sc, camera) => {
     _mi.copy(set.group.matrixWorld).invert();
     _cp.setFromMatrixPosition(camera.matrixWorld);
-    camera.getWorldDirection(_cd).add(_cp).applyMatrix4(_mi);
+    _cd.set(0, 0, -1).transformDirection(camera.matrixWorld).add(_cp).applyMatrix4(_mi);
     _cp.applyMatrix4(_mi);
     EYE[0] = _cp.x; EYE[1] = _cp.y; EYE[2] = _cp.z;
     FWD[0] = _cd.x - _cp.x; FWD[1] = _cd.y - _cp.y; FWD[2] = _cd.z - _cp.z;

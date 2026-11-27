@@ -4,16 +4,16 @@
 - 24: When the suites run (1.5 KB)
 - 40: Which suite after which change (2.2 KB)
 - 68: Listing the tests and the docs' tools (2.5 KB)
-- 100: The smoke test (`tools/smoke.mjs`) (9.9 KB)
-  - 114: Smoke blocks (7.6 KB)
-  - 179: `--only <words>` (0.7 KB)
-  - 188: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-- 198: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.9 KB)
-- 259: Other tools (3.4 KB)
-- 282: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 291: Known red results on this machine (2.4 KB)
-- 315: Traps for a test writer (2.1 KB)
-- 338: Useful URL hashes and the console (4.8 KB)
+- 100: The smoke test (`tools/smoke.mjs`) (10.0 KB)
+  - 115: Smoke blocks (7.6 KB)
+  - 180: `--only <words>` (0.7 KB)
+  - 189: Playwright, SwiftShader and what only a headset shows (0.5 KB)
+- 199: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.9 KB)
+- 260: Other tools (3.4 KB)
+- 283: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 292: Known red results on this machine (2.4 KB)
+- 316: Traps for a test writer (2.5 KB)
+- 343: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -109,7 +109,8 @@ The whole run fails on any console error (a 404 for a missing narration MP3 is e
 What the main run (no `--only`) holds besides the blocks: every story and the studio loaded, scrubbed, played as a
 slideshow and explored, the panes' numbers checked against the data where a story looks them up; the load steps (no
 task longer than `LOAD_LIMIT`, 4 s: SwiftShader compiles one shader at a time); the loading scene in VR and AR; anchored
-placement; the headset's settings; the sound-effect cues; focus mode and the top bar on phones and tablets.
+placement; the headset's settings; the sound-effect cues; focus mode and the top bar on phones and tablets; (v226) every
+story's draw hooks (`onBeforeRender`) given a headset's eye camera and leaving it where it is.
 
 ### Smoke blocks
 
@@ -319,6 +320,10 @@ Found only by being bitten (the whole account is in `docs/history/testing.md`).
 - **Steps wait on frames, not time.** In this suite's software drawing a layer's write takes a few hundred ms (Sharp text:
   only that block's page, and any page given Quest Browser's user agent, as the `phone ar` block's Quest is, asks for `layers`;
   every other pretend headset has Sharp text off by default, as a desktop browser does).
+- **The pretend headsets' eyes sit at the space's origin.** Their head never moves unless a step moves it, so a bug that
+  puts an eye at the origin (a draw hook calling `camera.getWorldDirection` on three.js r128's eye camera, whose pose is
+  only in its matrix: the exposome's cloud, v212 to v225, the scene and the rays stuck to the head) draws the same picture
+  there: check the eye's matrices, or move the head first.
 - **A frame can take over 250 ms in software.** So the window for a press's own events coming late is 5 s (`lateMs` in
   `tools/smoke.mjs`), not 250 ms.
 - **The pretend controllers are held as a Quest's are** (`HOLD` in `tools/smoke.mjs`: grip -z ahead along the hand, +y
