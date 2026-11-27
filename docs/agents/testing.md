@@ -11,9 +11,9 @@
 - 239: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
 - 306: Other tools (4.5 KB)
 - 331: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 340: Known red results on this machine (7.6 KB)
-- 373: Traps for a test writer (4.7 KB)
-- 421: Useful URL hashes and the console (4.8 KB)
+- 340: Known red results on this machine (8.5 KB)
+- 375: Traps for a test writer (4.7 KB)
+- 423: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -359,6 +359,8 @@ written down in the repository: the first person to chase one writes it here and
 | smoke `--only studio` as one run | timed out at 900 s | it is every studio block, about a quarter of the run: `--block studio` is the main block alone, `smoke-all.mjs` the rest one by one |
 | smoke `headset settings`, *panels per story*: *on the Stories screen ... its panels shown false* and *no panels or cards lines in studio* | no longer (row K; red at the origin too, so not the seat's) | the test's: the headset draws at most one Stories-screen card a frame and shows a card once drawn, so three frames were too few (now frames until all show, 60 at most); the studio's line goes on with `&& !gogHide()` since v203 (the shared part is what is checked now). Its Story-tab press waits for the foot bar drawn again in story mode |
 | smoke notices read as "the last one" (`stick moving`'s walk notice, `headset settings`' *Frame rate: on/off*) | no longer (row K) | the session's own first notice, *The menu*, comes 2.5 s of real time in (`shared.js`) and on a loaded machine lands after the one the step reads: the steps read the latest notice of their own title (the frame rate's: given since a mark) |
+| smoke `headset settings`, *the frame-rate read-out in the headset*: *the read-out does not show plausible numbers* ("Measuring") | no longer (27 November 2026; red 4 of 4, at the seat and the origin, on v225 too) | the test's: its loop stopped once `HOST.perf`'s second was in, while the shell's frame rate (`shared.js` `tick`, `FPS`) counts its own second from the session's first frame, here in the loop's slow first iteration. It now waits for the read-out's *N fps* line as well. The app is right to say *Measuring* for a session's first second |
+| smoke `phone ar`, *the welcome says how a phone points*: *the notice The menu said []* | no longer (27 November 2026; once in a block-by-block run) | the test's: *The menu* comes 2.5 s into the session only with the 3D menu closed (`shared.js`), and *The full menu* step had it open until about 100 ms before then. The first step now waits for the notice |
 | smoke `studio`, *studio v127: Play did not go on from where the slider held it*; `studio live`, *heard ... playing false* | once each in row K's full run (two blocks at a time, another builder's browsers too); green alone | timing under load (the live sound: the trap below, *the output page's live sound starves headlessly*) |
 | smoke `goggles: the game on a page`, *the game is not drawn in the scene* | once in row K's runs, on a loaded machine; then green with the seat and at the origin | a timing flake, not the seat's |
 | `relay/test.mjs --watch` (a relay stopped and restarted) | on Windows only: 5 failures about a relay stopped by SIGTERM | they come from Windows, with or without the fix; on this machine `--watch` passes |
