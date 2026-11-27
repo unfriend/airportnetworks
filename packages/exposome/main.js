@@ -965,7 +965,7 @@ void main() {
   const EYE = [0, 0, 4], FWD = [0, 0, -1], _mi = new THREE.Matrix4(), _cp = new THREE.Vector3(), _cd = new THREE.Vector3();
   // (read from the camera's matrixWorld only, never camera.getWorldDirection: in a headset this camera is three.js r128's
   // eye camera, its pose only in its matrix, and updateWorldMatrix would put that eye at the space's origin for all that
-  // is drawn after the points, the scene, the rays and the shell's read-outs stuck to the head: v212 to v225)
+  // is drawn after the points, the scene, the rays and the shell's read-outs stuck to the head: v212 to v226)
   points.onBeforeRender = (rd, sc, camera) => {
     _mi.copy(set.group.matrixWorld).invert();
     _cp.setFromMatrixPosition(camera.matrixWorld);

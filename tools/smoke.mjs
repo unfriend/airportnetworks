@@ -306,11 +306,11 @@ for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
     ${L}
     XR.inStory = was; XR.stories = false; XR.on = false;
   })()`), LAND_CHECK));
-  // (v226) a draw hook (onBeforeRender) leaves the camera it is given as it is: in a headset that camera is one of three.js
-  // r128's eye cameras, whose pose is only in its matrix (position and quaternion unset, matrixAutoUpdate on), so a
+  // (after v226, 27 November 2026) a draw hook (onBeforeRender) leaves the camera it is given as it is: in a headset
+  // that camera is one of three.js r128's eye cameras, whose pose is only in its matrix (position and quaternion unset, matrixAutoUpdate on), so a
   // camera.getWorldDirection / getWorldPosition there (updateWorldMatrix) set that eye at the space's origin for everything
   // drawn after it, the scene and the controllers' rays and the shell's read-outs stuck to the head (the exposome's cloud,
-  // v212 to v225: the owner's "my virtual beams are way lower than the hands and the exposome is stuck to my head")
+  // v212 to v226: the owner's "my virtual beams are way lower than the hands and the exposome is stuck to my head")
   await step(`${key}: draw hooks leave a headset's eye camera where it is`, async () => {
     const bad = await page.evaluate(() => HOST.cur.peek(`(() => {
       const eye = new THREE.PerspectiveCamera(), out = [];

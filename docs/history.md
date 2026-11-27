@@ -438,7 +438,17 @@ The one hunk of v218 in the alignment path was the once-a-frame guard on `HOST.r
 call with the same XRFrame skipped); v226 takes it out, so `update()` runs on every call again (the story's
 `HOST.anchor.frame` and the shell's tick), as in v217. The rest of v218's savings stay. No pretend headset showed the
 fault, so the fix rests on the bisect alone; `node tools/collab.mjs --calib` repeats the owner's steps headlessly and
-guards those steps only, not the fault itself.
+guards those steps only, not the fault itself. The owner confirmed on 27 November 2026 that calibration works again on
+v226.
+
+The exposome's scene stuck to the head (after v226, 27 November 2026): from v212 (commit 01b57c2) the cloud's draw hook
+(`points.onBeforeRender`) called `camera.getWorldDirection`. In a headset that camera is three.js r128's eye camera,
+whose pose lives only in its matrix, so the call recomposed it from its unset position and turn and put both eyes at
+the session's origin for everything drawn after the cloud, every frame: the scene, the controllers' rays and the
+shell's read-outs stuck to the head. The owner reported it in AR and VR ("my virtual beams are way lower than the
+hands and the exposome is stuck to my head"). The cloud now reads the direction from the camera's `matrixWorld`, and the
+globe's probe its turn likewise; it shipped as a package change after v226, with no new `VERSION`, and a smoke step
+gives every story's draw hooks an eye camera posed by its matrix alone. Untested in a headset.
 
 ### Loading late and holding less (v225, audit row I)
 
