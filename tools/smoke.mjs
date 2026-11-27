@@ -14495,7 +14495,8 @@ if (runs('frame rate')) {
       if (!C.members.some(m => m.id === 'zz-walker')) C.members.push({ id: 'zz-walker', name: 'Walker', color: '#ff8a65', kind: 'vr', here: true });
       window.__fp.step(1);
       const v1 = (S.draws || 0);
-      for (const s of [st, st2]) { C.pres.set('zz-walker', { id: 'zz-walker', st: s, at: performance.now(), head: [0, 1.6, -2, 0, 0, 0, 1], hands: [] }); window.__fp.step(2); }
+      // (v222: a change from outside the menu is looked for at most every 100 ms, so each walk waits that long before its frames)
+      for (const s of [st, st2]) { C.pres.set('zz-walker', { id: 'zz-walker', st: s, at: performance.now(), head: [0, 1.6, -2, 0, 0, 0, 1], hands: [] }); await new Promise(r => setTimeout(r, 120)); window.__fp.step(2); }
       return [v1 - v0, (S.draws || 0) - v1];
     }, tab);
     const vs = await ver('settings'), vd = await ver('debug'), vc = await ver('circles');
@@ -16230,6 +16231,8 @@ if (runs('spaceship')) {
     // clicks of the right stick while flying: pushed past 0.5 nothing (two within 0.4 s neither land nor open the menu)
     await hold('R', [0.2, 1.1, -0.3]);
     await sp.evaluate(() => { HOST.ships.debug.freeze(true); HOST.ships.launch(true); window.__wtick(2); });
+    // (the ignored click is logged at most once a second, counted from the page's start: a fresh page reaches this within it)
+    await sp.waitForFunction(() => performance.now() > 1100, null, { timeout: 5000 });
     const ign0 = await sp.evaluate(() => window.__collabLog.filter(e => e.ev === 'ship stick click ignored').length);
     await stk(0.8, -0.2); await click('R', 2); await stk(0, 0);
     await sp.waitForTimeout(500); await tick(2);
@@ -18269,7 +18272,10 @@ if (runs('developer mode')) {
     }
     return out;
   }, ms);
-  const press = id => dp.evaluate(id => { window.__tick(1); const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); window.__tick(1); return !!(r && r.fn); }, id);
+  // (a press as the ray's: the menu's signature cleared after it, so the next frame draws it; v222 looks for other changes
+  // at most every 100 ms, so a fetch that lands is waited for that long: later)
+  const press = id => dp.evaluate(id => { window.__tick(1); const r = HOST.collab.menuFind(id); if (r && r.fn) { r.fn(); HOST.collab.overlay().panel.sig = ''; } window.__tick(1); return !!(r && r.fn); }, id);
+  const later = () => dp.waitForTimeout(120);
   const st = () => dp.evaluate(() => ({ ...HOST.collab.whatsNew(), open: HOST.collab.menu, tab: HOST.collab.overlay().panel.regions.map(r => r.id).filter(i => /^news:/.test(i)), seen: localStorage.getItem('devSeen') }));
   await step('developer mode in a headset: after the welcome the menu opens at what is new; Later closes it (again next session); Got it closes it and not again; off, never', async () => {
     const bad = [];
@@ -18318,7 +18324,7 @@ if (runs('developer mode')) {
     if (!t1 || !t2 || on.join() !== 'true,on' || off) bad.push('the Settings row: ' + JSON.stringify([t1, on, t2, off]));
     const t3 = await press('whatsnew');
     await dp.waitForFunction(() => !HOST.dev.busy(), null, { timeout: 10000 });
-    await dp.evaluate(() => window.__tick(2));
+    await later(); await dp.evaluate(() => window.__tick(2));
     const s1 = await st();
     if (!t3 || !s1.shown || s1.fl !== 0 || !s1.open || !(s1.tab.includes('news:got') && s1.tab.includes('news:later'))) bad.push('the Debug tab\'s What is new: ' + JSON.stringify([t3, s1]));
     await press('news:later');
@@ -18331,7 +18337,7 @@ if (runs('developer mode')) {
     await dp.evaluate(() => { HOST.collab.panelOpen(true); window.__tick(2); });
     await press('whatsnew');
     await dp.waitForFunction(() => !HOST.dev.busy(), null, { timeout: 10000 });
-    await dp.evaluate(() => window.__tick(2));
+    await later(); await dp.evaluate(() => window.__tick(2));
     const s3 = await st();
     if (!s3.shown || s3.tab.join() !== 'news:later' || await dp.evaluate(() => !!HOST.dev.data())) bad.push('the file not there: not Back alone: ' + JSON.stringify(s3));
     await press('news:later');
@@ -18467,7 +18473,7 @@ if (runs('developer mode')) {
     await press('news:more');
     await press('news:older');
     await dp.waitForFunction(() => !HOST.dev.busy() && HOST.dev.state().view, null, { timeout: 15000 });
-    await dp.evaluate(() => window.__tick(3));
+    await later(); await dp.evaluate(() => window.__tick(3));
     const real0 = (await dp.evaluate(() => fetch('whatsnew/index.json').then(r => r.json()))).versions[0];   // (the real newest: the page's list is the faked v999, then the real ones)
     const s4 = await st(), p4 = await dp.evaluate(() => HOST.dev.position()), w4 = await dp.evaluate(() => HOST.collab.whatsNew());
     if (s4.tab.includes('news:got') || !s4.tab.includes('news:newer') || !s4.tab.includes('news:older') || !s4.tab.includes('news:later') || p4.i !== 2 || p4.version !== real0 || w4.sc !== 0) bad.push('Older: ' + JSON.stringify([s4.tab, p4, w4]));
