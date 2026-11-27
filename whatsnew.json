@@ -3,14 +3,15 @@
   "date": "2026-11-27",
   "new": [
     "The studio's file is about a third smaller: its comments are left out, and the parts for converting models and for the page's arrows come only when they are needed.",
-    "Real-world occlusion and the spaceships now load when a headset session starts, or earlier on a headset; a phone or a laptop no longer fetches them.",
-    "The developer notebook loads only once developer mode is on.",
-    "The headset's panels, Stories cards, menu and subtitles take memory only once they are first drawn: on a laptop a story now keeps about 50 MB less."
+    "Real-world occlusion and the spaceships now load when a headset session starts, or earlier on a device that can enter VR, or when someone in your room flies a ship; otherwise a phone or a laptop no longer fetches them.",
+    "A page that has run a while never takes these files from a newer release: it waits to be reloaded.",
+    "The developer notebook loads only once developer mode is on; a note left unsent while it is off goes once it is on again.",
+    "The headset's panels, Stories cards, menu and subtitles are made only once they are first drawn: on a laptop a story no longer makes about 27 of them (up to 50 MB had they been drawn)."
   ],
   "test": [
     "Open the studio, upload an FBX or OBJ model and convert it: it works as before.",
     "In the studio's edit mode, select an item: the arrows still move and size it.",
-    "Turn developer mode on: the notebook's round button appears at the bottom right within a second.",
+    "Turn developer mode on: the notebook's round button appears at the bottom right.",
     "Open a story on a laptop and on a phone: it looks and plays as before."
   ],
   "untested": [

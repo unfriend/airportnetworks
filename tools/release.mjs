@@ -72,8 +72,12 @@ if (!STAMP.test(index)) fail("index.html has no shell stamp (shell: { n: 0, id: 
 // new page an old list, naming stories that have moved into packages since. Not part of the shell's id.)
 const LISTTAG = /<script src="stories\/list\.js(\?v=[0-9a-f]*)?"><\/script>/;
 if (!LISTTAG.test(index)) fail('index.html does not load stories/list.js as <script src="stories/list.js?v=0"></script>');
+// (the shell's modules loaded on demand, HOST.mods, v226 review: their fingerprints stamped into index.html's MODS_FP, so a
+// page fetches <file>?v=<fp> and refuses a file of another release. Not part of the shell's id: the files themselves are)
+const MODS = ['occlusion', 'ships', 'notes'], MODSTAMP = /const MODS_FP = \{[^}\n]*\};/;
+if (!MODSTAMP.test(index)) fail('index.html has no MODS_FP stamp (const MODS_FP = {};, in HOST.mods)');
 const shellText = [
-  index.replace(STAMP, 'shell: {},').replace(LISTTAG, '<script src="stories/list.js"></script>').replace(/^<(title>|meta (name="(description|twitter:[^"]*)"|property="og:[^"]*"))[^\n]*$/gm, ''),
+  index.replace(STAMP, 'shell: {},').replace(MODSTAMP, 'const MODS_FP = {};').replace(LISTTAG, '<script src="stories/list.js"></script>').replace(/^<(title>|meta (name="(description|twitter:[^"]*)"|property="og:[^"]*"))[^\n]*$/gm, ''),
   read('shared.js'), read('three.min.js'), read('peerjs.min.js'), read('output.js'), read('sfx.js'), read('occlusion.js'), read('ships.js'), read('notes.js'),
   read('ik.js'), read('bodies.js'), read('flight.js'),
 ].join('\n\u0000\n');
@@ -113,7 +117,8 @@ const storyFiles = ['./stories/list.js', ...list.concat(extra).map(m => `./stori
 const STORY_RUN = /'\.\/stories\/[^']+\.js'(, '\.\/stories\/[^']+\.js')*/;
 if (!STORY_RUN.test(swText)) fail('sw.js has no SHELL story files for tools/release.mjs to keep');
 const swOut = swText.replace(STORY_RUN, () => storyFiles);
-const stamped = index.replace(STAMP, `shell: { n: ${n}, id: '${id}', format: '${format}' },`).replace(LISTTAG, `<script src="stories/list.js?v=${fingerprint(read('stories/list.js'))}"></script>`);
+const stamped = index.replace(STAMP, `shell: { n: ${n}, id: '${id}', format: '${format}' },`).replace(LISTTAG, `<script src="stories/list.js?v=${fingerprint(read('stories/list.js'))}"></script>`)
+  .replace(MODSTAMP, `const MODS_FP = ${JSON.stringify(Object.fromEntries(MODS.map(m => [m, fingerprint(read(m + '.js'))])))};`);
 
 // what is new in this release (whatsnew.json, by hand): it names this release, and its lists are sentences
 let news = '';

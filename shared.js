@@ -4873,7 +4873,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', !!HOST.ships, !!HOST.notes, PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
       // (v214: the limited menu, the room's switch, and what the limited page shows that nothing above says)
       (L => [L, roomMenusFull(), subsDefault(), L ? (A => (A ? A.mode + A.playing : ''))(storyApp()) : '', L && HOST.curKey === 'pass' ? langButtons().map(o => o.l + o.on).join() : '', L ? R.state : '', L ? [guideOn(), (U => U.text + U.c)(lineUp()), !!R.calib, !!R.session, CAM.on] : ''])(menuLimited()),
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
@@ -8192,9 +8192,20 @@
   // the right stick clicked twice (v132; the owner, 10 November 2026: "if we double click the right stick in ar or vr mode
   // we get a little spaceship"; "the right stick's double click for the ship and the left stick's for moving with the
   // sticks"): a spaceship launched or landed (ships.js), at its next frame
+  let shipWait = false;
   function shipPress() {
-    // (ships.js not here yet, v226: fetched, and the press answered as it comes, if the session still runs)
-    if (!HOST.ships && HOST.mods) { const s = R.session; HOST.mods.load('ships').then(S => { if (S && S.toggle && R.session === s && s) shipPress(); }); return; }
+    // (ships.js not here yet, v226: fetched, and the press answered as it comes, if the session still runs; presses while
+    // it comes are one press, not a launch and a landing; one that cannot come says so)
+    if (!HOST.ships && HOST.mods) {
+      if (shipWait) return;
+      const s = R.session; shipWait = true;
+      HOST.mods.load('ships').then(S => {
+        shipWait = false;
+        if (!(R.session === s && s)) return;
+        if (S && S.toggle) shipPress(); else notice('Spaceship', 'The spaceship did not load: check the connection, or reload the page.', 3500);
+      });
+      return;
+    }
     if (!HOST.ships || !HOST.ships.toggle) return;
     log('ship stick', { flying: HOST.ships.flying() });
     HOST.ships.toggle('stick');

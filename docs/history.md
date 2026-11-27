@@ -419,9 +419,15 @@ gzipped (39% less). The shell no longer loads the occlusion, spaceship and noteb
 `HOST.mods` fetches them when a headset session is asked for (earlier, in idle time, on a device that can enter VR),
 when someone's ship is first heard, or with developer mode. The headset's canvases (a story's panel and foot, a card
 per story on the Stories screen, `shared.js`'s menu, notices and subtitles) take their memory only at their first draw:
-measured in headless Chromium after GC, airports held 27 canvases (51 MB) on a page before and none after, the tour 53
-MB and 2 MB (its own two screen pictures); bytes before ready fell 184 KB on the start page, airports and the tour; heap,
-ArrayBuffers and script time did not change beyond noise. Left: the arrangement editor stays inline (its editor shares
+counted in headless Chromium after GC, airports held 27 canvases before and none after (about 51 MB had each been drawn:
+width x height x 4 summed, a size, not measured memory; a browser may hold a canvas's pixels only once drawn, or on the
+graphics card), the tour 53 MB and 2 MB the same way (its own two screen pictures); bytes before ready fell 184 KB on the
+start page, airports and the tour (measured); the measured heap, ArrayBuffers and script time did not change beyond
+noise, so the real saving is not known. A note left in the notebook's outbox while developer mode is off now waits until
+developer mode is on again. The review round: the three modules are fetched as `<file>?v=<fp>` and run only when their
+fingerprint is the one `tools/release.mjs` stamped (`MODS_FP`), a failed one is tried again 30 s on at the earliest, a
+ship click while `ships.js` comes is answered once; the studio's comment strip reads `/` after `++` and `--` as division,
+and every build proves each built file parses and is unchanged by a second strip. Left: the arrangement editor stays inline (its editor shares
 its state with the copy's runtime that every station needs at a story's load); `ik.js` is still pasted into the studio;
 `xrWarm` still compiles the headset's materials on every device; the example scenes' KTX2 textures (the generators
 would need the Basis encoder in their pages; Bliss XP about 70 MB on the graphics card, 18 MB with KTX2).

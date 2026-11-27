@@ -16,6 +16,7 @@
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import vm from 'vm';
 import { fileURLToPath } from 'url';
 const here = path.dirname(fileURLToPath(import.meta.url)), root = path.join(here, '../..');
 const read = f => fs.readFileSync(path.join(here, f), 'utf8');
@@ -86,6 +87,10 @@ const vendor = [
 // licence, or a /*! block, stays. A line that held only a comment goes, line and all; a comment after code goes with the
 // spaces before it; a block comment inside a line becomes a space (a newline if it held one, for the semicolons the
 // browser inserts); blank lines go too. Checked once against acorn's tokens (the same tokens before and after: --raw).
+// A '/' is a regular expression's start unless the token before it ends an operand (a name, a number, a string, ')' or
+// ']', and '++' or '--', v226's review: i++ / 2); after '}' it is read as a regular expression, which no source here
+// divides after. Every build, --check among them, also proves each built file parses (vm.Script) and that stripping it
+// again changes nothing, so a misread '/' that swallows code fails the build rather than reaching a page.
 const KEEP = /licen[cs]e|copyright|\bMIT\b/i;
 const KW = new Set(['return', 'typeof', 'instanceof', 'in', 'of', 'new', 'delete', 'void', 'throw', 'case', 'do', 'else', 'yield', 'await']);
 function strip(src) {
@@ -150,6 +155,7 @@ function strip(src) {
       let j = i + 1; while (j < n && /[\w.]/.test(src[j])) j++;
       put(src.slice(i, j)); i = j; prev = 'num'; continue;
     }
+    if ((c === '+' || c === '-') && d === c) { put(c + d); i += 2; prev = 'num'; continue; }   // (++ and --: an operand's end for a '/' after them)
     if (c === '\n' && lineHead()) { trimTail(); i++; continue; }   // (a blank line, outside strings: gone)
     if (/\s/.test(c)) { put(c); i++; continue; }
     if (c === '{' && tpl.length) tpl[tpl.length - 1]++;
@@ -222,6 +228,10 @@ let out = read('engine/e1_head.js').replace('//@@KIT@@\n', () => kit).replace('/
 for (const f of ENGINE) out += f === 'ik' ? fs.readFileSync(path.join(root, 'ik.js'), 'utf8') : read(`engine/${f}.js`);
 const files = { 'studio.js': [out, strip(out)] };
 for (const name of Object.keys(PARTS)) files[`studio-${name}.js`] = [partRaw[name], partOut[name]];
+for (const [f, [raw, t]] of Object.entries(files)) {   // (each built file parses, as its source did, and is stripped for good)
+  for (const [say, s] of [['with its comments', raw], ['without', t]]) { try { new vm.Script(s, { filename: f }); } catch (e) { throw new Error(`stories/${f} ${say} does not parse: ${e.message}`); } }
+  if (strip(t) !== t) throw new Error(`stories/${f}: stripping it again changes it (the comment strip misread something)`);
+}
 if (process.argv.includes('--check')) {
   const stale = Object.entries(files).filter(([f, [, t]]) => { const p = path.join(root, 'stories', f); return !fs.existsSync(p) || fs.readFileSync(p, 'utf8') !== t; }).map(([f]) => 'stories/' + f);
   console.log(stale.length ? `${stale.join(', ')} out of date: run node tools/studio/build.mjs` : `stories/studio.js and its parts are up to date`);

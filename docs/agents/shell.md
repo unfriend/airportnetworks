@@ -3,46 +3,46 @@
 <!-- toc (tools/docs/toc.mjs) -->
 - 52: The font, the story list and the cards (6.0 KB)
 - 107: Starting a story: listeners and the renderer (1.2 KB)
-- 127: The shell's modules on demand (`HOST.mods`, v226) (3.4 KB)
-- 164: Controllers after standby (`HOST.inputsGuard`) (4.8 KB)
-- 209: Loading, and taking over a headset session (2.0 KB)
-- 231: The start screen and the address (4.8 KB)
-- 279: Repeat and the slideshow (3.6 KB)
-- 317: Placement in the headset (3.2 KB)
-- 349: Labels, cards, free moving and subtitles (3.9 KB)
-- 386: The frame rate and the refresh rate (4.6 KB)
-- 428: Automatic quality (4.0 KB)
-- 466: Sharp text: the modes (4.0 KB)
-- 506: Sharp text: the session, each frame, the menu and the panel (5.8 KB)
-- 560: Sharp text: when things go wrong, and what was tried (2.6 KB)
-- 586: Two more settings: real-world occlusion, and your menu shown to your circle (5.7 KB)
-- 641: Moving with the sticks (5.3 KB)
-- 691: Moving with the sticks: in a room, and the studio's two modes (4.9 KB)
-- 738: My body, and what labels, cards, free moving and subtitles do in each mode (5.5 KB)
-- 813: Focus mode (3.4 KB)
-- 845: Phones and tablets (`HOST.handheld`) (6.1 KB)
-- 904: Panels per story (1.4 KB)
-- 925: Developer mode (`HOST.dev`) (4.5 KB)
-- 968: Sound belongs to the shell (`HOST.audio`) (6.7 KB)
-- 1046: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
-- 1091: The two sound switches and the narration switch (4.4 KB)
-- 1144: What plays when, and the background (2.3 KB)
-- 1177: The sound board (`tools/sfx.html`) (2.3 KB)
-- 1210: Sounds inside the stories (phase 2) (4.5 KB)
-- 1252: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
-- 1300: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
-- 1363: Real-world occlusion: bias, what it hides, tests (3.1 KB)
-- 1394: The developer notebook (`HOST.notes`, `notes.js`) (6.2 KB)
-  - 1426: Run logs (*Record a run*) (1.0 KB)
-  - 1438: Reading notes in a headset (v148) (2.4 KB)
-- 1464: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1508: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1573: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1617: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 1704: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 1770: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 1868: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 1959: From CLAUDE.md (6.1 KB)
+- 127: The shell's modules on demand (`HOST.mods`, v226) (4.7 KB)
+- 175: Controllers after standby (`HOST.inputsGuard`) (4.8 KB)
+- 220: Loading, and taking over a headset session (2.0 KB)
+- 242: The start screen and the address (4.8 KB)
+- 290: Repeat and the slideshow (3.6 KB)
+- 328: Placement in the headset (3.2 KB)
+- 360: Labels, cards, free moving and subtitles (3.9 KB)
+- 397: The frame rate and the refresh rate (4.6 KB)
+- 439: Automatic quality (4.0 KB)
+- 477: Sharp text: the modes (4.0 KB)
+- 517: Sharp text: the session, each frame, the menu and the panel (5.8 KB)
+- 571: Sharp text: when things go wrong, and what was tried (2.6 KB)
+- 597: Two more settings: real-world occlusion, and your menu shown to your circle (5.7 KB)
+- 652: Moving with the sticks (5.3 KB)
+- 702: Moving with the sticks: in a room, and the studio's two modes (4.9 KB)
+- 749: My body, and what labels, cards, free moving and subtitles do in each mode (5.5 KB)
+- 824: Focus mode (3.4 KB)
+- 856: Phones and tablets (`HOST.handheld`) (6.1 KB)
+- 915: Panels per story (1.4 KB)
+- 936: Developer mode (`HOST.dev`) (4.5 KB)
+- 979: Sound belongs to the shell (`HOST.audio`) (6.7 KB)
+- 1057: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
+- 1102: The two sound switches and the narration switch (4.4 KB)
+- 1155: What plays when, and the background (2.3 KB)
+- 1188: The sound board (`tools/sfx.html`) (2.3 KB)
+- 1221: Sounds inside the stories (phase 2) (4.5 KB)
+- 1263: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
+- 1311: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
+- 1374: Real-world occlusion: bias, what it hides, tests (3.1 KB)
+- 1405: The developer notebook (`HOST.notes`, `notes.js`) (6.2 KB)
+  - 1437: Run logs (*Record a run*) (1.0 KB)
+  - 1449: Reading notes in a headset (v148) (2.4 KB)
+- 1475: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1519: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1584: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1628: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 1715: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 1781: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 1879: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 1970: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -127,9 +127,17 @@ repeat the above (the `sfxCue`, `sfxHold`, `sfxAct` and `sfxLive` line, the narr
 ## The shell's modules on demand (`HOST.mods`, v226)
 
 - `occlusion.js`, `ships.js` and `notes.js` are no longer `<script>` tags in `index.html`. `HOST.mods.load(name)`
-  (`index.html`, next to `HOST.flightLoad`) adds the script once and resolves to the module (or `null`; a failed load is
-  tried again next time). `HOST.mods.xr()` asks for occlusion and the spaceships together; `HOST.mods.loaded()` names
-  the ones that came (tests).
+  (`index.html`, next to `HOST.flightLoad`) fetches the file once and resolves to the module (or `null`).
+  `HOST.mods.xr()` asks for occlusion and the spaceships together; `HOST.mods.loaded()` names the ones that came (tests).
+- Of this release only (v226's review): `tools/release.mjs` stamps each file's fingerprint into `index.html`'s
+  `MODS_FP` (as `stories/list.js?v=`; `--check` says when it is stale, and the stamp is not part of the shell's id: the
+  files are). `HOST.mods` fetches `<file>?v=<fp>`, hashes the text with `HOST.fingerprint` and runs it as inline script
+  (`//# sourceURL=`) only when it matches: `sw.js` serves these files network first and a new worker takes over at once,
+  so a page asking late (a headset entering VR an hour on) would otherwise run the next release's file against its own
+  shell. A file of another release is refused for the page's life (a console warning; `HOST.live` offers the reload). A
+  failed fetch, or a file that ran and made no `HOST.<name>`, is tried again 30 s on at the earliest, so a room's
+  presences do not fetch it at every message. After editing one of the three files, run `node tools/release.mjs`, or
+  the page refuses it.
 - When each comes:
   - occlusion and the spaceships: when a headset session is asked for (`HOST.xr.request`) and when `HOST.session` is
     set; before that, in idle time after the boot, on a device where `isSessionSupported('immersive-vr')` is true (a
@@ -137,7 +145,10 @@ repeat the above (the `sfxCue`, `sfxHold`, `sfxAct` and `sfxLive` line, the narr
     for. A link with `#occl=` or `#occlsmooth=` fetches occlusion to store the setting.
   - the spaceships also on a page that hears someone's ship first (a presence with `sh`, or a `ships` effect:
     `shared.js` `onFx`); presences repeat, so nothing is lost. The right stick's double click before the file is here
-    fetches it and answers the click as it comes (`shipPress`).
+    fetches it and answers the click as it comes (`shipPress`); further clicks while it comes are ignored (one launch,
+    not a launch and a landing), and one that cannot come says so in a notice. A `ships` effect (a bolt, a hit) that
+    arrives while the file is coming is not kept: effects are ephemeral and would be stale by then. The menu's
+    signature holds `!!HOST.ships` and `!!HOST.notes`, so an open menu redraws as either comes.
   - the notebook when developer mode is on: at the boot (stored or `#dev=on`) and in `HOST.dev.set(true)`. A note left in
     the outbox while developer mode is off waits until it is on again.
 - Until a module has come `HOST.occlusion`, `HOST.ships` or `HOST.notes` is unset: every call site asks for it first

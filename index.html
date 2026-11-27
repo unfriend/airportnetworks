@@ -893,7 +893,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 226, id: '06f032646d10a43c', format: 'networks-61' },
+  shell: { n: 226, id: '8aa366d0b1d0a775', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3078,10 +3078,17 @@ HOST.flightLoad = function () {
 // someone else's first comes on a page; the developer notebook (notes.js) once developer mode is on. Each is in sw.js's
 // SHELL, so it is there offline. Until it has come HOST.<name> is unset, and every call site already asks for it first.
 // Each file runs inside HOST.quietly (its listeners are the shell's) and is linked in to shared.js as it comes
-// (HOST.shellLink, HOST.notesLink). A failed load is tried again next time. load(name) resolves to the module or null
+// (HOST.shellLink, HOST.notesLink). load(name) resolves to the module or null. Review of v226: each is fetched as
+// <file>?v=<its fingerprint>, stamped below by tools/release.mjs as stories/list.js's is, hashed as HOST.load hashes a
+// story and run as inline script only when it is this release's: the service worker serves these files network first and
+// a new one takes over at once, so a page that asks late (a headset entering VR an hour on) would otherwise run the next
+// release's file against this release's shell; one of another release is refused for the page's life (HOST.live offers
+// the reload). A failed fetch, or a file that ran and made no HOST.<name>, is tried again 30 s on at the earliest (so a
+// room's presences do not fetch it at every message)
 HOST.quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
 HOST.mods = (function () {
-  const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js' }, M = {};
+  const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js' }, M = {}, AGAIN = 30000;
+  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"f9f65b92c14211ad"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
   function linked(name) {
     const m = HOST[name];
     try {
@@ -3092,16 +3099,27 @@ HOST.mods = (function () {
   }
   function load(name) {
     if (!FILES[name]) return Promise.resolve(null);
-    const r = M[name] || (M[name] = { p: null, done: false });
+    const r = M[name] || (M[name] = { p: null, done: false, failed: 0, refused: false });
     if (r.done || HOST[name]) { r.done = true; return Promise.resolve(HOST[name] || null); }   // (one already there, a test's stand-in among them: kept)
     if (r.p) return r.p;
-    return (r.p = new Promise(res => {
+    if (r.refused || (r.failed && performance.now() - r.failed < AGAIN)) return Promise.resolve(null);
+    const fp = MODS_FP[name] || '', fail = why => { r.p = null; r.failed = performance.now(); console.warn(FILES[name] + ' ' + why); return null; };
+    return (r.p = (async () => {
+      let txt;
+      try {
+        const res = await fetch(FILES[name] + (fp ? '?v=' + fp : ''));
+        if (!res.ok) throw new Error(String(res.status));
+        txt = await res.text();
+      } catch (e) { return fail('did not load'); }
+      if (HOST[name]) { r.p = null; r.done = true; return linked(name); }   // (a stand-in set meanwhile)
+      if (fp && HOST.fingerprint(txt) !== fp) { r.p = null; r.refused = true; console.warn(FILES[name] + ' on the server is of another release than this page: not run (reload the page)'); return null; }
       const s = document.createElement('script');
-      s.src = FILES[name]; s.async = true;
-      s.onload = () => { r.done = true; res(linked(name)); };
-      s.onerror = () => { r.p = null; console.warn(FILES[name] + ' did not load'); res(null); };
-      document.head.appendChild(s);
-    }));
+      s.textContent = txt + '\n//# sourceURL=' + new URL(FILES[name], location.href).href;
+      document.head.appendChild(s); s.remove();
+      if (!HOST[name]) return fail('ran but made no HOST.' + name);
+      r.p = null; r.done = true;
+      return linked(name);
+    })());
   }
   return {
     load,
