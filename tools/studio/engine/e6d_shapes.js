@@ -218,7 +218,8 @@ function settingsStep() {
   const gog = gogHide();
   const hide = gog ? 'goggles' : here && atStation() && STU.settings.others === 'hidden' ? stationId() || true : false, occ = gog ? 'off' : here ? OCC[STU.settings.real] : null;
   if (hide !== HOOK.hide) { HOOK.hide = hide; hookCall('hide', !!hide); }
-  if (occ !== HOOK.occ) { HOOK.occ = occ; hookCall('occ', occ); }
+  // (occ only once the shell has occlusion.js, loaded on demand since v226: until then it is asked again each step)
+  if (occ !== HOOK.occ && HOST.occlusion) { HOOK.occ = occ; hookCall('occ', occ); }
 }
 function hooksOff() { HOOK.hide = false; HOOK.occ = null; hookCall('hide', false); hookCall('occ', null); }
 

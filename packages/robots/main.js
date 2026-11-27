@@ -4218,7 +4218,8 @@ function makePanel(w, h, mw, draw, sig) {
     new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false }));
   mesh.renderOrder = 50;
   mesh.visible = false;
-  const P = { w, h, cv, ctx: cv.getContext('2d'), tex, mesh, draw, sig, regions: [], hover: null, last: '', t: 0, inScene: false };
+  // (its 2D context, and with it the canvas's memory, only at the first draw: a page that never enters a headset makes none, v226)
+  const P = { w, h, cv, cx: null, get ctx() { return this.cx || (this.cx = cv.getContext('2d')); }, tex, mesh, draw, sig, regions: [], hover: null, last: '', t: 0, inScene: false };
   P.at = (x, y) => {
     for (let k = P.regions.length - 1; k >= 0; k--) {
       const r = P.regions[k];

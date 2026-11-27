@@ -2002,6 +2002,7 @@ HOST.xr = (function () {
   // (v174: with Sharp text on, the session also asks for WebXR layers, and gets its quad layers ready before a story
   // gives the session to three.js: HOST.xr.sharpPrep, below)
   async function request(mode, extra) {
+    if (HOST.mods) HOST.mods.xr();   // (real-world occlusion and the spaceships on their way while the session is asked for, if not here yet)
     last = null;
     const s = await ask(mode, extra);
     // (v202: what the session was asked for and what it got, in every note's log: why a session has no layers)
@@ -2637,7 +2638,7 @@ Object.assign(HOST.xr, (function () {
 (function () {
   let s = null;
   // (developer mode's card on the page closes as a session starts, as Later: the headset menu has its own page)
-  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); if (HOST.focus) HOST.focus.check(); if (v && HOST.dev) HOST.dev.close(); if (!v && HOST.live && HOST.live.xrOff) HOST.live.xrOff(); }, enumerable: true });
+  Object.defineProperty(HOST, 'session', { get: () => s, set(v) { s = v; HOST.xr.watch(v); HOST.audio.watch(v); HOST.anchor.watch(v); if (HOST.room) HOST.room.watch(v); if (HOST.focus) HOST.focus.check(); if (v && HOST.dev) HOST.dev.close(); if (v && HOST.mods) HOST.mods.xr(); if (!v && HOST.live && HOST.live.xrOff) HOST.live.xrOff(); }, enumerable: true });
 })();
 // --------------------------------------------------------------- anchored placement --
 // Anchored mode (the Anchor button on the headset Stories screen, or #anchor=on / #anchor=off in a
@@ -3071,6 +3072,45 @@ HOST.flightLoad = function () {
     document.head.appendChild(s);
   }));
 };
+// The shell's modules loaded on demand (v226; docs/agents/shell.md, "The shell's modules on demand"): real-world
+// occlusion (occlusion.js) and the spaceships (ships.js) at a headset session's start, or before it where a headset can
+// enter VR (in idle time after the boot, so a press in the session never waits for the file), and the spaceships also when
+// someone else's first comes on a page; the developer notebook (notes.js) once developer mode is on. Each is in sw.js's
+// SHELL, so it is there offline. Until it has come HOST.<name> is unset, and every call site already asks for it first.
+// Each file runs inside HOST.quietly (its listeners are the shell's) and is linked in to shared.js as it comes
+// (HOST.shellLink, HOST.notesLink). A failed load is tried again next time. load(name) resolves to the module or null
+HOST.quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
+HOST.mods = (function () {
+  const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js' }, M = {};
+  function linked(name) {
+    const m = HOST[name];
+    try {
+      if (name === 'ships' && m && m.link && HOST.shellLink) m.link(HOST.shellLink);
+      if (name === 'notes' && m && m.link && HOST.notesLink) m.link(HOST.notesLink);
+    } catch (e) { console.warn(FILES[name] + ' was not linked in:', e); }
+    return m || null;
+  }
+  function load(name) {
+    if (!FILES[name]) return Promise.resolve(null);
+    const r = M[name] || (M[name] = { p: null, done: false });
+    if (r.done || HOST[name]) { r.done = true; return Promise.resolve(HOST[name] || null); }   // (one already there, a test's stand-in among them: kept)
+    if (r.p) return r.p;
+    return (r.p = new Promise(res => {
+      const s = document.createElement('script');
+      s.src = FILES[name]; s.async = true;
+      s.onload = () => { r.done = true; res(linked(name)); };
+      s.onerror = () => { r.p = null; console.warn(FILES[name] + ' did not load'); res(null); };
+      document.head.appendChild(s);
+    }));
+  }
+  return {
+    load,
+    // a headset session begins (HOST.session's setter) or is asked for (HOST.xr.request): what it uses
+    xr: () => Promise.all([load('occlusion'), load('ships')]),
+    // which have come (for tests and the Debug tab)
+    loaded: () => Object.keys(FILES).filter(k => M[k] && M[k].done),
+  };
+})();
 HOST.pkgUrl = function (key, file) {
   const m = this.packages.get(key), f = String(file || '').replace(/^\.?\/+/, ''), fp = m && m.files[f];
   return 'packages/' + key + '/' + f + (fp ? '?v=' + fp : '');
@@ -3254,10 +3294,12 @@ HOST.loading = (() => {
       if (!fn || fn === loop) return fn;
       if (HOST.xr && HOST.xr.layerStep) fn = (inner => function (t, f) { try { return inner(t, f); } finally { if (f) try { HOST.xr.layerStep(); } catch (e) { /* never in the way */ } } })(fn);   // (this headset's fixed foveation, after the story's frame: v136)
       if (HOST.xr && HOST.xr.sharpStep) fn = (inner => function (t, f) { try { return inner(t, f); } finally { if (f) try { HOST.xr.sharpStep(f); } catch (e) { /* never in the way */ } } })(fn);   // (Sharp text's layers placed and written, after the story's frame: v174)
-      if (HOST.occlusion) fn = HOST.occlusion.wrap(fn);   // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js)
+      // (in AR the real world's depth and room, fetched for the frame before the story draws: occlusion.js; bound late, as
+      // the file may come after the story's loop is given: v226)
+      fn = (inner => { let O = null, W = null; return function (t, f) { const o = HOST.occlusion; if (o !== O) { O = o; W = o && o.wrap ? o.wrap(inner) : null; } return W ? W(t, f) : inner(t, f); }; })(fn);
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
       if (HOST.inputsGuard) fn = HOST.inputsGuard.wrap(fn);   // (controllers a browser replaced without telling three.js, or whose presses it stopped passing on: mended, before the story's frame)
-      if (HOST.notes && HOST.notes.frame) fn = (inner => function (t, f) { try { return inner(t, f); } finally { try { HOST.notes.frame(t, f); } catch (e) { /* never in the way */ } } })(fn);   // (the developer notebook's pictures, read back right after the story's frame, only when one is wanted: notes.js)
+      fn = (inner => function (t, f) { try { return inner(t, f); } finally { const N = HOST.notes; if (N && N.frame) try { N.frame(t, f); } catch (e) { /* never in the way */ } } })(fn);   // (bound late, notes.js coming with developer mode: the developer notebook's pictures, read back right after the story's frame, only when one is wanted: notes.js)
       if (!L.ran && HOST.sfx) try { HOST.sfx.ready(); } catch (e) { /* no chime */ }   // (the story is built: a soft chime, if sound effects are on)
       L.ran = true;
       if (!L.on) return fn;
@@ -4427,7 +4469,7 @@ HOST.dev = (function () {
     const b = el('btnDev');
     if (b) { b.textContent = D.on ? 'Developer mode: on' : 'Developer mode: off'; b.setAttribute('aria-pressed', D.on ? 'true' : 'false'); }
   }
-  function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); if (HOST.cards) HOST.cards(); }   // (the hidden story packages' cards)
+  function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); if (HOST.cards) HOST.cards(); if (D.on && HOST.mods) HOST.mods.load('notes'); }   // (the hidden story packages' cards)
   el('devGot').addEventListener('click', () => { gotIt(); D.later = true; card(false); });
   el('devLater').addEventListener('click', () => { D.later = true; card(false); });
   el('devOlder').addEventListener('click', () => step(1));
@@ -4972,9 +5014,6 @@ HOST.unknown = (function () {
 })();
 </script>
 <script src="sfx.js"></script>
-<script src="occlusion.js"></script>
-<script src="ships.js"></script>
-<script src="notes.js"></script>
 <script src="shared.js"></script>
 <script>
 'use strict';
@@ -5935,13 +5974,29 @@ HOST.bare = (function () {
   if (hp.has('sharpsize')) HOST.xr.setSharpSize(hp.get('sharpsize'));   // (its layers' sizes as half extents, or full ones: #sharpsize=full)
   if (hp.has('walk')) HOST.xr.setWalk(hp.get('walk') !== 'off');   // (moving with the sticks in VR: this headset's own)
   if (hp.has('turn')) HOST.xr.setTurn(hp.get('turn'));   // (v202: smooth or steps)
-  if (hp.has('occl') && HOST.occlusion) HOST.occlusion.set(hp.get('occl'));   // (real-world occlusion in AR: this device's own)
-  if (hp.has('occlsmooth') && HOST.occlusion && HOST.occlusion.setSmooth) HOST.occlusion.setSmooth(hp.get('occlsmooth') !== 'off');   // (its Smooth edges, v195: likewise)
+  // (real-world occlusion in AR: this device's own; and its Smooth edges, v195: likewise. occlusion.js fetched for it: v226)
+  if (hp.has('occl') || hp.has('occlsmooth')) HOST.mods.load('occlusion').then(O => {
+    if (!O) return;
+    if (hp.has('occl') && O.set) O.set(hp.get('occl'));
+    if (hp.has('occlsmooth') && O.setSmooth) O.setSmooth(hp.get('occlsmooth') !== 'off');
+  });
   if (hp.has('sfx')) HOST.sfx.set(hp.get('sfx') !== 'off');
   if (hp.has('voice')) HOST.xr.setVoiceOwn(hp.get('voice') !== 'off');   // (both this device's own: the page's and a headset session's)
   if (hp.has('sound')) HOST.audio.mute(hp.get('sound') === 'off');   // (this device's mute: the Sound button)
   if (hp.has('focus')) HOST.focus.set(hp.get('focus') !== 'off');
   if (hp.has('dev')) HOST.dev.set(hp.get('dev') !== 'off');   // (developer mode: this device's own)
+  if (HOST.dev.on()) HOST.mods.load('notes');   // (the developer notebook, notes.js: with developer mode only, v226)
+  // (a device that can enter VR: occlusion.js and ships.js fetched in idle time now, so a press in its first session never
+  // waits for them; a phone's AR fetches them as its session is asked for)
+  if (navigator.xr && navigator.xr.isSessionSupported) {
+    try {
+      navigator.xr.isSessionSupported('immersive-vr').then(ok => {
+        if (!ok) return;
+        const go = () => HOST.mods.xr();
+        if (window.requestIdleCallback) requestIdleCallback(go, { timeout: 4000 }); else setTimeout(go, 1500);
+      }, () => {});
+    } catch (e) { /* no XR here */ }
+  }
   if (hp.has('soundcheck')) HOST.soundCheck(true);
   HOST.collab.boot(hp); // #s=XYZ joins a shared room
   HOST.live.init();

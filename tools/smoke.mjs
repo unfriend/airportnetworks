@@ -13516,6 +13516,7 @@ if (!ONLY) {
     await sp.goto('about:blank');
     await sp.goto(base + 'index.html#' + key + (hash || ''));
     await sp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), key, { timeout: 30000 });
+    await sp.evaluate(() => HOST.mods.xr());   // (ships.js and occlusion.js, loaded on demand since v226, as a session's start would)
     await sp.evaluate(() => {
       window.__head = { p: [0, 1.6, 0], q: [0, 0, 0, 1] };
       const pose = () => { const h = window.__head; return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
@@ -16040,6 +16041,7 @@ if (runs('spaceship')) {
     await sp.goto('about:blank');
     await sp.goto(base + 'index.html#' + key);
     await sp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), key, { timeout: 60000 });
+    await sp.evaluate(() => HOST.mods.xr());   // (ships.js and occlusion.js, loaded on demand since v226, as a session's start would)
     await sp.evaluate(() => {
       const V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion;
       const W = window.__w = { head: { p: [0, 1.6, 0], yaw: 0 }, t: 5000, raf: [], last: null, planes: null };
@@ -16884,7 +16886,7 @@ if (runs('occlusion')) {
   op.on('pageerror', e => errors.push('occlusion: ' + (e.stack || e.message)));
   op.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('occlusion: ' + m.text()); });
   await op.addInitScript(OCCL_FAKE);
-  const ready = k => op.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 30000 });
+  const ready = k => op.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 30000 }).then(() => op.evaluate(() => HOST.mods.xr()));   // (occlusion.js on demand since v226: as a session's start loads it)
   // the magenta test plane, 1.2 m by 0.8 m, 0.8 m ahead in the story's scene (its root is the headset's space)
   const plane = () => op.evaluate(() => { const sc = HOST.cur.collab.scene(), m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ color: 0xff00ff, toneMapped: false, fog: false }));
     m.position.set(0, 0, -0.8); m.name = 'occlusion test'; sc.add(m); return 0; });
@@ -17195,7 +17197,7 @@ if (runs('occlusion')) {
   await step('occlusion: #occl=off; a stored Smooth edges off stays off (v196); the request\'s ladder (a TypeError naming unsigned-short, another refusal), VR as ever', async () => {
     await op.goto('about:blank');
     await op.goto(base + 'index.html#stories&occl=off');
-    await op.waitForFunction(() => typeof HOST !== 'undefined' && HOST.occlusion, null, { timeout: 20000 });
+    await op.waitForFunction(() => typeof HOST !== 'undefined' && HOST.mods && HOST.mods.loaded().includes('occlusion'), null, { timeout: 20000 });   // (fetched for the link's #occl, v226)
     const o = await op.evaluate(() => [HOST.occlusion.own(), localStorage.getItem('xrOccl'), HOST.occlusion.smooth(), localStorage.getItem('xrOcclSmooth')]);
     if (o.join() !== 'off,off,false,off') errors.push('occlusion: #occl=off (and Smooth edges stored off) gave ' + o);
     const r = await op.evaluate(async () => {

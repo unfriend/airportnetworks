@@ -17,7 +17,9 @@
 // resumed, the room built again from what the frame lists) when the session is visible again after a while hidden, and
 // by a watchdog when the depth stops coming, its calls keep throwing or no part of the room has a pose; all of it logged,
 // so the headsets' logs say what stopped and what came back.
-HOST.occlusion = (function () {
+// (loaded on demand since v226, HOST.mods: run with HOST.quiet set, so its listeners are the shell's and a story change
+// never takes them)
+HOST.occlusion = (HOST.quietly || (fn => fn()))(function () {
   'use strict';
   // (v195; the owner, 24 November 2026: "if there is a room scan it does not really occlude well usually, so can we make
   // that room scan not occlude by default?": the default is the live depth alone, and the words say what it is, the real
@@ -878,4 +880,4 @@ void main() {
     },
     parts: () => ({ root: O.root, quad: O.quad, room: O.room }),
   };
-})();
+});

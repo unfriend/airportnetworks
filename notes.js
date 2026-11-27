@@ -10,7 +10,9 @@
 // analyser on HOST.audio.fx()'s, connected to nothing else). Nothing of a note is in a room's keys or collab.state().
 // shared.js links itself in at its end (link): the relay, notices, sounds, the log, the room, and what a controller's press
 // hit. It also draws the read-out and the pins (view()).
-HOST.notes = (function () {
+// (loaded on demand since v226, HOST.mods: run with HOST.quiet set, so its listeners are the shell's and a story change
+// never takes them)
+HOST.notes = (HOST.quietly || (fn => fn()))(function () {
   'use strict';
   const NOTE = { max: 300, holdMs: 450, micKeep: 60000, shotW: 1280, outMax: 20, bytes: 16 * 1024 * 1024, pinsHeadset: 10000, pinsPage: 4000 };
   let L = {};   // what shared.js gives (link)
@@ -724,4 +726,4 @@ HOST.notes = (function () {
     },
     test(o) { if (o && 'clock' in o) T.clock = o.clock; if (o && 'noMic' in o) T.noMic = !!o.noMic; return { clock: !!T.clock, noMic: T.noMic }; },
   };
-})();
+});

@@ -14,7 +14,9 @@
 // goes out as a field of this headset's presence and quiet effects on one room-wide key (KEY): nothing stored, no room
 // key, no FORMAT change. Its objects hang in the story's scene (its root is the renderer's reference space), taken out
 // before a story is disposed and hung in the next one's, as occlusion.js's are, so a story change keeps the ship flying.
-HOST.ships = (function () {
+// (loaded on demand since v226, HOST.mods: run with HOST.quiet set, so its listeners are the shell's and a story change
+// never takes them)
+HOST.ships = (HOST.quietly || (fn => fn()))(function () {
   'use strict';
   const V3 = THREE.Vector3, Q4 = THREE.Quaternion, M4 = THREE.Matrix4;
   const DEG = Math.PI / 180;
@@ -1320,4 +1322,4 @@ void main() { vec2 d = gl_PointCoord - 0.5; float a = max(0.0, 1.0 - dot(d, d) *
       materials() { const out = []; if (!G.made) return out; G.root.traverse(o => { if (o.material) out.push(o.material); }); G.hud.traverse(o => { if (o.material) out.push(o.material); }); return out; },
     },
   };
-})();
+});

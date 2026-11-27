@@ -2387,7 +2387,8 @@
       }
       // (their spaceship, ships.js: a presence without one has landed; a camera flies none)
       if (HOST.ships && HOST.ships.presIn && !P.cam) { try { HOST.ships.presIn(id, v.sh, v.ts); } catch (e) { /* a bad one */ } }
-    } else if (m.k === SHIP_KEY) { if (HOST.ships && HOST.ships.fxIn && m.by) { try { HOST.ships.fxIn(m.v, m.by); } catch (e) { /* a bad one */ } }   // (the spaceships' bolts, hits and pickups: the shell's, never a story's)
+      else if (v.sh && !HOST.ships && HOST.mods) HOST.mods.load('ships');   // (someone's first ship seen here: ships.js fetched, v226; their presences come again)
+    } else if (m.k === SHIP_KEY) { if (HOST.ships && HOST.ships.fxIn && m.by) { try { HOST.ships.fxIn(m.v, m.by); } catch (e) { /* a bad one */ } } else if (!HOST.ships && HOST.mods) HOST.mods.load('ships');   // (the spaceships' bolts, hits and pickups: the shell's, never a story's)
     } else if (m.k === '@osc') { if (!m.by && OUT.on && HOST.out && HOST.out.oscFx) { try { HOST.out.oscFx(m.v); } catch (e) { log('osc in failed', { e: e && e.message }); } }   // (the relay's OSC in and its status: the shell's, never a story's, only the output page's)
     } else if (m.k === '@snd') {   // (the room's live sound, the relay's own (v162): its status for the output page, else a stream announced or stopped)
       if (!m.by && m.v && typeof m.v === 'object') {
@@ -3626,7 +3627,8 @@
     const mesh = new THREE.Mesh(new THREE.PlaneGeometry(mw, mw * h / w),
       new THREE.MeshBasicMaterial({ map: tex, transparent: true, depthTest: false, depthWrite: false, side: THREE.DoubleSide }));
     mesh.renderOrder = order || 52;
-    const S = { w, h, mw, cv, ctx: cv.getContext('2d'), tex, mesh, regions: [], hover: null, sig: '', vis: h };
+    // (its 2D context, and with it the canvas's memory, only at its first draw: a page that never enters a headset makes none, v226)
+    const S = { w, h, mw, cv, cx: null, get ctx() { return this.cx || (this.cx = cv.getContext('2d')); }, tex, mesh, regions: [], hover: null, sig: '', vis: h };
     S.at = (x, y) => { for (let k = S.regions.length - 1; k >= 0; k--) { const r = S.regions[k]; if (x >= r.x && x <= r.x + r.w && y >= r.y && y <= r.y + r.h) return r; } return null; };
     mesh.userData.sheet = S;
     return S;
@@ -8191,6 +8193,8 @@
   // we get a little spaceship"; "the right stick's double click for the ship and the left stick's for moving with the
   // sticks"): a spaceship launched or landed (ships.js), at its next frame
   function shipPress() {
+    // (ships.js not here yet, v226: fetched, and the press answered as it comes, if the session still runs)
+    if (!HOST.ships && HOST.mods) { const s = R.session; HOST.mods.load('ships').then(S => { if (S && S.toggle && R.session === s && s) shipPress(); }); return; }
     if (!HOST.ships || !HOST.ships.toggle) return;
     log('ship stick', { flying: HOST.ships.flying() });
     HOST.ships.toggle('stick');
@@ -14311,15 +14315,17 @@ body.pcam-idle #gl, body.pcam-idle #pcam { cursor: none !important; }
     // and the sheet opened or closed as the button does (tests)
     phone: () => phState(), phoneSheet: on => { PH.open = !!on && phShown(); PH.sig = ''; phStep(); return PH.open; },
   };
-  // the developer notebook (notes.js, loaded before this file) is linked in: the relay, notices, sounds, the log, the room and what a
-  // press hit
-  if (HOST.notes && HOST.notes.link) HOST.notes.link({
+  // the developer notebook (notes.js, loaded on demand with developer mode since v226: HOST.mods links it in as it comes) is
+  // linked in: the relay, notices, sounds, the log, the room and what a press hit
+  HOST.notesLink = {
     relayFind: () => relayFind(), relaySaw: (b, st, sent, j) => relaySaw(b, st, sent, j), notice: (t, x, ms) => notice(t, x, ms), sfx: n => sfx(n, null),
     log: (e, o) => log(e, o), name: () => C.name, room: () => noteRoom(), pinHit: i => recHit(i), fps: () => FPS.v || 0,
     pulse: (src, v, ms) => pulse(src, v, ms),
-  });
-  // the spaceships (ships.js, loaded before this file) are linked in: the relay's clock and render time, who we are, the
-  // room's frame (room coordinates -> the renderer's space, while a headset here is lined up), the effects' key, notices
+  };
+  if (HOST.notes && HOST.notes.link) HOST.notes.link(HOST.notesLink);
+  // the spaceships (ships.js, loaded on demand since v226: HOST.mods links it in as it comes) are linked in: the relay's
+  // clock and render time, who we are, the room's frame (room coordinates -> the renderer's space, while a headset here is
+  // lined up), the effects' key, notices
   const LINK = {
     now, rt: () => (C.code && RT.at ? RT.t : now() - SMOOTH.DELAY), id: () => C.id, name: () => C.name, colour: () => C.color, member: id => member(id) || null,
     code: () => C.code || '', room: () => !!(C.code && R.session && R.aligned), roomM: () => R.m,
