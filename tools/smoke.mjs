@@ -14134,13 +14134,18 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     if (!await press('fps') || !await sp.evaluate(() => HOST.xr.fps())) bad.push('the menu\'s Frame rate row did not turn it on');
     await sp.evaluate(() => HOST.collab.panelOpen(false));
     // (the pretend session's own loop is stopped: its frames drawn here through the shell's measure, as the renderer's loop
-    // does, from the pretend head at a moment with a scene on show, until a second's numbers are in)
+    // does, from the pretend head at a moment with a scene on show, until a second's numbers are in: the story's (HOST.perf,
+    // its second counted from the first frame drawn here) and the shell's frame rate, the read-out's first line, which the
+    // shell measures over a second of its own frames from the session's first (shared.js tick, FPS): the session here is
+    // under a second old when this starts, and the first of these frames is slow, so the story's second ends first and the
+    // read-out still says Measuring then)
     await sx('(APP.seek(60), APP.playing = false)');
     await sp.evaluate(async () => {
       const cam = new THREE.PerspectiveCamera(90, 1.6, 0.05, 200), h = window.__headW();
       cam.position.set(...h.p); cam.quaternion.set(...h.q);
       const f = HOST.perf.wrap(() => HOST.renderer.render(HOST.cur.peek('GL.scene'), cam)), t0 = performance.now();
-      while (performance.now() - t0 < 30000 && !(HOST.perf.stats() && HOST.perf.stats().n > 1)) { window.__tick(1); f(performance.now()); await new Promise(r => setTimeout(r, 25)); }
+      const measured = () => HOST.perf.stats() && HOST.perf.stats().n > 1 && /^\d+ fps/.test(HOST.collab.overlay().fps.text || '');
+      while (performance.now() - t0 < 30000 && !measured()) { window.__tick(1); f(performance.now()); await new Promise(r => setTimeout(r, 25)); }
       window.__tick(1);
     });
     const st = await sp.evaluate(() => HOST.perf.stats()), f1 = await FP();
@@ -17526,6 +17531,10 @@ if (runs('phone ar')) {
     const look = await p.evaluate(() => { const b = document.querySelector('#xrPhone .xp-btn'), r = document.getElementById('xrPhone'), cs = getComputedStyle(b);
       return { root: getComputedStyle(r).pointerEvents, btn: cs.pointerEvents, radius: cs.borderRadius, icon: !!b.querySelector('svg path'), label: b.getAttribute('aria-label'), at: document.elementFromPoint(206, 430) === r || r.contains(document.elementFromPoint(206, 430)) }; });
     if (look.root !== 'none' || look.btn !== 'auto' || look.radius !== '50%' || !look.icon || look.label !== 'Menu' || look.at) errors.push('phone ar: the overlay ' + JSON.stringify(look));
+    // (the notice The menu comes 2.5 s of real time into the session only if the 3D menu is closed then (shared.js, the
+    // session's start): the steps below open it (The full menu), so it is waited for here, before they run, and checked in
+    // the welcome's step; on a fast run The full menu was open at 2.5 s and there was no notice)
+    await p.waitForFunction(() => HOST.collab.notes().some(x => x.title === 'The menu'), null, { timeout: 15000 }).catch(() => {});
   });
   await step('phone ar: beforexrselect cancelled on the button and the sheet, not on the root or the page', async () => {
     await press(p, 'menu');
@@ -17591,7 +17600,8 @@ if (runs('phone ar')) {
     if (ex !== 'false') errors.push('phone ar: the button\'s aria-expanded ' + ex);
   });
   await step('phone ar: the welcome says how a phone points and opens the menu (no controller drawn); the notice too', async () => {
-    // (the session began with the welcome off, as in every test: the notice The menu said it, 2.5 s in)
+    // (the session began with the welcome off, as in every test: the notice The menu said it, 2.5 s in; waited for in the
+    // first step, before the 3D menu was opened)
     await p.waitForFunction(() => HOST.collab.notes().some(x => x.title === 'The menu'), null, { timeout: 15000 }).catch(() => {});   // (slow drawing: the notice may come late)
     const n = await p.evaluate(() => HOST.collab.notes().filter(x => x.title === 'The menu').map(x => x.text));
     if (n.slice(-1)[0] !== 'Tap the round button at the top right for the menu.') errors.push('phone ar: the notice The menu said ' + JSON.stringify(n));
