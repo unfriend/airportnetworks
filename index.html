@@ -893,7 +893,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 225, id: '565611afbc086f43', format: 'networks-61' },
+  shell: { n: 226, id: '06f032646d10a43c', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3593,7 +3593,7 @@ HOST.teardown = function () {
       try { this.xrPose = this.cur.xrPose(); } catch (e) { this.xrPose = null; }
     }
     if (this.collab) this.collab.detach(); // the shared room's overlay leaves the old scene before it is disposed
-    if (this.occlusion) this.occlusion.detach();   // (so does real-world occlusion's, and the story's own choice of it goes)
+    if (this.occlusion && this.occlusion.detach) this.occlusion.detach();   // (so does real-world occlusion's, and the story's own choice of it goes)
     if (this.ships) this.ships.detach();   // (and the spaceships': hung in the next story's scene, flying on)
     if (this.flight) this.flight.detach();   // (and the VR goggles': taken off, their view out of the scene before it is disposed; flight.js)
     try { this.cur.dispose(); } catch (e) { console.warn(e); }
