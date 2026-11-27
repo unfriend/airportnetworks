@@ -2015,7 +2015,7 @@ function exploreTargets(now = performance.now()) {
 const STEP = new Set(['guide_clock', 'guide_mode', 'guide_net']);   // (they jump, they do not ease)
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: pickMemo's key)
   return XS;
 }
 function openScene(k, fly = true) {
@@ -3820,32 +3820,6 @@ const APP = {
 };
 
 let lastNow = 0;
-// (v224) a page at rest draws nothing, as a headset away from its station does (xrIdle): a paused story, its frame
-// once drawn (a set's look depends only on its params and the time), is not worked out or drawn again until something
-// changes: the story's time, mode or play, the window's size, the page's classes, theme or clear colour (focus mode,
-// the panels, the look), any input on the page (pointer, wheel, keys, a control), a load step, a set still building, a
-// model still loading; and at least once a second (a file that came meanwhile). Sets on their way to the card (PRIME) go
-// on in the quiet frames, off screen. The clock, the slideshow, the sound effects and the narration go on every frame;
-// explore mode and a headset draw every frame, as before
-const PAGE = { v: [], at: 0, wake: 1, on: false };
-const pageWake = () => { PAGE.wake = 1; };
-const pageBusy = () => (typeof molWait === 'function' && molWait()) ||
-  SET_ORDER.some(k => { const s = GL.sets[k]; return !!(s && s.idle && s.buildPend !== false && (s.buildPend = s.idle(0, 0) !== false)); });
-function pageIdle(now, dt) {
-  if (!PAGE.on) { PAGE.on = true; for (const e of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'input', 'change', 'resize', 'focus', 'touchstart']) window.addEventListener(e, pageWake, { capture: true, passive: true }); }
-  const V = PAGE.v, b = document.body, h = document.documentElement, cc = GL.renderer.getClearColor(_pgc).getHex() + GL.renderer.getClearAlpha();
-  const same = V[0] === APP.t && V[1] === APP.mode && V[2] === APP.playing && V[3] === window.innerWidth && V[4] === window.innerHeight &&
-    V[5] === window.devicePixelRatio && V[6] === b.className && V[7] === h.className && V[8] === h.getAttribute('data-theme') && V[9] === cc;
-  if (same && !PAGE.wake && APP.mode === 'story' && !APP.playing && LOAD.done && now - PAGE.at < 1000 && !pageBusy()) {
-    if (typeof PRIME !== 'undefined' && PRIME.q.length && typeof primeStep === 'function') primeStep(dt);   // (the quiet frames send the sets to the card meanwhile: off screen)
-    return true;
-  }
-  V[0] = APP.t; V[1] = APP.mode; V[2] = APP.playing; V[3] = window.innerWidth; V[4] = window.innerHeight;
-  V[5] = window.devicePixelRatio; V[6] = b.className; V[7] = h.className; V[8] = h.getAttribute('data-theme'); V[9] = cc;
-  PAGE.at = now; PAGE.wake = 0;
-  return false;
-}
-const _pgc = new THREE.Color();
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -3866,7 +3840,7 @@ function frame(now, xrFrame) {
   // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();
-  if (!xr && pageIdle(now, dt)) { window.__frames = (window.__frames || 0) + 1; return; }   // (a page at rest: nothing changed, nothing drawn)
+  // (no pageIdle: the guide lives on while the story is paused, its gems, nodes and signals on the clock, as the flock's)
   if (!xr) labelRead();   // (the panel's and the timeline's places, before the frame writes anything: placeLabels)
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {

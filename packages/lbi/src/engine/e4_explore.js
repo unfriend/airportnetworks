@@ -30,7 +30,7 @@ function exploreTargets(now = performance.now()) {
 }
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] += (tg[n] - XS[n]) * k;
+  for (const n in DEF) XS[n] = Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: pickMemo's key)
   // a gently swaying scene (about 25 degrees either way, so flat ones never turn edge-on), unless you are steering it
   if (X.turn === 'on' && !orbit.to && !orbit.held && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;

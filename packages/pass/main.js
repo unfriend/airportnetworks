@@ -5722,7 +5722,7 @@ function exploreStep(dt, now) {
   for (const n in DEF) {
     if (STEP.has(n)) XS[n] = tg[n];
     else if (MOVE_P.has(n)) { const r = dt / (n === 'cell_cue' ? 1.6 : 3); XS[n] += clamp(tg[n] - XS[n], -r, r); }
-    else XS[n] += (tg[n] - XS[n]) * k;
+    else XS[n] = Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: pickMemo's key)
   }
   // the shark's button follows the sharks (how many swim, and yours refused while four do)
   const so = GL.sets.fish.sharks() + (GL.sets.fish.refused() ? 'r' : '');

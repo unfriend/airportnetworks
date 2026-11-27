@@ -27,7 +27,7 @@ function exploreTargets(now = performance.now()) {
 const STEP = new Set(['guide_clock', 'guide_mode', 'guide_net']);   // (they jump, they do not ease)
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: pickMemo's key)
   return XS;
 }
 //#use openScene~2

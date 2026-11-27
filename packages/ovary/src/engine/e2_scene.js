@@ -32,9 +32,9 @@ function updateSets(S, t, dt, story) {
     const s = GL.sets[k], a = S[k + '_a'] || 0;
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
-    fadeDepth(s, a);
     if (a > 0.003) s.update(S, t, dt);
     else { if (s.idle) hid.push(s); primeCheck(s); }   // a hidden set may build in slices (buildTurn, below), and is sent to the card when done (primeStep)
+    fadeDepth(s, a);   // (after update: a mesh a build adds while the set fades in writes no depth on its first frame either)
   }
   buildTurn(hid, dt);
   primeStep(dt);

@@ -101,7 +101,7 @@ function exploreStep(dt, now) {
   for (const n in DEF) {
     // read-outs play one by one (about one a second), many at once quickly; fewer (cleared, a new mix) at once
     if (n === 'letters_reads') { const g = tg[n], v = XS[n]; XS[n] = g <= v ? g : Math.min(g, v + dt * Math.max(0.9, (g - v) * 2.5)); continue; }
-    XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+    XS[n] = STEP.has(n) ? tg[n] : Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: pickMemo's key)
   }
   // a gently swaying scene, unless you are steering it or a set asks for stillness
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }

@@ -126,7 +126,7 @@ function exploreTargets(now = performance.now()) {
 function exploreStep(dt, now) {
   handStep(now);
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5), H = !!X.hand, hid = XS.scan_a < 0.004;
-  for (const n in DEF) XS[n] = STEP.has(n) || (H && HAND_EXACT.has(n)) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+  for (const n in DEF) XS[n] = STEP.has(n) || (H && HAND_EXACT.has(n)) ? tg[n] : Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: pickMemo's key)
   // (the scanner, hidden as this frame began, coming back not by the hand-over: its patient already lying down and the
   // room there, rather than a standing patient easing down as it fades in)
   if (!H && hid && 'scan_rise' in tg) XS.scan_rise = tg.scan_rise;

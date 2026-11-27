@@ -57,6 +57,7 @@ const buildMs = dt => (GL.renderer && GL.renderer.xr.isPresenting ? 1 : clamp((d
 function buildTurn(jobs, dt) {
   const want = jobs.filter(j => j.buildPend !== false), go = want.length ? want[BUILD.i++ % want.length] : null, ms = buildMs(dt);
   for (const j of jobs) j.buildPend = j.idle(dt, j === go ? ms : 0) !== false;
+  GL.jobPend = jobs.some(j => j.buildPend);   // (a paused page at rest waits for these too: pageBusy)
 }
 //#part PRIME
 // A set that has finished building sends its textures and buffers to the graphics card before it is shown, one thing a

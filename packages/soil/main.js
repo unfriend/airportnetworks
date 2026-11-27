@@ -5045,7 +5045,7 @@ function exploreTargets(now = performance.now()) {
 function exploreStep(dt, now) {
   const tg = exploreTargets(now), k = 1 - Math.exp(-dt * 3.5);
   // (LOG's params ease on their log scale, as in the story: logMix)
-  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : LOG.has(n) ? logMix(XS[n], tg[n], k) : XS[n] + (tg[n] - XS[n]) * k;
+  for (const n in DEF) XS[n] = STEP.has(n) ? tg[n] : LOG.has(n) ? logMix(XS[n], tg[n], k) : Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: a value still shrinking would change the picks' key every frame, pickMemo)
   // a gently swaying scene, unless you are steering it or a set asks for stillness
   if (X.turn === 'on' && !orbit.to && !orbit.held && !GL.still && !HOST.room.placing()) { X.sway = (X.sway || 0) + dt; orbit.cur[0] += dt * 6 * Math.cos(X.sway * 0.25); }
   return XS;
@@ -7360,20 +7360,25 @@ const frameLow = (vn, ke) => { const lo = lowOf(X.scene, vn); EXV[10] += (lo[0] 
 // the panels, the look), any input on the page (pointer, wheel, keys, a control), a load step, a set still building, a
 // model still loading; and at least once a second (a file that came meanwhile). Sets on their way to the card (PRIME) go
 // on in the quiet frames, off screen. The clock, the slideshow, the sound effects and the narration go on every frame;
-// explore mode and a headset draw every frame, as before
-const PAGE = { v: [], at: 0, wake: 1, on: false };
+// explore mode and a headset draw every frame, as before. After any change, input or build it draws on for 2 s of frame
+// time (PAGE.hold, the sum of the drawn frames' dt, not the clock: a slow page's dt is capped at 0.1): some sets ease on
+// the frame's dt (mutation's letters, qubits' cube, micro's crossfades) and settle only on drawn frames
+const PAGE = { v: [], at: 0, wake: 1, on: false, hold: 0 };
 const pageWake = () => { PAGE.wake = 1; };
-const pageBusy = () => (typeof molWait === 'function' && molWait()) ||
+const pageBusy = () => (typeof molWait === 'function' && molWait()) || !!GL.jobPend ||
   SET_ORDER.some(k => { const s = GL.sets[k]; return !!(s && s.idle && s.buildPend !== false && (s.buildPend = s.idle(0, 0) !== false)); });
 function pageIdle(now, dt) {
   if (!PAGE.on) { PAGE.on = true; for (const e of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'input', 'change', 'resize', 'focus', 'touchstart']) window.addEventListener(e, pageWake, { capture: true, passive: true }); }
   const V = PAGE.v, b = document.body, h = document.documentElement, cc = GL.renderer.getClearColor(_pgc).getHex() + GL.renderer.getClearAlpha();
   const same = V[0] === APP.t && V[1] === APP.mode && V[2] === APP.playing && V[3] === window.innerWidth && V[4] === window.innerHeight &&
     V[5] === window.devicePixelRatio && V[6] === b.className && V[7] === h.className && V[8] === h.getAttribute('data-theme') && V[9] === cc;
-  if (same && !PAGE.wake && APP.mode === 'story' && !APP.playing && LOAD.done && now - PAGE.at < 1000 && !pageBusy()) {
+  let busy = false;
+  if (same && !PAGE.wake && APP.mode === 'story' && !APP.playing && LOAD.done && now - PAGE.at < 1000 && PAGE.hold <= 0 && !(busy = pageBusy())) {
     if (typeof PRIME !== 'undefined' && PRIME.q.length && typeof primeStep === 'function') primeStep(dt);   // (the quiet frames send the sets to the card meanwhile: off screen)
+    if (navigator.xr && typeof xrPrep === 'function') xrPrep(1);   // (and the headset's keep-clear sample goes on: it returns at once when done)
     return true;
   }
+  PAGE.hold = !same || PAGE.wake || busy ? 2 : PAGE.hold - dt;   // (also after a build ends: a fade on the clock, pet's shells; not the once-a-second frame alone, or it would never rest)
   V[0] = APP.t; V[1] = APP.mode; V[2] = APP.playing; V[3] = window.innerWidth; V[4] = window.innerHeight;
   V[5] = window.devicePixelRatio; V[6] = b.className; V[7] = h.className; V[8] = h.getAttribute('data-theme'); V[9] = cc;
   PAGE.at = now; PAGE.wake = 0;

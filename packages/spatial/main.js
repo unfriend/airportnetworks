@@ -2310,7 +2310,7 @@ function exploreStep(dt, now) {
     cell_a: X.cell === 'on' ? 1 : X.cell === 'faint' ? 0.35 : 0,
     route_alpha: X.routes * (pathOn ? 0.3 : 1), focus: pathOn ? 1 : 0,
     prox: X.tab === 'prox' && X.bait >= 0 ? 1 : 0, prox_r: X.proxR };
-  for (const n in tg) XS[n] += (tg[n] - XS[n]) * k;
+  for (const n in tg) XS[n] = Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: pickMemo's key)
   if (X.path) XS.path_prog = Math.min(X.path.length - 1, XS.path_prog + dt * 1.6);
   XS.sel_prog = Math.min(1, XS.sel_prog + dt * 0.7);
   // moves: an optional cue (the signal), then the proteins travel
@@ -4716,7 +4716,7 @@ const APP = {
 // the look), any input on the page (pointer, wheel, keys, a control), and at least once a second. The clock, the
 // slideshow, the sound effects and the narration go on every frame; explore mode and a headset draw every frame, as
 // before. The engine's pageIdle part (tools/engine/e7_app.js); this story builds everything in its load (pageBusy)
-const PAGE = { v: [], at: 0, wake: 1, on: false };
+const PAGE = { v: [], at: 0, wake: 1, on: false, hold: 0 };   // (hold: after a change or input it draws on for 2 s of frame time, as the engine's)
 const pageWake = () => { PAGE.wake = 1; };
 const pageBusy = () => false;
 function pageIdle(now, dt) {
@@ -4724,9 +4724,10 @@ function pageIdle(now, dt) {
   const V = PAGE.v, b = document.body, h = document.documentElement, cc = GL.renderer.getClearColor(_pgc).getHex() + GL.renderer.getClearAlpha();
   const same = V[0] === APP.t && V[1] === APP.mode && V[2] === APP.playing && V[3] === window.innerWidth && V[4] === window.innerHeight &&
     V[5] === window.devicePixelRatio && V[6] === b.className && V[7] === h.className && V[8] === h.getAttribute('data-theme') && V[9] === cc;
-  if (same && !PAGE.wake && APP.mode === 'story' && !APP.playing && LOAD.done && now - PAGE.at < 1000 && !pageBusy()) return true;
+  if (same && !PAGE.wake && APP.mode === 'story' && !APP.playing && LOAD.done && now - PAGE.at < 1000 && PAGE.hold <= 0 && !pageBusy()) return true;
   V[0] = APP.t; V[1] = APP.mode; V[2] = APP.playing; V[3] = window.innerWidth; V[4] = window.innerHeight;
   V[5] = window.devicePixelRatio; V[6] = b.className; V[7] = h.className; V[8] = h.getAttribute('data-theme'); V[9] = cc;
+  PAGE.hold = !same || PAGE.wake ? 2 : PAGE.hold - dt;
   PAGE.at = now; PAGE.wake = 0;
   return false;
 }

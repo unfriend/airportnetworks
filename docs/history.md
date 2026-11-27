@@ -415,12 +415,14 @@ tower, whose one pick cost up to 2.4 ms, now 0.01 to 0.02 ms asked again); somet
 a late mesh) is compiled with the scene's lights at once (`compileLate`: three.js r128 keys every program by the
 light counts, so the label sprites were linked a second time in the middle of a story); a paused story on a page draws
 nothing until something changes (`pageIdle`: topo, soil and CDK5 drew 8 to 25 frames a second with the main thread
-fully busy, now one a second at 0.05 to 0.14 s of work a second); labels read the panel's place before the frame
+fully busy, now one a second at 0.05 to 0.14 s of work a second; in story mode only, not in the flock, robots,
+pass or tutorial, and after the review round it draws on for 2 s of frame time (summed dt, not the clock) after any change, as some sets ease on the frame's dt); labels read the panel's place before the frame
 writes anything. By hand in airports, proteins and spatial (the same three; their paused pages 5, 25 and 11 renders a
 second down to 1, the main thread's work 1.0 s a second down to 0.27, 0.06 and 0.12). Airports' closures slider
 writes only the airports that changed and sends only the stretch of route flags they touch (a step was 0.45 ms and
 813 KB, now 0.01 to 0.03 ms and 169 to 271 KB). Pass sends its hidden sets to the card before they show, as the other
-built stories do; the microanatomy story's organ models and the ovary's sections are compiled and sent when built
+built stories do (reasoned: the headless run never primes); the microanatomy story's organ models and the ovary's
+sections have their programs linked and textures sent when built (their geometry still goes up at the first draw)
 (micro at half way: four program links on the first frames, now one). The keep-clear sampler makes no array per point
 or triangle (the same samples, bit for bit). Measured headless with a pretend headset; the gains on a Quest are
 reasoned, not measured. Left for the load row (I): the keep-clear sampling itself (some 850 KB of garbage a frame

@@ -62,7 +62,7 @@ function exploreStep(dt, now) {
   for (const n in DEF) {
     const fade = n.endsWith('_a');
     if (going && fade && tg[n] > XS[n]) continue;
-    XS[n] = STEP.has(n) ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;
+    XS[n] = STEP.has(n) ? tg[n] : Math.abs(tg[n] - XS[n]) < 1e-6 ? tg[n] : XS[n] + (tg[n] - XS[n]) * k;   // (snapped at the end: pickMemo's key)
     if (fade && tg[n] === 0) XS[n] = Math.max(0, XS[n] - dt * 0.6);
   }
   // a gently swaying scene, unless you are steering it or a set asks for stillness
