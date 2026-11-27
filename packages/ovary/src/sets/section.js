@@ -41,7 +41,10 @@ SETS.section = function (K) {
   function makeSection(o) {
     const R = K.rng(o.seed), rr = (a, b) => a + (b - a) * R();
     const nz = L.noise3(o.seed + 5), nz2 = L.noise3(o.seed + 6);
-    const rad = th => 0.8 * (1 + o.waves.reduce((s, [k, a, p]) => s + a * Math.sin(k * th + p), 0) - (o.notch ? o.notch[1] * Math.exp(-((((th - o.notch[0] + 3 * Math.PI) % (2 * Math.PI) - Math.PI) / o.notch[2]) ** 2)) : 0));
+    // (v225: a plain loop, the same sum in the same order: the reduce with its unpacked triples made some 350 MB of
+    // garbage over one stain, a call per pixel)
+    const WV = o.waves, waves = th => { let s = 0; for (let q = 0; q < WV.length; q++) { const w = WV[q]; s = s + w[1] * Math.sin(w[0] * th + w[2]); } return s; };
+    const rad = th => 0.8 * (1 + waves(th) - (o.notch ? o.notch[1] * Math.exp(-((((th - o.notch[0] + 3 * Math.PI) % (2 * Math.PI) - Math.PI) / o.notch[2]) ** 2)) : 0));
     // how far inside the outline (in units; negative outside)
     const inside = (x, y) => { const u = x / o.sx, v = y / o.sy, th = Math.atan2(v, u); return (rad(th) - Math.hypot(u, v)) * Math.min(o.sx, o.sy); };
     const g = new THREE.Group();
@@ -74,7 +77,7 @@ SETS.section = function (K) {
     const tex = new THREE.DataTexture(D, TX, TX, THREE.RGBAFormat);
     tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.needsUpdate = true;
     function* stain() {
-      const RS = K.rng(o.seed + 9);
+      const RS = K.rng(o.seed + 9), E1 = C.eosin, E2 = C.eosin2, EN = mix(C.eosin, C.nucleus2, 0.45);
       for (let j = 0; j < TX; j++) {
         for (let i = 0; i < TX; i++) {
           if ((i & 127) === 127) yield;   // (v136: a few hundred pixels between yields; it was eight rows, 10 ms and more)
@@ -83,10 +86,12 @@ SETS.section = function (K) {
           const k = 4 * (j * TX + i);
           const cx = clamp(1 - e / (0.2 + 0.04 * nz(x * 3, y * 3, 0)), 0, 1), w = nz(x * 2.2, y * 2.2, 3);
           const fib = 0.5 + 0.5 * Math.sin((x * Math.cos(w * 2.5) + y * Math.sin(w * 2.5)) * 95 + 5 * nz2(x * 4, y * 4, 1));
-          let c = mix(C.eosin2, C.eosin, 0.35 + 0.35 * fib + 0.2 * nz2(x * 9, y * 9, 2));
-          c = mix(c, mix(C.eosin, C.nucleus2, 0.45), 0.55 * cx);
-          if (e < 0.012) c = mix(c, C.eosin, 0.6);
-          D[k] = c[0] * 255; D[k + 1] = c[1] * 255; D[k + 2] = c[2] * 255;
+          // (mix's sums written out on three numbers, no array a pixel: the same arithmetic, v225)
+          const m1 = 0.35 + 0.35 * fib + 0.2 * nz2(x * 9, y * 9, 2), m2 = 0.55 * cx;
+          let r = E2[0] + (E1[0] - E2[0]) * m1, gn = E2[1] + (E1[1] - E2[1]) * m1, b = E2[2] + (E1[2] - E2[2]) * m1;
+          r = r + (EN[0] - r) * m2; gn = gn + (EN[1] - gn) * m2; b = b + (EN[2] - b) * m2;
+          if (e < 0.012) { r = r + (E1[0] - r) * 0.6; gn = gn + (E1[1] - gn) * 0.6; b = b + (E1[2] - b) * 0.6; }
+          D[k] = r * 255; D[k + 1] = gn * 255; D[k + 2] = b * 255;
         }
       }
       const NN = Math.round(TX * TX * 0.03);

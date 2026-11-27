@@ -150,7 +150,8 @@ SETS.tissue = function (K) {
   // cell: [s, d, angle, a, b, nucleus a, nucleus b, nucleus offset (along a, in units of a), cytoplasm rgb, alpha,
   //        nucleus rgb, type, foam]; types: 0 epithelial, 1 immune, 2 stromal, 3 endothelial, 4 smooth muscle, 5 red blood
   //        cell; foam (0..1): pale, bubbly cytoplasm, as in the mucus-filled gland cells
-  const cells = [];
+  // (let, as fills, cHE and cMK: the build's own, let go before the set is handed over: v225)
+  let cells = [];
   const OG = 0.006, OW = Math.ceil(MSL / OG) + 2, OH = Math.ceil(MDL / OG) + 2;
   const occHead = new Int32Array(OW * OH).fill(-1), occNext = [];
   const oc = (s, d) => clamp(Math.floor((s - MS0) / OG), 0, OW - 1) + OW * clamp(Math.floor((d - MD0) / OG), 0, OH - 1);
@@ -176,7 +177,7 @@ SETS.tissue = function (K) {
     return c;
   }
   // gland bodies: one splat per acinus drawn under its cells (its 'nucleus' is the white lumen); not a cell
-  const fills = [];
+  let fills = [];
   const addFill = (s, d, ang, a, b, na, nb, col) => { if (inside(s, d)) fills.push([s, d, ang, a, b, na, nb, 0, ...col, 0.9, 0.96, 0.94, 0.96, 6, 0]); };
   const vary = x => x * rr(0.88, 1.12);
   const NUC = () => he(vary(1.3), 0.35);
@@ -462,7 +463,8 @@ SETS.tissue = function (K) {
   cells.unshift(...fills);   // gland bodies first, so their cells draw over them
   const TYPE_NAME = ['Epithelial', 'Immune', 'Stromal', 'Endothelial', 'Smooth muscle'];
   // the cells, pre-averaged for far views (premultiplied colour and coverage), in stain and in fluorescence
-  const cHE = new Float32Array(CW * CH * 4), cMK = new Float32Array(CW * CH * 4), tArea = (MSL / CW) * (MDL / CH);
+  let cHE = new Float32Array(CW * CH * 4), cMK = new Float32Array(CW * CH * 4);
+  const tArea = (MSL / CW) * (MDL / CH);
   const FOOT = [0.25, 0.5, 0.25];   // a 3x3 footprint, about the size of a cell
   function rasterCell(c) {
     const ac = PI * c[3] * c[4], an = PI * c[5] * c[6], wc = c[11] * (ac - an) / tArea, wn = 0.95 * an / tArea, tc = TYPE_COL[c[15]];
@@ -992,6 +994,8 @@ void main() {
   const mkA = S => near * prog(S.tissue_mark, 0.5, 1) * (1 - prog(S.tissue_embed, 0, 0.04));
   const emA = S => prog(S.tissue_embed, 0.75, 1);
   const CLS = ['amb', '', 'grn', 'mag', 'cyn'];
+  // (what only the build needed, some 7 MB, let go: the closures that stay share this scope, and would keep it)
+  cells = fills = cHE = cMK = null;
 
   return Object.assign(set, {
     params: { tissue_a: 1, tissue_graph: 0, tissue_mark: 0, tissue_embed: 0 },

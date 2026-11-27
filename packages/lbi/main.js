@@ -1234,6 +1234,9 @@ void main() {
     }
     attr(g, 'position', pa, 3); attr(g, 'aOth', po, 3); attr(g, 'aFlat', fa, 3); attr(g, 'aOthF', fo, 3); attr(g, 'aCol', ca, 3);
     attr(g, 'aGc', gc, 3); attr(g, 'aHood', hd, 3); attr(g, 'aG', ga, 4); attr(g, 'aH', ha, 4); attr(g, 'aE', ea, 4);
+    // (v225: never read or rewritten after this: all but position, which the bounds and the headset's keep-clear sampler
+    // read, drop their copy in memory once on the graphics card, some 10 MB: an empty array of its kind in its place)
+    for (const k in g.attributes) if (k !== 'position') g.attributes[k].onUpload(function () { this.array = new this.array.constructor(0); });
     g.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1.6);
     const m = mat(`
 attribute vec3 aOth, aFlat, aOthF, aCol, aGc, aHood; attribute vec4 aG, aH, aE;
@@ -3326,7 +3329,9 @@ float horizon(vec3 p, float r) {
   // a long, gently curving filament bent by a smooth flow field, so neighbours curve together) and splits again into
   // forks, stars, dandelion tufts and brushes of leaves. Colour follows how much of the tree hangs below a node.
   const NET = (() => {
-    const r = K.rng(1969), MAX = 17000;
+    // (SETS.web.netMax: a story that shows only the globe, soil, grows a small tree instead of the 17,000 nodes it never
+    // draws: v225; the globe has random streams of its own, so it is the same either way)
+    const r = K.rng(1969), MAX = SETS.web.netMax || 17000;
     const P = new Float32Array(MAX * 3), par = new Int32Array(MAX).fill(-1);
     const hue = new Float32Array(MAX), boost = new Float32Array(MAX);
     const E = [];   // node pairs; tree edges [parent, child], then backbone ends and cross links
@@ -3856,6 +3861,9 @@ void main() {
   // ties (Local only: back to the local ones; All: on from there); a change of View, or reopening, replays the growth.
   let xView = '', xTies = '', xT = 0, xKeep = false;
 
+  // (v225: these geometries are written once, above, and never read again: all but position, which the bounds and the
+  // headset's keep-clear sampler read, drop their copy in memory once on the graphics card, an empty array in its place)
+  for (const g of [ng, lg, LIGHTS, GT.g]) for (const k in g.attributes) if (k !== 'position') g.attributes[k].onUpload(function () { this.array = new this.array.constructor(0); });
   return Object.assign(set, {
     params: { web_a: 1, web_net: 1, web_globe: 0, web_ties: 0, web_spin: 0 },
     update(S, t) {
@@ -3947,10 +3955,20 @@ SETS.dna = function (K) {
     }
     if (b.ni + ni > b.idx.length) { let c = b.idx.length * 2; while (c < b.ni + ni) c *= 2; const x = new Uint32Array(c); x.set(b.idx); b.idx = x; }
   }
+  // (v225: copies of the used part, the builder's doubled capacity let go; nothing reads or rewrites these meshes after
+  // the build, so every attribute but position, which the bounds and the headset's keep-clear sampler read, drops its
+  // copy in memory once it is on the graphics card: an empty array of its kind in its place, so a lost and restored
+  // WebGL context finds an array, not null)
+  const dropArray = function () { this.array = new this.array.constructor(0); };
   function geoOf(b) {
     const g = new THREE.BufferGeometry();
-    for (const k in b.sz) g.setAttribute(k, new THREE.BufferAttribute(b.a[k].subarray(0, b.nv * b.sz[k]), b.sz[k]));
-    g.setIndex(new THREE.BufferAttribute(b.nv > 65535 ? b.idx.subarray(0, b.ni) : Uint16Array.from(b.idx.subarray(0, b.ni)), 1));
+    for (const k in b.sz) {
+      const at = new THREE.BufferAttribute(b.a[k].slice(0, b.nv * b.sz[k]), b.sz[k]);
+      if (k !== 'position') at.onUpload(dropArray);
+      g.setAttribute(k, at);
+    }
+    g.setIndex(new THREE.BufferAttribute(b.nv > 65535 ? b.idx.slice(0, b.ni) : Uint16Array.from(b.idx.subarray(0, b.ni)), 1));
+    b.a = {}; b.idx = null;
     return g;
   }
   // set attribute k of vertices v0..v1-1 to the constant c
@@ -7295,8 +7313,9 @@ SETS.body = function (K) {
   // every point: position, steady intensity aI, uptake window aU (tracer progress), blood transient aB
   // (amplitude, arrival), size, and its response aK (see RESP)
   const MAX = 60000, XS = 0.9;   // XS: the figure is modelled a little broad, then slimmed across
-  const P = new Float32Array(MAX * 3), AI = new Float32Array(MAX), AU = new Float32Array(MAX * 2);
-  const AB = new Float32Array(MAX * 2), AS = new Float32Array(MAX), AK = new Float32Array(MAX * 3);
+  // (let: the staging arrays, 2.9 MB, are let go once the scan's geometry holds its copies: v225)
+  let P = new Float32Array(MAX * 3), AI = new Float32Array(MAX), AU = new Float32Array(MAX * 2);
+  let AB = new Float32Array(MAX * 2), AS = new Float32Array(MAX), AK = new Float32Array(MAX * 3);
   let N = 0, resp = [0, 0, 0];
   function put(p, I, up, size, bAmp, bArr) {
     if (N >= MAX) return;
@@ -7614,6 +7633,7 @@ SETS.body = function (K) {
   geo.setAttribute('aB', new THREE.BufferAttribute(AB.slice(0, 2 * NB), 2));
   geo.setAttribute('aSz', new THREE.BufferAttribute(AS.slice(0, NB), 1));
   geo.setAttribute('aK', new THREE.BufferAttribute(AK.slice(0, 3 * NB), 3));
+  P = AI = AU = AB = AS = AK = null;
   const scanMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime, uP: { value: 1 }, uS: { value: 0 }, uK: { value: 1 },
       uDim: { value: 1 } },
@@ -8008,7 +8028,8 @@ SETS.tissue = function (K) {
   // cell: [s, d, angle, a, b, nucleus a, nucleus b, nucleus offset (along a, in units of a), cytoplasm rgb, alpha,
   //        nucleus rgb, type, foam]; types: 0 epithelial, 1 immune, 2 stromal, 3 endothelial, 4 smooth muscle, 5 red blood
   //        cell; foam (0..1): pale, bubbly cytoplasm, as in the mucus-filled gland cells
-  const cells = [];
+  // (let, as fills, cHE and cMK: the build's own, let go before the set is handed over: v225)
+  let cells = [];
   const OG = 0.006, OW = Math.ceil(MSL / OG) + 2, OH = Math.ceil(MDL / OG) + 2;
   const occHead = new Int32Array(OW * OH).fill(-1), occNext = [];
   const oc = (s, d) => clamp(Math.floor((s - MS0) / OG), 0, OW - 1) + OW * clamp(Math.floor((d - MD0) / OG), 0, OH - 1);
@@ -8034,7 +8055,7 @@ SETS.tissue = function (K) {
     return c;
   }
   // gland bodies: one splat per acinus drawn under its cells (its 'nucleus' is the white lumen); not a cell
-  const fills = [];
+  let fills = [];
   const addFill = (s, d, ang, a, b, na, nb, col) => { if (inside(s, d)) fills.push([s, d, ang, a, b, na, nb, 0, ...col, 0.9, 0.96, 0.94, 0.96, 6, 0]); };
   const vary = x => x * rr(0.88, 1.12);
   const NUC = () => he(vary(1.3), 0.35);
@@ -8320,7 +8341,8 @@ SETS.tissue = function (K) {
   cells.unshift(...fills);   // gland bodies first, so their cells draw over them
   const TYPE_NAME = ['Epithelial', 'Immune', 'Stromal', 'Endothelial', 'Smooth muscle'];
   // the cells, pre-averaged for far views (premultiplied colour and coverage), in stain and in fluorescence
-  const cHE = new Float32Array(CW * CH * 4), cMK = new Float32Array(CW * CH * 4), tArea = (MSL / CW) * (MDL / CH);
+  let cHE = new Float32Array(CW * CH * 4), cMK = new Float32Array(CW * CH * 4);
+  const tArea = (MSL / CW) * (MDL / CH);
   const FOOT = [0.25, 0.5, 0.25];   // a 3x3 footprint, about the size of a cell
   function rasterCell(c) {
     const ac = PI * c[3] * c[4], an = PI * c[5] * c[6], wc = c[11] * (ac - an) / tArea, wn = 0.95 * an / tArea, tc = TYPE_COL[c[15]];
@@ -8850,6 +8872,8 @@ void main() {
   const mkA = S => near * prog(S.tissue_mark, 0.5, 1) * (1 - prog(S.tissue_embed, 0, 0.04));
   const emA = S => prog(S.tissue_embed, 0.75, 1);
   const CLS = ['amb', '', 'grn', 'mag', 'cyn'];
+  // (what only the build needed, some 7 MB, let go: the closures that stay share this scope, and would keep it)
+  cells = fills = cHE = cMK = null;
 
   return Object.assign(set, {
     params: { tissue_a: 1, tissue_graph: 0, tissue_mark: 0, tissue_embed: 0 },

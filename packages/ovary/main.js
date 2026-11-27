@@ -421,7 +421,12 @@ vec3 litC(vec3 c, vec3 n, vec3 v, vec3 up, float gloss) {
     // the geometry made in slices: a generator that yields between chunks of a few hundred thousand numbers (v136: one
     // call was 82 ms in the ovary section, which the headset's 1 ms budget cannot hold); geometry() runs it at once
     const CH = 196608;
-    function* toF32(src) { const out = new Float32Array(src.length); for (let i = 0; i < src.length; i += CH) { out.set(src.slice(i, i + CH), i); if (i + CH < src.length) yield; } return out; }
+    // (copied by a plain loop, v225: a slice was a 1.5 MB array a chunk)
+    function* toF32(src) {
+      const out = new Float32Array(src.length);
+      for (let i = 0; i < src.length; i += CH) { const e = Math.min(i + CH, src.length); for (let q = i; q < e; q++) out[q] = src[q]; if (i + CH < src.length) yield; }
+      return out;
+    }
     function* geometryGen() {
       const g = new THREE.BufferGeometry();
       for (const [name, arr, k] of [['position', P, 3], ['normal', N, 3], ['aCol', Cl, 3], ['aCen', Ce, 3], ['aObj', O, 4], ['aEdge', E, 1]]) {
@@ -758,8 +763,9 @@ SETS.body = function (K) {
   // every point: position, steady intensity aI, uptake window aU (tracer progress), blood transient aB
   // (amplitude, arrival), size, and its response aK (see RESP)
   const MAX = 60000, XS = 0.9;   // XS: the figure is modelled a little broad, then slimmed across
-  const P = new Float32Array(MAX * 3), AI = new Float32Array(MAX), AU = new Float32Array(MAX * 2);
-  const AB = new Float32Array(MAX * 2), AS = new Float32Array(MAX), AK = new Float32Array(MAX * 3);
+  // (let: the staging arrays, 2.9 MB, are let go once the scan's geometry holds its copies: v225)
+  let P = new Float32Array(MAX * 3), AI = new Float32Array(MAX), AU = new Float32Array(MAX * 2);
+  let AB = new Float32Array(MAX * 2), AS = new Float32Array(MAX), AK = new Float32Array(MAX * 3);
   let N = 0, resp = [0, 0, 0];
   function put(p, I, up, size, bAmp, bArr) {
     if (N >= MAX) return;
@@ -1077,6 +1083,7 @@ SETS.body = function (K) {
   geo.setAttribute('aB', new THREE.BufferAttribute(AB.slice(0, 2 * NB), 2));
   geo.setAttribute('aSz', new THREE.BufferAttribute(AS.slice(0, NB), 1));
   geo.setAttribute('aK', new THREE.BufferAttribute(AK.slice(0, 3 * NB), 3));
+  P = AI = AU = AB = AS = AK = null;
   const scanMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime, uP: { value: 1 }, uS: { value: 0 }, uK: { value: 1 },
       uDim: { value: 1 } },
@@ -1836,7 +1843,10 @@ SETS.section = function (K) {
   function makeSection(o) {
     const R = K.rng(o.seed), rr = (a, b) => a + (b - a) * R();
     const nz = L.noise3(o.seed + 5), nz2 = L.noise3(o.seed + 6);
-    const rad = th => 0.8 * (1 + o.waves.reduce((s, [k, a, p]) => s + a * Math.sin(k * th + p), 0) - (o.notch ? o.notch[1] * Math.exp(-((((th - o.notch[0] + 3 * Math.PI) % (2 * Math.PI) - Math.PI) / o.notch[2]) ** 2)) : 0));
+    // (v225: a plain loop, the same sum in the same order: the reduce with its unpacked triples made some 350 MB of
+    // garbage over one stain, a call per pixel)
+    const WV = o.waves, waves = th => { let s = 0; for (let q = 0; q < WV.length; q++) { const w = WV[q]; s = s + w[1] * Math.sin(w[0] * th + w[2]); } return s; };
+    const rad = th => 0.8 * (1 + waves(th) - (o.notch ? o.notch[1] * Math.exp(-((((th - o.notch[0] + 3 * Math.PI) % (2 * Math.PI) - Math.PI) / o.notch[2]) ** 2)) : 0));
     // how far inside the outline (in units; negative outside)
     const inside = (x, y) => { const u = x / o.sx, v = y / o.sy, th = Math.atan2(v, u); return (rad(th) - Math.hypot(u, v)) * Math.min(o.sx, o.sy); };
     const g = new THREE.Group();
@@ -1869,7 +1879,7 @@ SETS.section = function (K) {
     const tex = new THREE.DataTexture(D, TX, TX, THREE.RGBAFormat);
     tex.magFilter = THREE.LinearFilter; tex.minFilter = THREE.LinearMipmapLinearFilter; tex.generateMipmaps = true; tex.needsUpdate = true;
     function* stain() {
-      const RS = K.rng(o.seed + 9);
+      const RS = K.rng(o.seed + 9), E1 = C.eosin, E2 = C.eosin2, EN = mix(C.eosin, C.nucleus2, 0.45);
       for (let j = 0; j < TX; j++) {
         for (let i = 0; i < TX; i++) {
           if ((i & 127) === 127) yield;   // (v136: a few hundred pixels between yields; it was eight rows, 10 ms and more)
@@ -1878,10 +1888,12 @@ SETS.section = function (K) {
           const k = 4 * (j * TX + i);
           const cx = clamp(1 - e / (0.2 + 0.04 * nz(x * 3, y * 3, 0)), 0, 1), w = nz(x * 2.2, y * 2.2, 3);
           const fib = 0.5 + 0.5 * Math.sin((x * Math.cos(w * 2.5) + y * Math.sin(w * 2.5)) * 95 + 5 * nz2(x * 4, y * 4, 1));
-          let c = mix(C.eosin2, C.eosin, 0.35 + 0.35 * fib + 0.2 * nz2(x * 9, y * 9, 2));
-          c = mix(c, mix(C.eosin, C.nucleus2, 0.45), 0.55 * cx);
-          if (e < 0.012) c = mix(c, C.eosin, 0.6);
-          D[k] = c[0] * 255; D[k + 1] = c[1] * 255; D[k + 2] = c[2] * 255;
+          // (mix's sums written out on three numbers, no array a pixel: the same arithmetic, v225)
+          const m1 = 0.35 + 0.35 * fib + 0.2 * nz2(x * 9, y * 9, 2), m2 = 0.55 * cx;
+          let r = E2[0] + (E1[0] - E2[0]) * m1, gn = E2[1] + (E1[1] - E2[1]) * m1, b = E2[2] + (E1[2] - E2[2]) * m1;
+          r = r + (EN[0] - r) * m2; gn = gn + (EN[1] - gn) * m2; b = b + (EN[2] - b) * m2;
+          if (e < 0.012) { r = r + (E1[0] - r) * 0.6; gn = gn + (E1[1] - gn) * 0.6; b = b + (E1[2] - b) * 0.6; }
+          D[k] = r * 255; D[k + 1] = gn * 255; D[k + 2] = b * 255;
         }
       }
       const NN = Math.round(TX * TX * 0.03);

@@ -121,7 +121,12 @@ vec3 litC(vec3 c, vec3 n, vec3 v, vec3 up, float gloss) {
     // the geometry made in slices: a generator that yields between chunks of a few hundred thousand numbers (v136: one
     // call was 82 ms in the ovary section, which the headset's 1 ms budget cannot hold); geometry() runs it at once
     const CH = 196608;
-    function* toF32(src) { const out = new Float32Array(src.length); for (let i = 0; i < src.length; i += CH) { out.set(src.slice(i, i + CH), i); if (i + CH < src.length) yield; } return out; }
+    // (copied by a plain loop, v225: a slice was a 1.5 MB array a chunk)
+    function* toF32(src) {
+      const out = new Float32Array(src.length);
+      for (let i = 0; i < src.length; i += CH) { const e = Math.min(i + CH, src.length); for (let q = i; q < e; q++) out[q] = src[q]; if (i + CH < src.length) yield; }
+      return out;
+    }
     function* geometryGen() {
       const g = new THREE.BufferGeometry();
       for (const [name, arr, k] of [['position', P, 3], ['normal', N, 3], ['aCol', Cl, 3], ['aCen', Ce, 3], ['aObj', O, 4], ['aEdge', E, 1]]) {

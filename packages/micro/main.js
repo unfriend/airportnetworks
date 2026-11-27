@@ -949,8 +949,9 @@ SETS.body = function (K) {
   // every point: position, steady intensity aI, uptake window aU (tracer progress), blood transient aB
   // (amplitude, arrival), size, and its response aK (see RESP)
   const MAX = 60000, XS = 0.9;   // XS: the figure is modelled a little broad, then slimmed across
-  const P = new Float32Array(MAX * 3), AI = new Float32Array(MAX), AU = new Float32Array(MAX * 2);
-  const AB = new Float32Array(MAX * 2), AS = new Float32Array(MAX), AK = new Float32Array(MAX * 3);
+  // (let: the staging arrays, 2.9 MB, are let go once the scan's geometry holds its copies: v225)
+  let P = new Float32Array(MAX * 3), AI = new Float32Array(MAX), AU = new Float32Array(MAX * 2);
+  let AB = new Float32Array(MAX * 2), AS = new Float32Array(MAX), AK = new Float32Array(MAX * 3);
   let N = 0, resp = [0, 0, 0];
   function put(p, I, up, size, bAmp, bArr) {
     if (N >= MAX) return;
@@ -1268,6 +1269,7 @@ SETS.body = function (K) {
   geo.setAttribute('aB', new THREE.BufferAttribute(AB.slice(0, 2 * NB), 2));
   geo.setAttribute('aSz', new THREE.BufferAttribute(AS.slice(0, NB), 1));
   geo.setAttribute('aK', new THREE.BufferAttribute(AK.slice(0, 3 * NB), 3));
+  P = AI = AU = AB = AS = AK = null;
   const scanMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime, uP: { value: 1 }, uS: { value: 0 }, uK: { value: 1 },
       uDim: { value: 1 } },
@@ -1662,7 +1664,8 @@ SETS.tissue = function (K) {
   // cell: [s, d, angle, a, b, nucleus a, nucleus b, nucleus offset (along a, in units of a), cytoplasm rgb, alpha,
   //        nucleus rgb, type, foam]; types: 0 epithelial, 1 immune, 2 stromal, 3 endothelial, 4 smooth muscle, 5 red blood
   //        cell; foam (0..1): pale, bubbly cytoplasm, as in the mucus-filled gland cells
-  const cells = [];
+  // (let, as fills, cHE and cMK: the build's own, let go before the set is handed over: v225)
+  let cells = [];
   const OG = 0.006, OW = Math.ceil(MSL / OG) + 2, OH = Math.ceil(MDL / OG) + 2;
   const occHead = new Int32Array(OW * OH).fill(-1), occNext = [];
   const oc = (s, d) => clamp(Math.floor((s - MS0) / OG), 0, OW - 1) + OW * clamp(Math.floor((d - MD0) / OG), 0, OH - 1);
@@ -1688,7 +1691,7 @@ SETS.tissue = function (K) {
     return c;
   }
   // gland bodies: one splat per acinus drawn under its cells (its 'nucleus' is the white lumen); not a cell
-  const fills = [];
+  let fills = [];
   const addFill = (s, d, ang, a, b, na, nb, col) => { if (inside(s, d)) fills.push([s, d, ang, a, b, na, nb, 0, ...col, 0.9, 0.96, 0.94, 0.96, 6, 0]); };
   const vary = x => x * rr(0.88, 1.12);
   const NUC = () => he(vary(1.3), 0.35);
@@ -1974,7 +1977,8 @@ SETS.tissue = function (K) {
   cells.unshift(...fills);   // gland bodies first, so their cells draw over them
   const TYPE_NAME = ['Epithelial', 'Immune', 'Stromal', 'Endothelial', 'Smooth muscle'];
   // the cells, pre-averaged for far views (premultiplied colour and coverage), in stain and in fluorescence
-  const cHE = new Float32Array(CW * CH * 4), cMK = new Float32Array(CW * CH * 4), tArea = (MSL / CW) * (MDL / CH);
+  let cHE = new Float32Array(CW * CH * 4), cMK = new Float32Array(CW * CH * 4);
+  const tArea = (MSL / CW) * (MDL / CH);
   const FOOT = [0.25, 0.5, 0.25];   // a 3x3 footprint, about the size of a cell
   function rasterCell(c) {
     const ac = PI * c[3] * c[4], an = PI * c[5] * c[6], wc = c[11] * (ac - an) / tArea, wn = 0.95 * an / tArea, tc = TYPE_COL[c[15]];
@@ -2504,6 +2508,8 @@ void main() {
   const mkA = S => near * prog(S.tissue_mark, 0.5, 1) * (1 - prog(S.tissue_embed, 0, 0.04));
   const emA = S => prog(S.tissue_embed, 0.75, 1);
   const CLS = ['amb', '', 'grn', 'mag', 'cyn'];
+  // (what only the build needed, some 7 MB, let go: the closures that stay share this scope, and would keep it)
+  cells = fills = cHE = cMK = null;
 
   return Object.assign(set, {
     params: { tissue_a: 1, tissue_graph: 0, tissue_mark: 0, tissue_embed: 0 },

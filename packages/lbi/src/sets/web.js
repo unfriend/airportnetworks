@@ -23,7 +23,9 @@ float horizon(vec3 p, float r) {
   // a long, gently curving filament bent by a smooth flow field, so neighbours curve together) and splits again into
   // forks, stars, dandelion tufts and brushes of leaves. Colour follows how much of the tree hangs below a node.
   const NET = (() => {
-    const r = K.rng(1969), MAX = 17000;
+    // (SETS.web.netMax: a story that shows only the globe, soil, grows a small tree instead of the 17,000 nodes it never
+    // draws: v225; the globe has random streams of its own, so it is the same either way)
+    const r = K.rng(1969), MAX = SETS.web.netMax || 17000;
     const P = new Float32Array(MAX * 3), par = new Int32Array(MAX).fill(-1);
     const hue = new Float32Array(MAX), boost = new Float32Array(MAX);
     const E = [];   // node pairs; tree edges [parent, child], then backbone ends and cross links
@@ -553,6 +555,9 @@ void main() {
   // ties (Local only: back to the local ones; All: on from there); a change of View, or reopening, replays the growth.
   let xView = '', xTies = '', xT = 0, xKeep = false;
 
+  // (v225: these geometries are written once, above, and never read again: all but position, which the bounds and the
+  // headset's keep-clear sampler read, drop their copy in memory once on the graphics card, an empty array in its place)
+  for (const g of [ng, lg, LIGHTS, GT.g]) for (const k in g.attributes) if (k !== 'position') g.attributes[k].onUpload(function () { this.array = new this.array.constructor(0); });
   return Object.assign(set, {
     params: { web_a: 1, web_net: 1, web_globe: 0, web_ties: 0, web_spin: 0 },
     update(S, t) {

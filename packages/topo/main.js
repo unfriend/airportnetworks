@@ -1359,8 +1359,9 @@ SETS.body = function (K) {
   // every point: position, steady intensity aI, uptake window aU (tracer progress), blood transient aB
   // (amplitude, arrival), size, and its response aK (see RESP)
   const MAX = 60000, XS = 0.9;   // XS: the figure is modelled a little broad, then slimmed across
-  const P = new Float32Array(MAX * 3), AI = new Float32Array(MAX), AU = new Float32Array(MAX * 2);
-  const AB = new Float32Array(MAX * 2), AS = new Float32Array(MAX), AK = new Float32Array(MAX * 3);
+  // (let: the staging arrays, 2.9 MB, are let go once the scan's geometry holds its copies: v225)
+  let P = new Float32Array(MAX * 3), AI = new Float32Array(MAX), AU = new Float32Array(MAX * 2);
+  let AB = new Float32Array(MAX * 2), AS = new Float32Array(MAX), AK = new Float32Array(MAX * 3);
   let N = 0, resp = [0, 0, 0];
   function put(p, I, up, size, bAmp, bArr) {
     if (N >= MAX) return;
@@ -1678,6 +1679,7 @@ SETS.body = function (K) {
   geo.setAttribute('aB', new THREE.BufferAttribute(AB.slice(0, 2 * NB), 2));
   geo.setAttribute('aSz', new THREE.BufferAttribute(AS.slice(0, NB), 1));
   geo.setAttribute('aK', new THREE.BufferAttribute(AK.slice(0, 3 * NB), 3));
+  P = AI = AU = AB = AS = AK = null;
   const scanMat = new THREE.ShaderMaterial({
     uniforms: { uA: set.uA, uPx: K.U.uPx, uTime: K.U.uTime, uP: { value: 1 }, uS: { value: 0 }, uK: { value: 1 },
       uDim: { value: 1 } },

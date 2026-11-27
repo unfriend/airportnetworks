@@ -35,7 +35,9 @@ const kit = fs.readFileSync(path.join(root, 'tools', 'engine', 'kit.js'), 'utf8'
   .replace("if (typeof module !== 'undefined') module.exports = { makeKit };\n", '')
   .replace(/^(\/\/.*\n)+/, '// Shared helpers for the 3D sets (the tour\'s kit): makeKit(THREE) returns K.\n');
 // (a helper's Node export, for testing it with node, goes: in the story it is a plain constant inside the closure)
-const sets = SET_FILES.map(f => read(`sets/${f}.js`).replace(/^if \(typeof module !== 'undefined'\) module\.exports = .*\n/m, '').trimEnd() + '\n\n').join('');
+// (v225) every model's credit from models/index.json (tools/mol/build.py's manifest), for sets/models.js's MOL_CREDITS
+const credits = Object.fromEntries(JSON.parse(fs.readFileSync(path.join(pkg, 'models', 'index.json'), 'utf8')).models.map(m => [m.name, m.credit]));
+const sets = SET_FILES.map(f => read(`sets/${f}.js`).replace('/*@@MOL_CREDITS@@*/{}', () => JSON.stringify(credits)).replace(/^if \(typeof module !== 'undefined'\) module\.exports = .*\n/m, '').trimEnd() + '\n\n').join('');
 let out = expand(read('engine/e1_head.js'), 'e1_head').split('@@KEY@@').join(KEY).replace('//@@KIT@@\n', () => kit).replace('//@@SETS@@\n', () => sets);
 for (const f of ENGINE) out += expand(read(`engine/${f}.js`), f);
 const target = path.join(pkg, 'main.js'), name = `packages/${KEY}/main.js`;

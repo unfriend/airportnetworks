@@ -977,6 +977,9 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
   // the gradient (tetrahedral differences) of f(x, y, z), not normalised; a Newton step onto f = 0
   const grad = (f, p, e = 0.0012) => { const a = f(p[0] + e, p[1] - e, p[2] - e), b = f(p[0] - e, p[1] - e, p[2] + e), c = f(p[0] - e, p[1] + e, p[2] - e), d = f(p[0] + e, p[1] + e, p[2] + e);
     return [(a - b - c + d) / (4 * e), (-a - b + c + d) / (4 * e), (-a + b - c + d) / (4 * e)]; };
+  // (the same into o: the heart's surface vertices, v225)
+  const gradTo = (f, p, o, e = 0.0012) => { const a = f(p[0] + e, p[1] - e, p[2] - e), b = f(p[0] - e, p[1] - e, p[2] + e), c = f(p[0] - e, p[1] + e, p[2] - e), d = f(p[0] + e, p[1] + e, p[2] + e);
+    o[0] = (a - b - c + d) / (4 * e); o[1] = (-a - b + c + d) / (4 * e); o[2] = (-a + b - c + d) / (4 * e); return o; };
   const newton = (f, p, lim = 0.02) => { const d = f(p[0], p[1], p[2]), g = grad(f, p), l2 = v3.dot(g, g) || 1, s = clamp(d / l2, -lim, lim); return v3.sub(p, v3.mul(g, s)); };
   // the window: on the right ventricle's front, its axis along the surface normal there
   {
@@ -988,16 +991,20 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
   // a vertex's colour and tissue weights for the beat ([r, g, b, ventricles, atria]), from the distances field()
   // left in HDS and HDV: a soft blend of the nearest parts, cut ends with a dark lumen, the window's walls and floor,
   // and a faint mottle
+  // (v225: into scratch arrays, the same sums in the same order: it made some 20 small arrays a surface vertex; the
+  // result is HVO's five numbers, read before the next call)
+  const HVD = new Float64Array(NP + VES.length), HVQ = new Array(NP + VES.length).fill(null), HVC = new Float64Array(3), HVW = new Float64Array(3), HVO = [0, 0, 0, 0, 0];
   function heartVertex(p, act, out) {
-    const x = p[0], y = p[1], z = p[2], bd = baseD(x, y, z), cand = [];
-    for (const i of act.b) cand.push([i === LV || i === LVB || i === RV ? Math.max(HDS[i], bd) : HDS[i], HP[i]]);
-    for (const [vi] of act.v) cand.push([HDV[vi] - 0.005, HP[VES[vi].i0]]);   // vessels win where they meet the body
-    let dm = 1e9; for (const c of cand) dm = Math.min(dm, c[0]);
-    let sw = 0; const col = [0, 0, 0], wt = [0, 0, 0];
-    for (const [d, q] of cand) { const w = Math.exp(-(d - dm) / 0.0018); if (w < 1e-4) continue; sw += w; wt[q.g] += w; for (let c = 0; c < 3; c++) col[c] += q.col[c] * w; }
+    const x = p[0], y = p[1], z = p[2], bd = baseD(x, y, z);
+    let n = 0;
+    for (let j = 0; j < act.b.length; j++) { const i = act.b[j]; HVD[n] = i === LV || i === LVB || i === RV ? Math.max(HDS[i], bd) : HDS[i]; HVQ[n++] = HP[i]; }
+    for (let j = 0; j < act.v.length; j++) { const vi = act.v[j][0]; HVD[n] = HDV[vi] - 0.005; HVQ[n++] = HP[VES[vi].i0]; }   // vessels win where they meet the body
+    let dm = 1e9; for (let c = 0; c < n; c++) dm = Math.min(dm, HVD[c]);
+    let sw = 0; const col = HVC.fill(0), wt = HVW.fill(0);
+    for (let m = 0; m < n; m++) { const d = HVD[m], q = HVQ[m], w = Math.exp(-(d - dm) / 0.0018); if (w < 1e-4) continue; sw += w; wt[q.g] += w; for (let c = 0; c < 3; c++) col[c] += q.col[c] * w; }
     for (let c = 0; c < 3; c++) { col[c] /= sw; wt[c] /= sw; }
     let k = 1 + 0.07 * Math.sin(71 * x + 1.3) * Math.sin(63 * y + 0.7) * Math.sin(57 * z + 2.1) + 0.04 * Math.sin(173 * x + 2 * y) * Math.sin(151 * z - 3 * y);
-    for (const [vi] of act.v) for (const e of VES[vi].ends) {
+    for (let j = 0; j < act.v.length; j++) for (const e of VES[act.v[j][0]].ends) {
       const px = x - e.e[0], py = y - e.e[1], pz = z - e.e[2], s = px * e.n[0] + py * e.n[1] + pz * e.n[2];
       if (s < -1.5 * e.r - 0.005 || s > 0.006) continue;
       const rho = Math.sqrt(Math.max(0, px * px + py * py + pz * pz - s * s));
@@ -1005,11 +1012,12 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
       else if (s > -0.003 && rho < e.r + 0.003) k = e.rl ? 1.25 : rho < 0.6 * e.r ? 0.25 : 1.25;   // the cut face
     }
     if (WIN && act.w !== false && Math.abs(winD(x, y, z)) < 0.005 && out.v < -0.0015) {   // the window's walls (cut muscle) and floor
-      const s = v3.dot(v3.sub(p, WIN.c), WIN.n);
-      if (s < -WIN.dep + 0.003) col.splice(0, 3, 0.2, 0.025, 0.05); else col.splice(0, 3, 0.66, 0.2, 0.26);
+      const s = (x - WIN.c[0]) * WIN.n[0] + (y - WIN.c[1]) * WIN.n[1] + (z - WIN.c[2]) * WIN.n[2];
+      if (s < -WIN.dep + 0.003) { col[0] = 0.2; col[1] = 0.025; col[2] = 0.05; } else { col[0] = 0.66; col[1] = 0.2; col[2] = 0.26; }
       wt[0] = 1; wt[1] = wt[2] = 0;
     }
-    return [col[0] * k, col[1] * k, col[2] * k, wt[0], wt[1]];
+    HVO[0] = col[0] * k; HVO[1] = col[1] * k; HVO[2] = col[2] * k; HVO[3] = wt[0]; HVO[4] = wt[1];
+    return HVO;
   }
   let HAT = () => ALL, HSURF = null;   // the primitives that matter near a point (once polygonised); the surface's geometry
   // polygonise: blocks of 4 cells are classified from their centres (outside, inside, or near the surface with the
@@ -1068,7 +1076,7 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
       return s;
     };
     const ny1 = ny - 1, nz1 = nz - 1, VI = new Int32Array((nx - 1) * ny1 * nz1).fill(-1), cid = (i, j, k) => (i * ny1 + j) * nz1 + k;
-    const P = [], N = [], C = [], M = [], out = {}, cv = new Float64Array(8);
+    const P = [], N = [], C = [], M = [], out = {}, cv = new Float64Array(8), P0 = [0, 0, 0], G = [0, 0, 0];
     const EG = [[0, 1], [2, 3], [4, 5], [6, 7], [0, 2], [1, 3], [4, 6], [5, 7], [0, 4], [1, 5], [2, 6], [3, 7]];
     for (let b = 0; b < hot.length; b++) {
       if (late()) yield;
@@ -1080,18 +1088,22 @@ transformed = ax + rd * (1.0 + 0.1 * tw);`;
         for (let c = 0; c < 8; c++) { cv[c] = F[id(i + (c & 1), j + (c >> 1 & 1), k + (c >> 2 & 1))]; if (cv[c] < 0) neg++; }
         if (neg === 0 || neg === 8) continue;
         let sx = 0, sy = 0, sz = 0, ne = 0;
-        for (const [a, b] of EG) {
+        for (let q = 0; q < 12; q++) {
+          const a = EG[q][0], b = EG[q][1];
           if ((cv[a] < 0) === (cv[b] < 0)) continue;
           const t = cv[a] / (cv[a] - cv[b]);
           sx += (a & 1) + ((b & 1) - (a & 1)) * t; sy += (a >> 1 & 1) + ((b >> 1 & 1) - (a >> 1 & 1)) * t; sz += (a >> 2 & 1) + ((b >> 2 & 1) - (a >> 2 & 1)) * t; ne++;
         }
-        const p0 = [lo[0] + (i + sx / ne) * h, lo[1] + (j + sy / ne) * h, lo[2] + (k + sz / ne) * h];
+        // (v225: the vertex, its gradient, its place and normal as numbers and two scratch arrays, as v3's sub, mul, dot
+        // and norm would give them)
+        const p0 = P0; p0[0] = lo[0] + (i + sx / ne) * h; p0[1] = lo[1] + (j + sy / ne) * h; p0[2] = lo[2] + (k + sz / ne) * h;
         const d = field(p0[0], p0[1], p0[2], act, out), col = heartVertex(p0, act, out);
-        const g = grad(f, p0), l2 = v3.dot(g, g) || 1, p = v3.sub(p0, v3.mul(g, clamp(d / l2, -h, h))), n = v3.norm(g);
+        const g = gradTo(f, p0, G), l2 = g[0] * g[0] + g[1] * g[1] + g[2] * g[2] || 1, sc = clamp(d / l2, -h, h);
+        const px = p0[0] - g[0] * sc, py = p0[1] - g[1] * sc, pz = p0[2] - g[2] * sc, gl = Math.hypot(g[0], g[1], g[2]) || 1, ux = g[0] / gl, uy = g[1] / gl, uz = g[2] / gl;
         let occ = 0, w0 = 1;   // occlusion: how far the field stays below the distance along the normal
-        for (let s = 1; s <= 3; s++) { const dd = 0.013 * s; occ += Math.max(0, dd - gridAt(p[0] + n[0] * dd, p[1] + n[1] * dd, p[2] + n[2] * dd, dd)) * w0; w0 *= 0.6; }
+        for (let s = 1; s <= 3; s++) { const dd = 0.013 * s; occ += Math.max(0, dd - gridAt(px + ux * dd, py + uy * dd, pz + uz * dd, dd)) * w0; w0 *= 0.6; }
         const ko = clamp(1 - 10 * occ, 0.4, 1);
-        VI[cid(i, j, k)] = P.length / 3; P.push(p[0], p[1], p[2]); N.push(n[0], n[1], n[2]); C.push(col[0] * ko, col[1] * ko, col[2] * ko); M.push(col[3], col[4], 0);
+        VI[cid(i, j, k)] = P.length / 3; P.push(px, py, pz); N.push(ux, uy, uz); C.push(col[0] * ko, col[1] * ko, col[2] * ko); M.push(col[3], col[4], 0);
        }
       }
     }

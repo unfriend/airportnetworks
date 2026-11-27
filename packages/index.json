@@ -74,11 +74,11 @@
       "minis": "minis.js",
       "icon": "lbi.int",
       "needs": 185,
-      "fp": "3dc0419cfb51767b",
-      "bytes": 6003251,
+      "fp": "22dc8166c3e9fbb2",
+      "bytes": 6005259,
       "files": {
         "audio/narration.mp3": "3845dddd3829424b",
-        "main.js": "959baaed0fd757ab",
+        "main.js": "e9de840ffa21ebfb",
         "minis.js": "c8a81245a10692e4",
         "story.json": "8c1a003b96ce5b3a"
       }
@@ -104,11 +104,11 @@
       "minis": "minis.js",
       "icon": "nmd.tower",
       "needs": 185,
-      "fp": "534a48a0fed0f819",
-      "bytes": 5230822,
+      "fp": "a9e5b3f304090355",
+      "bytes": 5232244,
       "files": {
         "audio/narration.mp3": "2f06d429ae2161eb",
-        "main.js": "386a188e1264ee2e",
+        "main.js": "5e52bfc0d17f6c39",
         "minis.js": "f8d703f3f0a478fb",
         "story.json": "69d276fc7464cf59"
       }
@@ -134,11 +134,11 @@
       "minis": "minis.js",
       "icon": "endo.syn",
       "needs": 185,
-      "fp": "5adca5ea6f2f1b3f",
-      "bytes": 4761211,
+      "fp": "85557ce8a6a73b51",
+      "bytes": 4762633,
       "files": {
         "audio/narration.mp3": "fb647e0514771dfa",
-        "main.js": "b6feb551fdec86f6",
+        "main.js": "1802ce422736f335",
         "minis.js": "c4f96aa455be6354",
         "story.json": "7a801a7d8f3a70ce"
       }
@@ -164,11 +164,11 @@
       "minis": "minis.js",
       "icon": "pet.scan",
       "needs": 185,
-      "fp": "100154149f686668",
-      "bytes": 3670849,
+      "fp": "7042c13307c42d66",
+      "bytes": 3670981,
       "files": {
         "audio/narration.mp3": "cbd7cbd77e2046c6",
-        "main.js": "5f7a14cab1a3dfa1",
+        "main.js": "dd41d4f528fecc5f",
         "minis.js": "57ece0619f2e8fe6",
         "story.json": "60d0f9bde48857d5"
       }
@@ -194,11 +194,11 @@
       "minis": "minis.js",
       "icon": "micro.slide",
       "needs": 185,
-      "fp": "97b164903fad41e7",
-      "bytes": 4639685,
+      "fp": "decec382ba5801b9",
+      "bytes": 4640063,
       "files": {
         "audio/narration.mp3": "5df9ca0443241bd0",
-        "main.js": "3e7268ed53d0e6f0",
+        "main.js": "ce125fa953882671",
         "minis.js": "ec308aca80ad82c9",
         "story.json": "90683a3cf8d34d0a"
       }
@@ -224,11 +224,11 @@
       "minis": "minis.js",
       "icon": "ovary.organ",
       "needs": 185,
-      "fp": "7ca088f0d8da2bef",
-      "bytes": 4207637,
+      "fp": "3b2e87b760267c41",
+      "bytes": 4208548,
       "files": {
         "audio/narration.mp3": "0ebe5ce62e30c0b1",
-        "main.js": "4a1f98fb0de46936",
+        "main.js": "18e45388dda051de",
         "minis.js": "505b88b6c3a1b5b3",
         "story.json": "305327166997c43b"
       }
@@ -314,11 +314,11 @@
       "minis": "minis.js",
       "icon": "topo.tower",
       "needs": 185,
-      "fp": "20554a3c26ea4a35",
-      "bytes": 5776550,
+      "fp": "bb3bb80a34b713fc",
+      "bytes": 5776682,
       "files": {
         "audio/narration.mp3": "02f5bfd8471f8508",
-        "main.js": "a71edadc2e72ae81",
+        "main.js": "688aeec6dc1c9777",
         "minis.js": "fd7ebf7df368ef6e",
         "story.json": "facd5e7e05f3afaf"
       }
@@ -375,11 +375,11 @@
       "minis": "minis.js",
       "icon": "soil.soil",
       "needs": 185,
-      "fp": "14b063066e7860e1",
-      "bytes": 6312903,
+      "fp": "eda8ffcae05ada20",
+      "bytes": 6313700,
       "files": {
         "audio/narration.mp3": "63ea6285de3f657a",
-        "main.js": "434ef3217de12b14",
+        "main.js": "1b0ed7b74809daf6",
         "minis.js": "a50061896396d475",
         "story.json": "f0050c838eb7d1cf"
       }
@@ -539,13 +539,13 @@
       "list": "stories",
       "icon": "spatial.cell",
       "needs": 178,
-      "fp": "794990e9a142deec",
-      "bytes": 17022394,
+      "fp": "fe764e7a5a52b268",
+      "bytes": 16888759,
       "files": {
         "audio/narration.mp3": "e81b0d96f86c37bd",
         "data/example.txt": "b2dfaa92699cd80d",
         "data/lookup.json": "785c12fae4328469",
-        "main.js": "31cd7ba9fca2efd8",
+        "main.js": "4d55194f6ca76666",
         "models/actin.mol": "0480e2bdb7510b92",
         "models/b2ar.mol": "797dba67cff0e8c5",
         "models/b2lig.mol": "7a30550ecf5cecd8",

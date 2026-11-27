@@ -5,6 +5,8 @@ const SET_ORDER = ['soil', 'web', 'field', 'net'];
 // sets drawn in another set's frame: the cloud and the network float over the field (the plots a module lights lie
 // under it), so the two always turn together
 const FRAME = { net: 'field' };
+// the tour's web set: only its globe is shown here (web_net 0 throughout), so its internet tree is grown small (v225)
+SETS.web.netMax = 1000;
 //#use frameOf buildScene buildSet
 // once every set is built (a step of the load): what joins them
 function sceneJoin() {
