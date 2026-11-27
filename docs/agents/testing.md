@@ -2,18 +2,18 @@
 
 <!-- toc (tools/docs/toc.mjs) -->
 - 24: When the suites run (1.5 KB)
-- 40: Which suite after which change (2.2 KB)
-- 68: Listing the tests and the docs' tools (2.5 KB)
-- 100: The smoke test (`tools/smoke.mjs`) (10.1 KB)
-  - 116: Smoke blocks (7.6 KB)
-  - 181: `--only <words>` (0.7 KB)
-  - 190: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-- 200: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.9 KB)
-- 261: Other tools (3.4 KB)
-- 284: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 293: Known red results on this machine (2.4 KB)
-- 317: Traps for a test writer (2.5 KB)
-- 344: Useful URL hashes and the console (4.8 KB)
+- 40: Which suite after which change (2.3 KB)
+- 68: Listing the tests and the docs' tools (3.0 KB)
+- 104: The smoke test (`tools/smoke.mjs`) (13.6 KB)
+  - 140: Smoke blocks (8.1 KB)
+  - 210: `--only <words>` and `--block <id>` (1.7 KB)
+  - 229: Playwright, SwiftShader and what only a headset shows (0.5 KB)
+- 239: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (5.9 KB)
+- 300: Other tools (4.3 KB)
+- 325: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 334: Known red results on this machine (5.3 KB)
+- 364: Traps for a test writer (3.3 KB)
+- 398: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -41,11 +41,11 @@ covers the app's packages too.
 
 The same table as `AGENTS.md`, "Testing". Serve the folder first (`python3 -m http.server 8123`); a test takes its URL
 as its first argument (`http://127.0.0.1:8123/`), except `relay/test.mjs`, `tools/collab.mjs` and `tools/live.mjs`,
-which start their own relay or server.
+which start their own relay or server (`tools/smoke-all.mjs` too when given no url).
 
 | Touched | Run before `main` moves |
 | --- | --- |
-| anything | `node tools/smoke.mjs <url>` |
+| anything | `node tools/smoke.mjs <url>`, or block by block `node tools/smoke-all.mjs <url>` (row K) |
 | sound | `node tools/audio.mjs <url>` |
 | a story's cues or a sound | `node tools/sfx-cues.mjs <url> <key\|all>`, then `tools/sfx-render.mjs` (report how it sounds as unheard) |
 | `HOST.live`, `HOST.swap`, `HOST.load`, `tools/release.mjs`, the relay's `--watch` | `node tools/live.mjs` |
@@ -71,6 +71,10 @@ The three big tests say what they hold without running (nothing starts: no serve
 
 - `node tools/smoke.mjs --list` - every block (`block <name>`) and step (`step <name>`, indented inside a block),
   read from the file's text as written (`${key}` left unfilled). `--only <words>` takes these names.
+- `node tools/smoke.mjs --blocks` - every block's id, one a line: the `runs('...')` and `inGroup('...')` blocks and each
+  of the app's stories (`packages/order.json`'s) by its key; `--block <id>` takes them. `--help` - the flags.
+- `node tools/smoke-all.mjs --list` - the same ids with each one's timeout; `--help` its flags.
+- `node tools/live.mjs --help`, `node tools/update.mjs --help` - their usage (nothing runs).
 - `node tools/collab.mjs --list` - every flag with the round it runs and whether that round is in the main run
   (`(main)`) or not; `--list --checks` - every `check(...)` name under the round (function) that holds it, as written,
   and the count; `--help` - the flags, as `--list`. A flag the code reads but `FLAGS` does not name is printed as a
@@ -101,10 +105,30 @@ The docs' tools (`tools/docs/`, Node, no packages):
 
 `node tools/smoke.mjs <url>` is the one test every change runs before `main` moves. It needs Playwright with
 Chromium and a plain file server for the folder (not the relay's `--static`, which serves no `tools/`). Since v218: a
-step that throws fails with its message and the run goes on; `--only` that matches no block or step fails; `--list`
-prints every block and step name and exits; what this machine lacks (`ffmpeg` for the studio's screens, a shell without
-`HOST.collab.trkIn`) fails unless `--skip-missing` is given. `SHOTS=<dir>` saves pictures in the blocks that take them.
-The whole run fails on any console error (a 404 for a missing narration MP3 is expected).
+step that throws fails with its message and the run goes on; `--only` that matches no block or step fails (since the
+audit's row K it also prints the block ids); `--list` prints every block and step name and exits; what this machine lacks
+(`ffmpeg` for the studio's screens, a shell without `HOST.collab.trkIn`) fails unless `--skip-missing` is given.
+`SHOTS=<dir>` saves pictures in the blocks that take them; `SMOKE_SHOW=1` prints a failure's text under its line. The
+whole run fails on any console error (a 404 for a missing narration MP3 is expected).
+
+**The whole run by block** (row K, 27 November 2026): one process takes about 1.5 h. `node tools/smoke-all.mjs [url]`
+runs every block as `node tools/smoke.mjs <url> --block <id>`, `-j 2` at a time (the default; more on a machine with few
+cores brings timing failures) against one server (its own on a free port, `tools/lib/serve.mjs`, unless a url is given),
+each under its own timeout (900 s, a few long blocks more: `LONG` in the file), and prints one table (block, ok, FAILED or
+TIMEOUT, seconds, steps); each block's output in `--logs <dir>` with `results.json`. `--shard i/n` takes every n-th block
+(for several sessions), `--blocks a,b` some, `--from <id>` the rest of a run. A block that failed is run again alone
+(`--block <id>`) before it is called real.
+
+**The pretend headsets' seats** (the owner, 27 November 2026, after a headset fault the tests could not see: "put the
+test headsets about 180 cm in each direction around origin so that we catch things like this in future runs"): every
+browser context is one pretend headset at its own seat, `XR_SEATS` in `tools/smoke.mjs` ((1.8, 1.8) turned 37 degrees,
+(-1.8, 1.8) -128, (1.8, -1.8) 143, (-1.8, -1.8) -52, in turn), its head 1.6 m up. `XR_SEAT` puts `window.__xrSeat` in
+the page before anything else: the one place a fake's head, eyes and controllers come from (`m(mat, lift)`, `p`, `q`,
+`pose`; the controllers in the head's frame, so they move with it). `FPS_FAKE`, `OCCL_FAKE`, `PHONE_FAKE`, `CTRL_FAKE`
+and the pages' own pretend sessions take it; `tools/perf.mjs` reads `FPS_FAKE` and `OCCL_FAKE` without a seat (the
+origin, as before). `browser.newContext({ xrSeat: 'origin' })` gives one check the origin (say why where it asks);
+`SMOKE_SEAT=origin` puts every headset back there, to tell a red the seat brings out from one it does not. The
+`trackers` block keeps its own pretend room (a head already off the origin and turned).
 
 What the main run (no `--only`) holds besides the blocks: every story and the studio loaded, scrubbed, played as a
 slideshow and explored, the panes' numbers checked against the data where a story looks them up; the load steps (no
@@ -115,8 +139,13 @@ it is.
 
 ### Smoke blocks
 
-One row a block. Run one with `--only '<block>'` (see "`--only <words>`" below). Times are what a block took on a
-quiet machine; "own page" means it opens a page (or two) of its own.
+One row a block. Run one with `--block '<id>'` (exactly that block; `--only` below matches by prefix). Times are what a
+block took on a quiet machine; "own page" means it opens a page (or two) of its own. Besides these rows, `--blocks`
+names the groups of the main page's steps: `start page` (the landing page, no story fetched), each story by its key
+(load, scrub, slideshow, cues, explore, draw hooks, its own steps, its load in steps and its anchored placement),
+`switch while loading`, `parked` (the design room), `repeat` (Repeat one and Repeat all), `headset settings` (its own
+page: labels, cards, free moving, subtitles, panels, the frame-rate read-out, the keypad), `focus mode` (with phones,
+tablets, iPhone) and `old links`.
 
 | Block (`--only ...`) | Page and time | What it protects; traps |
 | --- | --- | --- |
@@ -178,14 +207,24 @@ quiet machine; "own page" means it opens a page (or two) of its own.
 | `studio tour` | about 1 min | the studio tour: each model under 10,000 triangles, the scene under 60,000 |
 | `studio guide` | about 1 min | the Experiments set's link cards; the tracker guide opens the studio visiting |
 
-### `--only <words>`
+### `--only <words>` and `--block <id>`
 
-`--only <words>` runs only the steps whose names start with the words and the blocks that hold them (each block
-of steps is guarded by its name, `runs(...)`; the headset settings, a block of mixed names, runs only without it; focus
-mode and phones and tablets run with `--only 'focus mode'`, `phones`, `tablets` or `iPhone`): `--only studio` the
-studio's pages, `--only 'studio texture swaps'` one block of them, `--only tutorial` one story's steps (its `load
-<key>` step always runs with its block, v179: before, it was filtered out by its own name and the story's steps ran on
-the page's default story). For a builder's own steps; the release run is the whole test.
+`--block <id>` runs exactly one block (an id `--blocks` prints) and every step in it, whatever the steps' names; an id
+that names nothing fails and prints the ids. `--only <words>` runs only the steps whose names start with the words and
+the blocks whose ids start with them, or that the words start with (each block of steps is guarded by its id,
+`runs(...)`, or a group of the main page's steps by `inGroup(...)`, which only `--block` reads; the headset settings,
+a block of mixed names, runs without `--only`, with `--block` or with exactly `--only 'headset settings'`; focus mode and
+phones and tablets run with `--only 'focus mode'`, `phones`, `tablets` or `iPhone`): `--only studio` every studio block
+(about a quarter of the run: as one run it passed 900 s, so `--block studio` is the main studio block alone and
+`smoke-all.mjs` runs the others one by one), `--only 'studio texture swaps'` one block, `--only tutorial` one story's
+steps (its `load <key>` step always runs with its block, v179: before, it was filtered out by its own name and the
+story's steps ran on the page's default story). A match of nothing fails and prints the ids. For a builder's own steps;
+the release run is the whole test (`smoke-all.mjs`).
+
+Not in any block: `hello` and `cellstress` are Experiments that are no app story (`packages/order.json` does not name
+them, so `STORY_KEYS` leaves them out): `node tools/packages/check.mjs packages/<key> --load` covers them (and their
+builds' `--check`). The notebook (`notes.js`) has no block of its own: the `sharp text` block's step *a notebook picture
+pauses the layers* is the only smoke check that reaches it; the rest is untested here.
 
 ### Playwright, SwiftShader and what only a headset shows
 
@@ -266,8 +305,10 @@ One row a tool; each is a Node script run from the repository's root.
 | --- | --- | --- |
 | `node tools/audio.mjs <url>` (`--list`, `--list --checks`) | sound | 40 steps: a strict autoplay rule (a locked `AudioContext`, a tap), narration and sound-effect switches, the headset menu's rows, the stories' cues, the voice limit. How sound really sounds only by ear |
 | `node tools/sfx-cues.mjs <url> <key\|all>` | cues | below |
-| `node tools/live.mjs` | `HOST.live`, `HOST.swap`, `HOST.load`, `release.mjs`, the relay's `--watch` | a few minutes; a story added, changed and swapped live in a temporary copy of the app. The "within about 2 s" step allows 3 s and can still miss on a loaded machine |
-| `node tools/update.mjs <old> <new>` | `sw.js`, file loading | an old checkout installed, this one served like GitHub Pages: page and stories new on the first visit, the next and offline. It waits up to a minute for the packages' cache (about 17 MB) |
+| `node tools/smoke-all.mjs [url]` | the release run | the smoke test block by block, two at a time, one table (above, "The whole run by block") |
+| `node tools/live.mjs [--port n] [--relay-port n]` | `HOST.live`, `HOST.swap`, `HOST.load`, `release.mjs`, the relay's `--watch` | a few minutes; a story added, changed and swapped live in a temporary copy of the app. Two free ports unless named (row K: two runs no longer collide on 8126 and 8127). The "within about 2 s" step allows 3 s and can still miss on a loaded machine. A story's `APP` is called only once it is built (`built()` first): before row K the step after *a shell file touched* could reach airports' `setClosedAttributes` on a reloading page (*TypeError reading 'aXrm'*), the test's, not the app's |
+| `node tools/update.mjs <old> [new] [--port n]` | `sw.js`, file loading | an old checkout installed, this one served like GitHub Pages, both on one free port (the worker's origin; 8125 before row K): page and stories new on the first visit, the next and offline. It waits up to a minute for the packages' cache (about 17 MB) |
+| `tools/lib/serve.mjs` | (the tests' kit) | Node built-ins only: `serve(dir, { port, pages })` (GitHub Pages' caching with `pages`, a plain no-cache server with a folder's listing without), `freePort()`, `portArg()`; `smoke-all.mjs`, `live.mjs` and `update.mjs` use it |
 | `node tools/room-test.mjs` | `room-test/` | about 1 min; its own relay on port 8131; a pretend headset with a real depth texture array |
 | `node tools/output/test-page.mjs` | `output.js` | the output page's MIDI, OSC and clock |
 | `node tools/perf.mjs` | (measuring, not a test) | exits 0 always; script ms and counts, never GPU time; reads `FPS_FAKE` and `OCCL_FAKE` out of `tools/smoke.mjs`: do not rename them; run groups of scenes (about 90 in a run exceeds a background limit); `--from` compares two runs |
@@ -298,16 +339,22 @@ written down in the repository: the first person to chase one writes it here and
 
 | Where | What is red | What is known |
 | --- | --- | --- |
-| smoke, `anchored placement: no word while the saved place is being looked for` | fails under `--only` in most blocks, on 436195f as well | a timing problem in the test: its `N.wait` is 60 ms (audit run, row F) |
+| smoke, `anchored placement: no word while the saved place is being looked for` | no longer (row K, 27 November 2026) | the test's: its `N.wait` of 60 ms ran out during the first frames of a story just started under `--only`, so the status said *not found* before it was read. Now 2 s, and frames until *not found* (up to 10 s) instead of one sleep of 100 ms: it proves the status says *Finding* while the place is looked for and *not found* once the wait has passed |
 | collab `--walk` (`walkRound`) | crashes in `headAt` (`tools/collab.mjs`, the helper that turns a station into a pretend head pose) | not v224's; no cause recorded |
 | collab main run (the pretend-headset part): *headset: back at its station after the icons* | red on this machine | no cause recorded |
 | collab main run and `--quick`: *a page that follows two stations back to back ends at the second (a switch while a story loads is not lost)* | red on this machine | no cause recorded |
 | collab `--narration`: the welcome check | fails the same on v221's code | not a regression of v222 to v224 (audit run, row D) |
 | collab `--trackers`: the four puppet checks | the test's own | `itemAct('pwear', 'full')`: since v203 the studio takes only `'any'` (audit run, row D) |
-| smoke `studio sequences`: *a second page at the same held room time draws the same moment* (it reads the alpha, among other things) | red on this machine | no cause recorded |
-| smoke `spaceship: pickups (times shortened)` | flaky | a timing flake; the block's steps wait past the first second since 8c59e50 |
+| smoke `studio sequences`: *a second page at the same held room time draws the same moment* | no longer (row K) | the test's: a fade's alpha steps with each frame's dt, and both pages' own frame loops ran between the test's held frames (page one, older and busier, 0.75 against page two's 0.25 at 1.6 s). Both loops are held for the comparison: it proves two pages at the same held room time, stepped through the same frames, show the same moment |
+| smoke `spaceship: pickups (times shortened)`, *rapid fire for a second* | flaky (5 and 8 bolts seen once each, none in row K's runs) | rapid fire was off for all or part of the second, on the test's own clock; no cause found by reading `ships.js` (`take`, `land`, the shot interval all on the frame's time). The failure now prints the ship's rapid time, health and log, so the next red names it |
+| smoke `--only studio` as one run | timed out at 900 s | it is every studio block, about a quarter of the run: `--block studio` is the main block alone, `smoke-all.mjs` the rest one by one |
+| smoke `headset settings`, *panels per story*: *on the Stories screen ... its panels shown false* and *no panels or cards lines in studio* | no longer (row K; red at the origin too, so not the seat's) | the test's: the headset draws at most one Stories-screen card a frame and shows a card once drawn, so three frames were too few (now frames until all show, 60 at most); the studio's line goes on with `&& !gogHide()` since v203 (the shared part is what is checked now). Its Story-tab press waits for the foot bar drawn again in story mode |
+| smoke notices read as "the last one" (`stick moving`'s walk notice, `headset settings`' *Frame rate: on/off*) | no longer (row K) | the session's own first notice, *The menu*, comes 2.5 s of real time in (`shared.js`) and on a loaded machine lands after the one the step reads: the steps read the latest notice of their own title (the frame rate's: given since a mark) |
+| smoke `studio`, *studio v127: Play did not go on from where the slider held it*; `studio live`, *heard ... playing false* | once each in row K's full run (two blocks at a time, another builder's browsers too); green alone | timing under load (the live sound: the trap below, *the output page's live sound starves headlessly*) |
+| smoke `goggles: the game on a page`, *the game is not drawn in the scene* | once in row K's runs, on a loaded machine; then green with the seat and at the origin | a timing flake, not the seat's |
 | `relay/test.mjs --watch` (a relay stopped and restarted) | on Windows only: 5 failures about a relay stopped by SIGTERM | they come from Windows, with or without the fix; on this machine `--watch` passes |
-| `tools/live.mjs`, the step "within about 2 s" | misses by a little on a loaded machine (seen once in v190) | it allows 3 s |
+| `tools/live.mjs`, the step "within about 2 s" | misses by a little on a loaded machine (seen in v190 and v226) | it allows 3 s |
+| `tools/live.mjs`, *TypeError reading 'aXrm'* (airports' `setClosedAttributes` from `enterStory`) | no longer (row K) | the test's: the step after *a shell file touched* called the story's `APP.enterStory` on a page the relay's `--watch` reloaded a second time (one write of `index.html`, two reloads), on a story not yet built. The app calls `APP` only once a story is built (`HOST.putPlace` on its frame loop, `shared.js` after `collab.scene()`). The step waits for a built story on a page that has not reloaded for 2.5 s |
 | smoke, `developer mode`: the two *Older and Newer* steps | fail on Windows with or without the v149 fix | they wait for v142 to be served |
 
 A harness-only difference is never red: WebGL runs in software (SwiftShader), frame rates are low, and anything that
@@ -321,10 +368,17 @@ Found only by being bitten (the whole account is in `docs/history/testing.md`).
 - **Steps wait on frames, not time.** In this suite's software drawing a layer's write takes a few hundred ms (Sharp text:
   only that block's page, and any page given Quest Browser's user agent, as the `phone ar` block's Quest is, asks for `layers`;
   every other pretend headset has Sharp text off by default, as a desktop browser does).
-- **The pretend headsets' eyes sit at the space's origin.** Their head never moves unless a step moves it, so a bug that
-  puts an eye at the origin (a draw hook calling `camera.getWorldDirection` on three.js r128's eye camera, whose pose is
-  only in its matrix: the exposome's cloud, v212 to v226, the scene and the rays stuck to the head) draws the same picture
-  there: check the eye's matrices, or move the head first.
+- **The pretend headsets stand off the origin: never assume the head at 0, 0, 0.** Since 27 November 2026 every pretend
+  headset stands at its seat (`XR_SEATS`, about 1.8 m out in x and z, 1.6 m up, turned by a yaw that is no multiple of 90
+  degrees; "The smoke test" above), and its controllers move with its head. A check places what it looks at, aims a ray,
+  or reads a place in the head's view through `window.__xrSeat` (`p`, `q`, `m`: from the head's frame to where the headset
+  has it; the inverse of `m(identity, H)` back), never at a fixed spot in front of the origin facing -z. What it caught on
+  its first day: checks that aimed at the menu from the origin (`controllers after standby`, `phone ar`), a test plane
+  0.8 m ahead of the origin (`occlusion`), the ship expected ahead of a controller at the origin (`spaceship`), the head
+  expected back at the origin (`stick moving`). Before it, a bug that puts an eye at the origin (a draw hook calling
+  `camera.getWorldDirection` on three.js r128's eye camera, whose pose is only in its matrix: the exposome's cloud, v212
+  to v226, the scene and the rays stuck to the head) drew the same picture as a right one: still check the eye's
+  matrices too (the `<key>: draw hooks` step).
 - **A frame can take over 250 ms in software.** So the window for a press's own events coming late is 5 s (`lateMs` in
   `tools/smoke.mjs`), not 250 ms.
 - **The pretend controllers are held as a Quest's are** (`HOLD` in `tools/smoke.mjs`: grip -z ahead along the hand, +y

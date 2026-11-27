@@ -1,5 +1,6 @@
 // Headless smoke test for every story (the main set and the Experiments set) and the studio (the design room is parked since v217).
-//   node tools/smoke.mjs [base-url] [--only <words>]     (default http://127.0.0.1:8123/)
+//   node tools/smoke.mjs [base-url] [--only <words> | --block <id>]     (default http://127.0.0.1:8123/; --help, --list, --blocks)
+//   node tools/smoke-all.mjs [base-url]     (the whole test block by block, two at a time, one table)
 // Serve the folder first (npx http-server -p 8123 -c-1 .). Needs Playwright;
 // set PLAYWRIGHT_MODULE to its path if it is installed globally, and
 // CHROMIUM_PATH to use a specific Chromium build. Exits 1 on any page error.
@@ -13708,6 +13709,9 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
   const tabPlay = async () => {
     await sp.evaluate(() => { HOST.collab.panelOpen(true); HOST.collab.menuTab('story'); });
     await tick(3);
+    // (the foot bar drawn again in story mode before it is aimed at: its regions follow its next drawing, which a loaded
+    // machine's frames can leave for a few; 30 frames at most)
+    for (let k = 0; k < 30 && !await sx("XR.foot.regions.some(x => x.id === 'play' && x.fn)"); k++) await tick(1);
     const aim = `(() => { const O = HOST.collab.overlay(), F = XR.foot, r = F.regions.find(x => x.id === 'play' && x.fn);
       if (!r || !O.mirror.foot.visible) return 'no ' + (!r ? 'play button on the foot bar (' + F.regions.map(x => x.id).join(' ') + ')' : 'copy of the foot bar shown (menu ' + HOST.collab.menu + ', tab ' + HOST.collab.menuTab() + ')');
       GL.scene.updateMatrixWorld(true);
@@ -13733,7 +13737,9 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     c.g.matrix.compose(new THREE.Vector3(at.x, at.y, at.z), q, new THREE.Vector3(1, 1, 1));
     c.g.matrixWorld.copy(c.g.matrix); })()`);
   const grab = (i, kind, on) => sx(`(c => { c.hover = ${kind === 'panel' ? '{ kind: "panel", P: XR.main }' : `{ kind: "${kind}", i: -1 }`}; xrGrab(c, ${on}); return !!c.grab; })(XR.ctrls[${i}])`);
-  const POSE = `(() => { GL.scene.updateMatrixWorld(true); return { wq: GL.world.getWorldQuaternion(new THREE.Quaternion()).toArray(), rot: XR.rot.toArray(),
+  // (lq: the world's turn in the rig, which hangs at the head turned as it faced when placed: a life-size story's world is
+  // not turned in it, whatever way the seat faces)
+  const POSE = `(() => { GL.scene.updateMatrixWorld(true); return { wq: GL.world.getWorldQuaternion(new THREE.Quaternion()).toArray(), lq: GL.world.quaternion.toArray(), rot: XR.rot.toArray(),
     pq: XR.panelGroup.quaternion.toArray(), up: new THREE.Vector3(0, 1, 0).applyQuaternion(XR.panelGroup.quaternion).y }; })()`;
 
   // each mode of each setting, at the moment with the most labels (the flock: explore mode with a falcon): the labels
@@ -13835,7 +13841,7 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
       await ctrl(0, [0.25, 1.4, -0.9]); await tick(1);
       if (await grab(0, 'sky', true)) bad.push('the grip took the sky');
       const w0 = await sx(POSE);
-      if (qa(w0.wq, [0, 0, 0, 1]) > 1e-6) bad.push('the flock\'s world is turned');
+      if (qa(w0.lq, [0, 0, 0, 1]) > 1e-6) bad.push('the flock\'s world is turned');
     } else {
       await ctrl(0, [0.25, 1.4, -0.9]); await tick(1);
       const g = await grab(0, 'globe', true), p0 = await sx(POSE);
@@ -13870,7 +13876,7 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     await grab(0, 'panel', false); await tick(3);
     const pn = await sx(POSE), tilt = Math.acos(Math.min(1, pn.up)) * 180 / Math.PI, pq = await sx('HOST.cur.xrPose().pq.toArray()');
     if (!(tilt > 25 && tilt < 35) || qa(pq, pn.pq) > 1e-6) bad.push(`the panel held and turned tilts ${tilt.toFixed(2)} deg (xrPose().pq ${qa(pq, pn.pq).toFixed(4)} deg from it)`);
-    if (life && qa((await sx(POSE)).wq, [0, 0, 0, 1]) > 1e-6) bad.push('the flock\'s world turned with the panel');
+    if (life && qa((await sx(POSE)).lq, [0, 0, 0, 1]) > 1e-6) bad.push('the flock\'s world turned with the panel');
     await setLook(null, false); await tick(2);
     if (Math.abs((await sx(POSE)).up - 1) > 1e-6) bad.push('free moving off, the panel does not stand upright again');
     await setLook(null, true);
@@ -14035,7 +14041,10 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     if (seen.join(' ') !== 'controls/-,foot hidden/-,- shown/main,foot') bad.push('the menu\'s Panels row went ' + seen.join(' ') + ' (not controls only, hidden, shown, with the panels following)');
     // on the Stories screen: no row (no story on show), and its panels stay whatever this story's are
     await sp.evaluate(() => HOST.panels.set('qubits', 'hidden'));
+    // (a card shows once drawn, and the headset draws at most one card a frame: frames until all are, 60 at most; three
+    // were too few for every card, red at the origin too before row K)
     await sx('(XR.stories = true, 0)'); await tick(3);
+    for (let k = 0; k < 60 && !await sx('XR.land.every(P => P.mesh.visible)'); k++) await tick(1);
     const land = await sx('XR.land.every(P => P.mesh.visible)');
     if (await row() || !land) bad.push(`on the Stories screen: a Panels row ${await row()}, its panels shown ${land}`);
     await sx('(XR.stories = false, APP.enterStory(0), APP.playing = false, 0)'); await tick(3);
@@ -14091,7 +14100,8 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     if (await vis() !== want.shown) bad.push('the soil story shown again: ' + await vis());
     // the same lines in every story and the studio
     const miss = await sp.evaluate(async keys => (await Promise.all(keys.map(async k => { const s = await (await fetch((m => (m && m.pkg ? m.base + 'main.js' : 'stories/' + k + '.js'))(HOST.meta(k)))).text();
-      return s.includes("const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden';") && s.includes('HOST.panels.sig(XR_HERE)') &&
+      // (the studio's line goes on with `&& !gogHide()`, the VR goggles' own, since v203: the shared part is what is checked)
+      return s.includes("const pm = xrPanels(), pv = !land && !away && XR.cm !== 'hidden'") && s.includes('HOST.panels.sig(XR_HERE)') &&
         s.includes("const xrCardMode = () => (HOST.xr && HOST.xr.cards ? HOST.xr.cards() : xrLabelMode());") && s.includes("XR.lm = xrLabelMode(); XR.cm = xrCardMode();") &&
         s.includes("panelDepth(XR.main, XR.cm === 'fixed'); panelDepth(XR.foot, XR.cm === 'fixed');") ? '' : k; }))).filter(Boolean),
     [...STORY_KEYS, ...EXTRA]);
@@ -14159,7 +14169,11 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     // states, one headset frame each, in one go (two presses within 0.4 s however slowly the page draws)
     const ctl = (i, hand, held) => sp.evaluate(([i, hand, held]) => { window.__s.inputSources[i] = { handedness: hand, targetRayMode: 'tracked-pointer', gamepad: { axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(k => ({ pressed: k === 5 && held, touched: false, value: 0 })) } }; window.__tick(1); }, [i, hand, held]);
     const seq = (i, states) => sp.evaluate(([i, states]) => { const b = window.__s.inputSources[i].gamepad.buttons[5]; for (const v of states) { b.pressed = v; window.__tick(1); } }, [i, states]);
-    const st = () => sp.evaluate(() => ({ on: HOST.xr.fps(), note: (HOST.collab.notes().slice(-1)[0] || {}).title || '' }));
+    // (its notice: the latest of the frame rate's own, not the last of all: the session's first notice, The menu, comes
+    // 2.5 s of real time in and can land after it on a loaded machine); since: only the notices after the last one seen by
+    // mark() (the shell keeps the last eight, the same objects)
+    const mark = () => sp.evaluate(() => { window.__nmark = HOST.collab.notes().slice(-1)[0] || null; });
+    const st = since => sp.evaluate(since => { const N = HOST.collab.notes(), k = since ? N.indexOf(window.__nmark) : -1; return { on: HOST.xr.fps(), note: (N.slice(k + 1).filter(n => /^Frame rate/.test(n.title || '')).slice(-1)[0] || {}).title || '' }; }, !!since);
     await ctl(0, 'right', false); await ctl(1, 'left', false);
     await seq(0, [true, false]); await tick(2);
     const s1 = await st();
@@ -14169,12 +14183,14 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     const s2 = await st();
     if (s2.on) bad.push('two presses of B 0.6 s apart turned it on');
     await sp.waitForTimeout(500);
+    await mark();
     await seq(0, [true, false, true, false]); await tick(2);
-    const s3 = await st(), f3 = await sp.evaluate(() => HOST.collab.overlay().fps.mesh.visible);
+    const s3 = await st(true), f3 = await sp.evaluate(() => HOST.collab.overlay().fps.mesh.visible);
     if (!(s3.on && s3.note === 'Frame rate: on' && f3)) bad.push('a double press of B did not turn it on (with its notice, the read-out drawn): ' + JSON.stringify([s3, f3]));
     await sp.waitForTimeout(500);
+    await mark();
     await seq(1, [true, false, true, false]); await tick(2);
-    const s4 = await st();
+    const s4 = await st(true);
     if (s4.on || s4.note !== 'Frame rate: off') bad.push('a double press of Y did not turn it off: ' + JSON.stringify(s4));
     // held as its controller appears: let go, pressed once, nothing (that first one was no press)
     await sp.waitForTimeout(500);
