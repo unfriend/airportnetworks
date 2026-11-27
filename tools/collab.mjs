@@ -639,6 +639,15 @@ function xrInstall(page, o) {
 // a pretend headset session in a page (WebXR in software, as tools/smoke.mjs does): fake spaces and frames
 // whose poses come from the room above; the story's xrBegin and the shell's own frame callback are driven by step()
 function installXR(o) {
+  // (a row the menu's menuFind gives, pressed by calling its fn as most rounds do, is pressed as a ray or a fingertip
+  // presses it: the menu drawn again at the next frame, its sig cleared (shared.js press). Since v222 the menu is drawn at
+  // most 10 times a second unless a press clears it, so a fn called alone could leave the old page drawn for the next
+  // 100 ms, and the steps after it read the old rows: Sound check, Cards and the panels' rows red now and then, more
+  // often where the head looks at little and its frames are quick)
+  if (HOST.collab.menuFind && !HOST.collab.menuFind.pressed) {
+    const mf = HOST.collab.menuFind;
+    HOST.collab.menuFind = Object.assign(id => { const r = mf(id); if (r && r.fn) { const f = r.fn; r.fn = (...a) => { const v = f(...a); const P = HOST.collab.overlay().panel; if (P) P.sig = ''; return v; }; } return r; }, { pressed: true });
+  }
   if (HOST.collab.autoAll) HOST.collab.autoAll(!!o.autoAll);   // (the first headset's All stories circle: only where a test asks for it)
   if (HOST.collab.autoGuide) HOST.collab.autoGuide(!!o.guide);   // (the room setup guide opening by itself: likewise)
   if (HOST.collab.autoWelcome) HOST.collab.autoWelcome(!!o.welcome);   // (the welcome, Getting around, once a session: likewise)
@@ -9277,8 +9286,12 @@ try {
       }
     }
     if (T.more) await T.more(A, B, C);
+    // (A watches at each of its frames from before the replay, as for the effect: its story starts again from 0 and a page
+    // drawing a heavy story in software could be past 2 s by a single read 5 s on; nmd was red so in a full run)
+    await A.evaluate(() => { const W = window.__rpSeen = { on: false }; const f = () => { if (window.__rpSeen !== W || W.on) return; try { W.on = !!HOST.cur.peek('APP.mode === "story" && APP.t < 2'); } catch (e) { /* story busy */ } requestAnimationFrame(f); }; requestAnimationFrame(f); });
     await peek(B, 'APP.enterStory(0)');
-    check(`${key}: Replay story on another page reaches the first`, await until(A, () => HOST.cur.peek('APP.mode === "story" && APP.t < 2'), null, 5000));
+    check(`${key}: Replay story on another page reaches the first`, await until(A, () => window.__rpSeen.on, null, 10000), JSON.stringify(await clockOf(A)));
+    await A.evaluate(() => { window.__rpSeen = null; });
     await peek(A, 'APP.enterExplore()');
     await until(C, () => HOST.cur.peek('APP.mode') === 'explore', null, 5000);
   }
@@ -9972,7 +9985,7 @@ try {
   // what the sound system is doing; Back goes back to the menu
   const snd = await H.evaluate(async () => {
     const X = window.__xr, S = HOST.collab.overlay().panel, ids = () => S.regions.map(r => r.id);
-    const tap = id => { const r = S.regions.find(x => x.id === id); if (r && r.fn) { r.fn(); return true; } return false; };
+    const tap = id => { const r = S.regions.find(x => x.id === id); if (r && r.fn) { r.fn(); S.sig = ''; return true; } return false; };   // (S.sig: as a press clears it)
     const steps = async n => { for (let k = 0; k < n; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } };
     HOST.collab.panelOpen(true); await steps(3);
     const sb = HOST.collab.menuFind('sound'), out = { button: !!sb, tab: HOST.collab.menuTab() };
@@ -11226,7 +11239,7 @@ try {
     const plain = fits();
     C.note = 'A note three lines long: the relay could not be reached, so this room stays on this headset until one answers, and nobody else can join it yet.';
     S.sig = ''; X.step(); X.step();
-    const out = { plain, tall: fits(), vis: S.vis, h: S.h, open: HOST.collab.menu, tab: HOST.collab.menuTab() };
+    const out = { plain, tall: fits(), vis: S.vis, h: S.h, open: HOST.collab.menu, tab: HOST.collab.menuTab(), drawn: S.regions.map(r => r.id).join(), shown: HOST.collab.overlay().panelG.visible };
     C.note = keep; S.sig = ''; X.step();
     return out;
   });
