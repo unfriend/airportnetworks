@@ -625,8 +625,17 @@ function xrInstall(page, o) {
   spotOf.set(ctx, D);
   const first = !o.origin && !spotChecked;
   if (first) spotChecked = true;
+  const name = 'the pretend headsets stand away from their session\'s origin: the first one\'s head 1.8 m off in x and z of its local space, turned by no multiple of 90 degrees';
   return page.evaluate(installXR, Object.assign({}, o, { D, sharedOwn: o.shared === o.floor })).then(async r => {
-    if (!first) return r;
+    if (!first) {
+      // (every later session too, without a check of its own a session: its head in its local space where its device's D puts
+      // it, so a session given another device's D, or none, says so; the frame's getViewerPose answers from these same W)
+      if (o.origin || !o.head || !o.local) return r;
+      const L = o.local, H = [o.head[0], o.head[1], o.head[2], o.head[3] || 0], want = compose(inverse(compose(D, L)), H);
+      const h = await page.evaluate(() => { const X = window.__xr, m = X.W.local.clone().invert().multiply(X.W.head), p = new THREE.Vector3().setFromMatrixPosition(m); return [p.x, p.y, p.z, 2 * Math.atan2(new THREE.Quaternion().setFromRotationMatrix(m).y, new THREE.Quaternion().setFromRotationMatrix(m).w)]; }).catch(() => null);
+      if (!h || Math.hypot(h[0] - want[0], h[1] - want[1], h[2] - want[2]) > 1e-3 || angle(h[3], want[3]) > 1e-3) check(name + ' (a later session: at its device\'s spot)', false, (h ? fmt(h) : 'no head read') + ' want ' + fmt(want));
+      return r;
+    }
     // (once a run: the first pretend headset's head, as its session sees it in the story's local space, is off its origin)
     const h = await page.evaluate(() => { const X = window.__xr, m = X.W.local.clone().invert().multiply(X.W.head), p = new THREE.Vector3().setFromMatrixPosition(m); return [p.x, p.y, p.z, 2 * Math.atan2(new THREE.Quaternion().setFromRotationMatrix(m).y, new THREE.Quaternion().setFromRotationMatrix(m).w)]; });
     const q = SPOTS[0];
@@ -8812,12 +8821,18 @@ async function reloadRound() {
     const q3 = await until2(Q3, s => s.status === 'older', 20000);
     const lab3 = await Q3.evaluate(() => HOST.collab.roomReload.can() ? HOST.collab.roomReload.label() : '');
     await press(Q3);
+    // (the presser's own count, read before its reload clears the log: its members, the endpoint's, and the rank it took)
+    let ask3 = null;
+    for (let k = 0; k < 20 && !(ask3 && ask3.some(e => e.ev === 'room reload')); k++) { ask3 = await ev(Q3, () => (window.__collabLog || []).filter(e => /^room reload/.test(e.ev)).slice(-3)); if (!(ask3 && ask3.some(e => e.ev === 'room reload'))) await sleep(100); }
     const ok3 = await every([Q1, Q2, Q3], s => s.loads === 2 && s.fmt === G && s.status === 'open' && s.code === c3 && s.st === 't1,t2', 60000), i3 = await info(c3);
     // (the two old pages reload first, in the order the restarted relay saw them come back, shared.js reloadIn: by since,
-    // then id; this check had wanted Q1 first, so it failed whenever Q2 reconnected first. The presser last: after both,
-    // 2 or more: its rank is the count of the others in its members list, seen 2 and 3 in runs of 27 November)
+    // then id; this check had wanted Q1 first, so it failed whenever Q2 reconnected first. The presser last, rank 2 exactly:
+    // refused by the old room it is not in it, so its rank is the relay's count of the room's members (shared.js ask: the
+    // endpoint's members, less one only for a presser in the room), the 2 the relay's log line names. A 3 (seen in runs of
+    // 27 November under load, and let pass by d68fa04 until the review round) would be a member that is not there: the
+    // detail then prints the presser's own 'room reload asked' and 'room reload' log entries, which say where it came from)
     check(`reload (3): a new page refused by the old room (older) offers Update the room, presses it: the relay's endpoint reaches the old pages, they reload (ranks 0, 1) and come back new, the presser too (rank 2), the room on ${G} with its stations`,
-      !!q3 && lab3 === 'Update the room' && !!ok3 && i3.version === G && J(ok3.slice(0, 2).map(s => s.rr && s.rr.rank).sort()) === J([0, 1]) && ok3[2].rr && ok3[2].rr.rank > 1 && rlog.some(l => l.includes(`${c3} reload to ${G} (2 members)`)), JSON.stringify({ lab3, v: i3 && i3.version, s: await sAll([Q1, Q2, Q3]) }));
+      !!q3 && lab3 === 'Update the room' && !!ok3 && i3.version === G && J(ok3.slice(0, 2).map(s => s.rr && s.rr.rank).sort()) === J([0, 1]) && ok3[2].rr && ok3[2].rr.rank === 2 && rlog.some(l => l.includes(`${c3} reload to ${G} (2 members)`)), JSON.stringify({ lab3, v: i3 && i3.version, s: await sAll([Q1, Q2, Q3]), ask3 }));
     await closeAll();
     if (V135) {
       await deploy(V135);
@@ -9273,9 +9288,11 @@ try {
       // (B watches for it at each of its frames from before the send, and the check waits up to 10 s for B to have seen
       // it: an effect that is over in a few seconds, the flock's falcon, could end between two reads of a page drawing in
       // software, and a single read at most 5 s on was red under load)
+      // (and not seen before the send: a watcher that latches would otherwise pass on an effect already showing)
+      const fxPre = !!(await peek(B, E.seen));
       await B.evaluate(s => { const W = window.__fxSeen = { on: false }; const f = () => { if (window.__fxSeen !== W || W.on) return; try { W.on = !!HOST.cur.peek(s); } catch (e) { /* story busy */ } requestAnimationFrame(f); }; requestAnimationFrame(f); }, E.seen);
       await peek(A, E.send);
-      check(`${key}: its effect plays at the others`, calm && await until(B, () => window.__fxSeen.on, null, 10000));
+      check(`${key}: its effect plays at the others`, calm && !fxPre && await until(B, () => window.__fxSeen.on, null, 10000), fxPre ? 'B showed it before the send' : '');
       await B.evaluate(() => { window.__fxSeen = null; });
       // (sound effects: the others hear it too, as it arrives: each page's own live sounds. The count and the log read in
       // one evaluate: a sound logged between two reads, the robots' nom, shifted the window off the patter)
@@ -9288,9 +9305,11 @@ try {
     if (T.more) await T.more(A, B, C);
     // (A watches at each of its frames from before the replay, as for the effect: its story starts again from 0 and a page
     // drawing a heavy story in software could be past 2 s by a single read 5 s on; nmd was red so in a full run)
+    // (not so before the press: in explore mode, so only the Replay can bring it to the story's start)
+    const rpPre = !!(await peek(A, 'APP.mode === "story" && APP.t < 2'));
     await A.evaluate(() => { const W = window.__rpSeen = { on: false }; const f = () => { if (window.__rpSeen !== W || W.on) return; try { W.on = !!HOST.cur.peek('APP.mode === "story" && APP.t < 2'); } catch (e) { /* story busy */ } requestAnimationFrame(f); }; requestAnimationFrame(f); });
     await peek(B, 'APP.enterStory(0)');
-    check(`${key}: Replay story on another page reaches the first`, await until(A, () => window.__rpSeen.on, null, 10000), JSON.stringify(await clockOf(A)));
+    check(`${key}: Replay story on another page reaches the first`, !rpPre && await until(A, () => window.__rpSeen.on, null, 10000), (rpPre ? 'A was at the story\'s start before the press ' : '') + JSON.stringify(await clockOf(A)));
     await A.evaluate(() => { window.__rpSeen = null; });
     await peek(A, 'APP.enterExplore()');
     await until(C, () => HOST.cur.peek('APP.mode') === 'explore', null, 5000);
@@ -10069,10 +10088,16 @@ try {
     const c0 = HOST.cur.peek('XR.ctrls')[0], ro = headNow().add(byHead(0.1, -0.2, 0));
     c0.src = c0.src || right; c0.g.visible = true;
     const aimMenu = () => c0.g.matrix.compose(ro, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), mid().sub(ro).normalize()), new V(1, 1, 1));
-    const t0 = performance.now(); while (performance.now() - t0 < 1200) { aimMenu(); await steps(1); }
+    // (held for two idle times of 1.5 s, not 0.6 s: the ray counts as use only in a frame that finds its rest under 250 ms
+    // old, and a software frame can be longer than that, or than 0.6 s, so one or two frames without it closed the menu
+    // under load (row K's known red, idleHeld). It still proves the rule: unheld, the menu closes after 1.5 s, held it
+    // stays open for twice that)
+    HOST.collab.menuIdle(1500);
+    const t0 = performance.now(); while (performance.now() - t0 < 3200) { aimMenu(); await steps(1); }
     out.idleHeld = HOST.collab.menu;
     away0();
-    await wait(1100); for (let k = 0; k < 40 && HOST.collab.menu; k++) await wait(100);   // (a frame a second here: given time)
+    await wait(1700); for (let k = 0; k < 40 && HOST.collab.menu; k++) await wait(100);   // (a frame a second here: given time)
+    HOST.collab.menuIdle(600);
     out.idleAfter = !HOST.collab.menu;
     HOST.room.calibrate(); btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
     await wait(1000); out.idleCalib = HOST.collab.menu && !!HOST.room.internals().calib;
@@ -10091,6 +10116,19 @@ try {
     btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3); await settle();
     const aimTo = p => { const m = new M4().compose(ro, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(ro).normalize()), new V(1, 1, 1)); X.aim(0, m); };
     const m0 = mid(); aimTo(m0); await steps(3);
+    // the 250 ms window itself, which the stamps below (here and before the pinches on a panel) stand in for: a frame dates
+    // the ray's rest anew, and a grip on a rest older than 250 ms (shared.js hovOf, which the pinches share) takes nothing
+    {
+      const hv = () => HOST.collab.internals().hov.get(0), a0 = hv() ? hv().at : Infinity;
+      await steps(1);
+      const h1 = hv();
+      out.hovRefresh = !!h1 && h1.target && h1.target.kind === 'panel' && h1.at > a0;
+      if (h1) h1.at = performance.now() - 1000;
+      X.fire('squeezestart', { inputSource: X.session.inputSources[0] });
+      out.staleGrab = !!HOST.collab.menuGrab;
+      X.fire('squeezeend', { inputSource: X.session.inputSources[0] });
+      aimTo(m0); await steps(2);
+    }
     // (the grip takes what its ray rested on in the last 250 ms, shared.js hovOf: a headset's frame is 11 to 14 ms, but one
     // frame drawn in software here can take longer than that between the ray's rest and the grip, and the grab then found
     // nothing: flaky on a busy machine. So the ray's rest is dated now, as a headset's next frame would have it)
@@ -10186,6 +10224,8 @@ try {
     hand.ids.join() === 'close,tab:story,tab:settings,tab:circles,tab:debug' && hand.stickClosed && hand.rstick && hand.rstickClosed, JSON.stringify(hand));
   check('headset: the grip carries the menu; let go, it stays where it was put (also with the head turned away) and opens there again next time',
     hand.grab && hand.put && hand.carried > 0.2 && hand.pos.pinned && !!hand.kept && hand.pinnedStill < 1e-3 && Math.abs(hand.again.flat - hand.againWant) < 0.03 && hand.again.faces > 0.95, JSON.stringify(hand));
+  check('headset: the grip (and a pinch, through the same hovOf) takes only what its ray rested on in the last 250 ms: each frame dates the rest anew, a rest dated 1 s ago is taken for nothing',
+    hand.hovRefresh === true && hand.staleGrab === false, JSON.stringify({ hovRefresh: hand.hovRefresh, staleGrab: hand.staleGrab }));
   check('headset: unused, the menu closes by itself; a ray resting on it keeps it open; it stays open while calibrating', hand.idleClosed && hand.idleHeld && hand.idleAfter && hand.idleCalib, JSON.stringify(hand));
   check('headset: the menu stays put as you look about a little and glides back in front once you have turned further', hand.still < 1e-3 && hand.follow.ahead > 0.95 && hand.follow.faces > 0.95, JSON.stringify(hand));
   check('headset: with tracked hands two quick pinches of the left hand pointing at no panel (the scene counts as nothing) open and close the menu (not one, not two slow ones, not the right hand\'s, not the left\'s on the story\'s panel or on the menu)',
