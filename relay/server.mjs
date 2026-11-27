@@ -1,4 +1,5 @@
-// The relay for shared rooms (docs/shared-space-plan.md, section 3; protocol in relay/README.md).
+// The relay for shared rooms (the rules: docs/agents/shared-rooms.md; the protocol: relay/docs/protocol.md; running it: relay/README.md;
+// the finished plan it was built from: docs/history/plans/shared-space-plan.md, section 3).
 // Rooms with 3-letter codes, a key -> { v, seq, by } map per room (every stored write gets the
 // room's next seq: last writer wins), ephemeral messages that are never stored, and members.
 // Node 18 or newer and no packages: its own minimal WebSocket code (RFC 6455). It can serve the

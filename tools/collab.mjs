@@ -1,4 +1,5 @@
-// Headless test of shared rooms (docs/shared-space-plan.md, section 9).
+// Headless test of shared rooms (what it checks, round by round: docs/agents/testing.md; the rules: docs/agents/shared-rooms.md;
+// the finished plan it was built from: docs/history/plans/shared-space-plan.md, section 9).
 //   node tools/collab.mjs [--shots <dir>]   (--list: every flag and what it runs; --list --checks: every check by round)
 // It starts its own relay (relay/server.mjs --static .) on a free port, so no other server is needed, and
 // checks: a page served by the relay starts a room; a mistyped code makes no room; Arrange all's two rows; three
