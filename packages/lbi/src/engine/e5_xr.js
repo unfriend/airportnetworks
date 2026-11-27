@@ -1,7 +1,7 @@
 //#use WEBXR XR
 Object.assign(XR, { pf: -1, pt: -1, pick: 'from' });   // a route's two ends in the network, and which one a click fills
 //#use _xd _xq2 _xa _xX xrPlace xrPlaceLife xrCap xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode xrFreeOn
-//#use xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ
+//#use xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ
 //#use xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings LBL_STYLE labelWords labelPaint labelTex labelRedraw
 //#use labelSprite labelSign dropSprite hideLabelXR placeLabelXR xrLabelH
 function xrTip(S) {

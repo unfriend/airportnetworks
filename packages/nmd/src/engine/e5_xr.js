@@ -13,7 +13,7 @@ function xrPlaceLife(v) {
   return true;
 }
 //#use xrCap~2 XR_NEAR _xsm xrKey xrDrawn xrSampler _xjob xrPrep xrClear xrRecenterAsk xrRecenter xrLifeHome xrLabelMode
-//#use xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere
+//#use xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards xrAllHere
 //#use xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings LBL_STYLE labelWords labelPaint
 //#use labelTex labelRedraw labelSprite labelSign dropSprite hideLabelXR placeLabelXR xrLabelH
 function xrTip(S) {
@@ -29,12 +29,25 @@ function xrTip(S) {
 }
 
 // ------------------------------------------------------ picking a gene --
-// The gene nearest a ray given in the world's own coordinates (explore mode, tower on show)
+// The gene nearest a ray given in the world's own coordinates (explore mode, tower on show); a ray that has not moved,
+// over a tower that has not changed, is not tested again (pickMemo, pickSig)
 const _pinv = new THREE.Matrix4(), _po = new THREE.Vector3(), _pd = new THREE.Vector3();
+//#use pickMemo
 function pickRay(o, d) {
   if (APP.mode !== 'explore' || X.scene !== 'tower' || !TW().pick) return -1;
+  return pickMemo(o, d, pickTower, o, d);
+}
+function pickTower(o, d) {
   _pinv.copy(TW().group.matrix).invert();
   return TW().pick(_po.copy(o).applyMatrix4(_pinv), _pd.copy(d).transformDirection(_pinv));
+}
+// what can be picked (pickMemo's key): the tower's params and its selection's look, once it has settled (still: no
+// cross-fade or layer fading, which follow the clock)
+function pickSig(out) {
+  const T = TW();
+  if (!T.settled || !T.settled()) return false;
+  out.push(T.pickState());
+  for (const n in XS) out.push(XS[n]);
 }
 
 //#use xrController xrLetGo buzz rayAngles startDrag dragGlobe xrPress xrPressScene xrRelease

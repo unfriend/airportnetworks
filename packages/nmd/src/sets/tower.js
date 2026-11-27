@@ -823,7 +823,7 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
     if (p && 'heat' in p) pending.heatId = ++heatId;
   }
   const offT = new Float64Array(LN).fill(-1e9), offOn = new Uint8Array(LN);
-  let sig = null, tChange = 0, lastT = 0;
+  let sig = null, tChange = 0, lastT = 0, offV = 0;
   // drop order: a fixed random order, the last five are protein layers (so the module has somewhere to stay lit)
   const DROP = (() => {
     const R = rng(1645), sh = a => { for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(R() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
@@ -845,7 +845,7 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       if ('walk' in p) state.walk = !!p.walk;
       if ('off' in p) {
         const nu = new Set(p.off ? [...p.off].map(Number) : []);
-        for (let l = 0; l < LN; l++) { const v = nu.has(l) ? 1 : 0; if (v !== offOn[l]) { offOn[l] = v; offT[l] = t; } }
+        for (let l = 0; l < LN; l++) { const v = nu.has(l) ? 1 : 0; if (v !== offOn[l]) { offOn[l] = v; offT[l] = t; offV++; } }
         state.off = nu;
       }
     }
@@ -968,12 +968,13 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
   }
 
   // ---------------------------------------------------------------- explore API helpers
+  const PKV = new Float32Array(N), PKXZ = new Float32Array(2 * N), _pkp = [0, 0];
   function pick(origin, dir) {
     const A = v => (Array.isArray(v) ? v : [v.x, v.y, v.z]), o = A(origin), d0 = A(dir), dl = Math.hypot(d0[0], d0[1], d0[2]) || 1;
     const d = [d0[0] / dl, d0[1] / dl, d0[2] / dl];
     let best = -1, bs = 1e9;
-    const vis = new Float32Array(N), xz = new Float32Array(2 * N);
-    for (let i = 0; i < N; i++) { vis[i] = geneVis(i); const p = genePos(i); xz[2 * i] = p[0]; xz[2 * i + 1] = p[1]; }
+    const vis = PKV, xz = PKXZ;   // (kept: no arrays made per ray, v224)
+    for (let i = 0; i < N; i++) { vis[i] = geneVis(i); const p = genePosTo(i, _pkp); xz[2 * i] = p[0]; xz[2 * i + 1] = p[1]; }
     for (let l = 0; l < LN; l++) {
       if (LCONT[l] < 0.2) continue;
       const y = LYC[l];
@@ -1143,6 +1144,9 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
     params, update, anchors, labels, cam, controls, explore,
     genes, groups, layers, ppi: D.ppi.slice(), N, edgeCount, pairs: EW.length / 2,
     endoCount: GR.reduce((s, G) => s + G.endo.length, 0), endoColour, state, setState, walk, pick, links: linksOf, linkStats,
+    // (for the engine's pick memo, v224: the selection's look and the layers knocked out, and whether its cross-fade and
+    // the layers' fades are over, as of the last update: only then does the tower stand still on the clock)
+    pickState: () => sig + '|' + offV, settled: () => lastT - tChange >= 0.7 && offT.every(o => lastT - o >= 0.5),
     members: g => (MEM[g] || []).slice(), seeds: g => (SEEDS[g] || []).slice(), endoGenes: (g, c) => ((ENDO[g] && ENDO[g][c]) || []).slice(),
     heatOf: g => (HEAT[g] ? HEAT[g].slice() : null), genePos,
     pair: { left: PGL, right: PGR, both: BOTH.slice(), endo: pairEndo, glow: GLOW_KEYS.slice(), shareMin: SHARE_MIN },

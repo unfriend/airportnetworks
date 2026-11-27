@@ -80,6 +80,19 @@ lbi and nmd's index-based picking; pass's languages). `node tools/engine/parts.m
   those lines. Test by peek: `HOST.cur.arrange.apply({ chapters: { slide: { len: 50 } } })`, `apply(null)`.
 - Known traps (safe today): a story whose set lists a `log` param needs `logMix` (only topo and soil declare it); a chip
   with `icon` needs `flowIcon` (only pet and micro declare it).
+- Frame costs (v224, audit row F): `pickMemo` (`e5_xr`, used by `pickRay` and nmd's own) keeps a ray's pick while the
+  ray, the world's and every set's `matrixWorld` and the story's `pickSig(out)` are unchanged (a story without
+  `pickSig` tests every ray, as before; topo, soil, cdk5 and nmd have one: explore's `XS`, plus cdk5's eye and nmd's
+  `tower.pickState()`, and `false` while something moves with the clock: cdk5's pulsing CDK5, nmd's cross-fades, its
+  `tower.settled()`). A story whose sets pick from anything else (time, the camera, a set's own state) must add it to
+  its `pickSig` or return `false`. `compileLate(o)` (`e5_xr`) compiles something made after the load with the scene's
+  lights (three.js r128 keys every program by the scene's light counts, unlit ones too) and sends its textures:
+  `xrWarm`, `labelSprite` and `labelSign` use it. `pageIdle(now, dt)` (`e7_app`, called after `audioSync()` in every
+  `frame` but flock's, robots' and pass's) skips a paused story's frame on a page while nothing it shows can have
+  changed (its time, mode, play, the window's size, the page's and the root's classes, the theme, the clear colour, any
+  input event, a set still building or a model loading), and draws one frame a second regardless; explore mode and a
+  headset are untouched. `labelRead()` (in the `_placed` part) reads the panel's and the bar's places at the start of
+  the frame, before anything is written; `placeLabels` reads them itself when the frame did not.
 - A reviewer's notes kept as they were, not fixed: pet's headset story panel draws uncoloured points in ink where its
   page shows amber (`XR_STEP_COL = ''`), and nmd measures a chip in the font of the one before (`FLOW_BOLD = false`).
 

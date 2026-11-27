@@ -46,9 +46,9 @@ function xrPlace(v) {
   XR.R = R;
   GL.world.scale.setScalar(R);
 }
-//#use xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf
+//#use xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards xrAllHere xrCaption _fq yawOf
 //#use xrQ xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings LBL_STYLE labelWords labelPaint labelTex labelRedraw
-//#use labelSprite labelSign dropSprite hideLabelXR placeLabelXR xrLabelH xrTip _prc pickRay xrController xrLetGo buzz
+//#use labelSprite labelSign dropSprite hideLabelXR placeLabelXR xrLabelH xrTip _prc pickMemo pickRay xrController xrLetGo buzz
 //#use rayAngles startDrag dragGlobe xrPress xrPressScene xrRelease xrReleaseScene xrGrab xrGrabScene _gq carry
 //#use xrCarryScene xrResize xrPoint xrBallHit xrSceneHit xrDrag xrSticks _xUp xrBegin xrPosed xrPointed xrUpdate
 //#use xrExtraAlpha xrClickPick xrMinD xrZoom xrMsg xrStart xrOnReset xrEnterScene xrOnEnter xrStars XR_AWAY_MS

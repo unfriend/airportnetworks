@@ -72,7 +72,7 @@ const APP = {
 
 //#use lastNow EXV
 const frameLife = () => false, frameLow = () => {}, frameFloor = () => {};   // (frame: nothing life size, low or on a floor)
-//#use frame applyTheme LOAD init loadStep warm
+//#use pageIdle frame applyTheme LOAD init loadStep warm
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {
   GL.sets.cell.onBuild = GL.sets.cell.onFocus = () => renderAll();   // (the pane's count of what is drawn, once the set has built it)

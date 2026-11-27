@@ -11,7 +11,7 @@ function xrPlace(v) {
   XR.globeBase.set(0, -eye, 0);
 }
 //#use xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels
-//#use xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose
+//#use xrRoomOnly xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose
 //#use xrRigTurn xrFace xrSettings LBL_STYLE labelWords labelPaint labelTex labelRedraw labelSprite labelSign
 //#use dropSprite hideLabelXR placeLabelXR xrLabelH~2 xrTip~2 xrController xrLetGo buzz xrPress
 // the trigger on the sky sends a falcon where you point

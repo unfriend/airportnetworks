@@ -14,7 +14,7 @@ function xrPlace(v) {
   XR.globeBase.set(0, y, 0);
 }
 //#use xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels
-//#use xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose
+//#use xrRoomOnly xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose
 //#use xrRigTurn xrFace xrSettings LBL_STYLE labelWords labelPaint labelTex labelRedraw labelSprite labelSign
 //#use dropSprite hideLabelXR placeLabelXR xrLabelH~2 xrTip~2 xrController xrLetGo buzz xrPress
 // the trigger on a node sends a signal from it (the target only lights while your ray is on it)

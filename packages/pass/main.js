@@ -5462,10 +5462,19 @@ function labelPos(L, out) {
 // labels on screen: pinned next to their point, nudged down where they would overlap, and
 // kept clear of the side panel, the timeline and the edge of the screen
 const _placed = [];
+// (v224) where the side panel and the timeline are, read at the start of a page's frame (labelRead, frame), before the
+// frame writes anything, so the read finds the layout done and forces none; placeLabels reads them itself in a frame
+// that did not (the stories with frames of their own)
+const LRECT = { f: -1, pr: null, bar: 0 };
+function labelRead() {
+  LRECT.f = window.__frames || 0;
+  LRECT.pr = $('#panel').getBoundingClientRect(); LRECT.bar = $('#bar').getBoundingClientRect().top || window.innerHeight;
+}
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
   const vis = [], W = window.innerWidth, H = window.innerHeight;
-  const pr = $('#panel').getBoundingClientRect(), barTop = $('#bar').getBoundingClientRect().top || H;
+  if (LRECT.f !== (window.__frames || 0)) labelRead();
+  const pr = LRECT.pr, barTop = LRECT.bar;
   for (const L of list) {
     let o = Math.round(alphaOf(L) * 100) / 100, x = 0, y = 0;
     if (o > 0) {
@@ -6433,19 +6442,35 @@ function xrIdle(xr, dt) {
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
 }
+// (v224) something made after the load (a label's sprite or sign, a set's late mesh), compiled at once with the scene's
+// lights and its textures sent to the card, not on the frame that first shows it: three.js r128 keys every program by
+// the scene's light counts, an unlit material's too, so one compiled in a scene without lights was linked again there.
+// Returns o
+function compileLate(o) {
+  const r = GL.renderer;
+  if (!r || !o || !GL.scene) return o;
+  const sc = compileLate.sc || (compileLate.sc = new THREE.Scene());
+  try {
+    sc.children = GL.scene.children.filter(x => x.isLight).concat({ traverse: f => o.traverse(f), traverseVisible() {} });
+    r.compile(sc, GL.camera);
+    o.traverse(x => { for (const m of [].concat(x.material || [])) if (m.map && m.map.image) r.initTexture(m.map); });
+  } catch (e) { /* compiled on first use instead */ }
+  sc.children = [];
+  return o;
+}
 // the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
-// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
-// material that uses it does), a handful of objects
+// sign or panel, a panel on top, a controller's dot and ray, with the scene's lights (compileLate, v224). Kept (never
+// disposed: a compiled program goes when the last material that uses it does), a handful of objects
 function xrWarm() {
   try {
-    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    const sc = new THREE.Group(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
     sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
-    GL.renderer.compile(sc, GL.camera);
+    compileLate(sc);
     XR.warmed = sc;
   } catch (e) { /* compiled on first use instead */ }
 }
@@ -6555,7 +6580,7 @@ function labelSprite(L) {
   sp.renderOrder = t.tip ? 11 : 10;
   sp.userData.aspect = t.aspect;
   sp.center.set(-0.35 / sp.userData.aspect, 0.5);
-  GL.world.add(sp);
+  GL.world.add(compileLate(sp));
   return (L.sprite = sp);
 }
 // labels in 3D: a flat sign at the sprite's place and size, turned to you each frame, readable from both sides (a quad facing +z and one facing
@@ -6571,7 +6596,7 @@ function labelSign(L) {
   const sg = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t.tex, transparent: true, alphaTest: 0.1 }));
   sg.renderOrder = -1;
   sg.userData.aspect = t.aspect;
-  GL.world.add(sg);
+  GL.world.add(compileLate(sg));
   return (L.sign = sg);
 }
 function dropSprite(L) {
@@ -6622,10 +6647,33 @@ function xrTip(S) {
 // ------------------------------------------------------------- picking --
 // What a ray points at in explore mode (the story's pickWith), or null
 const _prc = new THREE.Raycaster();
+// (v224) a headset points each controller every frame: a ray that has not moved, over a scene that has not moved or
+// changed, is not tested again (pickRay; fn(a, b) tests it). Its key: the ray, the world's and every set's matrices and
+// what the story's pickSig(out) adds (what can be picked; false: test this ray); a story without pickSig tests every
+// ray, as before. Two keys are kept, one a controller (a miss takes the place of the one used longer ago)
+const PKM = { k: [[], []], r: [null, null], u: [0, 0], t: [], n: 0 };
+function pickMemo(o, d, fn, a, b) {
+  const K = PKM.t;
+  K.length = 0;
+  if (typeof pickSig !== 'function' || pickSig(K) === false) return fn(a, b);
+  K.push(o.x, o.y, o.z, d.x, d.y, d.z);
+  for (const e of GL.world.matrixWorld.elements) K.push(e);
+  for (const k of SET_ORDER) for (const e of GL.sets[k].group.matrixWorld.elements) K.push(e);
+  for (let j = 0; j < 2; j++) {
+    const P = PKM.k[j];
+    if (P.length !== K.length) continue;
+    let same = true;
+    for (let i = 0; i < K.length && same; i++) same = P[i] === K[i];
+    if (same) { PKM.u[j] = ++PKM.n; return PKM.r[j]; }
+  }
+  const j = PKM.u[0] <= PKM.u[1] ? 0 : 1, r = fn(a, b);
+  PKM.t = PKM.k[j]; PKM.k[j] = K; PKM.r[j] = r; PKM.u[j] = ++PKM.n;
+  return r;
+}
 function pickRay(o, d) {
   if (APP.mode !== 'explore') return null;
   _prc.set(o, d);
-  return pickWith(_prc);
+  return pickMemo(o, d, pickWith, _prc);
 }
 
 // ----------------------------------------------------------- controllers --

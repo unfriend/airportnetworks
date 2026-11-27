@@ -68,7 +68,7 @@ function xrPlace(v) {
   GL.world.scale.setScalar(R);
 }
 //#use xrPlaceLife
-//#use xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere
+//#use xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards xrAllHere
 //#use xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings LBL_STYLE labelWords labelPaint labelTex labelRedraw labelSprite labelSign
 //#use dropSprite hideLabelXR placeLabelXR xrLabelH
 // the protein a controller points at, labelled where the ray meets it
@@ -83,7 +83,7 @@ function xrTip(S) {
   }
   if (XR.tip) { GL.sets[XR.tip.set].group.worldToLocal(_xp.copy(h.point)); XR.tip.at = [_xp.x, _xp.y, _xp.z]; placeLabelXR(XR.tip, 1, S); }
 }
-//#use _prc pickRay xrController xrLetGo buzz rayAngles startDrag dragGlobe xrPress xrPressScene xrRelease xrReleaseScene xrGrab xrGrabScene _gq carry
+//#use _prc pickMemo pickRay xrController xrLetGo buzz rayAngles startDrag dragGlobe xrPress xrPressScene xrRelease xrReleaseScene xrGrab xrGrabScene _gq carry
 //#use xrCarryScene xrResize xrPoint
 // the scene counts as a ball around the view's target; a protein counts if the ray passes close (pickRay): a pick with a
 // point of its own is marked there, else the ball's surface

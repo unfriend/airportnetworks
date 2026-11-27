@@ -64,7 +64,7 @@ const APP = {
 };
 
 //#use lastNow
-//#use frame~2
+//#use pageIdle frame~2
 //#use applyTheme LOAD init loadStep warm
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {

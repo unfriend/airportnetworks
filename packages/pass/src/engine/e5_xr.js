@@ -7,12 +7,12 @@ Object.assign(XR, { lifeOff: new THREE.Vector3(), lifeTo: new THREE.Vector3(), l
 //#use _xd _xq2 _xa _xX xrPlace xrPlaceLife xrCap xrRecenterAsk xrRecenter
 // the sea back at your own eye height (never the station's sea)
 function xrLifeHome() { XR.lifeTo.set(0, 0, 0); if (!seaSt()) XR.lifeOff.set(0, 0, 0); }
-//#use xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards
+//#use xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards
 //#use xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings LBL_STYLE labelWords
 //#use labelPaint labelTex labelRedraw labelSprite labelSign dropSprite hideLabelXR placeLabelXR
 // (2.1 cm tall at arm's length, the same size to the eye further off: the school's labels may be metres away)
 function xrLabelH(sp) { return 0.021 * Math.max(1, sp.position.distanceTo(XR.camLocal) * XR.R) / XR.R; }
-//#use xrTip _prc pickRay xrController xrLetGo buzz rayAngles startDrag dragGlobe xrPress
+//#use xrTip _prc pickMemo pickRay xrController xrLetGo buzz rayAngles startDrag dragGlobe xrPress
 function xrPressScene(c, h) {
   if (h.kind === 'sea') {
     // among the fish in explore mode the trigger is the shark: held, it leads the shark where you point (Be the

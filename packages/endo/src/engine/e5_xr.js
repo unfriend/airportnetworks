@@ -15,7 +15,7 @@ function xrPlaceLife(v) {
   return true;
 }
 //#use xrCap~2 XR_NEAR _xsm xrKey xrDrawn xrSampler _xjob xrPrep xrClear xrRecenterAsk xrRecenter xrLifeHome xrLabelMode
-//#use xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere
+//#use xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards xrAllHere
 //#use xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace xrSettings LBL_STYLE labelWords labelPaint
 //#use labelTex labelRedraw labelSprite labelSign dropSprite hideLabelXR placeLabelXR xrLabelH xrTip _prc
 // the genes and endotypes a ray points at only while the network or the tree is on show: { gene } or { endo }

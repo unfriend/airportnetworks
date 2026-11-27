@@ -168,11 +168,20 @@ function labelPos(L, out) {
 // labels on screen: pinned next to their point, nudged down where they would overlap, and
 // kept clear of the side panel, the timeline and the edge of the screen
 const _placed = [];
+// (v224) where the side panel and the timeline are, read at the start of a page's frame (labelRead, frame), before the
+// frame writes anything, so the read finds the layout done and forces none; placeLabels reads them itself in a frame
+// that did not (the stories with frames of their own)
+const LRECT = { f: -1, pr: null, bar: 0 };
+function labelRead() {
+  LRECT.f = window.__frames || 0;
+  LRECT.pr = $('#panel').getBoundingClientRect(); LRECT.bar = $('#bar').getBoundingClientRect().top || window.innerHeight;
+}
 //#part placeLabels
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
   const vis = [], W = window.innerWidth, H = window.innerHeight;
-  const pr = $('#panel').getBoundingClientRect(), barTop = $('#bar').getBoundingClientRect().top || H;
+  if (LRECT.f !== (window.__frames || 0)) labelRead();
+  const pr = LRECT.pr, barTop = LRECT.bar;
   for (const L of list) {
     let o = Math.round(alphaOf(L) * 100) / 100, x = 0, y = 0;
     if (o > 0) {
@@ -471,7 +480,8 @@ function buildSetLabels() {
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
   const vis = [], W = window.innerWidth, H = window.innerHeight;
-  const pr = $('#panel').getBoundingClientRect(), barTop = $('#bar').getBoundingClientRect().top || H;
+  if (LRECT.f !== (window.__frames || 0)) labelRead();
+  const pr = LRECT.pr, barTop = LRECT.bar;
   for (const L of list) {
     let o = Math.round(alphaOf(L) * 100) / 100, x = 0, y = 0;
     if (o > 0) {

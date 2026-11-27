@@ -1100,7 +1100,7 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
     if (p && 'heat' in p) pending.heatId = ++heatId;
   }
   const offT = new Float64Array(LN).fill(-1e9), offOn = new Uint8Array(LN);
-  let sig = null, tChange = 0, lastT = 0;
+  let sig = null, tChange = 0, lastT = 0, offV = 0;
   // drop order: a fixed random order, the last five are protein layers (so the module has somewhere to stay lit)
   const DROP = (() => {
     const R = rng(1645), sh = a => { for (let k = a.length - 1; k > 0; k--) { const j = Math.floor(R() * (k + 1)); [a[k], a[j]] = [a[j], a[k]]; } return a; };
@@ -1122,7 +1122,7 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
       if ('walk' in p) state.walk = !!p.walk;
       if ('off' in p) {
         const nu = new Set(p.off ? [...p.off].map(Number) : []);
-        for (let l = 0; l < LN; l++) { const v = nu.has(l) ? 1 : 0; if (v !== offOn[l]) { offOn[l] = v; offT[l] = t; } }
+        for (let l = 0; l < LN; l++) { const v = nu.has(l) ? 1 : 0; if (v !== offOn[l]) { offOn[l] = v; offT[l] = t; offV++; } }
         state.off = nu;
       }
     }
@@ -1245,12 +1245,13 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
   }
 
   // ---------------------------------------------------------------- explore API helpers
+  const PKV = new Float32Array(N), PKXZ = new Float32Array(2 * N), _pkp = [0, 0];
   function pick(origin, dir) {
     const A = v => (Array.isArray(v) ? v : [v.x, v.y, v.z]), o = A(origin), d0 = A(dir), dl = Math.hypot(d0[0], d0[1], d0[2]) || 1;
     const d = [d0[0] / dl, d0[1] / dl, d0[2] / dl];
     let best = -1, bs = 1e9;
-    const vis = new Float32Array(N), xz = new Float32Array(2 * N);
-    for (let i = 0; i < N; i++) { vis[i] = geneVis(i); const p = genePos(i); xz[2 * i] = p[0]; xz[2 * i + 1] = p[1]; }
+    const vis = PKV, xz = PKXZ;   // (kept: no arrays made per ray, v224)
+    for (let i = 0; i < N; i++) { vis[i] = geneVis(i); const p = genePosTo(i, _pkp); xz[2 * i] = p[0]; xz[2 * i + 1] = p[1]; }
     for (let l = 0; l < LN; l++) {
       if (LCONT[l] < 0.2) continue;
       const y = LYC[l];
@@ -1420,6 +1421,9 @@ void main() { float d = length(gl_PointCoord - 0.5); float a = smoothstep(0.5, 0
     params, update, anchors, labels, cam, controls, explore,
     genes, groups, layers, ppi: D.ppi.slice(), N, edgeCount, pairs: EW.length / 2,
     endoCount: GR.reduce((s, G) => s + G.endo.length, 0), endoColour, state, setState, walk, pick, links: linksOf, linkStats,
+    // (for the engine's pick memo, v224: the selection's look and the layers knocked out, and whether its cross-fade and
+    // the layers' fades are over, as of the last update: only then does the tower stand still on the clock)
+    pickState: () => sig + '|' + offV, settled: () => lastT - tChange >= 0.7 && offT.every(o => lastT - o >= 0.5),
     members: g => (MEM[g] || []).slice(), seeds: g => (SEEDS[g] || []).slice(), endoGenes: (g, c) => ((ENDO[g] && ENDO[g][c]) || []).slice(),
     heatOf: g => (HEAT[g] ? HEAT[g].slice() : null), genePos,
     pair: { left: PGL, right: PGR, both: BOTH.slice(), endo: pairEndo, glow: GLOW_KEYS.slice(), shareMin: SHARE_MIN },
@@ -3745,10 +3749,19 @@ function labelPos(L, out) {
 // labels on screen: pinned next to their point, nudged down where they would overlap, and
 // kept clear of the side panel, the timeline and the edge of the screen
 const _placed = [];
+// (v224) where the side panel and the timeline are, read at the start of a page's frame (labelRead, frame), before the
+// frame writes anything, so the read finds the layout done and forces none; placeLabels reads them itself in a frame
+// that did not (the stories with frames of their own)
+const LRECT = { f: -1, pr: null, bar: 0 };
+function labelRead() {
+  LRECT.f = window.__frames || 0;
+  LRECT.pr = $('#panel').getBoundingClientRect(); LRECT.bar = $('#bar').getBoundingClientRect().top || window.innerHeight;
+}
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
   const vis = [], W = window.innerWidth, H = window.innerHeight;
-  const pr = $('#panel').getBoundingClientRect(), barTop = $('#bar').getBoundingClientRect().top || H;
+  if (LRECT.f !== (window.__frames || 0)) labelRead();
+  const pr = LRECT.pr, barTop = LRECT.bar;
   for (const L of list) {
     let o = Math.round(alphaOf(L) * 100) / 100, x = 0, y = 0;
     if (o > 0) {
@@ -4723,19 +4736,35 @@ function xrIdle(xr, dt) {
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
 }
+// (v224) something made after the load (a label's sprite or sign, a set's late mesh), compiled at once with the scene's
+// lights and its textures sent to the card, not on the frame that first shows it: three.js r128 keys every program by
+// the scene's light counts, an unlit material's too, so one compiled in a scene without lights was linked again there.
+// Returns o
+function compileLate(o) {
+  const r = GL.renderer;
+  if (!r || !o || !GL.scene) return o;
+  const sc = compileLate.sc || (compileLate.sc = new THREE.Scene());
+  try {
+    sc.children = GL.scene.children.filter(x => x.isLight).concat({ traverse: f => o.traverse(f), traverseVisible() {} });
+    r.compile(sc, GL.camera);
+    o.traverse(x => { for (const m of [].concat(x.material || [])) if (m.map && m.map.image) r.initTexture(m.map); });
+  } catch (e) { /* compiled on first use instead */ }
+  sc.children = [];
+  return o;
+}
 // the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
-// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
-// material that uses it does), a handful of objects
+// sign or panel, a panel on top, a controller's dot and ray, with the scene's lights (compileLate, v224). Kept (never
+// disposed: a compiled program goes when the last material that uses it does), a handful of objects
 function xrWarm() {
   try {
-    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    const sc = new THREE.Group(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
     sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
-    GL.renderer.compile(sc, GL.camera);
+    compileLate(sc);
     XR.warmed = sc;
   } catch (e) { /* compiled on first use instead */ }
 }
@@ -4845,7 +4874,7 @@ function labelSprite(L) {
   sp.renderOrder = t.tip ? 11 : 10;
   sp.userData.aspect = t.aspect;
   sp.center.set(-0.35 / sp.userData.aspect, 0.5);
-  GL.world.add(sp);
+  GL.world.add(compileLate(sp));
   return (L.sprite = sp);
 }
 // labels in 3D: a flat sign at the sprite's place and size, turned to you each frame, readable from both sides (a quad facing +z and one facing
@@ -4861,7 +4890,7 @@ function labelSign(L) {
   const sg = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t.tex, transparent: true, alphaTest: 0.1 }));
   sg.renderOrder = -1;
   sg.userData.aspect = t.aspect;
-  GL.world.add(sg);
+  GL.world.add(compileLate(sg));
   return (L.sign = sg);
 }
 function dropSprite(L) {
@@ -4909,12 +4938,47 @@ function xrTip(S) {
 }
 
 // ------------------------------------------------------ picking a gene --
-// The gene nearest a ray given in the world's own coordinates (explore mode, tower on show)
+// The gene nearest a ray given in the world's own coordinates (explore mode, tower on show); a ray that has not moved,
+// over a tower that has not changed, is not tested again (pickMemo, pickSig)
 const _pinv = new THREE.Matrix4(), _po = new THREE.Vector3(), _pd = new THREE.Vector3();
+// (v224) a headset points each controller every frame: a ray that has not moved, over a scene that has not moved or
+// changed, is not tested again (pickRay; fn(a, b) tests it). Its key: the ray, the world's and every set's matrices and
+// what the story's pickSig(out) adds (what can be picked; false: test this ray); a story without pickSig tests every
+// ray, as before. Two keys are kept, one a controller (a miss takes the place of the one used longer ago)
+const PKM = { k: [[], []], r: [null, null], u: [0, 0], t: [], n: 0 };
+function pickMemo(o, d, fn, a, b) {
+  const K = PKM.t;
+  K.length = 0;
+  if (typeof pickSig !== 'function' || pickSig(K) === false) return fn(a, b);
+  K.push(o.x, o.y, o.z, d.x, d.y, d.z);
+  for (const e of GL.world.matrixWorld.elements) K.push(e);
+  for (const k of SET_ORDER) for (const e of GL.sets[k].group.matrixWorld.elements) K.push(e);
+  for (let j = 0; j < 2; j++) {
+    const P = PKM.k[j];
+    if (P.length !== K.length) continue;
+    let same = true;
+    for (let i = 0; i < K.length && same; i++) same = P[i] === K[i];
+    if (same) { PKM.u[j] = ++PKM.n; return PKM.r[j]; }
+  }
+  const j = PKM.u[0] <= PKM.u[1] ? 0 : 1, r = fn(a, b);
+  PKM.t = PKM.k[j]; PKM.k[j] = K; PKM.r[j] = r; PKM.u[j] = ++PKM.n;
+  return r;
+}
 function pickRay(o, d) {
   if (APP.mode !== 'explore' || X.scene !== 'tower' || !TW().pick) return -1;
+  return pickMemo(o, d, pickTower, o, d);
+}
+function pickTower(o, d) {
   _pinv.copy(TW().group.matrix).invert();
   return TW().pick(_po.copy(o).applyMatrix4(_pinv), _pd.copy(d).transformDirection(_pinv));
+}
+// what can be picked (pickMemo's key): the tower's params and its selection's look, once it has settled (still: no
+// cross-fade or layer fading, which follow the clock)
+function pickSig(out) {
+  const T = TW();
+  if (!T.settled || !T.settled()) return false;
+  out.push(T.pickState());
+  for (const n in XS) out.push(XS[n]);
 }
 
 // ----------------------------------------------------------- controllers --
@@ -6392,6 +6456,32 @@ const APP = {
 
 let lastNow = 0;
 const NEXT = [];   // (frame: what explore mode asks to do once the sets show its pick; nothing here)
+// (v224) a page at rest draws nothing, as a headset away from its station does (xrIdle): a paused story, its frame
+// once drawn (a set's look depends only on its params and the time), is not worked out or drawn again until something
+// changes: the story's time, mode or play, the window's size, the page's classes, theme or clear colour (focus mode,
+// the panels, the look), any input on the page (pointer, wheel, keys, a control), a load step, a set still building, a
+// model still loading; and at least once a second (a file that came meanwhile). Sets on their way to the card (PRIME) go
+// on in the quiet frames, off screen. The clock, the slideshow, the sound effects and the narration go on every frame;
+// explore mode and a headset draw every frame, as before
+const PAGE = { v: [], at: 0, wake: 1, on: false };
+const pageWake = () => { PAGE.wake = 1; };
+const pageBusy = () => (typeof molWait === 'function' && molWait()) ||
+  SET_ORDER.some(k => { const s = GL.sets[k]; return !!(s && s.idle && s.buildPend !== false && (s.buildPend = s.idle(0, 0) !== false)); });
+function pageIdle(now, dt) {
+  if (!PAGE.on) { PAGE.on = true; for (const e of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'input', 'change', 'resize', 'focus', 'touchstart']) window.addEventListener(e, pageWake, { capture: true, passive: true }); }
+  const V = PAGE.v, b = document.body, h = document.documentElement, cc = GL.renderer.getClearColor(_pgc).getHex() + GL.renderer.getClearAlpha();
+  const same = V[0] === APP.t && V[1] === APP.mode && V[2] === APP.playing && V[3] === window.innerWidth && V[4] === window.innerHeight &&
+    V[5] === window.devicePixelRatio && V[6] === b.className && V[7] === h.className && V[8] === h.getAttribute('data-theme') && V[9] === cc;
+  if (same && !PAGE.wake && APP.mode === 'story' && !APP.playing && LOAD.done && now - PAGE.at < 1000 && !pageBusy()) {
+    if (typeof PRIME !== 'undefined' && PRIME.q.length && typeof primeStep === 'function') primeStep(dt);   // (the quiet frames send the sets to the card meanwhile: off screen)
+    return true;
+  }
+  V[0] = APP.t; V[1] = APP.mode; V[2] = APP.playing; V[3] = window.innerWidth; V[4] = window.innerHeight;
+  V[5] = window.devicePixelRatio; V[6] = b.className; V[7] = h.className; V[8] = h.getAttribute('data-theme'); V[9] = cc;
+  PAGE.at = now; PAGE.wake = 0;
+  return false;
+}
+const _pgc = new THREE.Color();
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
   lastNow = now;
@@ -6411,6 +6501,8 @@ function frame(now, xrFrame) {
   // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();
+  if (!xr && pageIdle(now, dt)) { window.__frames = (window.__frames || 0) + 1; return; }   // (a page at rest: nothing changed, nothing drawn)
+  if (!xr) labelRead();   // (the panel's and the timeline's places, before the frame writes anything: placeLabels)
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;

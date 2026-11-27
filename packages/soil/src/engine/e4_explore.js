@@ -417,6 +417,9 @@ function renderNetwork() {
 //#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { kind } (a kind of the cloud or
 // the network) or { plot } (a plot of the field), or null
+// what can be picked (the engine's pickMemo, v224): the scene and explore's params, from which alone the field and the
+// microbes place what they pick
+function pickSig(out) { out.push(X.scene); for (const n in XS) out.push(XS[n]); }
 function pickWith(rc) {
   if (APP.mode !== 'explore' || !['field', 'net'].includes(X.scene)) return null;
   const A = api(X.scene);

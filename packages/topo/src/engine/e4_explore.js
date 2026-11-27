@@ -379,6 +379,9 @@ function renderCells() {
 //#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at in the scene on show: { slide } (of the cohort),
 // { cell } (of the new slide's window), { tcell }, { loop } or { bar, dim } (of the patch), or null
+// what can be picked (the engine's pickMemo, v224): the scene and explore's params, from which alone the tower, the cohort
+// and the map place what they pick (the clock only sways the cohort's slides and pulses the dome)
+function pickSig(out) { out.push(X.scene); for (const n in XS) out.push(XS[n]); }
 function pickWith(rc) {
   if (APP.mode !== 'explore' || !['tower', 'cohort', 'map'].includes(X.scene)) return null;
   const A = api(X.scene);

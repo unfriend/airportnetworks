@@ -78,7 +78,7 @@ function openStart() {
 
 //#use lastNow EXV~2
 const frameLife = () => false, frameFloor = () => {};   // (frame: nothing life size or on a floor)
-//#use frameLow frame applyTheme LOAD init loadStep warm
+//#use frameLow pageIdle frame applyTheme LOAD init loadStep warm
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {
   LBL.storyAll = ST.labels.concat(LBL.sets);

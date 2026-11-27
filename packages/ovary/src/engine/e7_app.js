@@ -82,7 +82,7 @@ function openStart() {
 
 //#use lastNow EXV
 const frameLife = () => false, frameLow = () => {}, frameFloor = () => {};   // (frame: nothing life size, low or on a floor)
-//#use frame applyTheme LOAD
+//#use pageIdle frame applyTheme LOAD
 function init() {
   const S = LOAD.steps, n = SET_ORDER.length;
   S.push(['Setting up the scene', () => buildScene($('#gl')), true]);

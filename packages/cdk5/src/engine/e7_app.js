@@ -54,7 +54,7 @@ function openStart() {
   renderAll();
 }
 
-//#use lastNow EXV~2
+//#use lastNow EXV~2 pageIdle
 // a frame of the story or of explore mode (the engine's, with the story's own lines: explore's views are the net's,
 // sceneCam, and in a headset the map may stand round you, XR.inW)
 function frame(now, xrFrame) {
@@ -76,6 +76,8 @@ function frame(now, xrFrame) {
   // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();
+  if (!xr && pageIdle(now, dt)) { window.__frames = (window.__frames || 0) + 1; return; }   // (a page at rest: nothing changed, nothing drawn)
+  if (!xr) labelRead();   // (the panel's and the timeline's places, before the frame writes anything: placeLabels)
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts); tSet = ts;

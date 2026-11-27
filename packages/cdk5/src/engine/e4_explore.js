@@ -362,6 +362,13 @@ function updateExtraLabels() {}
 //#use _rc
 // what a ray (a THREE.Raycaster in world coordinates) points at: a ball of the core first, else a protein of the map;
 // { p: its index, k: the set that found it } or null
+// what can be picked (the engine's pickMemo, v224): explore's params and where the viewer is (the net's veil and the
+// core's nearness follow it: _eye, updateSets); not while CDK5 pulses (its ball's size follows the clock)
+function pickSig(out) {
+  if ((XS.core_a || 0) >= 0.5 && (XS.core_hyper || 0) > 0) return false;
+  out.push(_eye.x, _eye.y, _eye.z);
+  for (const n in XS) out.push(XS[n]);
+}
 function pickWith(rc) {
   if (APP.mode !== 'explore') return null;
   for (const k of ['core', 'net']) {

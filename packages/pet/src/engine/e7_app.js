@@ -83,7 +83,7 @@ function openNetworks() {
 // scanner's)
 const frameLife = () => X.life && X.scene === 'scan', frameLow = () => {};
 const frameFloor = S => { if (XR.on && !XR.clear && 'scan_floor' in S) S.scan_floor = 0; };
-//#use frame
+//#use pageIdle frame
 //#use applyTheme LOAD init loadStep warm
 // the rest of the start, the load's last step: the story's listeners, a link's place, the frame loop
 function initEnd() {

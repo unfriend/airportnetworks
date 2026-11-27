@@ -18,7 +18,7 @@ function xrPlaceLife(v) {
   return true;
 }
 //#use xrCap xrRecenterAsk xrRecenter xrLifeHome xrLabelMode xrCardMode xrFreeOn xrSig xrWalking xrPanels xrRoomOnly
-//#use xrAway _xrNoWalk xrIdle xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace
+//#use xrAway _xrNoWalk xrIdle compileLate xrWarm xrCards xrAllHere xrCaption _fq yawOf xrQ xrSceneRot xrPanelPose xrRigTurn xrFace
 //#use xrSettings LBL_STYLE labelWords labelPaint labelTex labelRedraw labelSprite labelSign dropSprite hideLabelXR
 //#use placeLabelXR
 function xrLabelH() { return (xrLife() ? 0.036 : 0.021) / XR.R; }   // (life size: the labels are further away)
