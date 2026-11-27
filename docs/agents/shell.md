@@ -23,7 +23,7 @@
 - 856: Phones and tablets (`HOST.handheld`) (6.1 KB)
 - 915: Panels per story (1.4 KB)
 - 936: Developer mode (`HOST.dev`) (4.5 KB)
-- 979: Sound belongs to the shell (`HOST.audio`) (7.0 KB)
+- 979: Sound belongs to the shell (`HOST.audio`) (7.1 KB)
 - 1060: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
 - 1105: The two sound switches and the narration switch (4.4 KB)
 - 1158: What plays when, and the background (2.3 KB)
@@ -1033,7 +1033,7 @@ repeat the above (the `sfxCue`, `sfxHold`, `sfxAct` and `sfxLive` line, the narr
     *Sound on* or *Play sound*). The start page, with no story (v219), has it too: since v227 `HOST.audio`'s
     `changed()` runs once as the shell boots (it creates and starts nothing), so the button, the bar's icon and focus
     mode's Sound show this device's choice before any card; a press there is kept and the story then picked plays or
-    stays silent accordingly. `#sound=on|off` in a link sets it (saved).
+    stays silent accordingly (audio.mjs checks the button, the icon and focus mode's Sound there, sound stored off and on). `#sound=on|off` in a link sets it (saved).
     *Play sound* (and any press while loading with the sound on) only starts the
     engines; it never mutes. Reset in Sound check turns both mutes off. The Narration switch (`HOST.xr.voice()`, the narration that applies now; see "The two sound switches and the narration switch") is a second, finer way to silence it:
     `sync` plays nothing and `speaking()` is false while it is off, so the story

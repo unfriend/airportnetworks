@@ -323,19 +323,38 @@ await step('sound off by default: the choice kept across a reload, on and off', 
 await page.close();
 // (v227) the Sound button pressed on the start page, before any story: the choice is kept, and the story then picked
 // plays with sound; the press starts no story and fetches no narration
+// (the button, the narrow bar's icon and focus mode's Sound together: label, the icons' look, hidden, each icon's look and hidden)
+const icons = () => page.evaluate(() => { const b = document.getElementById('btnSound'), i = document.getElementById('btnSoundIco'), f = document.getElementById('fcSound'); return [b.textContent, i.dataset.s, i.hidden, f.dataset.s, f.hidden].join('|'); });
 page = await open(base, '', { narrationMuted3: null });
 await step('sound off by default: Sound pressed on the start page, then a card: the story plays with sound', async () => {
   await page.waitForSelector('#picker .card[data-story="airports"]', { timeout: 30000 });
   const p0 = await probe();
   if (p0.ctx === 'running') throw new Error('a running context before any tap: ' + JSON.stringify(p0));
+  const i0 = await icons();
+  if (i0 !== 'Sound off|off|false|off|false') throw new Error('the bar\'s icon or focus mode\'s Sound before the press: ' + i0);
   await page.click('#btnSound');
   const a = await page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, localStorage.getItem('narrationMuted3'), HOST.cur === null].join(); });
   if (a !== 'false,false,0,true') throw new Error('after the press on the start page: ' + a);
+  const i1 = await icons(), l1 = await page.textContent('#btnSound');
+  if (i1 !== [l1, l1 === 'Sound on' ? 'on' : 'wait', false, l1 === 'Sound on' ? 'on' : 'wait', false].join('|')) throw new Error('the bar\'s icon or focus mode\'s Sound after the press (' + l1 + '): ' + i1);
   const fetched = page.fetched.filter(u => /\/packages\/[^/]+\/(main\.js|audio\/)/.test(u));
   if (fetched.length) throw new Error('the press fetched a story: ' + JSON.stringify(fetched));
   await page.click('#picker .card[data-story="airports"]');
   await playing('Sound pressed on the start page, then the card');
   console.log('ok   Sound pressed on the start page: sound on (saved), no story fetched; the card then played with sound');
+});
+await page.close();
+// (v227) a device that chose sound on before: its start page says Play sound (not pressed, nothing changed until a tap),
+// and the narrow bar's icon and focus mode's Sound say the same
+page = await open(base, '', { narrationMuted3: '0' });
+await step('sound chosen on before: the start page says Play sound, the icons too', async () => {
+  await page.waitForSelector('#picker .card[data-story="airports"]', { timeout: 30000 });
+  const a = await page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, b.textContent, b.getAttribute('aria-pressed'), localStorage.getItem('narrationMuted3')].join(); });
+  if (!/^false,false,Play sound,(false|null),0$/.test(a)) throw new Error('the start page of a device with sound on: ' + a);
+  const i = await icons();
+  if (i !== 'Play sound|wait|false|wait|false') throw new Error('the bar\'s icon or focus mode\'s Sound: ' + i);
+  // (the icons' look, not their display: the bar's icon shows only on a handheld device (#top.sndico), which this page is not)
+  console.log('ok   sound chosen on before: Play sound on the start page, not pressed, nothing saved anew; the icons say the same');
 });
 await page.close();
 page = await open(base + '#airports&sound=on', '', { narrationMuted3: null });
