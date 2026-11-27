@@ -1,25 +1,22 @@
 {
-  "version": "networks-v226",
+  "version": "networks-v227",
   "date": "2026-11-27",
   "new": [
-    "Calibrating a room works again: since v218 the second cross made both crosses and their line vanish and the headset stayed not lined up. The cause is taken to be one of v218's savings (it is the only one in that path, and v217 works on the owner's headset); it could not be reproduced without a headset.",
-    "The studio's file is about a third smaller: its comments are left out, and the parts for converting models and for the page's arrows come only when they are needed.",
-    "Real-world occlusion and the spaceships now load when a headset session starts, or earlier on a device that can enter VR, or when someone in your room flies a ship; otherwise a phone or a laptop no longer fetches them.",
-    "A page that has run a while never takes these files from a newer release: it waits to be reloaded.",
-    "The developer notebook loads only once developer mode is on; a note left unsent while it is off goes once it is on again.",
-    "The headset's panels, Stories cards, menu and subtitles are made only once they are first drawn: on a laptop a story no longer makes about 27 of them (up to 50 MB had they been drawn)."
+    "The Sound button is on the start page again: since v219 it stayed hidden until a story was picked. It shows whether the sound is on or off on this device, and a press there is kept: the story you then pick plays with sound, or stays silent.",
+    "A room without a relay (peer to peer) no longer splits when the host's link to the introduction server drops for a moment: before, the host's changes then reached none of its guests. Now the room goes on as it was.",
+    "The exposome story (Invisible threads) in a headset: the scene no longer follows your head and the beams leave your hands (a fix sent after v226)."
   ],
   "test": [
-    "In a headset in a fresh room: Calibrate, place the two crosses; both and the line between them should stay and the room say it is lined up. If not, note the notice and the menu's line-up text right after the second trigger pull.",
-    "Open the studio, upload an FBX or OBJ model and convert it: it works as before.",
-    "In the studio's edit mode, select an item: the arrows still move and size it.",
-    "Turn developer mode on: the notebook's round button appears at the bottom right.",
-    "Open a story on a laptop and on a phone: it looks and plays as before."
+    "Open the start page on a fresh device: the Sound button is there before any story. Press it, then pick a story: it plays with sound.",
+    "In a room without a relay: turn the host's wifi off and on for a few seconds, then change something on the host: the guests should see the change.",
+    "The exposome story (Invisible threads) in VR and in AR: the scene stays put and the beams leave your hands.",
+    "Switch on occlusion, the spaceships and the notebook: each still appears (they load on demand since v226)."
   ],
   "untested": [
-    "Everything in a headset: nothing since v220 has been tried in one.",
-    "In a headset: real-world occlusion in AR, the spaceships (the right stick clicked twice), the notebook's B or Y held, and the menu, panels, cards and subtitles drawn from their first frame.",
-    "The calibration fix is untested: it rests on the bisect, not on a reproduction.",
+    "Everything in a headset since v220 except calibration, which the owner tried on v226: it works again.",
+    "The exposome fix is untested in a headset.",
+    "v226's parts loaded on demand (occlusion, spaceships, notebook) are untested in a headset.",
+    "The peer-to-peer fix was tried only with pretend devices on one machine.",
     "Every synthetic voice is unheard."
   ]
 }

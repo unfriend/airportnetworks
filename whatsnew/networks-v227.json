@@ -1,0 +1,22 @@
+{
+  "version": "networks-v227",
+  "date": "2026-11-27",
+  "new": [
+    "The Sound button is on the start page again: since v219 it stayed hidden until a story was picked. It shows whether the sound is on or off on this device, and a press there is kept: the story you then pick plays with sound, or stays silent.",
+    "A room without a relay (peer to peer) no longer splits when the host's link to the introduction server drops for a moment: before, the host's changes then reached none of its guests. Now the room goes on as it was.",
+    "The exposome story (Invisible threads) in a headset: the scene no longer follows your head and the beams leave your hands (a fix sent after v226)."
+  ],
+  "test": [
+    "Open the start page on a fresh device: the Sound button is there before any story. Press it, then pick a story: it plays with sound.",
+    "In a room without a relay: turn the host's wifi off and on for a few seconds, then change something on the host: the guests should see the change.",
+    "The exposome story (Invisible threads) in VR and in AR: the scene stays put and the beams leave your hands.",
+    "Switch on occlusion, the spaceships and the notebook: each still appears (they load on demand since v226)."
+  ],
+  "untested": [
+    "Everything in a headset since v220 except calibration, which the owner tried on v226: it works again.",
+    "The exposome fix is untested in a headset.",
+    "v226's parts loaded on demand (occlusion, spaceships, notebook) are untested in a headset.",
+    "The peer-to-peer fix was tried only with pretend devices on one machine.",
+    "Every synthetic voice is unheard."
+  ]
+}

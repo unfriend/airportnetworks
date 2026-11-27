@@ -11,9 +11,9 @@
 - 239: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
 - 306: Other tools (4.7 KB)
 - 331: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 340: Known red results on this machine (9.0 KB)
-- 376: Traps for a test writer (4.7 KB)
-- 424: Useful URL hashes and the console (4.8 KB)
+- 340: Known red results on this machine (7.6 KB)
+- 374: Traps for a test writer (4.7 KB)
+- 422: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -277,7 +277,7 @@ browser is launched again and a dead main relay restarted on its port; the run e
 | `--calib` | `calibRound` (not in the main run) | the owner's calibration alone in a fresh room in AR (limited menu, a new XRFrame each frame, the shell's frame before or after the story's): lined up, the crosses and their line on the spots |
 | `--places` | `placesRound` (main) | a calibration kept per room. Known red once: budget and one-anchor, see below |
 | `--areas` | `areasRound` (main) | more tape crosses in one room |
-| `--reload` (`--cases a,b`) | `reloadRound` (main) | rooms across updates and Update the room: six cases on its own relay on a free port (8712 before row K), restarted as a deploy. Known red: (5) under load, see below |
+| `--reload` (`--cases a,b`) | `reloadRound` (main) | rooms across updates and Update the room: six cases on its own relay on a free port (8712 before row K), restarted as a deploy. (5) was red until v227 (the app's: a peer-to-peer host hosted again on reconnecting) |
 | `--follow` | `personFollow` (main) | following a person; `--shots` saves the people list |
 | `--circles` | `headsetRound` (main) | the ten-headset round: cards, icons and name tags by the Cards setting, circles |
 | `--ask` | `askRound` (main) | circles asked first (the only devices without `collabAskDefault` = `walk`) |
@@ -349,7 +349,6 @@ written down in the repository: the first person to chase one writes it here and
 | collab `--walk` (`walkRound`): the `headAt` crash | fixed (row K, 27 November 2026) | the test's: the room-on-this-device block walked to the flock's station, and Arrange all never places Experiments, so `headAt(undefined)` threw. It walks to a station the room has |
 | collab main run, pretend-headset part: *headset: unused, the menu closes by itself; a ray resting on it keeps it open ...* (`idleHeld`) | flaky under load, row K's `--quick` | the test's: the ray counts as use only in a frame that finds its rest under 250 ms old (`shared.js` `hovOf`), and with `menuIdle(600)` one or two long software frames closed the menu. Since the review round the hold is 3.2 s against an idle time of 1.5 s; not yet run green at load |
 | collab main run: *a room on this device: Re-align ... the menu fits* | intermittent (red in two `--quick` runs of three) | the Circles tab drawn with only its header and tabs (vis 264 px, panel shown); cause not found. The check's detail now prints the rows drawn and whether the panel shows |
-| collab `--reload`, case (5): *peer to peer, an order from a guest* | red in five runs of five (four at a load average near 20, one alone at 3); a green full run at 3 is not explained by this cause | the app's (established 27 November 2026, not fixed: tests only): `shared.js` `claim()` (line 1409) runs `host()` on every PeerJS `open`, and PeerJS emits `open` again when `lost()` (line 1433) reconnects the host to the introduction server. So after a relay restart (or any drop of the host's socket to `/peerjs`) the host builds a second, empty `Hub` and `LocalSocket` (its log: a second *hosting*, then *welcome* with 1 member): its own writes go to the new hub alone, the guests stay linked to the old one, which still answers their pings. The check is right; the fix (in words): host only on the first `open` (`!this.hub`), a later one only logs the server back. Steps: `node tools/collab.mjs --reload --cases 5`; the check prints the room before the press (`preS`) |
 | collab `--token`: *the right one is accepted ... the field goes* | no longer (27 November 2026; red on v225 too) | the test's: the dialog redraws through `changed()` 60 ms after the password is accepted, about 45 ms after the room opens, and the field was read once at once (measured: open at 40 ms, field gone at 85 ms, read at 100-130 ms; a busy machine read it first). Now waited for, 5 s: it proves the field goes |
 | collab main run, pretend-headset part: *with tracked hands two quick pinches ... open and close the menu* | red once in the review round's `--quick` at a load average near 10 (`pinch2Closed` false, so every later pinch read the menu still open); green in the next run at 5 | timing under load: a pair must land within 0.4 s, on timers the loaded page runs late |
 | collab `--places`: the budget and one-anchor checks | red once (q10: `fit10` null, the *places fitted* log never came), green in four other runs | cause unknown |
@@ -363,7 +362,6 @@ written down in the repository: the first person to chase one writes it here and
 | smoke `phone ar`, *the welcome says how a phone points*: *the notice The menu said []* | no longer (27 November 2026; once in a block-by-block run) | the test's: *The menu* comes 2.5 s into the session only with the 3D menu closed (`shared.js`), and *The full menu* step had it open until about 100 ms before then. The first step now waits for the notice |
 | smoke `studio`, *studio v127: Play did not go on from where the slider held it*; `studio live`, *heard ... playing false* | once each in row K's full run (two blocks at a time, another builder's browsers too); green alone | timing under load (the live sound: the trap below, *the output page's live sound starves headlessly*) |
 | smoke `goggles: the game on a page`, *the game is not drawn in the scene* | once in row K's runs, on a loaded machine; then green with the seat and at the origin | a timing flake, not the seat's |
-| `tools/audio.mjs`: *sound off by default: the start page shows Sound off before a tap* | red since v219 (27 November 2026) | the app's, not fixed: on the start page (no story) the Sound button keeps `index.html`'s `hidden` (HOST.audio's `changed()` runs first when a story starts), so a fresh device sees no Sound button until a card is picked. Before v219 a story behind the cards showed *Sound off*. Its other reds of v219 to v226 were the test's (a story expected behind the cards; corrected 27 November 2026) |
 | `relay/test.mjs --watch` (a relay stopped and restarted) | on Windows only: 5 failures about a relay stopped by SIGTERM | they come from Windows, with or without the fix; on this machine `--watch` passes |
 | `tools/live.mjs`, the step "within about 2 s" | misses by a little on a loaded machine (seen in v190 and v226) | it allows 3 s |
 | `tools/live.mjs`, *TypeError reading 'aXrm'* (airports' `setClosedAttributes` from `enterStory`) | no longer (row K) | the test's: the step after *a shell file touched* called the story's `APP.enterStory` on a page the relay's `--watch` reloaded a second time (one write of `index.html`, two reloads), on a story not yet built. The app calls `APP` only once a story is built (`HOST.putPlace` on its frame loop, `shared.js` after `collab.scene()`). The step waits for a built story on a page that has not reloaded for 2.5 s |

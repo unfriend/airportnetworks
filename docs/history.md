@@ -409,6 +409,28 @@ the one still pending is not sent again. Nothing is lost by that: on one socket 
 room on this device) answers every set with its broadcast or a refusal naming the keys, a slow reader's socket is closed
 rather than skipped, and every new socket's welcome clears what was pending and takes the room's values.
 
+### Two faults the final run found (v227, audit row K)
+
+The tests' final run of the audit (row K, 27 November 2026) found two faults that were the app's, not the tests'. Both
+were fixed in v227, approved by the owner on 27 November 2026.
+
+A peer-to-peer room split when its host lost the introduction server for a moment (at least since v203). `shared.js`
+`PeerSocket.claim()` ran `host()` on every PeerJS `open`, and PeerJS 1.5.5 emits `open` again after `lost()`'s
+`p.reconnect()`. So after a relay restart, or any drop of the host's socket to `/peerjs`, the host built a second, empty
+`Hub` and `LocalSocket` beside the first: its guests stayed linked to the old hub, which still answered their pings,
+while the host's own writes went to the new one alone and it listed only itself. Since v227 the room is hosted on the
+first `open` only; a later one logs *peer server back* and changes nothing. A reconnect touches nothing else: an id
+taken by someone else meanwhile still ends the host with *superseded* (4010), a guest never reconnects (it has no
+`disconnected` handler), and a host that lost the server before its first `open` has not hosted, so it fails as before.
+The check was `node tools/collab.mjs --reload --cases 5` (its `pre5` part).
+
+The Sound button was hidden on the start page (since v219, when the start page stopped running a story behind the
+cards): `HOST.audio`'s `changed()` first ran when a story's narration was set, so `#btnSound`, the bar's sound icon and
+focus mode's Sound kept `index.html`'s `hidden` until a card was picked. Since v227 `changed()` runs once as the shell
+boots; it starts nothing (the context stays suspended until a tap) and leaves the engines, the hum and the watchdog as
+they were. A press there is kept, and the story then picked plays or stays silent accordingly
+(`tools/audio.mjs`, the two *sound off by default* steps on the start page).
+
 ### Smaller files and memory only when it is used (v226, audit row J)
 
 The audit found every page paying for what only some use. The studio's 2.33 MB file was 22% comments and carried a
