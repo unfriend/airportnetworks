@@ -1,6 +1,7 @@
 'use strict';
 // ================================================================= shared space ==
-// Shared rooms (docs/shared-space-plan.md; the rules come from docs/multiplayer.md and docs/shared-spaces.md).
+// Shared rooms (docs/agents/shared-rooms.md; the plan as built: docs/history/plans/shared-space-plan.md; the rules come from
+// docs/multiplayer.md and docs/shared-spaces.md).
 // Headsets and desktop browsers join a room on the relay (relay/server.mjs), or, without one, peer to peer (one page
 // hosts the room with the relay's rules, the others link to it: PeerSocket), or on this device alone. A room holds stations: a story
 // at a spot in the room, each with its own clock and explore state, the same on every device. A headset runs
@@ -8161,7 +8162,7 @@
   // While a ship flies (v133) its right stick steers and is pushed hard, so it may click by accident: a press of it counts
   // as a click (the menu's, both at once, the double click that lands) only with the stick within SHIPCLK.mid of its middle
   // as it goes down; pushed further it is a steer that clicked, and counts for nothing (logged at most once a second)
-  const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 }, CLK = { src: null, at: 0, gap: 400 }, SHIPCLK = { mid: 0.5, logAt: 0 };
+  const STK = new WeakMap(), BY = { m: new WeakMap(), gap: 400 }, CLK = { src: null, at: 0, gap: 400 }, SHIPCLK = { mid: 0.5, logAt: -Infinity };   // (-Infinity: an ignored click is logged in a page's first second too)
   const STKS = { s: null, list: [] };   // the session and input sources sticks() saw last (a source gone: its stick and click forgotten)
   const pressed = (gp, i) => !!(gp && gp.buttons && gp.buttons[i] && gp.buttons[i].pressed);
   // why moving with the sticks does not apply here (HOST.xr.walkWhy), for the notice and the menu's note. In a shared room

@@ -1,5 +1,5 @@
 // Since v187 every story is a story package (packages/<key>/: story.json holds what an entry here held, packages/order.json
-// the Stories screen's order; docs/packages-migration.md), so STORY_LIST is empty. It stays, as does this file: older
+// the Stories screen's order; docs/agents/packages.md), so STORY_LIST is empty. It stays, as does this file: older
 // shells read it, and the shell still takes an entry here (before the packages) if one is ever added: key (the file
 // stories/<key>.js), kick, title, col and desc (its card), page, brand and sub (the tab's and the top bar's title), aria,
 // thing and loading (the canvas, the AR button, the loading line), len (the length on its card); icon: its miniature in

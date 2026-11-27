@@ -2,7 +2,7 @@
 // story package's files are cached as it is first opened (PKG). Bump VERSION when you change any shell file (a change
 // to one package's files alone needs none: its fingerprint in packages/index.json reaches the pages, v193). Every listed
 // story's main.js and miniatures are taken at install too (takeMains), its other files as it is first opened.
-const VERSION = 'networks-v224';
+const VERSION = 'networks-v225';
 const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
   './fonts/B612-Regular.woff2', './fonts/B612-Bold.woff2', './fonts/B612-Italic.woff2'];
@@ -116,7 +116,7 @@ function takeMains(keep) {
     await Promise.all([lane(), lane(), lane(), lane()]);
   })().catch(() => {}).finally(() => { MAINS = null; }));
 }
-// Take all stories (v185, docs/packages-migration.md "Decided route"): every file of every listed package (main.js,
+// Take all stories (v185, docs/agents/packages.md "The service worker", "Take all stories"): every file of every listed package (main.js,
 // models, data, its narration) into PKG, two at a time, whole
 // files at the addresses the app asks for; a file already held is passed by, so a broken-off take carries on where it
 // was (the page asks again at its next start: HOST.offline) and a changed package takes only its changed files. The

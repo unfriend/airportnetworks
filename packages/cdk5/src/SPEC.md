@@ -28,7 +28,7 @@ icon the integrator's (`lowpoly.js`), len from the narration.
 The owner asked to follow the colleague's scene document (scenes 0 to 9), add the three subnetworks the story lacked,
 show real protein structures at the small subnetworks in the middle, replace the narration with a new script (one
 speaker, the cell as a city and CDK5 as a messenger) and "make it clean and presentation like". This section overrides
-the v189 brief below wherever they differ (the two decisions marked *superseded*).
+the v189 brief (`docs/history/specs/cdk5-superseded.md`) wherever they differ (the two decisions marked *superseded*).
 
 - **Nine scenes** (`CDATA.SCENES`): `bioproc`, `subunits`, `partners`, `ntrk2`, `sema`, `npas4`, `calpain`,
   `alzheimer`, `disease`. `partners` (CDK5's 205 partners as the authors' star, a spring layout), `sema` (Reactome's

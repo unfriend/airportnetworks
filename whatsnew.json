@@ -1,20 +1,19 @@
 {
-  "version": "networks-v224",
+  "version": "networks-v225",
   "date": "2026-11-27",
   "new": [
-    "In a headset, pointing at a story's scene in explore mode no longer tests every item again on each frame while the controller and the scene stay still.",
-    "Labels and other things made during a story are prepared at once, so they no longer stall the frame they first appear in.",
-    "On a laptop or phone, a paused story (not explore mode, the live simulations or the tutorial) stops redrawing until something changes, so it no longer keeps the computer busy.",
-    "In the airports story, moving the closures slider only updates the routes of the airports that changed and sends a fifth to a third of the data it did.",
-    "The organ models in Tissue microanatomy and the ovary sections have their drawing programs and textures prepared before they first show.",
-    "Labels on a laptop are placed without making the page work out its layout again."
+    "Back into the cell is ready sooner: it waits only for the protein models of its walls and fetches the lenses' and the sites' models while the story plays (on a slow connection it was ready about one and a half seconds sooner and had fetched a third less).",
+    "Back into the cell no longer fetches four protein models it only ever drew as balls.",
+    "The tour, Tissue microanatomy, Whole-body PET, the tissue topology, ovary and soil stories keep less in memory once their scenes are built.",
+    "Building the ovary sections and the heart in the muscle story makes far less rubbish for the browser to clear up.",
+    "The cell map story no longer works out where its proteins go each time it opens: the result is stored, so it starts about a tenth of a second sooner on a laptop and more in a headset.",
+    "The quantum network story stores its two starting layouts the same way."
   ],
   "test": [
-    "On a laptop, pause a story and leave it: it stays as it was. Then drag the timeline, change the theme, open focus mode and resize the window: each shows at once. In the quantum phylogenetics story, jump to another chapter while paused: the letters change fully.",
-    "In the airports story's explore mode, drag the closures slider slowly and quickly, by mouse and in a headset: the routes of closed airports go dark and come back as before.",
-    "In a headset, point at airports, proteins and cells in explore mode, holding the controller still and moving it: the right one lights up and the tip follows.",
-    "In a headset, watch Networks for everyone up to the globe, Tissue microanatomy past half way and the aging ovary's sections: they appear without a hitch.",
-    "In a headset, look at a story's first labels as they appear: no stutter."
+    "Open Back into the cell and jump straight to a late chapter (the lenses, then the binding sites) within a few seconds: say whether they are there at once or appear a moment later.",
+    "The same offline: install the app, let it take all stories, turn the network off and open Back into the cell at a late chapter: the lenses and sites appear.",
+    "Watch the cell map story and Networks for everyone's cell: the proteins sit where they did before.",
+    "Open the tour, Tissue microanatomy and the ovary story and jump between chapters: everything shows as before."
   ],
   "untested": [
     "Everything in a headset: nothing since v220 has been tried in one.",

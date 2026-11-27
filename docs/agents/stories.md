@@ -1,27 +1,27 @@
 # The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, CDK5, pass, flock, robots, tutorial, design room)
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 32: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (2.0 KB)
-- 53: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
-- 145: The tour (`packages/lbi/main.js`) is built from sets (2.8 KB)
-- 185: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
-- 252: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
-- 274: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
-- 322: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
-- 345: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
-- 392: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.2 KB)
-- 416: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
-- 464: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
-- 528: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.3 KB)
-- 600: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (7.9 KB)
-- 674: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
-- 760: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
-- 843: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
-- 905: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
-- 955: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.3 KB)
-- 1007: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.1 KB)
-- 1057: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1108: From CLAUDE.md (6.4 KB)
+- 32: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (3.0 KB)
+- 63: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
+- 155: The tour (`packages/lbi/main.js`) is built from sets (2.8 KB)
+- 195: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
+- 262: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
+- 284: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
+- 332: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
+- 355: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
+- 402: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.8 KB)
+- 432: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
+- 480: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
+- 544: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.3 KB)
+- 616: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (7.9 KB)
+- 690: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
+- 776: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
+- 859: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
+- 921: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
+- 971: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.3 KB)
+- 1023: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.1 KB)
+- 1073: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1124: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and
@@ -49,6 +49,16 @@ The three hand-written stories (airports, proteins, spatial) were wrapped in v18
 `stories/<key>.js` (the narration literal through `HOST.pkgUrl` and the comments naming it the only changes), with no
 `src/` and no build; edit it, then `node tools/packages/scan.mjs` (and rebuild pass after airports or spatial).
 `proteins.html` and `spatial.html` still redirect to `#proteins` and `#spatial`.
+
+The cell map's layout is stored (v225): `packages/spatial/main.js`'s `solveLayout()` (the old `LAYOUT` code, unchanged;
+two relaxations, about 0.1 s on a laptop and run before any loading card) is run once by `node
+packages/spatial/src/layout.mjs` (`--check`) in headless Chromium, which writes `LAYOUT_DATA` (positions as Float32,
+organelle per copy as Int32, base64, with `layoutSig()` and the browser's version). The page uses it while
+`layoutSig()` (the copies, places, hints, links, `TOGETHER` and the cell's organelles, fractions to 5 places) matches,
+and solves as before otherwise; after editing the lists, run it, then the pass build. Why Chromium and not Node: the
+380 relaxation steps magnify last-digit differences in `sin`, `cos`, `acos` and `pow`, and Node 22 and Chromium 158
+differ there (the cell came out up to 0.11 of its radius apart). So a browser whose maths differs (an older Quest
+Browser, Safari, Firefox) made a slightly different cell before v225 and now shows Chromium 158's.
 
 ## Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026)
 
@@ -410,6 +420,12 @@ from the microanatomy story's. `packages/qubits/src/SPEC.md` is the contract.
   the headset's sprite).
 - Step params (never eased): `cube_net`, `cube_cut`, `cube_algebra`, `cube_focus`, `chart_src`, `pairs_code`. The
   cube builds its default network at load and the others when first asked for in explore (a short pause).
+- Stored layouts (v225): the two force layouts the load makes (`pairs`' map, the cube's default network; about 90 ms
+  cold on a laptop) are worked out by `build.mjs` with the same calls and pasted before the sets as `QLAY_STORED`
+  (base64 Float32, keyed by `QMATH.layoutKey`: the network's links, the options and the starting places, fractions to
+  6 places). `QMATH.layout()` uses a stored one only while its key matches, else works it out live as before, so a
+  change to those calls (or to the networks) costs time, never a wrong picture; the cut, A_c and every number shown
+  are still computed live. Checked identical in Chromium 158 (stored against `layoutG` run in the page).
 - **American spelling in this story** (color, gray, neighborhood, normalized, center; the aging ovary story too), as the brief asks: keep
   it in `packages/qubits/src/` and its card; the rest of the app stays British.
 

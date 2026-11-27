@@ -11,12 +11,12 @@
 - 212: The rules a package keeps (0.3 KB)
 - 218: The app's own stories as packages (v185) (3.6 KB)
 - 255: Publishing a package's change (v193: `tools/packages/publish.mjs`) (7.3 KB)
-- 335: Writing one (11.8 KB)
+- 335: Writing one (12.2 KB)
   - 346: The template (`tools/packages/template/`) (3.0 KB)
   - 379: The example (`packages/hello/`) (2.5 KB)
   - 408: The cell stress test (`packages/cellstress/`) (2.6 KB)
-  - 431: Back into the cell (`packages/ppicell/`, in development) (2.4 KB)
-  - 455: Checking one (`tools/packages/check.mjs`) (0.5 KB)
+  - 431: Back into the cell (`packages/ppicell/`, in development) (2.8 KB)
+  - 460: Checking one (`tools/packages/check.mjs`) (0.5 KB)
 <!-- /toc -->
 
 A story in one folder, `packages/<key>/`, written by a colleague or someone the owner trusts and brought in through git
@@ -451,6 +451,11 @@ the *Pick* tab adds a symbol box on the page. Shared `{ v: 2, tab, scene, ctl, p
 `#ppicell&explore&show=2&faces=0&kind=1&p=TP53&place=4` (`p` by symbol, any case, wins over `place`; either opens the Pick
 tab). A link of a protein with itself counts once (GRB2 871 links, TP53 449). The story (`e3_story.js`) is a one-chapter
 placeholder until builder B's.
+
+Its lenses' and sites' protein models are fetched after the load (v225; `docs/agents/stories.md`, "Back into the
+cell"): they are files of the package like any other, so the index lists them with their fingerprints, Take all and
+the install fetch them, and an offline story finds them in `PKG`. A late fetch that fails leaves the set as it is
+when its models fail to load at the load.
 
 ### Checking one (`tools/packages/check.mjs`)
 

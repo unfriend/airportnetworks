@@ -409,6 +409,28 @@ the one still pending is not sent again. Nothing is lost by that: on one socket 
 room on this device) answers every set with its broadcast or a refusal naming the keys, a slow reader's socket is closed
 rather than skipped, and every new socket's welcome clears what was pending and takes the room's values.
 
+### Loading late and holding less (v225, audit row I)
+
+The audit found stories waiting at the load for things their first chapter does not need, keeping copies they never
+read again, and working out the same layouts on every visit. v225, without changing what anyone sees (pixel hashes at
+the opening and after seeks, compared with v224 headless) or any `state()` or `FORMAT`: Back into the cell waits only
+for its walls' four models and fetches the lenses' and sites' after the load (a stand-in made without models until
+then; at 20 Mbit/s ready in about 5.1 s instead of 6.9 s, 7.3 MB fetched before it instead of 11.1 MB) and no longer
+fetches the crowd's four models, drawn only as balls; the tour drops the JavaScript copies of its never-updated
+buffers after upload (ArrayBuffers at ready 77 to 56 MB) and the body and tissue sets their staging arrays (micro 35 to
+28 MB, PET 32 to 26, topo 25 to 22, ovary 33 to 30, soil 25 to 23 with its unseen tree cut to 1,000 nodes); the ovary
+sections and the muscle heart make 40% and 25% less garbage while built. The cell map's layout (about 0.1 s, before
+any loading card) and the quantum story's two load layouts (about 90 ms cold) are stored instead of solved (the cell's
+by `packages/spatial/src/layout.mjs` in headless Chromium, because Node 22's and Chromium 158's `sin`, `cos` and
+`pow` differ in the last digit and 380 relaxation steps turned that into up to 0.11 of the cell's radius; so a
+browser with other maths made a slightly different cell before and now shows Chromium's). Each is used only while a
+signature of its inputs matches; otherwise the page solves as before. Left: the exposome's `diseases.bin` (its ppi set
+needs it while being built: Asthma's knot and view), the tour's sets built per chapter, PET's two bodies and liver,
+ppicell's network built twice, the tour's 9,800-node interactome (about 20 structures from one seeded stream, used by
+labels, cameras and explore: storing them is a set rewrite), the endotype layouts (measured: the net set's whole step
+118 ms and the tree's 47 ms on a laptop, not the 1.3 s once noted) and airports' data as binary files (below the cut
+of this release: see RUN.md row I).
+
 ### The stories' frame costs (v224, audit row F)
 
 The audit found the stories doing work every frame that changed nothing (docs/agents/stories.md, "Shared engine

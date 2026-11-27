@@ -876,7 +876,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
 <button class="btn primary" id="xrgo" type="button" hidden>Enter VR to continue</button>
 <div id="loading"><div><span id="ldLine">Loading</span><div id="ldBar" role="progressbar" aria-label="Loading" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i></i></div><span id="ldStep"></span></div></div>
 <div id="nogl">This app needs WebGL, which this browser has turned off.</div>
-<script src="stories/list.js?v=d09a2d897d0a080d"></script>
+<script src="stories/list.js?v=29a18efeb45ddd68"></script>
 <script src="three.min.js"></script>
 <script>
 'use strict';
@@ -893,7 +893,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 223, id: '16a9dc2aadb8a890', format: 'networks-61' },
+  shell: { n: 225, id: '565611afbc086f43', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -6006,7 +6006,7 @@ HOST.reloadIfUpdated = function () {
   if (this.live.waiting() && this.picking && !this.session && !this.landingVR && !this.busy) this.live.reload('quiet');
 };
 // ------------------------------------------------------------ all stories offline --
-// Take all stories (v185, docs/packages-migration.md "Decided route"; sw.js takeAll): the service worker fetches every
+// Take all stories (v185, docs/agents/packages.md "The service worker", "Take all stories"; sw.js takeAll): the service worker fetches every
 // listed story package's files (its narration included) and the narrations still in audio/, in the background,
 // resumable, never in the way of the story on show. Automatic on an installed app (standalone display, or as it is
 // installed) and on a device that took them once by hand (localStorage pkgAll, this device's own: asked again at each
