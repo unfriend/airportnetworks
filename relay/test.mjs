@@ -3586,6 +3586,9 @@ if (me === 'hang') setInterval(() => {}, 1000);
     // a file of the scene that is a link out of its folder: not copied
     fs.writeFileSync(path.join(OUT, 'secret.bin'), 'secret'); fs.symlinkSync(path.join(OUT, 'secret.bin'), at('leak.bin'));
     const lk = await cp('new%20one', { from: 'one', path: 'leak.bin' });
+    // (its log line may come a moment after the reply: waited for, 2 s at most, not read at once, which failed once on a
+    // busy machine, 27 November 2026)
+    for (let t0 = Date.now(); !/refused a copy from "one\/leak\.bin"/.test(UP.out) && Date.now() - t0 < 2000;) await sleep(50);
     ok(lk.status === 404 && !fs.existsSync(nw('leak.bin')) && /refused a copy from "one\/leak\.bin" \(a link out of its folder\)/.test(UP.out), 'a link out of its scene: 404, nothing copied, said in the log');
     fs.rmSync(at('leak.bin'));
     fs.writeFileSync(at('huge.bin'), bytes(MB + 1));
