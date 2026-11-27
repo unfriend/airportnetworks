@@ -1,0 +1,214 @@
+# The relay: testing
+
+<!-- toc (tools/docs/toc.mjs) -->
+- 9: Testing (17.4 KB)
+<!-- /toc -->
+
+What `node relay/test.mjs` checks, group by group. Running the relay is in [the relay's README](../README.md).
+
+## Testing
+
+```sh
+node relay/test.mjs
+```
+
+(`--notes` runs only the developer notebook's steps, `--trackers` the trackers', `--osc` the OSC steps, `--snd` live sound's, `--talk` Talk's, `--rooms` the rooms'.)
+
+- It starts the relay on a free port (timeouts of 1 s, serving the repository),
+- and checks the API,
+- joining and its refusals,
+- welcome and members,
+- ordering and acknowledgement,
+- last writer wins,
+- null refused outside the deletable families,
+- the epoch rule,
+- `fx` (not stored, not echoed, rate capped),
+- ping and pong,
+- a late joiner,
+- malformed and oversized messages,
+- hand-made frames (masking, fragmentation with a ping inside, control frames, close),
+- member timeouts,
+- version and protocol mismatches (since v136 a room moving on to a newer `networks-<n>` once nobody of its own is connected, never back, other versions only the same;
+  - the reload order: its answers 404, 400, 405 and 429, every member of every version getting it from the relay, the room moving on with old members there, who get it again and are refused, 3 s later for one that ignores orders and about 12 s after the order for one whose hello says `reload: 1`;
+  - and `--keep`: written within 6 s of a change and as it stops, read back with its seq, version and keys, expired rooms and bad keys left out, a bad file kept aside as `.bad`, another relay's write taken;
+  - `node relay/test.mjs --rooms` runs only these, in seconds),
+- replaced sockets,
+- room expiry,
+- the room's limits (5000 keys; 4 MB with the keys counted),
+- the static files (types, gzip, byte ranges, 304, path traversal attempts, every file `sw.js` caches served and nothing else of the repository, links, no file left open by a download cut short),
+- the start lines (no `http://` address for headsets),
+- `--lan`,
+- the log,
+- and the introduction server: ids over HTTP (CORS, bad requests refused),
+- `OPEN`,
+- `ID-TAKEN` for another token,
+- the same token reconnecting,
+- messages passed on with `src`,
+- kept for an id that comes a moment later and `EXPIRE` for one that never comes,
+- heartbeats,
+- a silent id dropped,
+- a closed socket freeing its id,
+- the log (ids only) and `--no-peer`;
+- rooms on this network (`/api/near` and `/api/ping` by the asker's network with `--proxy`, only the last address of `X-Forwarded-For`, and with `--proxy 2` only the second from the right (the first when there is only one), a private address by its /24 and IPv6 by its /64, `near` off and on, a member from another network, an empty room, the header ignored without `--proxy`, no address in any answer or log line and no network's id in the log);
+- and `--watch` (ping, the event stream's `hello` with the right fingerprints, `story`, `list` and `shell` as files change, nothing for a file written unchanged, `--build` running a story's build when its source changes and reporting a failed one, not for `shots/`);
+- and a public server: without `--public` every origin,
+- sockets with no `Origin`,
+- a hundred unknown codes in a row and the room list with names as before;
+- with it,
+- the app's origin allowed and others refused (the API, its preflights, sockets before the upgrade, the introduction server's ids and sockets; CORS echoed with `Vary: Origin`),
+- a request with no `Origin` answered (Node's `fetch` and the Dockerfile's own health check) but a socket with none refused unless `--allow-no-origin`,
+- the relay's own origin by `Host` or `X-Forwarded-Host`,
+- its pages served to anyone,
+- the start lines (no LAN addresses),
+- options from `RELAY_ARGS`,
+- `--origin` alone (a list, repeated; bad values refused at the start; no other rule with it),
+- no room list and no name in any answer (`/api/rooms/<code>`, `/api/near`) or log line while the room's own members still see names,
+- unknown codes capped per address (`GET` 404s, sockets for unknown rooms and taken codes from one budget; past it a known code refused too, with `Retry-After` or `limit` and 4429; a member coming back let in; another address, an IPv6 address in another /64 and the address `--proxy` takes not held up; one budget for everyone without `--proxy`),
+- sockets per address (rooms and `/peerjs` together) and new rooms per address capped,
+- the log token (refused at the start without one or with a short one; from `RELAY_LOG_TOKEN` or `--log-token`; none 404, wrong 403, never in the log) and `--store`;
+- and the shared password: off by default (nothing changes, `/api/health` open),
+- `COLLAB_TOKEN`,
+- `--token` and in `RELAY_ARGS`,
+- `COLLAB_PORT` and `COLLAB_HOST`,
+- `/api/health` saying nothing more,
+- ping,
+- near,
+- rooms,
+- a room,
+- a new room,
+- log,
+- watch,
+- an unknown path and `/peerjs` without it or with a wrong one (Bearer or `?token=`, case counting) 401 with its body,
+- both ways of bringing it working,
+- a preflight allowing `Authorization`,
+- the app's files open,
+- a socket without it or with a wrong one getting `error` `token` and 4401 and nothing else,
+- one with it welcome,
+- the introduction server refusing PeerJS's default key (4401) and taking the password as key (in the socket and the id's path),
+- `/api/watch` with `?token=`,
+- the Dockerfile's health check,
+- 20 wrong ones from an address then 429 (the right one too),
+- 4429 on its socket and `/peerjs`,
+- another address untouched,
+- none at all not counted (nor PeerJS's default key, nor an unknown room code asked with the password),
+- and the password in no log line or file;
+- and the studio's scenes (`--scenes`, in a folder of its own under the OS's temporary folder, removed afterwards): `/api/ping` saying so (and nothing on a relay without it),
+- the list and a scene by the listing rules (names left out and said once, the files a listing leaves out, 4 folders deep, links in and out, kinds, sorting, sizes and times),
+- `tools/studio/scan.mjs` writing what the API answers and nothing when run again (`--check`),
+- the files (types in any case, ETag and 304, no-cache, ranges, HEAD, CORS and its preflight; `..` as sent and escaped, backslashes, NUL, links out, dot files, `.history/`, too deep: 404, said in the log without the query),
+- saving (the first save, `.history/` from the second, the newest 20 kept over 24 saves, five at once, no temporary file left, bad, too big and unknown refused and changing nothing, `--scenes-readonly` 403),
+- the watch (`hello`, a file added, changed and removed told once settled, a save's `layout`, a scene coming and going, a file written in parts told once after its last part, nothing for `.history/` or temporary files, `layout.json` removed, a second page),
+- the password on every scene endpoint and file (Bearer and `?token=`, wrong ones counted to 429, never in a log line),
+- `--public` with `--scenes` refused without a password,
+- `COLLAB_SCENES`,
+- `RELAY_ARGS`,
+- a folder that is not there and `--scenes-readonly` alone;
+- and uploads (a folder of their own, and stand-in `ffmpeg` scripts, one script whose name says what it does): `GET /api/scenes`'s `upload`,
+- `ffmpeg` and `maxUpload` (with the stand-in, with none on the `PATH`, `--scenes-readonly`);
+- a scene made (201, listed, told on the watch at once and not again, 409 for one or a file of that name, names that cannot be a scene's and bodies that are not `{ name }` 400 with nothing made, over 16 KB 413, `--scenes-readonly` 403);
+- files (written as sent with their folders, listed and served, told at once and not again, 409 then `replace=1`, the kinds and paths taken and the ones refused, each saying why and writing nothing, a link out of the scene refused with nothing made outside, a folder or a file in the way 409, no such scene 404, other methods 405, exactly 1 MB taken with `--max-upload 1`, past it 413 by `Content-Length` and counted while chunked, the answer arriving, no temporary file or folder left and a folder that was there kept, a page going mid-upload leaving nothing, two at once to one new name 200 and 409, the log, a preflight from another origin and the answer's CORS, `--scenes-readonly` 403);
+- sounds through the stand-in (written in place, run with `-nostdin`, mono, 44.1 kHz, 96 kbit/s, its input the bytes sent in a temporary file of its own and gone after, its output a dot file beside where it goes;
+  - not `.mp3` 400, 409 then `replace=1`, too big 413;
+  - one that fails 422 in our words, logged shortly with no temporary path and no query;
+  - an empty MP3 422;
+  - one that never ends stopped after a shortened `--ffmpeg-limit` with 500, both processes gone and nothing left, a third at once 429 with `Retry-After` exposed and `retry` in the body;
+  - none on the `PATH` and `--no-ffmpeg` 501 while files are still taken;
+  - `--scenes-readonly` 403;
+  - a named `ffmpeg` that does not run, `--ffmpeg` without `--scenes` or with `--no-ffmpeg`, `--max-upload 0`, `--ffmpeg-limit 0` and an `--app` that is not http(s) refused at the start);
+- a real `ffmpeg`,
+- when the machine has one,
+- making a generated stereo 48 kHz WAV a mono MP3 (its frames read by hand: MPEG-1 layer III, 96 kbit/s, 44.1 kHz, mono);
+- `/upload` (serving the app: `/#studio&upload`; not: the app's address with `ws://<Host>`; `X-Forwarded-Proto` only with `--proxy`, the `n`-th from the right; `--app` a folder or a page; the `--origin` by default; no password asked and the query never passed on; a bad `Host` 400; `POST` 405);
+- copies from another scene (`POST .../copy`: the same bytes at the same path or `as`, its folders made, told at once, 409 then `replace: true`, an OBJ refused outside `originals/` and taken there, sources no listing shows, targets the upload's rules refuse, the file onto itself and bad bodies 400 with nothing written, no such scene, file or a folder 404, a link out of its scene 404 and said, over `--max-upload` 413, no temporary file left, `--scenes-readonly` 403, `GET` 405, the log);
+- the models' pictures (v120: `previews/<path>.jpg` taken, listed and told with the kind `preview`, served as a JPEG, any other kind or name under `previews/`, too deep and `Previews/` in another case 400, exactly 200 KB taken and past it 413 by its length and as it streams, nothing left behind, `--max-upload` elsewhere as before, copies by the same rule);
+- recordings kept as files (v125: `recordings/<name>.json` taken, listed and told with the kind `recording`, served as `application/json`, a sound there by its own kind, a `.json` anywhere else, `.JSON`, too deep or a temporary name 400, past the smaller of 4 MB and `--max-upload` 413 by its length and as it streams, copies by the same rule; with R2 through the relay and straight into the bucket as `application/json`);
+- and the password on making a scene,
+- a file,
+- a sound and a copy;
+- and the scenes in R2 (`--scenes r2`, against the stand-in S3 `relay/s3fake.mjs`, which checks every signature; first `relay/test-r2.mjs`, the signer against AWS's published examples byte for byte): the start (the bucket listed, its CORS rule as a browser meets it),
+- the list and a scene by the same rules with a signed link per file (its bytes, type, CORS, a range, 304),
+- the redirect for a file and the same refusals,
+- saving with `.history/` (20 kept),
+- the watch from the relay's writes at once and from changes made straight in the bucket within `R2_POLL`,
+- uploads through the relay (a scene's marker, 409, the path rules, the size counted, a page going mid-upload, two at once),
+- direct uploads (the signed PUT, a body of another size or type refused by the bucket, `done` and its checks, 501 with a folder),
+- copies from another scene by the bucket's CopyObject (its `x-amz-copy-source` signed in the header, the stand-in refusing one unsigned; nothing fetched by the relay; 409 then `replace: true`, the kinds and paths, a source not there),
+- the models' pictures there (through the relay and straight into the bucket, `.../put` refusing one over 200 KB, `done` leaving one over it that no link of the relay's brought, a copy by the same rule, all told as `preview`),
+- `ffmpeg` from the body and from a file in the bucket (`from=`),
+- the password on every endpoint and in no link,
+- no key or signed link in a log line,
+- the start refusing missing settings (named, no value shown),
+- a wrong key or bucket and no answer,
+- `--r2-check`,
+- and `tools/studio/r2sync.mjs` (list, pull, push, `--dry`, `--delete`, `--history`);
+- and the PC's Vive trackers (`--trackers`, v126, with the fake bridge `tools/trackers/fake.mjs`, its SteamVR space turned 37 degrees and moved against the room; `node relay/test.mjs --trackers` runs only these, in seconds): nothing of it without `--trackers` (no field in `/api/ping`, 404s, no `@trk` for a room that asks);
+- the start line's UDP port,
+- `/api/ping`'s `trackers` and `trackersSeen`,
+- `GET /api/trackers` (every device with its kind, hand and battery, raw within 0.1 mm of where SteamVR has it);
+- `/api/trackers/still` (a tracker lying still: its mean within 0.1 mm and about 45 readings in 0.5 s; one going round, one never seen, one nudged 2 cm meanwhile and one losing tracking refused in words; bad asks 400, `POST` 405);
+- the room's frame from `m` against `shared.js`'s own `fromMarks`,
+- `floorUnder` and `basis` run with three.js (1,500 points and turns within 1e-9 m; spot A the origin, x to spot B, right-handed; no frame from points under 10 cm apart, one above the other or not points);
+- a room with `trk` on and `m` written as a room key getting `@trk` about 60 times a second on each member (`by: ''`, `l: 'hand'`, every tracker, the headset and its controllers with their kinds, never a base station),
+- every pose within 1 mm and 0.05 degrees of the truth and every velocity within 10 mm/s,
+- spot A's tracker at the origin;
+- nothing for a room without `trk` or with it off;
+- `l: ''` once a second for one on without `m` or with two points one above the other,
+- and lined up as soon as `m` is written;
+- the bridge silent (once a second, each tracker `ok` 0, one switched off left out after 5 s, then 60 a second again);
+- bad datagrams and readings ignored,
+- counted and said in the log,
+- the good reading beside them taken;
+- the password on both endpoints (and in no log line);
+- `--trackers` in `RELAY_ARGS`;
+- a UDP port another relay holds stopping the start with a sentence;
+- and,
+- when `python3` is on the machine,
+- `tools/trackers/bridge.py --fake` sending to the relay (its ten devices taken with their kinds and hands, nothing ignored);
+- and OSC for the output page (`--osc-out`, `--osc-in`; `node relay/test.mjs --osc` runs only these): the codec (every type round trip, exact bytes, padding at every length mod 4, a bundle in a bundle and depth 4, bad packets refused whole, int64 and float64 normalised, a page's message checked),
+- nothing without the flags,
+- the start line and `/api/ping`'s `osc` (no target address),
+- `out` in the members list,
+- an output page's messages reaching a UDP listener as their exact bytes (a bad one dropped and counted),
+- another member refused,
+- a member's own `@osc` refused,
+- 2,000 a second then dropped and said as a count,
+- a datagram on the in port reaching only the output pages of every room (a bundle flattened, bad packets nowhere),
+- `osc-cfg` and the status every 2 s,
+- `--public` without a password refusing either flag (with one it starts),
+- `RELAY_ARGS`,
+- bad words,
+- nine targets and a held port refused;
+- and the trackers as OSC with the fake bridge: about 90 a second,
+- within 1 mm and 0.05 degrees of `@trk`,
+- kinds and `ok`,
+- names every 2 s,
+- never a base station,
+- nothing while not lined up,
+- off or silent,
+- another room's page taking them and giving them back;
+- and live sound (v162; `--snd` alone): `snd` in `/api/ping` and `welcome`,
+- a plain member's binary frame closing it with 1003 and its `snd-start` refused once,
+- bad cfgs and `snd-sub` refused,
+- an output page's frames reaching a subscriber byte for byte but `sid` (none to a member not subscribed, the cfg at once to a late one, none after unsubscribing),
+- 150 frames in a second (about 100 through, the rest counted in `st`),
+- a 5,000-byte frame and a wrong tag counted as bad,
+- a second output page taking the stream (the first told `taken`, its frames dropped),
+- and `snd-stop`,
+- the sender leaving and its hello without `out` (`stopped`, `gone`);
+- and Talk (v178; `--talk` alone): `talk` in `/api/ping` and `welcome`,
+- no `@talk` on a join into a room where nobody talks,
+- `talk-start` from the output page or a camera refused once a socket,
+- bad cfgs and `talk-sub` refused,
+- a stray tag-2 frame dropped and counted (never a close) while a plain member's tag-1 frame still closes with 1003,
+- two talkers and a listener (the list to every member, the frames byte for byte but `sid` to those who hear, none of one's own, none without `talk-sub`, `subs` 2, the list right after a joiner's `welcome`),
+- a talker and a listener both `here` (none heard; heard once the talker says it is elsewhere, with a new list),
+- 80 frames in a burst (55 to 61 through, `dropped` and `bad` in `st`),
+- a ninth talker refused (`full`) and taken once one stops,
+- `talk-stop`,
+- a talker leaving and one connecting again (lists without it to everyone, the new socket too, no frames until its `talk-sub`),
+- and the log's lines (no name, no cfg). It exits 1 on a failure. The shared-room client in the app has its own test (`tools/collab.mjs`).
+
+`node tools/peer.mjs` (Playwright and Chromium, as `tools/smoke.mjs`; seconds) is the end-to-end check: it starts the
+relay, opens the peer-to-peer test page from it in two headless pages with `&peer=` pointing at the relay, and checks
+that the first hosts, the second gets an id and links to it, the data channel opens and messages go both ways, and
+that the host's id is freed when it leaves and the other page takes over. Nothing goes to the internet.
