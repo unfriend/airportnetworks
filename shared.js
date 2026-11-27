@@ -1406,7 +1406,8 @@
       this.drop();
       let p;
       try { p = this.peer = new Peer(peerId(this.code), peerOpts()); } catch (e) { this.fail(1006, 'PeerJS: ' + e.message); return; }
-      p.on('open', () => { if (this.mine(p)) this.host(); });
+      // (PeerJS says open again after lost()'s reconnect: the room is hosted once, and its hub and links go on unchanged)
+      p.on('open', () => { if (!this.mine(p)) return; if (this.hub) log('peer server back', { role: this.role }); else this.host(); });
       p.on('connection', c => { if (this.mine(p) && this.hub) this.hub.link(c); else try { c.close(); } catch (e) { /* gone */ } });
       p.on('error', e => this.error(p, e));
       p.on('disconnected', () => this.lost(p));

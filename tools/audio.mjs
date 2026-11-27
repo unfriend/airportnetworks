@@ -321,6 +321,23 @@ await step('sound off by default: the choice kept across a reload, on and off', 
   console.log(`ok   on kept across a reload (${a.split(',')[2]} until a tap), off kept too (Sound off)`);
 });
 await page.close();
+// (v227) the Sound button pressed on the start page, before any story: the choice is kept, and the story then picked
+// plays with sound; the press starts no story and fetches no narration
+page = await open(base, '', { narrationMuted3: null });
+await step('sound off by default: Sound pressed on the start page, then a card: the story plays with sound', async () => {
+  await page.waitForSelector('#picker .card[data-story="airports"]', { timeout: 30000 });
+  const p0 = await probe();
+  if (p0.ctx === 'running') throw new Error('a running context before any tap: ' + JSON.stringify(p0));
+  await page.click('#btnSound');
+  const a = await page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, localStorage.getItem('narrationMuted3'), HOST.cur === null].join(); });
+  if (a !== 'false,false,0,true') throw new Error('after the press on the start page: ' + a);
+  const fetched = page.fetched.filter(u => /\/packages\/[^/]+\/(main\.js|audio\/)/.test(u));
+  if (fetched.length) throw new Error('the press fetched a story: ' + JSON.stringify(fetched));
+  await page.click('#picker .card[data-story="airports"]');
+  await playing('Sound pressed on the start page, then the card');
+  console.log('ok   Sound pressed on the start page: sound on (saved), no story fetched; the card then played with sound');
+});
+await page.close();
 page = await open(base + '#airports&sound=on', '', { narrationMuted3: null });
 await step('#sound=on in a link', async () => {
   await until('file found', p => p.state === 'ok');

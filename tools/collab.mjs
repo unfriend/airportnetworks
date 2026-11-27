@@ -8885,10 +8885,9 @@ async function reloadRound() {
     await deploy(NEW);
     await sleep(3000);
     await H1.evaluate(() => HOST.collab.publish([['st.t2', { story: 'robots', x: 2.4, z: -2, yaw: 0 }]]));
-    // (asked: the station must be on every page before the press. Red, an app fault (docs/agents/testing.md, known red):
-    // PeerJS emits open again when the host reconnects to the restarted introduction server, and shared.js claim() runs
-    // host() on it, so the host makes a second, empty hub (members 1) while its guests stay on the first; the station it
-    // adds then reaches neither guest. The reload that follows brings everyone back with it)
+    // (asked: the station must be on every page before the press. PeerJS emits open again when the host reconnects to the
+    // restarted introduction server; before v227 shared.js claim() ran host() on it, so the host made a second, empty hub
+    // (members 1) while its guests stayed on the first, and the station it added then reached neither guest)
     const pre5 = await every([H1, G1, G2], s => s.st === 't1,t2', 20000);
     const preS = pre5 ? '' : await sAll([H1, G1, G2]);
     await press(G2);
