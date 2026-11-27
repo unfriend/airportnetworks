@@ -328,17 +328,23 @@ once (`--only`).
   missing narration MP3 is expected; any other console error fails it.
 - Every test page sets `collabAutoAll`, `collabAutoWelcome` and `tutorialHold` to `off`, `collabAskDefault` to
   `walk` and `collabMenus` to `full` unless its round asks otherwise: keep that when adding a round.
+- Every pretend headset (smoke `XR_SEATS`, collab `SPOTS`) stands about 1.8 m off its session's origin in x and
+  z, 1.6 m up, turned by a yaw that is no multiple of 90 degrees, its controllers moving with it (the owner, 27
+  November 2026, after the exposome's fault that a head at the origin hid). Checks compute what they expect from
+  that pose (`window.__xrSeat`, `ownPose`), never from the origin; `{ origin: true }` only where a check truly
+  needs it, saying why.
+- Tests and tools take free ports (`tools/lib/serve.mjs`); `--port` fixes one.
 - `tools/perf.mjs` is a measuring tool, not a test; it reads `FPS_FAKE` and `OCCL_FAKE` out of
   `tools/smoke.mjs`, so do not rename them.
 
 | Touched | Run before `main` moves |
 | --- | --- |
-| anything | `node tools/smoke.mjs <url>` |
+| anything | `node tools/smoke.mjs <url>`, or block by block `node tools/smoke-all.mjs [url]` (two at a time, one table; `--block <id>` runs one block, `--blocks` lists the ids) |
 | sound | `node tools/audio.mjs <url>` |
 | a story's cues or a sound | `node tools/sfx-cues.mjs <url> <key\|all>`, then `tools/sfx-render.mjs` (report how it sounds as unheard) |
 | `HOST.live`, `HOST.swap`, `HOST.load`, `tools/release.mjs`, the relay's `--watch` | `node tools/live.mjs` |
 | `sw.js` or how files load | `git worktree add /tmp/old <commit> && node tools/update.mjs /tmp/old .` |
-| `shared.js`, the relay, a story's hooks or `state()` | `node relay/test.mjs` and `node tools/collab.mjs` (about 15 min; one round with its flag) |
+| `shared.js`, the relay, a story's hooks or `state()` | `node relay/test.mjs` and `node tools/collab.mjs` (about 50 min, 26 rounds; a throw ends only its round; one round with its flag) |
 | `output.js` | `node tools/output/test-page.mjs` |
 | a story's maths, data or sets | its `packages/<key>/src/test-*.mjs`; a changed set: its harness (`src/shot.mjs`), then `sweep.mjs` |
 | spatial's lists, cell or `solveLayout()` | `node packages/spatial/src/layout.mjs --check` |
