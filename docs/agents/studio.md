@@ -1,11 +1,22 @@
 # The studio (`stories/studio.js`, `tools/studio/`)
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 13: The studio is built the same way (175.8 KB)
-- 1496: Live sound (v162) (0.9 KB)
-- 1507: Props on trackers and a character worn with them (6.4 KB)
-- 1568: Nice to have, later: glTF round trips (Blender, Unity) (3.5 KB)
-- 1624: From CLAUDE.md (1.8 KB)
+- 24: The studio is built the same way (0.9 KB)
+- 35: Scenes, models and converting (40.6 KB)
+- 355: The layout and trigger cubes (15.0 KB)
+- 491: Screens, paintings and the room scan (12.7 KB)
+- 592: Showing by kind of session, and cubes that change and start things (13.2 KB)
+- 709: Sounds (6.5 KB)
+- 760: Cut-outs, groups, faces, tint and the colour picker (16.2 KB)
+- 874: Sequences, pressing, sends to the output page, streams (11.8 KB)
+- 927: Shapes, locks, goggles and behaviours (16.7 KB)
+- 1071: Motions, recorded paths and a model's timeline (30.1 KB)
+- 1330: Editing, performance and saving (21.1 KB)
+- 1518: Example scenes, placement, shared rooms and trackers (20.2 KB)
+- 1695: Live sound (v162) (0.9 KB)
+- 1706: Props on trackers and a character worn with them (6.4 KB)
+- 1767: Nice to have, later: glTF round trips (Blender, Unity) (3.5 KB)
+- 1823: From CLAUDE.md (1.9 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md.
@@ -17,8 +28,11 @@ Read on demand; the rules every agent needs are in AGENTS.md.
 licence lines, each wrapped so nothing leaks but `THREE.*`; `GLTFExporter` only inside `exporterLoad()`, defined when
 the studio first converts), two sets (`stage`, `looks`) and engine parts adapted from the design room's (the
 shared-room, headset-setting, subtitle, panels, recenter, framing and sound-effect lines as in every story: the smoke
-test checks them in every `STORY_EXTRA` page). `tools/studio/SPEC.md` is the contract; `tools/studio/README.md` the
+test checks them in every `STORY_EXTRA` page). This file is the contract (`tools/studio/SPEC.md` indexes its sections; `docs/history/studio-spec.md` is the old telling, section by section, up to v165); `tools/studio/README.md` the
 formats guide and the upload page; `relay/README.md` the relay's side.
+
+
+## Scenes, models and converting
 
 - **What it is**: a room where the owner's own models (FBX and other formats, textured, some animated) are placed and
   their places saved, with trigger cubes that show and hide them by where people go and spatial sound emitters. Not one of the stories: its entry is in `STORY_EXTRA` (alone since the
@@ -65,6 +79,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   warnings, with Quest budgets (shown, never refused): over 500,000 triangles in the scene, 300,000 in one model, more
   than 6 textures over 2,048 px. A model loading (or one this device cannot find) is a grey box with a line of text
   where it will stand: parsing a big FBX stalls the page for seconds (more on a headset).
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Wrap them so their globals do not leak beyond `THREE.*` (fflate's UMD must not need `module` or `define`).
 - **GLB first**. One converter (`tools/studio/engine/convert.js`,
   `makeConverter(THREE, hooks)`) serves the studio, its Upload pane and `tools/studio/convert.mjs`: it bakes the guess
   in (metres, Y up), draws textures down (to the page's texture kind: KTX2 at most 8,192 or 4,096 px, the default since
@@ -80,7 +96,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   is downloaded. The Add list shows `models/`, `sounds/` and everything outside `originals/`, with `originals/` folded
   under *Originals*; a GLB whose record (read from its first bytes with a `Range` request) names another file of the
   scene, or without one has its base name, stands for it, and a placed original's card offers *Switch to the GLB*.
-- **Textures: found, added, converted** (`tools/studio/SPEC.md` has it in full). The browser shows PNG, JPEG, WebP, GIF, BMP and AVIF, TGA goes through `TGALoader`, and **TIFF** (none, LZW,
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - **One converter, two places.** The conversion code is one module (`tools/studio/engine/convert.js`, or where it fits) used by `convert.mjs` in its headless page and pasted into `stories/studio.js` (with `GLTFExporter`, now in the app, loaded only when converting: see the vendor README).
+    - Progress and the result are said; a failure changes nothing.
+- **Textures: found, added, converted** (`docs/history/studio-spec.md` has it in full). The browser shows PNG, JPEG, WebP, GIF, BMP and AVIF, TGA goes through `TGALoader`, and **TIFF** (none, LZW,
   PackBits, Deflate; 1 to 16 bits; grey, RGB, palette, CMYK), **PSD/PSB** (the merged picture) and **DDS** (uncompressed,
   DXT1, DXT3, DXT5, BC4, BC5) are read in the page by `tools/studio/engine/images.js` (fflate for the zipped ones);
   EXR, HDR, HEIC, KTX, BC6H/BC7 and JPEG-in-TIFF are refused with a sentence. The converter's `load` reads such a picture
@@ -106,6 +125,19 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `convert.mjs`: `--texture <name>=<picture>`, `--texture <material>:<slot>=<picture>`, `--textures <dir>`. The relay
   lists `.tif .tiff .psd .psb .dds .avif` as images. Untested: real Photoshop, Substance and game-engine files beyond the
   generated ones and those ImageMagick and Pillow write (checked by hand), a big TIFF or PSD's memory on a headset.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - A picture is told by its bytes first, so a file named wrongly still reads.
+    - Deflate unpacked to at most the bytes a strip or channel needs (a small stream can unpack to gigabytes); a reader's own error (out of range) said as *a TIFF cut short or damaged: save it again, or as PNG*.
+    - **TIFF** (baseline, strips or tiles, none, LZW, PackBits or Deflate, the horizontal predictor, 1 to 16 bits, grey, RGB, palette or CMYK, alpha associated or not, either byte order), **PSD and PSB** (the merged picture, raw, RLE or zipped, 1, 8 or 16 bits, RGB, grey, CMYK, palette, bitmap, duotone; the channel after the colours is transparency only when the file says so (a negative layer count) or nothing names it (no layers and no named or numbered alpha channels: a saved selection or mask is left out), and then the colours are un-blended from white as Photoshop keeps them; an empty one says *save it with Maximise compatibility on*) and **DDS** (the largest picture: uncompressed by its masks, DXT1/BC1, DXT3/BC2, DXT5/BC3, BC4 and BC5, a normal map's z rebuilt; the DX10 header for those) are read in the page.
+    - A TGA name goes through a handler that reads whatever its bytes are (the FBX loader sends `.tga` names to the TGA handler whatever the file turned out to be). three.js's FBX loader makes an empty texture for any name ending in `.psd` without asking for it, so each such name in the FBX's bytes is made `.ps~` first (the same length: binary, only string records that end there.
+    - Slot words are never dropped, so a normal map never stands in for a colour one.
+    - `CONV.slotOf(name, mean)`: a colour word anywhere (`diffuse`, `diff`, `albedo`, `basecolor`, `color`, `colour`, `col`, a last `_d`) makes it `map` (`Metal_Door_Albedo.jpg`, `Arm_Diffuse.png`); else only its last word says the slot, sizes, numbers, `gl`, `dx` and `map` after it aside (`stone_rough_2k.png` is roughness, `Rough_Stone.png` a colour picture): `orm`, `normalMap` (`normal`, `nrm`, `norm`, `nor`, `_n`), `roughnessMap` (`rough`, `_r`), `metalnessMap` (`metal`, `metallic`, `_m`), `aoMap` (`ao`, `occlusion`), `emissiveMap` (`emissive`, `emission`, `glow`, `_e`), `alphaMap` (`opacity`, `alpha`, `mask`), else `map`, unless its mean colour is a normal map's bluish purple (and the slot was not chosen by hand meanwhile).
+    - `similar` the same words but colour words (`diffuse`, `diff`, `albedo`, `basecolor`, `color`, `colour`, `col`, `d`, `tex`, `texture`; split at separators and at a capital after a small letter), in the same slot, and only when exactly one picture is so (one in two kinds counts once).
+    - `CONV.texRank` orders a scene's pictures for a name: the ladder's hit, shared words, the same slot, the same folder, and ones no other model uses.
+    - **`CONV.addTextures(root, list, o)`** lays a picture on a material that had none in that slot: it needs texture coordinates (else *it has no texture coordinates (UVs), so a picture cannot be laid on it*); right way up for a model through the glTF loader (`flipY` off), else turned over as three.js does; an occlusion picture gets a second set of coordinates from the first (and the viewer gives one to an occlusion map that has none); an `orm` picture goes in occlusion, roughness and metalness at once; a roughness or metalness picture sets its factor to 1; a glow picture makes a black emissive colour white.
+    - A picture chosen from this computer and uploaded stays in `originals/` when the conversion does not run after all (the scene changed, editing went off, the story was locked), and the note says so.
+    - Found by the ladder against what was dropped, then `only`: exactly one model lacking exactly one texture and exactly one dropped picture no model uses are put together (*the only picture left over*) when the picture's slot is the name's (a normal map left over never stands in for a missing colour picture; it is still offered as *Use*).
+    - A picture a row uses goes to `originals/` as that row's file, not as a row of its own.
 - **The upload page**. `<relay>/upload` sends the
   browser to the studio's **Upload** tab (`#studio&upload`; pages only, none in a headset or with `&visit`): pick a
   scene or *New scene*; drop files or whole folders (or *Choose files*, *Choose a folder*); the plan shows one row per
@@ -127,8 +159,11 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   row still uses them; nothing of it is made, uploaded or kept), and *Triangles kept, every model* above the list sets
   every model row's share at once as it moves (`UP.keepAll`, `upKeep()`; a row's own slider can still differ after, a
   line then says so, and a later drop starts at it).
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Anything left (an image no model names, an unknown file) is listed as *kept as it is* into `originals/`, never silently dropped.
+    - A kind an upload may put only under `originals/` (an OBJ, an MTL) goes there with what it brings (`originals/crates/crate.obj`, `originals/crates/crate.mtl`): the paths stay relative to each other.
 - **Compressed textures (KTX2)** (v151; the owner, 16 November 2026: "yes build it, encoding in browser since that can be
-  done on a desktop and be fast"; `tools/studio/SPEC.md`, "Compressed textures (KTX2)"; `engine/ktx2.js`). **Why**: a JPEG
+  done on a desktop and be fast"; `docs/history/studio-spec.md`, "Compressed textures (KTX2)"; `engine/ktx2.js`). **Why**: a JPEG
   or PNG texture reaches the GPU as raw RGBA (4 bytes a pixel and a third more for its mipmaps: 21 MB at 2,048 px, 85 MB
   at 4,096, 341 MB at 8,192), which is why textures were held to 2,048 px for Quest; the owner uses 4k and 8k textures in
   Unity on Quest (Unity ships ASTC), and v150's Debug tab on a Quest 3 said Adreno 740, `MAX_TEXTURE_SIZE` 8,192, and
@@ -218,6 +253,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     headset session, how ASTC looks against the JPEG it replaced), real 8,192 px scans (the owner's atelier), encode times
     on a real desktop (here 4 slow cloud cores), Safari and Firefox (the encoder's workers and WebAssembly there), the
     service worker's copy of `basis/` offline.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - The encoder and the transcoder each define a global `BASIS`: they only ever run in workers of their own.
+    - On the GPU: 21 MB at 4,096 px against RGBA's 85 MB, 85 MB at 8,192 against 341 MB.
 - **Pushing a folder** (`tools/studio/push.mjs`; `relay/README.md`, "Uploading"). A scene folder already made on a
   computer (GLBs, sounds, pictures, `layout.json`, for instance an importer's) sent to a relay as it is, without the
   upload page's converting: the relay's own listing and upload rules, `layout.json` last, same-size files skipped, files
@@ -226,7 +264,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   scene, the same again, a changed file kept and replaced, an 80 MB file, the layout's history); the hidden prompt in a
   real terminal and a relay behind HTTPS are untested.
 - **Fewer triangles and Change texture** (the owner: 20 % by default for everything, adjustable per model with a preview;
-  `tools/studio/SPEC.md`, "Fewer triangles" and "Change texture"; `engine/e7d_lite.js`). The converter's `reduce` (every
+  `docs/history/studio-spec.md`, "Fewer triangles" and "Change texture"; `engine/e7d_lite.js`). The converter's `reduce` (every
   mesh to a share of its triangles with meshoptimizer's simplifier: its normals and texture coordinates weighed, so its
   textures stay put; corners shared between parts locked; crumbs pruned; skins kept, shape keys left), in `toGLB`
   (`keep`; the record's `tris: { from, to, keep }`) and `convert.mjs --keep`. On a placed model's card (page and headset,
@@ -241,7 +279,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   share. The Upload pane: each model's *Triangles kept* (20 % by default), about how many (`CONV.triCount`, from its
   bytes) and *Preview*, which opens the viewer over the whole window ("The viewer" below), as does *Look closer* on the card while Fewer triangles is open. Nothing in the layout or
   `collab.state()` (no `FORMAT` change).
-  - The fill: no black seams (`tools/studio/SPEC.md`, "Fewer triangles"). Why: a scan's texture is an atlas of many small pieces with black,
+  - The fill: no black seams (`docs/history/studio-spec.md`, "Fewer triangles"). Why: a scan's texture is an atlas of many small pieces with black,
     unused texels between them; reducing keeps the seams joined in 3D but straightens each piece's outline in the
     picture, so at 10 % the triangles sample the black between pieces (black wedges along the seams; even all its
     triangles show thin dark seams once mipmapped). Measured on the atelier with its margins blacked out: filling every
@@ -266,7 +304,13 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     pictures filled too (copies, worked out once while it is open, laid on the object's own materials, put back and
     freed by Cancel, Save's end or another object; `STUDIO.state().lite.ft.fill`). `convert.mjs --no-fill`. How the
     filled seams look on a Quest and the time the fill takes there are untested.
-- **The viewer** (`tools/studio/SPEC.md`, "The viewer";
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - `simplifyWithAttributes` weighs its normals (0.5) and texture coordinates (1), so a texture stays where it was (its seams are kept); corners a part shares with another part (another material's group of the same mesh, or another mesh touching it, found by where they are, a grid a hundred-thousandth of the model's size) are locked, so parts do not crack apart; pieces smaller than a hundredth of its size are pruned first (`simplifyPrune`; never at the looser limits, which took a figure's separate arms); the limit on how far a corner may move starts at 1 % of its size and is loosened (10 %, all of it) until the count is within a tenth of the target; a part with no texture coordinates may then collapse across its hard edges (`Permissive`); a part under 16 triangles is left as it is.
+    - `CONV.triCount(ext, buf)` reads a model's triangles from its bytes (glTF's accessors, OBJ's faces, STL's count, PLY's header, FBX's `PolygonVertexIndex`, zipped or not), for the Upload pane's words before anything is loaded.
+    - **The fill: no black seams** (v120; the owner, 6 November 2026: "The reduction works really well but leaves black artifacts in the textured models ... maybe just needs changes to the texture like adding fade out color around all tiles since now these parts are black most of the time?").
+    - The fill's limits: a picture shared by a tiling model and an atlas is left alone; a picture whose pieces were baked without any margin still shows the colour of the piece next to it at a seam once lighter (the nearest colour, not black); a see-through picture whose gaps are clear keeps its dark fringe where a filtered texel reaches them.
+    - `STUDIO.state().lite` (`{ ft, ct }`), `STUDIO.tris(id)` (what an object's model draws now) and `thumbOf(root, w, h, wired)` (a small picture of a model, its edges drawn faintly over it) for tests.
+- **The viewer** (`docs/history/studio-spec.md`, "The viewer";
   `engine/e7f_viewer.js`). Pages only, never in a headset. A model over the whole window, opened by an Upload row's
   *Preview*, by *Look closer* on a placed model's Fewer triangles card and by *Look* on each model card of the Add pane (a
   small button over the picture's corner: a press on the card still places it). An overlay (`#stuViewer`, z-index 14) over
@@ -281,7 +325,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   it made freed, the canvas back under the page, the share chosen back on the row or the card; while open the keyboard is
   its own (the studio's keys never reach the scene). Nothing in the layout or the room, no Undo step. `STUDIO.viewer()`
   for tests. Untested: a big scan in it on a slow laptop, pinch and two-finger pan on a real touch screen.
-- **Pictures in the Add pane** (no 3D previews for now, the owner's choice; `tools/studio/SPEC.md`, "Pictures in the Add pane"; `engine/e7e_pics.js`). A picture is a 256 x 256 JPEG of a model (lit
+- **Pictures in the Add pane** (no 3D previews for now, the owner's choice; `docs/history/studio-spec.md`, "Pictures in the Add pane"; `engine/e7e_pics.js`). A picture is a 256 x 256 JPEG of a model (lit
   as the studio lights a scene, seen from a little above and in front, framed on its box, drawn at twice the size and
   made smaller, over a dark background), kept in the scene as `previews/<the model's path>.jpg` (`previews/models/eva.glb.jpg`;
   the relay's rule above: only such a `.jpg` there, at most 200 KB, kind `preview`). The converter's `toGLB(m, { picture })`
@@ -307,6 +351,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   again or the studio gone, and it is kept nowhere (`pvKeep`, `pvSend`). From another scene copies a model's picture with
   it. Nothing in the layout or `collab.state()` (no `FORMAT` change).
   `HOST.cur.peek('STUDIO.state().pics')` for tests.
+
+## The layout and trigger cubes
+
 - **`layout.json`** (also what *Download layout.json* gives and Upload takes): `{ studio: 1, scene, saved, objects,
   cubes, sounds, cuts, groups, shapes, empties, settings }` (and `screens`, `paintings`, `sequences`: below). Every
   optional field below is kept only when set, and a layout without it reads as before.
@@ -365,7 +412,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   pointed at from inside and outside), a selected cube's lines go green to what it shows and red to what it hides, and a
   model or a coloured shape a cube hides from you is not drawn at all but shown by its unseen box's edges and its tag
   (*Atelier · 397k ▲ · hidden*: "Nothing see-through while editing" under "Editing"), still pointed at, selected and carried; not editing, cubes and sound markers are not drawn at all.
-- **Cubes for everyone** (`tools/studio/SPEC.md`, "Cubes for
+- **Cubes for everyone** (`docs/history/studio-spec.md`, "Cubes for
   everyone"; `triggerStep` in `engine/e6_items.js`). A cube's record may carry `all: true` (*Works for: Each person /
   Everyone here* on its card, page and headset, one Undo step; absent, false or null each person's own as before, anything
   else a bad record). An everyone cube is active for every device at the station while any person's head is inside it:
@@ -401,7 +448,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   from its station it keeps its state (v149: it was left while away and entered again on the way back, so its shows won
   over every cube entered before).
 - **Cubes that switch cubes** (v154; the owner, 16 November 2026: "can triggercubes now be disabled by other trigger
-  cubes? can they also be disabled as part of a group?"; `tools/studio/SPEC.md`, "Cubes that switch cubes";
+  cubes? can they also be disabled as part of a group?"; `docs/history/studio-spec.md`, "Cubes that switch cubes";
   `cubeSwitch`, `swWhy` in `engine/e6_items.js`). A cube's `show` and `hide` lists may name other cubes (never itself:
   `norm` drops its own id, and a pick leaves it out), and so may a sequence's show and hide events (`SEQ_SHOW` has `c`:
   *Switch it on* / *Switch it off*) and a press's or hover's show and hide entries (no fade for a cube). Hidden, a cube
@@ -440,8 +487,11 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   switched-off cube act). `STUDIO.cube(id)` (`on`, `raw`, `by`, `why`) and `STUDIO.switches()` (`{ on, passes, held }`)
   for tests; `node tools/smoke.mjs --only 'studio cube switches'`. Untested on a headset: walking into switching cubes
   with a real head, how a darker cube reads there, everyone cubes switching each other across real headsets.
+
+## Screens, paintings and the room scan
+
 - **Screens: video and audio players** (the owner's decisions: in studio scenes for now, shared by default and per person optional, the relay's conversion an option off by default, no
-  YouTube; the contract is `tools/studio/SPEC.md`, "Screens"; `engine/e6q_screens.js`). A new kind of item, a screen
+  YouTube; the contract is `docs/history/studio-spec.md`, "Screens"; `engine/e6q_screens.js`). A new kind of item, a screen
   (`v.<id>` in `state()`, `screens` in `layout.json`, at most 20 a scene): a flat panel (`look: 'screen'`, `w` its width,
   its height from the video's aspect) or a small speaker (`'audio'`) that plays a playlist (`list`, 1 to 50 of the scene's
   video and sound files; `loop` all, one or off; `shuffle` a seed, `shuffleOrder(n, seed)` the same on every device) from
@@ -463,7 +513,27 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `STUDIO.screen(id)` and `STUDIO.screenClock` for tests. Untested on devices: a Quest's video decoder and the cost of a
   1080p `VideoTexture`, the bar with a real ray, a screen's sound through HRTF, iPhone's video element through the context,
   a long video converted on Coolify.
-- **Paintings: drawing in the air** (the contract is `tools/studio/SPEC.md`, "Paintings"; `engine/e6r_paint.js`). A new kind of
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - `look`: `'screen'` (the default: the panel) or `'audio'` (no panel: a small speaker, as a sound's look, and the bar over it).
+    - `sync`: absent (shared: everyone at the circle sees and hears the same moment) or `'own'` (each person plays it on their own: presses act on this device only).
+    - Its height is `w` over the playing video's aspect (its `videoWidth / videoHeight`; 16:9 until known, and for a sound).
+    - `shuffle`: absent, or a whole number 1 to 2^31 (a seed): the order is a permutation of the list seeded by it (a fixed function in the engine, `shuffleOrder(n, seed)`, the same on every device); turning shuffle on picks a new seed.
+    - With `sync: 'own'` the record's `play` is ignored and each device keeps its own (in memory, never written).
+    - `play` goes into `state()` and the room, never into Undo: a press of the bar writes the record's `play` alone with no Undo step (as v140's moves by anyone are written).
+    - Its picture: a `THREE.VideoTexture` on the panel (`MeshBasicMaterial`, its colour space as the studio's pictures are given), the panel's back a dark plane; while nothing is drawn yet (loading, a sound, paused before any frame) a canvas card with the entry's name and the screen's name in place of the video.
+    - Pause (v122's *Motions: paused*) does not pause screens.
+    - Before there is a context (no tap yet) the element plays muted (the picture moves, no sound); once there is one, the element is made again on that context (an element feeds one context only), as streamed sounds are, at the same moment.
+    - A screen not shown (hidden, over the limit, not in explore mode) does not advance; it catches up (at most eight entries a frame) once it is shown again.
+    - Shown while editing with the screen selected, and while a ray or the page's pointer is on the screen or the bar (and for 3 s after), only to someone who may use it (`ctl: 'any'`, or editing); else never.
+    - Volume from the bar changes the record's `vol` (shared, no Undo step) in steps of 0.25, held 0 to 2; with `sync: 'own'` this device's own volume only.
+    - Pressed: in a headset by the trigger on its regions (the studio's own ray and press: an item hit on a screen's bar is a bar press, not a selection, unless editing with the screen not selected); on a page by a click on its regions (the scene's raycast, its uv into the strip).
+    - Undo never takes a press back: `undoList` keeps the screen's current `play` when it puts an older record back (an edit's step holds the `play` of its moment, which a press has outdated since).
+    - The bar is as wide as the panel but held between 0.6 and 2.4 m (an audio player's 0.9 m), and always 0.12 m tall; its picture is laid out in units of a 100 tall bar (`barLayout` in `e6q_screens.js`), which `STUDIO.screen(id).bar` reports.
+    - The end of an entry waits for the length the element read (`SCR.dur`, by path); a stream with no finite duration never advances by itself.
+    - A video file's card in the Add grid places a screen of it.
+    - **Add pane:** a *Screens* row with *Screen* and *Audio player* (1.5 m in front, the panel's middle at 1.6 m high, facing you; the list starts with the scene's first video, else its first sound, else the item is not made and the pane says *Put a video or sound into the scene first*).
+    - Headless Chromium (Playwright's) has no H.264 or AAC: the tests use WebM (VP8 or VP9 with Opus or Vorbis) clips made at test time (in the page from a canvas and an oscillator through `MediaRecorder`, or with `ffmpeg` where the test runs it).
+- **Paintings: drawing in the air** (the contract is `docs/history/studio-spec.md`, "Paintings"; `engine/e6r_paint.js`). A new kind of
   item, a painting (`d.<id>` in `state()`, `paintings` in `layout.json`, at most 50 a scene): `{ name, p, q, s, strokes |
   src, n, pts, locked, shows }`, each stroke `{ b: 'ribbon' | 'tube' | 'glow' | 'spray', c, w, k: [[x, y, z, f(, nx, ny,
   nz)]], sd }` in the painting's frame (spray dots made from its seed, the same on every device). Paint mode is this
@@ -483,6 +553,17 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   device can lose them; a brush's width is held at 2 to 200 mm in the painting's frame (a painting sized far up or down
   paints thinner or thicker than the preview); spray dots' size in a headset session. Untested on a headset: all of it
   (the trigger's pressure, the tip, how strokes look, the frame rate with big paintings).
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - `n` the number of strokes and `pts` of points with `src` (for the cards and the limits).
+    - `f` the width factor from the trigger's pressure, 0.1 to 1, 2 decimals) and for a ribbon `[x, y, z, f, nx, ny, nz]` (its face's normal, 2 decimals: the controller's up, so the ribbon lies as the hand held it), 2 to 2,000 points.
+    - `sd` a spray's seed (1 to 2^31): its dots are a fixed function of the points, the width and the seed (`sprayDots(stroke)`, the same on every device; about 40 dots per centimetre of path at full pressure, within a disc of the width, at most 6,000 a stroke).
+    - **On a page:** a press and drag on the scene paints where the pointer's ray meets the scene's surfaces (models, shapes, the floor), 3 mm out along the surface's normal, else at the distance where the drag began.
+    - A stroke of fewer than 2 points after simplifying is dropped.
+    - **Eraser:** the brush that removes: while the trigger (or the drag) is held, every stroke of the selected painting (else any painting) that passes within its width of the tip is removed; one Undo step for one press.
+    - A painting left with no strokes stays (empty) until deleted.
+    - Each painting is merged into at most 4 meshes, one per look, built again only when its strokes change (between frames, a slice at a time for a big one, `PAINT.build`), never per frame: ribbons (flat quads along the path, both faces, the colour per vertex, lit), tubes (8 sides, lit, round caps), glow (tubes, unlit, the colour brightened, a thin darker core, nothing additive or see-through), spray (all dots of the painting in one `Points` draw, round by `alphaTest`, opaque, size in metres with distance).
+    - `STUDIO.paint()` (`{ on, brush, colour, width, painting, drawing: { n }, last }`) and `STUDIO.painting(id)` (`{ rec, strokes, meshes: [{ look, tris, draws }], dots, built }`).
+    - `PAINT.fake(points)` (a stroke drawn from given tip samples, as the trigger would).
 - **The room scan** (`engine/e6p_scan.js`, `tools/studio/README.md` "The
   room scan, and scanning rooms and objects"). A web page on a Quest gets only Space Setup's scan: WebXR's
   `mesh-detection` and `plane-detection`, which every AR session asks for. That is shape only, coarse, with no colour: the
@@ -505,8 +586,13 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   - **For tests:** `STUDIO.scan()` (`{ ar, seen, src, keep, busy, note, last, bake, words }`).
   - **Untested on a headset:** Space Setup started from the page, a real Quest's mesh (density, labels, its poses), the
     picture made in a session, the line-up at a calibrated circle.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - It uses `detectedMeshes`, else `detectedPlanes`, or only the planes when asked.
+
+## Showing by kind of session, and cubes that change and start things
+
 - **AR or VR only** (for a room built as a studio scene: its elements "detached and mapped onto the room";
-  `tools/studio/SPEC.md`, "AR or VR only"). An object's, a sound's, a shape's or an empty's record may carry `shows: 'ar'` or
+  `docs/history/studio-spec.md`, "AR or VR only"). An object's, a sound's, a shape's or an empty's record may carry `shows: 'ar'` or
   `'vr'` (absent or null both; anything else a bad record): in an AR session (passthrough, `!XR.clear`) one for VR is not
   shown (not drawn, silent, not pointed at), in a VR session one for AR, and a page shows what VR shows (`sessKind`,
   `shownHere`; `STUDIO.sess(k)` pretends one for tests). While editing one not shown for that reason is drawn as a hidden
@@ -514,7 +600,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   its card's heading says *only in AR: not shown here*. Its card: *Shows in: AR and VR / Only AR / Only VR* (page and
   headset, one Undo step each). So one scene can carry stand-ins for a VR visitor (walls, a floor) that an AR visitor's own
   room replaces. FORMAT `networks-43`.
-- **Trigger cubes that change textures** (no crossfade, the owner's choice; `tools/studio/SPEC.md`, "Trigger cubes
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - On top of what the cubes say: an item for the other kind of session is never shown, whatever a cube says.
+- **Trigger cubes that change textures** (no crossfade, the owner's choice; `docs/history/studio-spec.md`, "Trigger cubes
   that change textures"; `engine/e6i_tex.js`). A cube's record may hold `tex`, up to 16 entries `{ on, mat, slot, file }`:
   an object's id (models only), one of its materials (its index as Change texture lists the object's materials, `ctMats`:
   those with texture coordinates), a slot (`map`, `normalMap`, `roughnessMap`, `metalnessMap`, `aoMap`, `emissiveMap`,
@@ -548,7 +636,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   is found again there (`texRemap`, `texSwitched`, in the switch's change; glTF may list a mesh with several materials in
   another order); *Switch to the GLB* on a card keeps the index. `STUDIO.tex(id)` for tests. FORMAT `networks-36`. Untested
   on a headset: how the switch looks on a Quest, the memory with many 2,048 px pictures there.
-- **Trigger cubes that start things** (`tools/studio/SPEC.md`, "Trigger cubes that
+- **Trigger cubes that start things** (`docs/history/studio-spec.md`, "Trigger cubes that
   start things"; `engine/e6n_plays.js`). A cube's record may hold `plays`, up to 16 entries (`PLAY_MAX`) `{ on, what, clip,
   how, when }`: the item (`on`: an object's id for a clip; a sound's for the sound; an object's, a shape's, an empty's or a
   sound's for its recorded path; an object's, a shape's or an empty's for its motion: `PLAY_KINDS`), what is started
@@ -615,6 +703,11 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   pw, tg, trgLog } }`) and `trgClock` (the tests set their own) for tests. FORMAT `networks-42`. Untested on a headset: how
   a blended clip looks on a character there, the 0.3 s debounce with a real head, a voice started on entering through
   HRTF, a path's Hold going back, and how often a stay cube's restart feels right in a real room.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Ten visitors each get the wave as they walk up, and nobody's walking in restarts it under another; two side by side may see it at different moments.
+
+## Sounds
+
 - **Sounds** (emitters): a sound file placed at a point, played through the shell's context (`HOST.audio.fx()`, never
   one of its own), each through an HRTF `PannerNode` (inverse distance, full volume within `r`, `rolloff` 1,
   `maxDistance` 50 m) and its own gain. The listener is the head in a headset (the shell's `HOST.sfx.listen`) and the
@@ -631,7 +724,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   in the sound's colour and a faint ring on the floor at `r`. A voice recorded with a movement (its record's `sync`)
   plays with that item's recorded path instead of its own loop: from each start of the path, on the path's clock
   ("Recorded paths" below, "A voice with the movement").
-- **Sounds that follow a model** (`tools/studio/SPEC.md`, "Sounds that follow a model"): a sound's optional `on` (an
+- **Sounds that follow a model** (`docs/history/studio-spec.md`, "Sounds that follow a model"): a sound's optional `on` (an
   object's id, or a shape's or an empty's, followed
   where it is, no bone), `bone` (a bone of its model, or for a model
   with no bones a part its clips move, by name as three.js gives it; none: the whole model, the object's holder) and `o`
@@ -654,7 +747,19 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   `start: 'shown'` from its beginning each time both are shown). While editing a thin line in its colour runs to what
   it follows, and its labels say so (*Voice → Dancer · Head*). Shared as its record (FORMAT networks-30). Untested
   on a headset: how a voice at a moving head sounds, the pick by trigger and the bone pages on a real panel.
-- **Cut-outs** (`tools/studio/SPEC.md`, "Cut-outs"; `engine/e6b_cuts.js`). A
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Rigify numbers its spine (`DEF-spine` the hips, `.003` the chest, `.004` and `.005` the neck, `.006` the head), so those endings carry its `def` prefix: another rig's `spine006` is not a head.
+    - Switched to its GLB (`switchToGLB`, `s' = s / b`, `q' = q r^-1`): the sounds that follow its whole model (also those naming a bone its model lacks, which follow the whole model too) have their offsets turned by `r` (`o' = r o`) in the same change; on a bone they keep theirs (the GLB's bones stand where the original's did, to 1 mm, and a name the loader tidied is still found).
+    - A sound duplicated follows the same (its offset nudged as the copy is, `o` + 0.5 m in x); an object duplicated takes none of its sounds.
+    - While carried by a grip or dragged by the page's arrows, the sound is where the hand or the arrows put it (no following until let go).
+    - **Bones** (`bonesOf`, `nodeOf`): a model's bones by name as its loader gives them (the file's, the same in each clone; each object's own clone has its own bones, `SkeletonUtils.clone`, and the sound uses its object's); a model with no bones offers the parts its clips move (the nodes their tracks name; the test box's Bob).
+    - The short list, each shown only where the model has such a bone, by the end of its tidied name (Mixamo, 3ds Max's Biped, Unreal, Rigify's `DEF-`, VRM and Unity's humanoid names; the bone nearest the root, then the shortest name): *Whole model*, *Head* (`head`, `defspine006`), *Neck* (`neck`, `neck01`, `neck1`, `defspine004`, `defspine005`), *Chest* (`upperchest`, `chest`, `spine2`, `spine03`, `spine003`, in that order of preference), *Hips* (`hips`, `pelvis`, `defspine`), *Left hand* (`lefthand`, `handleft`, `lhand`, `handl`), *Right hand*, *Left foot*, *Right foot* (the same, mirrored).
+    - *Cancel*), then, following, *Follow another object...*, *Move onto it* (no offset.
+    - While it names a bone and its object's model is not on this device yet (still loading), only `p` is written (`measureNode`): an offset measured against the holder would be read against the bone everywhere else, so here it goes back to where its offset puts it.
+
+## Cut-outs, groups, faces, tint and the colour picker
+
+- **Cut-outs** (`docs/history/studio-spec.md`, "Cut-outs"; `engine/e6b_cuts.js`). A
   cut-out (*Cut-out box* on the Add pane, *Cut out a part* on an object's card) is a box over part of one object's model
   that hides whatever of that model lies inside it, for everyone, the model's file never changed (the owner's atelier is
   one mesh with one material: nothing in it can be hidden by name). Its record `{ name, on, p, q, size }`: the object it
@@ -699,7 +804,15 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   locked* again unlocks them and their boxes show again. One Undo step each.
   `layout.json`'s `cuts`, `state()`'s `x.<id>` (FORMAT networks-31). Untested on a headset: how the holes look on a
   Quest, the shader's cost with a big scan and 16 boxes, the grips on real controllers, the one raycast against a big scan.
-- **Groups** (`tools/studio/SPEC.md`, "Groups"; `engine/e6c_groups.js`). A group (`{ name, items }`, kind `g`) is a named set of objects,
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Checked as the other kinds are (`norm`): `on` not an id, `p` not three numbers within 1,000, `q` not four numbers (or of no length), `size` not three numbers: the record is bad.
+    - Scaled past what a record takes, a value is held at the limit (a side at 1 cm or 50 m, a middle within 1 km), never refused, and the object's card says which cut-outs were held (`cutNote`: sizing back does not undo that, Undo does).
+    - `s'` is kept to 4 significant figures, so where `s / b` is not exact (`b` not a power of ten) the model is drawn `k = s' b / s` times its old size and its cut-outs' middles and sizes (and its sounds' offsets) are scaled by `k` in the same change.
+    - Once an object has a cut-out its model's materials, lit and as scanned, each get a small addition (`cutPatch`, `onBeforeCompile`; every kind three.js has: Standard and Physical, Basic, Lambert, Phong, Toon, and the lines and points a model may hold): the vertex shader passes each vertex's place in the world, from three.js's own `transformed` after skinning and morphs (and the instance matrix), through `modelMatrix`; the fragment shader drops a fragment that lies within half a unit of the middle of any of the object's boxes on every axis, each box given as the first three rows of the inverse of its world matrix (`uniform vec4 cutM[48]`, three a box) and their count (`uniform int cutN`: a uniform, not a define).
+    - A layout or a room with more than 16 on one object (two people adding at once): of those cutting now the 16 with the lowest ids cut, the same on every device whatever order its items came in; the rest are drawn as cutting nothing (*· cuts nothing (16 at most)*, and their card says why).
+    - The new box is 0.8 x 2 x 0.4 m, each side at most a fifth of the model's largest side as placed (`cutAt`), upright, its middle where the click or the trigger that selected the object met the model's own surface (that ray, `cutRay`, kept in the scene's frame by `pressItem`, not the pointer's path since; the model's triangles looked for once, as the button is pressed, as it is drawn now: a skinned mesh's where its bones put them, its rest pose's bounds set aside for that test, `modelHits`), its depth towards where that ray came from; with no such ray (or none that meets the model), at the model's middle facing you.
+    - *Turn 90°* (about its own upright: its width and depth trade places).
+- **Groups** (`docs/history/studio-spec.md`, "Groups"; `engine/e6c_groups.js`). A group (`{ name, items }`, kind `g`) is a named set of objects,
   sounds, trigger cubes, shapes and empties (a cut-out belongs to its object, so never a member); an item is in one group at most (an id
   two groups name stays in the one with the lower id, `groupOf`, the same on every device), no groups in groups, 50 a
   scene. *Make a group...* on an item's card makes a group of it and starts a pick mode (a click, the trigger or a pinch on
@@ -729,14 +842,19 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   of its group's members, its cubes too (the picking cube left out; v154: "Cubes that switch cubes"). `layout.json`'s `groups`, `state()`'s `g.<id>`
   (FORMAT networks-32). Untested on a headset: the grips carrying and sizing a group on real controllers, the pick
   mode by trigger, how the box reads.
-- **Faces** (`tools/studio/SPEC.md`, "Faces"). An object's optional `faces`: absent or `null` (*As in the file*, each material's own side as loaded), `'both'` (*Both
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - `name` at most 60 characters, *Group* by default, numbered as any item's (*Group 2*).
+    - While a drag lasts its members are carried (the room's records wait); a group gone meanwhile (from the room) lets them go, and its change ends as the pointer comes up.
+    - On a page: the arrows (`TransformControls`) on the pivot: move (any way), turn (the vertical ring only), size (the largest change of any axis taken as the size); the card's *Turn 90°*, size steps (×0.5, ×0.9, ×1.1, ×2) and *On the floor* (the lowest point of the group's objects onto the floor: a cube is a volume to walk into and a sound a point, so neither counts, unless the group has no object).
+    - Two people putting one item into two groups at once leave the group with the higher id with that member passed over; if that leaves it fewer than 2, it stays (its card says so and offers *Ungroup*): applying a state never changes what it is given (`apply(state())` gives the same state back), and the result is the same on every device.
+- **Faces** (`docs/history/studio-spec.md`, "Faces"). An object's optional `faces`: absent or `null` (*As in the file*, each material's own side as loaded), `'both'` (*Both
   sides*: `DoubleSide`) or `'inside'` (*Inside out*: `BackSide`, three.js turning the normals so the light follows), on the
   object's own materials (its clones, lit and as scanned, `applyFaces`; the side as loaded kept as `side0`), so two copies
   of one file may differ; set again whenever its model is built (a file changed on the relay, a GLB switch, which keeps the
   record's `faces`), and with its cut-outs' addition. A row on the object's card (page and headset): *Faces: As in the file
   / Both sides / Inside out*, one Undo step, shared and saved (FORMAT networks-32). The file is never changed. Untested on
   a headset: a scan inside out seen from within, the cost of double sides on a big scan.
-- **Tint and brightness** (`tools/studio/SPEC.md`, "Tint and brightness"). An object's optional `tint` (`'#rrggbb'`, lower case) and
+- **Tint and brightness** (`docs/history/studio-spec.md`, "Tint and brightness"). An object's optional `tint` (`'#rrggbb'`, lower case) and
   `bright` (a factor, 0.25 to 4, to 2 decimals; 1 is none), each kept only when set (anything else makes the record bad, a
   brightness out of range held at its limit; FORMAT networks-37). On the object's own materials, lit and as scanned: each
   material's colour as loaded (`userData.col0`, kept as `libClone` and `scanMat` make it) times the tint, times the
@@ -749,9 +867,34 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   same rows for every object of it in one step (Darker and Brighter on each one's own). The file is never changed; the
   Add and Items panes' pictures stay the file's. Untested on a headset: how tints look on a Quest.
 - **The colour picker** (`engine/e7h_colour.js`). One picker for an object's tint, a shape's colour and the paint colour. Page: *Any colour…* opens a popover (a hue ring and a saturation and brightness square, the hex, the ten swatches, up to eight recent colours kept on this device as `studioColours`, shared by the three), dragged with the pointer or stepped with the arrow keys; what it shows is previewed on the item on this device only and written when let go (one Undo step a drag, a typed hex, a swatch or a run of keys; Esc takes the preview back). Headset: *Any colour…* on the card opens the same picker as a block of the card, dragged with the trigger (its own strip sent to the texture while it moves, never the whole card), one Undo step when let go (a lost controller commits what was shown). Records unchanged (`'#rrggbb'`); paint's colour is a tool setting (no Undo step). `STUDIO.colour()` for tests; `node tools/smoke.mjs --only 'studio colour'`. Untested on a headset: dragging the ring and square with a real ray, how the picker reads at arm's length.
-- **Sequences** (`tools/studio/SPEC.md`, "Sequences"; `engine/e6s_seq.js`, `engine/e7h_seqview.js`). A new kind of item, `q` (`q.<id>` in `state()`, `sequences` in `layout.json`, at most 50 a scene, 200 events a sequence, 2,000 in all): no place and nothing drawn, `{ name, len, loop, start, sync, col, ev, locked }`; an event `{ t, on, what, ... }` on an item: a clip, sound, path or motion (once, loop, hold, stop, as a cube's `plays`), `show` or `hide` (a fade or `cut`; a cube switched on or off, v154), a picture change (`tex`) or another sequence (`seq`). It is built on `e6n_plays.js`: events start the cubes' runs (source `'seq'`), and show, hide and `tex` are one more source in the cubes' "entered last decides" rule. The play state is not a record: `qr.<id>` = `{ n, on, at, t, ts, by }` in the room's state (a screen's precedent: no Undo step, never in `layout.json`, the draft or *Unsaved changes*), so every device works out the same result from it and the room's clock, a late joiner too (a late joiner to a looping sequence fires only the current cycle's events: known limit); `sync: 'own'` keeps it on this device, never sent. *Play for everyone* / *Play here*, *Stop* and *Rewind* work with editing off, a visitor too (greyed while the circle's story is locked); a stop of a sequence not playing does nothing (v149: it wrote a new `ts`, which put a stopped loop in a later cycle); a cube's `plays` entry can start one, `start: 'open'` starts it by itself. Editing: the card (page and headset twins, a bar on the headset), a preview on this device only, and on a page the lane view `#stuSeq` (events as blocks on a lane per item, dragged, marquee-selected, copied with Alt; one Undo step each). `STUDIO.seq(id)`, `seqs()`, `seqView()`; `node tools/smoke.mjs --only 'studio sequences'`. FORMAT `networks-47`. Untested on a headset: the card's list editor and bar with real controllers, how in step a shared sequence looks across real headsets.
-- **Press and hover** (`tools/studio/SPEC.md`, "Pressed and pointed at"; `engine/e6t_press.js`). An object's or a shape's record may carry `press` `{ do, hover, who }`: entries (at most 16 a list) that do what a cube can start (clip, sound, path, motion), show or hide an item (switch a cube on or off, v154), or start or stop a sequence; in `do` a loop toggles (odd presses start it). A press is a stamp, not a record: `pr.<id>` = `{ n, at, by }` in the room's state (no Undo step, never in `layout.json`), written by the presser (one press an item per 250 ms), and every device fires the entries from the stamp and the room's time (a late joiner too); `who: 'own'` keeps it on this device. Hover is each person's own and sends nothing: its entries fire as the pointing begins and its loops and holds come off 0.3 s after it ends. Pressable only with editing off (editing on, a click or the trigger selects; the card's *Try press* and *Try pointing* act here only), a visitor presses, and so does anyone while the story is locked. Headset: the trigger on a pressable item presses (the grip still carries one that is `grab: true`); page: a click (within 4 px). The card (*When pressed*, *While pointed at*, *Add a reaction...*, *Pressed by*), page and headset twins. Two people pressing one item within a few hundred ms may lose one press (last writer wins). `STUDIO.press(id)`, `pressFire(id)`, `hover(id)`; `node tools/smoke.mjs --only 'studio press'`. FORMAT `networks-47`. Untested on a headset: pressing with a real trigger, hover with a real ray, how in step a shared press looks across headsets.
-- **Sends to the output page (MIDI and OSC)** (v157; `tools/studio/SPEC.md`, "Sends to the output page (MIDI and OSC)"; `tools/output/SPEC.md` the contract; `engine/e6u_send.js`). A cube, a press record and a sequence may carry `send` entries `{ on, t, osc, note, cc, val, ch, hold }` (at most 8; one check, `normSend`; a layout's bad ones counted and said on the Scene pane): the scene's own mapping of its events to MIDI and OSC, which the output page (`output.js`) sends. The owner's exception to the cubes' rule: **only for a cube opted in to send (its record has send entries), the fact that a person walked into it or out of it is sent as an ephemeral effect from that person's device; what the cube shows, hides, changes or starts for them stays their own and is never sent.** Pointing at an item whose press has `hover`/`unhover` entries is sent likewise; nothing else of pointing; nothing of either in `state()`. The effect `send` (`{ id, ev, at, t?, try? }`, at most 10 a second a device, one per item and event per 100 ms) only from a person's device (never a camera or the output page); every device ignores it unless something listens on `HOST.cur.out`. The state gains `sw.<id>` (an outside switch, one more source in the cubes' rule, written only by the output page) and `bt` (the room's beat), which a motion with `beat` (0.25 to 16 beats a period) follows. `HOST.cur.out` (`STUDIO.out`): `ready`, `scene`, `list`, `pose`, `listen` (events: presses, sequences' start, stop and `at`, cubes' `on`/`off`, everyone and key cubes' `enter`/`leave` worked out from the heads, the effect), `act` (press, start/stop/toggle/rewind, show/hide/flip/clear, beat), `beat`, `sends`. The cards (page and headset twins): a cube's *Sends to the output page: Off / On*, *Sends* on an object's, a shape's and a sequence's card, *Add a send...*, *Try*, ✕ (one Undo step each), a motion's *On the beat*. `STUDIO.sends()`, `sendSet(id, list)`, `beatSet(id, beat)`; `node tools/smoke.mjs --only 'studio sends'`. FORMAT `networks-51`. Untested on a headset: walking into a cube that sends, pointing with a real ray, the card with real controllers, how in time the room's beat looks.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - It keeps the colour as hue, saturation and brightness (a grey keeps its hue while dragged), the colour it opened with, and whether a drag is under way.
+    - For tests: `STUDIO.colour()` (`{ open, hsv, hex, from, drag, pend, live, previews, commits, patches, recents }`); the smoke test's *studio colour* steps (`--only 'studio colour'`); the older `studio tint` step sets the colour through the picker's hex field.
+
+## Sequences, pressing, sends to the output page, streams
+
+- **Sequences** (`docs/history/studio-spec.md`, "Sequences"; `engine/e6s_seq.js`, `engine/e7h_seqview.js`). A new kind of item, `q` (`q.<id>` in `state()`, `sequences` in `layout.json`, at most 50 a scene, 200 events a sequence, 2,000 in all): no place and nothing drawn, `{ name, len, loop, start, sync, col, ev, locked }`; an event `{ t, on, what, ... }` on an item: a clip, sound, path or motion (once, loop, hold, stop, as a cube's `plays`), `show` or `hide` (a fade or `cut`; a cube switched on or off, v154), a picture change (`tex`) or another sequence (`seq`). It is built on `e6n_plays.js`: events start the cubes' runs (source `'seq'`), and show, hide and `tex` are one more source in the cubes' "entered last decides" rule. The play state is not a record: `qr.<id>` = `{ n, on, at, t, ts, by }` in the room's state (a screen's precedent: no Undo step, never in `layout.json`, the draft or *Unsaved changes*), so every device works out the same result from it and the room's clock, a late joiner too (a late joiner to a looping sequence fires only the current cycle's events: known limit); `sync: 'own'` keeps it on this device, never sent. *Play for everyone* / *Play here*, *Stop* and *Rewind* work with editing off, a visitor too (greyed while the circle's story is locked); a stop of a sequence not playing does nothing (v149: it wrote a new `ts`, which put a stopped loop in a later cycle); a cube's `plays` entry can start one, `start: 'open'` starts it by itself. Editing: the card (page and headset twins, a bar on the headset), a preview on this device only, and on a page the lane view `#stuSeq` (events as blocks on a lane per item, dragged, marquee-selected, copied with Alt; one Undo step each). `STUDIO.seq(id)`, `seqs()`, `seqView()`; `node tools/smoke.mjs --only 'studio sequences'`. FORMAT `networks-47`. Untested on a headset: the card's list editor and bar with real controllers, how in step a shared sequence looks across real headsets.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - `ev`: events `{ t, on, what, clip?, how?, fade?, mat?, slot?, file? }` sorted by `t` (ties in the order given), at most 200: `t` 0 to 600 s to 0.01, `on` an item id.
+    - Commands (`seqCmd`: start from the beginning, stop where it is, rewind); at most one write a sequence from one device in 150 ms.
+    - A `sync: 'own'` sequence keeps its state in `STU.qOwn` (never written).
+    - An effective state (`seqEff`) is the record's, or one derived from a playing sequence's `seq` event (never written: every device works it out alike; the later `ts` wins; at most four hops), or this device's preview.
+    - An item a `show` event names waits hidden until shown (`LISTS.shown`).
+    - A winning source with `cut` shows or hides at once (`it.snap`).
+    - Reset what I have seen and the lobby forget own states and have every sequence fire afresh from its state.
+    - The lane view (page, editing, a sequence selected; never in a headset): `#stuSeq` docked at the bottom beside the side panel (160 to 480 px): a ruler (a drag scrubs the preview), a lane per item, events as blocks, diamonds and squares, the playhead; drag an event (snapped to 0.1 s, Shift free, Alt copies; one Undo step), marquee, Ctrl or Shift selection, Delete, double click (the card; on an empty lane spot Add an event there), Space, Home, arrows, the wheel zooms, Ctrl + wheel scrolls.
+    - Items pane: a *Sequences* section (a tile with a play triangle, length and events, playing).
+    - `STUDIO.seq(id)` (record, effective play state with its source, `u`, `ended`, `cycle`, `shows`, `tex`, `runs`, `fired`, `key`), `STUDIO.seqs()`, `seqPlay`, `seqStop`, `seqRewind`, `STUDIO.seqView()` and `seqViewDrag(i, dt)`.
+- **Press and hover** (`docs/history/studio-spec.md`, "Pressed and pointed at"; `engine/e6t_press.js`). An object's or a shape's record may carry `press` `{ do, hover, who }`: entries (at most 16 a list) that do what a cube can start (clip, sound, path, motion), show or hide an item (switch a cube on or off, v154), or start or stop a sequence; in `do` a loop toggles (odd presses start it). A press is a stamp, not a record: `pr.<id>` = `{ n, at, by }` in the room's state (no Undo step, never in `layout.json`), written by the presser (one press an item per 250 ms), and every device fires the entries from the stamp and the room's time (a late joiner too); `who: 'own'` keeps it on this device. Hover is each person's own and sends nothing: its entries fire as the pointing begins and its loops and holds come off 0.3 s after it ends. Pressable only with editing off (editing on, a click or the trigger selects; the card's *Try press* and *Try pointing* act here only), a visitor presses, and so does anyone while the story is locked. Headset: the trigger on a pressable item presses (the grip still carries one that is `grab: true`); page: a click (within 4 px). The card (*When pressed*, *While pointed at*, *Add a reaction...*, *Pressed by*), page and headset twins. Two people pressing one item within a few hundred ms may lose one press (last writer wins). `STUDIO.press(id)`, `pressFire(id)`, `hover(id)`; `node tools/smoke.mjs --only 'studio press'`. FORMAT `networks-47`. Untested on a headset: pressing with a real trigger, hover with a real ray, how in step a shared press looks across headsets.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Entries naming an item a layout lacks, or one the entry cannot be done to, are dropped on reading it (`readLayout`).
+    - `n` is the last known n plus one, `at` the room's time in ms (`behNow()`).
+    - Locked items keep their reactions editable (it is not a move).
+    - **Page**: a click (a press and release within 4 px) presses; for an item that can also be moved (`grab: true`) a press moves it only after 6 px and presses on release if it never moved (within 500 ms); the cursor is `pointer` over a pressable item (a pick at most ten times a second).
+- **Sends to the output page (MIDI and OSC)** (v157; `docs/history/studio-spec.md`, "Sends to the output page (MIDI and OSC)"; `tools/output/SPEC.md` the contract; `engine/e6u_send.js`). A cube, a press record and a sequence may carry `send` entries `{ on, t, osc, note, cc, val, ch, hold }` (at most 8; one check, `normSend`; a layout's bad ones counted and said on the Scene pane): the scene's own mapping of its events to MIDI and OSC, which the output page (`output.js`) sends. The owner's exception to the cubes' rule: **only for a cube opted in to send (its record has send entries), the fact that a person walked into it or out of it is sent as an ephemeral effect from that person's device; what the cube shows, hides, changes or starts for them stays their own and is never sent.** Pointing at an item whose press has `hover`/`unhover` entries is sent likewise; nothing else of pointing; nothing of either in `state()`. The effect `send` (`{ id, ev, at, t?, try? }`, at most 10 a second a device, one per item and event per 100 ms) only from a person's device (never a camera or the output page); every device ignores it unless something listens on `HOST.cur.out`. The state gains `sw.<id>` (an outside switch, one more source in the cubes' rule, written only by the output page) and `bt` (the room's beat), which a motion with `beat` (0.25 to 16 beats a period) follows. `HOST.cur.out` (`STUDIO.out`): `ready`, `scene`, `list`, `pose`, `listen` (events: presses, sequences' start, stop and `at`, cubes' `on`/`off`, everyone and key cubes' `enter`/`leave` worked out from the heads, the effect), `act` (press, start/stop/toggle/rewind, show/hide/flip/clear, beat), `beat`, `sends`. The cards (page and headset twins): a cube's *Sends to the output page: Off / On*, *Sends* on an object's, a shape's and a sequence's card, *Add a send...*, *Try*, ✕ (one Undo step each), a motion's *On the beat*. `STUDIO.sends()`, `sendSet(id, list)`, `beatSet(id, beat)`; `node tools/smoke.mjs --only 'studio sends'`. FORMAT `networks-51`. Untested on a headset: walking into a cube that sends, pointing with a real ray, the card with real controllers, how in time the room's beat looks.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - `collabApply` checks both and treats a bad one as absent.
+    - Actions as Wire 2's table (`press` refused within 250 ms, for a press each person's own, an item without a press; sequences refused when own or the circle's story is locked.
 - **The dub techno demo** (v159; `tools/studio/dub/` makes `examples/dub-techno` with `node tools/studio/dub/make.mjs`,
   `--check`; never edit it by hand): a mixing desk of shapes and cubes only (two faders, a turntable, an orb, three pads,
   a dub wand, a dance-floor cube and a drop cube for everyone, a beat-locked wobble sphere, trails and hand trails),
@@ -761,7 +904,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   Start puts it back to bar 1 at the room's downbeat. Loaded and heard as levels in Cardinal's web build (headless); never
   listened to, nor tried with real MIDI.
 - **Streams, trails and loops on the beat** (v158, FORMAT networks-52; `tools/output/SPEC.md` "v158" the contract,
-  `tools/studio/SPEC.md` "Streams on a card", "Trails", "Loops on the beat"). *Streams* on the card of an object, shape,
+  `docs/history/studio-spec.md` "Streams on a card", "Trails", "Loops on the beat"). *Streams* on the card of an object, shape,
   empty, sound or cube (`stream`, 1 to 8 entries, 64 a scene, `normStream`, `engine/e6v_stream.js`): a value (x y z, yaw
   pitch roll, speed, vx vy vz, acc, spin; size, shown, clip, path, motion phase; near: the nearest head; a cube's count of
   heads inside) mapped from a range (*Range from its movement*: 5 s watched) to a CC (14-bit with `wide`), a threshold
@@ -775,7 +918,15 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   hide) and other sequences, quantised; `STUDIO.loops()`, `loopClock`. A press fired by a sequence runs its show, hide and
   run entries, not its `seq` entries. Untested on a headset: Record on the beat with the grip across the downbeat, trails'
   look and cost over passthrough, hand trails over Wi-Fi.
-- **Shapes, empties, locks, the scene's settings and the lobby** (`tools/studio/SPEC.md`, "Shapes and empties", "Locked in place", "The scene's
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - `col` `'#rrggbb'` (lower-cased, written only when set; absent: a shape's own colour, else the kind's: an object cyan `#46d9ff`, an empty amber `#ffb43b`, a sound green `#3ee08f`).
+    - A sample is taken when at least 1/60 s has passed since the last (2 ms allowed for a clock's rounding) and it moved 2 cm, or a quarter of a second went by; between samples the ribbon runs on to where it is now.
+    - Its buffers are made once (16,384 vertices, a `Uint16` index) and only the part used is sent each frame.
+    - **Untested here**: how trails look and cost on a Quest (a headset's additive blend over passthrough, many long trails), people's hand trails from real headsets over Wi-Fi, this device's own controllers' trails (only in a session).
+
+## Shapes, locks, goggles and behaviours
+
+- **Shapes, empties, locks, the scene's settings and the lobby** (`docs/history/studio-spec.md`, "Shapes and empties", "Locked in place", "The scene's
   settings", "The lobby"; `engine/e6d_shapes.js`, `LOOKS.shape`, `LOOKS.empty`).
   - A shape (`p.<id>`, `shapes`): `{ name, shape: 'cube' | 'sphere' | 'cylinder' | 'plane', p, q, size, colour, look }`,
     added from the Add pane's *Shapes* row (a 50 cm box or ball, a 50 cm by 1 m cylinder, a 1 m plane, upright, facing
@@ -848,7 +999,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   each person's own: never in `state()` or `layout.json`. `STUDIO.goggles()`; `node tools/smoke.mjs --only goggles`.
   Untested on a headset: the grab to the face, the gesture off, the game itself (see the shell's section).
 - **Behaviours** (the owner's rule: a behaviour reacts to one headset at a time, the nearest or the first to come
-  close, shared alike on every headset; `tools/studio/SPEC.md`, "Behaviours"; `engine/e6g_behave.js`). An object, a shape or an empty may have a
+  close, shared alike on every headset; `docs/history/studio-spec.md`, "Behaviours"; `engine/e6g_behave.js`). An object, a shape or an empty may have a
   `behaviour` in its record, with only its kind's fields: `look` `{ who, range }` (its front, `+z` as placed, turns to the
   person about the vertical through its middle), `follow` `{ who, range, dist, speed, side }` (comes to about `dist` in front of
   them, at its own height, turned to them; `side` `'behind'`, `'left'` or `'right'` puts it there instead, facing the way they look, so it
@@ -885,7 +1036,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   differently for a moment. Untested on a headset: all of it at a real station (being followed, looked at or avoided life
   size, the choice and hand-over between real headsets over Wi-Fi, how smooth 120 ms behind looks, the cost), and how
   Faces feels there (a model walking beside you that turns to look at you, an item turning to look at the one it follows).
-- **Things on walls** (`tools/studio/SPEC.md`, "Things on walls"; `engine/e6o_walls.js`). A behaviour of
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - An item that faces `'them'` turns to its target even while that one stands where it is placed (its record never changes).
+- **Things on walls** (`docs/history/studio-spec.md`, "Things on walls"; `engine/e6o_walls.js`). A behaviour of
   the kind `wall`: `{ kind: 'wall', at: 'direction' }` (on the first wall a ray from the walls' middle meets along its placed
   direction from the scene's origin, its placed middle's x and z; at the origin -z), `{ kind: 'wall', at: 'nearest' }` (the
   walls' point nearest its placed middle) or `{ kind: 'wall', at: 'person', who, range, speed }` (the walls' point nearest
@@ -912,7 +1065,12 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   headset's own again) for tests. FORMAT `networks-43`. Untested on a headset: real plane detection on a Quest (which
   planes it lists as vertical, how steady their extents are, a multi-room scan), how things on walls look there, a
   person followed along the walls.
-- **Motions** (curves later, the owner's plan; the recorder is "Recorded paths" below; `tools/studio/SPEC.md`,
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - It eases there (`WALL_EASE`, 0.15 s: there in about 0.4 s) when the walls change, never jumping each frame.
+
+## Motions, recorded paths and a model's timeline
+
+- **Motions** (curves later, the owner's plan; the recorder is "Recorded paths" below; `docs/history/studio-spec.md`,
   "Motions"; `engine/e6e_motion.js`). An object, a shape or an empty may have a `motion` in its record: `spin` (turns about
   the axis through its middle), `wobble` (tilts `amount` degrees, the tilt going round the axis), `bob` (along the axis by
   `amount` metres), `pulse` (grows and shrinks about its middle by `amount`, a share; no axis), `orbit` (round a circle of
@@ -940,7 +1098,11 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   *More*), *Axis*, *Starts: Always / When shown*, and a line saying it goes on while selected (a ghost where it is placed)
   and rests while carried; one Undo step each, shared and saved; then *Motions: playing / paused* and *Start again*. `STUDIO.pose(id)` for tests. FORMAT networks-35. Untested on a headset: how the motions look and feel life size, their phase across real headsets at a station,
   the cost of many moving items on a Quest.
-- **Recorded paths** (`tools/studio/SPEC.md`, "Recorded paths"; `engine/e6f_path.js`). An object, a shape, an empty
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - `amount`: 0 to the kind's largest (wobble 60°, sway 90°, bob 10 m, orbit 50 m, pulse 0.9; degrees to 0.1, metres to the mm, a share to 2 decimals; a spin's is 0).
+    - `atPlaced`, the holders put at their placed poses for the measure, inside a frame).
+    - Its sub-line in lists says so (*spins*, *wobbles*...).
+- **Recorded paths** (`docs/history/studio-spec.md`, "Recorded paths"; `engine/e6f_path.js`). An object, a shape, an empty
   or a sound may have a recorded `path` in its record (a group has none: its members each keep their own and move with
   it, and its card says so; cubes and cut-outs have none, a cut-out going with its object's): `k`, its keys `[t, dx, dy,
   dz, qx, qy, qz, qw]`, `t` seconds from 0 (to the ms, the first 0, strictly increasing, the last at most 120), the pose
@@ -981,7 +1143,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   grips and sticks (the pose sampled from a real carry at the headset's frame rate), how a recorded path plays back life
   size, its phase across real headsets at a station, a recording's simplification and its stall on a Quest (a 120 s one
   at 30 samples a second), the cost of many items on paths.
-  - **Ten minutes, as a file** (`tools/studio/SPEC.md`, "Ten minutes, as a file"; `engine/e6j_voice.js`).
+  - **Ten minutes, as a file** (`docs/history/studio-spec.md`, "Ten minutes, as a file"; `engine/e6j_voice.js`).
     With a relay that takes uploads a recording may run up to 600 s (`recCap`, then it stops by itself and is kept;
     without one 120 s). One that fits the record's limits (at most 120 s and 600 keys once simplified) stays in the
     record; a longer one, or one of more than 600 keys (up to 40,000), is kept as a file of the scene,
@@ -1007,7 +1169,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     as a file into a new file the same way first (`sceneToCircleFiles`), or is refused in words, nothing moved. Loop, once, back and forth, speed,
     Start again, the loop join and *Keep it as recorded* work for both kinds. Its card: *Recorded path: 4:12, 3,812 keys,
     kept as a file* and the file's name. FORMAT networks-37 (`src` on a path, `sync` on a sound).
-  - **A voice with the movement** (`tools/studio/SPEC.md`, "A voice with the movement"; `engine/e6j_voice.js`).
+  - **A voice with the movement** (`docs/history/studio-spec.md`, "A voice with the movement"; `engine/e6j_voice.js`).
     *With my voice: on / off* among the recorder's rows (an object's, a shape's and an empty's card, page and headset; this
     device's own, `studioRecVoice`, kept) asks for the microphone as it is turned on (`getUserMedia`, 15 s at most; the
     headset's card says to allow it on the 2D page first: the browser may not show its question inside a session); greyed
@@ -1033,7 +1195,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     too), `STUDIO.pf(src)` and `SIMP.last` for tests. Untested: the microphone in a Quest session, how a voice sounds
     following a model there, a voice over 20 s through a real relay's `ffmpeg`, a streamed voice kept on the path's clock
     in Quest Browser (its element's seeking) and across real headsets, Safari's `MediaRecorder`.
-  - **Stays on the floor** (`tools/studio/SPEC.md`, "Stays
+  - **Stays on the floor** (`docs/history/studio-spec.md`, "Stays
     on the floor"; `engine/e6f_path.js`: `FLOOR`, `recDown`, `recFloor`, `floorRows`). *Stays on the floor: on / off*
     among the recorder's rows (an object's, a shape's, an empty's and a sound's card, page and headset; this device's own,
     `studioRecFloor` in `localStorage`, off by default; a line under it says what it does). A recording begun with it on
@@ -1050,7 +1212,11 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     down (nothing to undo); kept, one change, one Undo step, as ever (one kept later by `recKeep` writes the set-down place
     with its path). Untested on a headset: how carrying something that stays on the floor feels (the hand lifting it while
     it slides below), recording so with real grips and sticks, how a grounded path plays back life size on a real floor.
-- **The ghost, Pause and placing what moves** (`tools/studio/SPEC.md`, "The ghost, Pause
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - From Record to Stop is one change (the arrows' drags and the card's presses inside it).
+    - **Kept** (`recKeep`, `voiceKeep`): only with a recording that is kept; cancelled or refused, what came is let go.
+    - **The page's arrows** while it records on the floor (`tcAttach`): Move without its up arrow (and the planes that hold it), Turn with the vertical ring only and in the scene's frame.
+- **The ghost, Pause and placing what moves** (`docs/history/studio-spec.md`, "The ghost, Pause
   and placing what moves"; `engine/e6h_ghost.js`). An item with a motion, a recorded path or a behaviour goes on while it
   is selected. While a selected item (or a selected group's member) is drawn more than 1 cm or 1 degree from its placed
   pose (`ghostFar`, from `it.mX`; and for 0.6 s after, so a spin through its place does not blink it), and every item
@@ -1094,8 +1260,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   record or `state()`: no `FORMAT` change. `STUDIO.ghost(id)` for tests. Untested on a headset: how the ghost reads life
   size and over a real room, carrying an item by its ghost with real controllers, finding the ghost by hand while
   recording, the tick and the pulse on a real controller, how a joined loop looks there, Pause from the headset's panel.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Resting (Pause, a recording) the arrows are on the item itself again.
 - **A model's timeline** (the owner's rules: play and pause for everyone in the circle, pause and scrubbing temporary;
-  `engine/e6m_anim.js`, `tools/studio/SPEC.md` "A model's timeline"). Two timelines, each with
+  `engine/e6m_anim.js`, `docs/history/studio-spec.md` "A model's timeline"). Two timelines, each with
   a hold of its own (its channel: `clip` or `path`): an object whose clip plays (Loop or Once), selected while editing,
   under its Animation rows; and an object, a shape, an empty or a sound with a recorded path (in its record or kept
   as a file), selected while editing and not being recorded, under its Recorded path rows. What a path's holds is its own
@@ -1130,7 +1298,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   Quest (its strip sent alone, its mipmaps), how in step a held frame looks for several people at a circle, a held voice
   in Quest Browser.
 - **As it moves: clip by distance** (v164, FORMAT networks-53; the owner, 18 November 2026: "would also need feet solver
-  for npcs that move around?", and clip by distance first, foot locking maybe later; `tools/studio/SPEC.md` "As it
+  for npcs that move around?", and clip by distance first, foot locking maybe later; `docs/history/studio-spec.md` "As it
   moves"; `engine/e6y_walks.js`). An object's Animation row gains *As it moves* (`anim: 'move'`): its clip is its walk,
   and the clip's time follows the distance it covers along the floor, one cycle a stride. On its recorded path the
   distance is the path's own at the path's moment (`it.pS` from `POSE.path`), so every device agrees and the path's
@@ -1146,6 +1314,21 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   Walk, Idle and Walk forward, one on a path, one following it). Foot locking can come on top later (the same samples
   know where each foot is down). Untested on a headset: how it looks walking and turning beside you, the crossfades at
   a real frame rate, following a person or a tracker in a room, and how far its feet slide.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Unknown values of `anim` make the record bad, as before.
+    - **Its time follows its distance**: one cycle of the clip a stride, its phase = distance / stride, instead of the clock.
+    - Two optional fields, kept only when set, whatever its `anim` (so Loop and back keeps them): `idle`, the name of another clip of its model to stand with (at most 120 characters.
+    - On a path that loops, the stride is fitted so the path is a whole number of strides (no jump as it comes round).
+    - a clip that walks in place: the backward travel, under its hips, of the foot on the ground (the lower one; both within 1 % of its height of each other, the one moving back faster), summed over a cycle.
+    - a clip whose hips travel (root motion, more than 4 % of its height a cycle): that travel, which is taken out of what plays (a copy of the clip whose hips' place loses the travel so far, keeping its bob and sway), so it does not move twice.
+    - no hips or feet found (by name: Mixamo's, Unreal's, 3ds Max's), or a clip that hardly moves its feet: 0.8 of its height, said on its card.
+    - A clip that walks backwards by itself plays the other way.
+    - A copy, a GLB switch (its scale changes, so the stride in metres stays), Undo, locks and groups treat its fields as the other Animation fields.
+    - **Later, on top**: foot locking (each foot pinned while the clip has it on the ground) can use the same samples (`gaitInfo` knows each foot's place and when it is down) and the two-bone solver.
+    - **For tests**: `STUDIO.walk(id)` (`{ how, measured, stride, used, dir, stand, root, h, d, v, k, on, time, dur, idle, idleTime, w, wIdle, flat }`, null when it has no walk here); the walks test scene (`tools/studio/test/scenes/walks`).
+
+## Editing, performance and saving
+
 - **Nothing see-through while editing** (the owner's rule, for frame rate: a
   see-through layer is drawn again over what is behind it, and a room scan drawn faint or a cube round you filled a
   headset's view several layers deep). Every look the studio draws while editing is opaque lines, small opaque meshes
@@ -1212,7 +1395,7 @@ formats guide and the upload page; `relay/README.md` the relay's side.
     were: `LOOKS.fill`'s walk (0.02 to 0.14 ms a frame measured, a registry would change the lines' order), sequences (a
     kind check per item when there are none), the room scan (counts once a second), `placeSync`'s and `drawPreviews`'
     small allocations in `shared.js`. Untested on a headset: all of it there, ghosts culled at the edge of view.
-- **Editing without the cost** (`tools/studio/SPEC.md`, "Editing without the cost"). Edit mode must not do these every
+- **Editing without the cost** (`docs/history/studio-spec.md`, "Editing without the cost"). Edit mode must not do these every
   frame: the labels of what is pointed at and selected are made again only when their words change (`labelSet`, `L.key`;
   else a new canvas, texture, sprite material and shader program link every frame something is pointed at); the scene's
   matrices are not made again for each pick (`rayPick` takes them as they are: a headset's after `xrBegin`, again only
@@ -1227,6 +1410,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   on a 400,000-triangle scan with 40 items (v136): script a frame editing 7.6 to 14.7 ms down to 4.2 to 6.9 (viewing 2.9 to 3.4,
   SwiftShader), draws 210 down to 132 (viewing 104). No layout, `state()` or `FORMAT` change. Untested on a headset: the
   frame rate on a Quest, how the tags read from one canvas, a hover patch's cost there.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - While grabbed the mouse's moves never stop a walk to a spot clicked at the crosshair (a drag still does).
+    - A browser without the lock (`GRAB.no`) clicks as before; a request refused (Chrome refuses one within about a second of Esc) clicks as before for 1.5 s, then a click grabs again (`GRAB.wait`).
 - **Editing**: off by default; *Edit* on the Scene pane turns it on for this device (`studioEdit`; `&edit` too), never
   in `state()`; refused (greyed, *This scene is locked*) while the station's story is locked (`HOST.anchor.locked`
   there: *Lock this story*); not offered at all with `&visit` (a visitor's kiosk: no Edit, no Upload, also with
@@ -1328,7 +1514,10 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   source offers *Download layout.json*. Outside a room what is placed is also kept on this device
   (`studioDraft.<source>.<scene>` in `localStorage`, a second after each change), and opening the scene with a draft
   newer than the saved layout and different from it offers *Your unsaved changes from <time>: Restore / Discard*.
-- **Example scenes** (`tools/studio/SPEC.md`, "Example scenes"; `engine/e7g_examples.js`). A folder `examples/` at
+
+## Example scenes, placement, shared rooms and trackers
+
+- **Example scenes** (`docs/history/studio-spec.md`, "Example scenes"; `engine/e7g_examples.js`). A folder `examples/` at
   the app's root holds scene folders and their listings exactly as `tools/studio/scan.mjs` writes them
   (`examples/index.json` and `examples/<name>/files.json`; `&examples=<a relative folder>` picks another, `'examples'` by
   default: the tests point it at `tools/studio/test/examples/`, whose `tiny` scene `tools/studio/test/make.mjs` writes). The
@@ -1360,6 +1549,9 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   serves `examples/` as an app folder (`APP_DIRS`, deeper than the others: a scene's files are, `APP_DEEP`); `sw.js` treats
   its files as app files, network first (never in `SHELL`). `STUDIO.examples()` for tests (`at`, `why`, `relay`: the
   examples with a whole copy on the relay; `parts`, those whose scene there is not, `'busy'` or `'broken'`). Nothing of it in the layout or the room (no `FORMAT` change).
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - Not opened, the note says so: *Copied bliss-xp to the relay as bliss-xp, but 1 file could not be copied: ...
+    - `EX.quiet` (ms) shortens the minute after which a scene not whole whose listing is still is broken off.
 - **Placement in a headset**: life size, as the design room's table. Outside a room the scene's origin is the rig's
   floor point: where you stood as the session or the studio began, facing your way (anchored with `HOST.anchor` when
   Anchor is on, so an exhibit comes back at the same place in the real room). At a station in a shared room (the owner's
@@ -1391,6 +1583,8 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   samples ("Behaviours" above); `view()` null; `place` and
   `panel` as the design room's (only the panel moves). Its station's icon is its own miniature, `studio.stage`
   (skipped by `tools/design/build.mjs`: not a prop).
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - A scene emptied at a station by hand and left unsaved comes back as saved for a device that arrives later (its state then holds no item): Save the empty scene to keep it so.
 - **Trackers**: props that follow one of the PC's Vive trackers and a Mixamo character worn with trackers, its
   lining up and its takes: "Props on trackers and a character worn with them" below, and "Vive trackers" in `docs/agents/shared-rooms.md`
   and its area notes for the bridge, the relay and the shell.
@@ -1421,6 +1615,11 @@ formats guide and the upload page; `relay/README.md` the relay's side.
   music, balloons burst, Clippy waves and dances, cards and pages can be picked up and crumpled in the bin, all by the studio's
   presses, hovers and sequences ("Things to press" and "What anyone can pick up" in `tools/studio/xp/README.md`; every
   interaction listed per component in `COMPONENTS.md`). The room stays our own drawings and sounds, and is still never edited by hand.
+  - Also from the v165 contract (`docs/history/studio-spec.md`, moved from `tools/studio/SPEC.md`):
+    - The windows', screens' and balloons' faces are unlit (`KHR_materials_unlit`, so they read as screens in any light), their bevels and raised buttons shaded by colours in their corners; the things (Clippy, the bin, the duck, the door, the icons) are lit.
+    - Models whose clip should wait for a cube are placed with it and `anim: 'off'` (the door's Open, the chat's Nudge); balloons pop in with `anim: 'once'` and `start: 'shown'`.
+    - Its models are GLBs written by three.js r128's own `GLTFExporter` (opaque pictures as JPEG, at most 1,024 px), their clips node tracks only (no skins, no shape keys), each with its picture under `previews/`.
+    - Its sounds are mono 16-bit WAVs at 22,050 Hz, each placed as an emitter following its object (`on`).
 - **The studio tour (example scene)** (v199; `tools/studio/tour/README.md`). `examples/studio-tour/`, made by
   `node tools/studio/tour/make.mjs` (`--check`; never edit it by hand; headless Chromium as the XP room's generator, whose
   `kit.js` it loads): a hall down -z from where you start with a stand for each thing the studio does, each with the thing
@@ -1502,7 +1701,7 @@ claims the shell's node (`HOST.collab.liveClaim('studio')`) into its own gain (`
 `emitStart`'s (`liveEmit`, `e6_items.js`); none shown, the scene not on show, away, another context or `dispose`: let go,
 and the stream plays everywhere at the shell's level. Never fetched or decoded (`it.F` null; `norm` drops `sync`, `skip`,
 `len` for it). Turning it off asks for a file (the one it had, kept in memory only, or one picked from the scene's sounds).
-`STUDIO.live()` for tests; smoke `--only 'studio live'`. `tools/studio/SPEC.md` "Live sound".
+`STUDIO.live()` for tests; smoke `--only 'studio live'`. `docs/history/studio-spec.md` "Live sound".
 
 ## Props on trackers and a character worn with them
 
@@ -1626,7 +1825,7 @@ All three come to about 1.2–2M tokens, built the usual way: Opus builds, Sonne
 These notes were in `CLAUDE.md` (Notes for Claude Code); they are kept here word for word, beside the area they belong to.
 
 - `stories/studio.js` (the studio, v111, the second page in `STORY_EXTRA`: the owner's own models, trigger cubes and
-  sounds, see "The studio" above and `tools/studio/SPEC.md`) likewise from `tools/studio/`
+  sounds, see "The studio" above and `docs/history/studio-spec.md`) likewise from `tools/studio/`
   (`node tools/studio/build.mjs`; its engine adapted from the design room's, with every story's shared-room,
   headset-setting, subtitle, panels, recenter, framing and sound-effect lines; three.js r128's own loaders and exporter
   and meshoptimizer's simplifier (1.3.0, MIT) pasted in from `tools/studio/vendor/`, never edited; its icon `studio.stage` in `tools/lowpoly/`). Its scenes come
