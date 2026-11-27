@@ -1901,6 +1901,9 @@ SETS.section = function (K) {
         }
       }
       tex.needsUpdate = true;
+      // (v224) sent to the card now, as the stain is done (the engine's compileLate), not with the meshes below on the
+      // frame that first draws them; a section on show while it builds then takes each in a frame of its own
+      if (typeof compileLate === 'function') { compileLate(slab); yield; }
     }
     JOBS.push(stain());
     const slabMat = new THREE.ShaderMaterial({
@@ -2027,15 +2030,20 @@ void main() {
         }
         yield;   // (every object: ten at a time was 60 to 110 ms when they were big follicles)
       }
+      // (v224) each mesh joins the section as it is made, its program linked then (compileLate): a section on show
+      // while it builds sends one mesh's buffers to the card a frame, not all four on the frame the build ends
+      const late = m => { g.add(typeof compileLate === 'function' ? compileLate(m) : m); };
       const m1 = new THREE.Mesh(yield* B1.geometryGen(), objMat);
+      late(m1);
       yield;
       const m2 = new THREE.Mesh(yield* B2.geometryGen(), objMat);
+      late(m2);
       yield;
       const fades = new THREE.Mesh(yield* F.geometryGen(), fadeMat);
+      fades.renderOrder = 1; late(fades);
       yield;
       const masks = new THREE.Mesh(yield* MK.geometryGen(), maskMat);
-      fades.renderOrder = 1; masks.renderOrder = 3;
-      g.add(m1, m2, fades, masks);
+      masks.renderOrder = 3; late(masks);
     }
     JOBS.push(objects());
     const visAt = (s, a) => smooth((a - s.from + 1.5) / 3) * (1 - smooth((a - s.until + 1.5) / 3));
@@ -3586,7 +3594,8 @@ function labelRead() {
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
   const vis = [], W = window.innerWidth, H = window.innerHeight;
-  const pr = $('#panel').getBoundingClientRect(), barTop = $('#bar').getBoundingClientRect().top || H;
+  if (LRECT.f !== (window.__frames || 0)) labelRead();   // (v224: read at the frame's start, labelRead)
+  const pr = LRECT.pr, barTop = LRECT.bar;
   for (const L of list) {
     let o = Math.round(alphaOf(L) * 100) / 100, x = 0, y = 0;
     if (o > 0) {
@@ -4247,7 +4256,8 @@ function compileLate(o) {
   try {
     sc.children = GL.scene.children.filter(x => x.isLight).concat({ traverse: f => o.traverse(f), traverseVisible() {} });
     r.compile(sc, GL.camera);
-    o.traverse(x => { for (const m of [].concat(x.material || [])) if (m.map && m.map.image) r.initTexture(m.map); });
+    const tex = t => { if (t && t.isTexture && t.image) r.initTexture(t); };   // (a map, or a shader's texture: ovary's stain)
+    o.traverse(x => { for (const m of [].concat(x.material || [])) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); } });
   } catch (e) { /* compiled on first use instead */ }
   sc.children = [];
   return o;

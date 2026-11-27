@@ -4565,7 +4565,7 @@ function* xrSampler(o, set) {
       if (++w >= 1500) { w = 0; yield; }
       let a = 3 * at(st * f), b = 3 * at(st * f + 1), c = st === 3 ? 3 * at(st * f + 2) : b;
       // rows along the longest edge (a to b), from it to the far corner (c), each as long as the triangle is wide there
-      if (d2(b, c) > d2(a, b) && d2(b, c) >= d2(a, c)) [a, b, c] = [b, c, a]; else if (d2(a, c) > d2(a, b)) [a, b, c] = [c, a, b];
+      if (d2(b, c) > d2(a, b) && d2(b, c) >= d2(a, c)) { const t = a; a = b; b = c; c = t; } else if (d2(a, c) > d2(a, b)) { const t = c; c = b; b = a; a = t; }   // (no array a triangle: v224)
       const L = Math.sqrt(d2(a, b));
       if (L < 2 * v) continue;
       const ux = P[b] - P[a], uy = P[b + 1] - P[a + 1], uz = P[b + 2] - P[a + 2], wx = P[c] - P[a], wy = P[c + 1] - P[a + 1], wz = P[c + 2] - P[a + 2];
@@ -4595,15 +4595,20 @@ function* xrSampler(o, set) {
     for (const b of L) r = Math.max(r, Math.hypot(b[0] - cx, b[1] - cy, b[2] - cz) + b[3]);
     return [cx, cy, cz, r];
   };
+  const ballAt = L => {   // the same for the points of pts at the indices L (v224: no array a point)
+    let cx = 0, cy = 0, cz = 0, r = 0;
+    for (const i of L) { cx += pts[i] / L.length; cy += pts[i + 1] / L.length; cz += pts[i + 2] / L.length; }
+    for (const i of L) r = Math.max(r, Math.hypot(pts[i] - cx, pts[i + 1] - cy, pts[i + 2] - cz) + pts[i + 3]);
+    return [cx, cy, cz, r];
+  };
   const PT = new Float32Array(pts.length), CL = [], CE = [], BL = [], BE = [];
   let np = 0;
   for (const B of blocks.values()) {
     const cs = [];
     for (const L of B.values()) {
-      const bs = [];
-      for (const i of L) { const p = [pts[i], pts[i + 1], pts[i + 2], pts[i + 3]]; PT.set(p, 4 * np++); bs.push(p); }
+      for (const i of L) { const k = 4 * np++; PT[k] = pts[i]; PT[k + 1] = pts[i + 1]; PT[k + 2] = pts[i + 2]; PT[k + 3] = pts[i + 3]; }
       if ((w += L.length) >= 1500) { w = 0; yield; }
-      const c = ball(bs); CL.push(...c); CE.push(np); cs.push(c);
+      const c = ballAt(L); CL.push(c[0], c[1], c[2], c[3]); CE.push(np); cs.push(c);
     }
     BL.push(...ball(cs)); BE.push(CE.length);
   }
@@ -4747,7 +4752,8 @@ function compileLate(o) {
   try {
     sc.children = GL.scene.children.filter(x => x.isLight).concat({ traverse: f => o.traverse(f), traverseVisible() {} });
     r.compile(sc, GL.camera);
-    o.traverse(x => { for (const m of [].concat(x.material || [])) if (m.map && m.map.image) r.initTexture(m.map); });
+    const tex = t => { if (t && t.isTexture && t.image) r.initTexture(t); };   // (a map, or a shader's texture: ovary's stain)
+    o.traverse(x => { for (const m of [].concat(x.material || [])) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); } });
   } catch (e) { /* compiled on first use instead */ }
   sc.children = [];
   return o;

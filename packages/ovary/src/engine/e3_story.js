@@ -382,7 +382,8 @@ const MORPH = {};
 function placeLabels(list, alphaOf) {
   _placed.length = 0;
   const vis = [], W = window.innerWidth, H = window.innerHeight;
-  const pr = $('#panel').getBoundingClientRect(), barTop = $('#bar').getBoundingClientRect().top || H;
+  if (LRECT.f !== (window.__frames || 0)) labelRead();   // (v224: read at the frame's start, labelRead)
+  const pr = LRECT.pr, barTop = LRECT.bar;
   for (const L of list) {
     let o = Math.round(alphaOf(L) * 100) / 100, x = 0, y = 0;
     if (o > 0) {

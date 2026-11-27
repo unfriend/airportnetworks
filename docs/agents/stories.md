@@ -93,6 +93,20 @@ lbi and nmd's index-based picking; pass's languages). `node tools/engine/parts.m
   input event, a set still building or a model loading), and draws one frame a second regardless; explore mode and a
   headset are untouched. `labelRead()` (in the `_placed` part) reads the panel's and the bar's places at the start of
   the frame, before anything is written; `placeLabels` reads them itself when the frame did not.
+- The same, by hand and in the sets (v224, row F's second part): `compileLate` also sends a shader's own textures (its
+  `uniforms`), not only `map`. The three hand-written stories carry copies of `compileLate` (`xrWarm`, `labelSprite`,
+  `labelSign`), `pickMemo` (without the sets' matrices; `pickSig`: airports and proteins the pillars' heights, spatial
+  `X.iso` and the scenarios `s0..`) wrapped round `pickAirportRay`/`pickCopyRay` (the tests themselves are now
+  `pickAirportWith`/`pickCopyWith`), and `pageIdle` (with `pageBusy = () => false`: they build everything in the load);
+  their labels read no rectangles, so they need no `labelRead`. Spatial's `isThere` fills one scratch list instead of
+  `scenNow()`'s new array a call. Airports' closures (`setClosedAttributes`) write only the airports whose flag changed
+  and their routes (`GL.close`: each route's first vertex `at`, each airport's routes `rof` in `NET.adjS`'s slots, the
+  flags last written `on`) and send only the stretch of the routes' flags between the first and last route touched
+  (`updateRange`, widened while a stretch is still unsent); pass takes it with the globe. Pass's own `updateSets` primes
+  its hidden sets (`primeCheck`, `primeStep`) as `updateSets~3` does. The micro story's organ models (`hier.js`,
+  `atlas.js`) go through `compileLate` when built and into `PRIME.q` if their set was primed already; ovary's sections
+  (`section.js`) send the stain when it is done and add each object mesh as it is made (one a frame while a section on
+  show builds). Ovary's own `placeLabels` reads `LRECT` like the engine's.
 - A reviewer's notes kept as they were, not fixed: pet's headset story panel draws uncoloured points in ink where its
   page shows amber (`XR_STEP_COL = ''`), and nmd measures a chip in the font of the one before (`FLOW_BOLD = false`).
 

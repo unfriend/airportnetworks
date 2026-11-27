@@ -10253,7 +10253,8 @@ function compileLate(o) {
   try {
     sc.children = GL.scene.children.filter(x => x.isLight).concat({ traverse: f => o.traverse(f), traverseVisible() {} });
     r.compile(sc, GL.camera);
-    o.traverse(x => { for (const m of [].concat(x.material || [])) if (m.map && m.map.image) r.initTexture(m.map); });
+    const tex = t => { if (t && t.isTexture && t.image) r.initTexture(t); };   // (a map, or a shader's texture: ovary's stain)
+    o.traverse(x => { for (const m of [].concat(x.material || [])) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); } });
   } catch (e) { /* compiled on first use instead */ }
   sc.children = [];
   return o;

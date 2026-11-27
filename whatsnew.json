@@ -1,20 +1,20 @@
 {
-  "version": "networks-v223",
-  "date": "2026-11-26",
+  "version": "networks-v224",
+  "date": "2026-11-27",
   "new": [
-    "In the studio, walking into a trigger cube no longer redraws the whole headset panel unless the Item or Items tab is open.",
-    "In a shared room the studio no longer turns its whole scene into text on every frame to see that nothing changed.",
-    "The studio's panel works out what it shows once a frame instead of twice, and the scene's positions are worked out fewer times a frame.",
-    "While editing, the grey copies of moving things are only drawn when they are in view.",
-    "Scenes without screens, trackers or picture changes do no work for them on every frame."
+    "In a headset, pointing at a story's scene in explore mode no longer tests every item again on each frame while the controller and the scene stay still.",
+    "Labels and other things made during a story are prepared at once, so they no longer stall the frame they first appear in.",
+    "On a laptop or phone, a paused story stops redrawing until something changes, so it no longer keeps the computer busy.",
+    "In the airports story, moving the closures slider only updates the routes of the airports that changed and sends a fifth to a third of the data it did.",
+    "The globe in Networks for everyone, the organ models in Tissue microanatomy and the ovary sections are sent to the graphics card before they first show.",
+    "Labels on a laptop are placed without making the page work out its layout again."
   ],
   "test": [
-    "In the studio in a headset, walk in and out of a trigger cube with the Scene tab open, then with the Items tab open: on Items the cube's line changes as you cross it.",
-    "In a shared room with two devices at the studio circle, move, add and delete items on one: the other follows within a moment.",
-    "Turn on Edit in a scene with moving models: their grey copies show where they are placed, also when you turn round to look at them again.",
-    "On a laptop, check the names over the items still follow them while you orbit and walk round the scene.",
-    "Hold a tracker or a controller tracked by the PC at the studio circle: a prop that follows it moves as before.",
-    "With Edit on, turn your head quickly so a moving model's grey copy leaves the view and comes back: it shows again at once."
+    "On a laptop, pause a story and leave it: it stays as it was. Then drag the timeline, change the theme, open focus mode and resize the window: each shows at once.",
+    "In the airports story's explore mode, drag the closures slider slowly and quickly, by mouse and in a headset: the routes of closed airports go dark and come back as before.",
+    "In a headset, point at airports, proteins and cells in explore mode, holding the controller still and moving it: the right one lights up and the tip follows.",
+    "In a headset, watch Networks for everyone up to the globe, Tissue microanatomy past half way and the aging ovary's sections: they appear without a hitch.",
+    "In a headset, look at a story's first labels as they appear: no stutter."
   ],
   "untested": [
     "Everything in a headset: nothing since v220 has been tried in one.",

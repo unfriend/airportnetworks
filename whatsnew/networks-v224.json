@@ -1,0 +1,25 @@
+{
+  "version": "networks-v224",
+  "date": "2026-11-27",
+  "new": [
+    "In a headset, pointing at a story's scene in explore mode no longer tests every item again on each frame while the controller and the scene stay still.",
+    "Labels and other things made during a story are prepared at once, so they no longer stall the frame they first appear in.",
+    "On a laptop or phone, a paused story stops redrawing until something changes, so it no longer keeps the computer busy.",
+    "In the airports story, moving the closures slider only updates the routes of the airports that changed and sends a fifth to a third of the data it did.",
+    "The globe in Networks for everyone, the organ models in Tissue microanatomy and the ovary sections are sent to the graphics card before they first show.",
+    "Labels on a laptop are placed without making the page work out its layout again."
+  ],
+  "test": [
+    "On a laptop, pause a story and leave it: it stays as it was. Then drag the timeline, change the theme, open focus mode and resize the window: each shows at once.",
+    "In the airports story's explore mode, drag the closures slider slowly and quickly, by mouse and in a headset: the routes of closed airports go dark and come back as before.",
+    "In a headset, point at airports, proteins and cells in explore mode, holding the controller still and moving it: the right one lights up and the tip follows.",
+    "In a headset, watch Networks for everyone up to the globe, Tissue microanatomy past half way and the aging ovary's sections: they appear without a hitch.",
+    "In a headset, look at a story's first labels as they appear: no stutter."
+  ],
+  "untested": [
+    "Everything in a headset: nothing since v220 has been tried in one.",
+    "The calibration fault you saw (after the second cross both crosses were gone and the room was not lined up) could not be reproduced without a headset. One cause was found and fixed in v220: from the start page the trigger reached nothing. Whether that was your fault is not known: it may not be fixed.",
+    "The install's download of every story on a Quest's storage and wifi, and a real host's deploy.",
+    "Every synthetic voice is unheard."
+  ]
+}

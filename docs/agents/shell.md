@@ -1766,6 +1766,9 @@ the same path through their index, read again at every check: `docs/agents/packa
   `dispose` sets `LOAD.gone` and clears `LOAD.t` (also the timer that hides the loading screen 120 ms after the first
   frame, so a story picked meanwhile keeps it). `LOAD.ms` keeps each step's time (`HOST.cur.peek('LOAD.ms')`).
   Nothing else changed: the sets, the first frame, seeking, the clock and the shared-room hooks are as they were.
+- Frame costs (v224, audit row F): the built stories' `pickMemo`, `compileLate` and `pageIdle` (docs/agents/stories.md,
+  "Shared engine parts") are pasted by hand into the hand-written three, and their `frame` returns early on a page at
+  rest (after `audioSync()`, as the built ones); pass has no `pageIdle` (its fish are a live simulation).
 - `CH` lists chapters with story-time ranges; `buildStory()` writes the panel
   HTML (elements with `data-at` fade in at that second of the chapter) and the
   animation tracks via `ramp()`/`key()` over the names in `DEF`; `storyCam()`

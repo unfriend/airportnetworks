@@ -406,6 +406,26 @@ the one still pending is not sent again. Nothing is lost by that: on one socket 
 room on this device) answers every set with its broadcast or a refusal naming the keys, a slow reader's socket is closed
 rather than skipped, and every new socket's welcome clears what was pending and takes the room's values.
 
+### The stories' frame costs (v224, audit row F)
+
+The audit found the stories doing work every frame that changed nothing (docs/agents/stories.md, "Shared engine
+parts"). v224 cut it without changing what anyone sees, any `state()` or `FORMAT`. In the engine: a pointing ray that
+has not moved, over a scene that has not changed, is not tested again (`pickMemo`; topo, soil, CDK5 and the muscle
+tower, whose one pick cost up to 2.4 ms, now 0.01 to 0.02 ms asked again); something made after the load (a label,
+a late mesh) is compiled with the scene's lights at once (`compileLate`: three.js r128 keys every program by the
+light counts, so the label sprites were linked a second time in the middle of a story); a paused story on a page draws
+nothing until something changes (`pageIdle`: topo, soil and CDK5 drew 8 to 25 frames a second with the main thread
+fully busy, now one a second at 0.05 to 0.14 s of work a second); labels read the panel's place before the frame
+writes anything. By hand in airports, proteins and spatial (the same three; their paused pages 5, 25 and 11 renders a
+second down to 1, the main thread's work 1.0 s a second down to 0.27, 0.06 and 0.12). Airports' closures slider
+writes only the airports that changed and sends only the stretch of route flags they touch (a step was 0.45 ms and
+813 KB, now 0.01 to 0.03 ms and 169 to 271 KB). Pass sends its hidden sets to the card before they show, as the other
+built stories do; the microanatomy story's organ models and the ovary's sections are compiled and sent when built
+(micro at half way: four program links on the first frames, now one). The keep-clear sampler makes no array per point
+or triangle (the same samples, bit for bit). Measured headless with a pretend headset; the gains on a Quest are
+reasoned, not measured. Left for the load row (I): the keep-clear sampling itself (some 850 KB of garbage a frame
+while it runs, about 0.5 s of work in the exposome story), ovary's stain and the muscle story's heart (build costs).
+
 ### The studio's frame costs (v223, audit row E)
 
 The audit found the studio doing work every frame that changed nothing (docs/agents/studio.md, "Frame costs cut"). v223

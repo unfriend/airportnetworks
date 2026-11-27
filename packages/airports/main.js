@@ -643,20 +643,21 @@ function buildScene(canvas) {
   const arcs = new Array(E);
   for (let e = 0; e < E; e++) { arcs[e] = arcPoints(eu[e], ev[e], 2.5); const m = arcs[e].length / 3; tot += m; segs += m - 1; }
   const rp = new Float32Array(tot * 3), aT = new Float32Array(tot), aRv = new Float32Array(tot), aC = new Float32Array(tot);
-  const aR = new Float32Array(tot), aWv = new Float32Array(tot), edgeOf = new Int32Array(tot), ri = new Uint32Array(segs * 2);
+  const aR = new Float32Array(tot), aWv = new Float32Array(tot), vAt = new Int32Array(E + 1), ri = new Uint32Array(segs * 2);
   const er = mulberry(3);
   let o = 0, io = 0;
   for (let e = 0; e < E; e++) {
     const a = arcs[e], m = a.length / 3, u = eu[e], v = ev[e], rv = er();
     const c = comm[u] === comm[v] ? comm[u] : 10, rf = Math.max(rndFlag[u], rndFlag[v]);
     const wu = wave[u], wv = wave[v], wv2 = wu > 0 && wv > 0 ? Math.min(wu, wv) : Math.max(wu, wv);
-    rp.set(a, o * 3);
+    rp.set(a, o * 3); vAt[e] = o;
     for (let k = 0; k < m; k++) {
-      aT[o + k] = k / (m - 1); aRv[o + k] = rv; aC[o + k] = c; aR[o + k] = rf; aWv[o + k] = wv2; edgeOf[o + k] = e;
+      aT[o + k] = k / (m - 1); aRv[o + k] = rv; aC[o + k] = c; aR[o + k] = rf; aWv[o + k] = wv2;
       if (k < m - 1) { ri[io++] = o + k; ri[io++] = o + k + 1; }
     }
     o += m;
   }
+  vAt[E] = o;
   const rg = new THREE.BufferGeometry();
   rg.setAttribute('position', new THREE.BufferAttribute(rp, 3));
   rg.setAttribute('aT', new THREE.BufferAttribute(aT, 1)); rg.setAttribute('aRv', new THREE.BufferAttribute(aRv, 1));
@@ -664,7 +665,11 @@ function buildScene(canvas) {
   rg.setAttribute('aWave', new THREE.BufferAttribute(aWv, 1));
   rg.setAttribute('aXrm', new THREE.BufferAttribute(new Float32Array(tot), 1));
   rg.setIndex(new THREE.BufferAttribute(ri, 1));
-  GL.routeEdgeOf = edgeOf;
+  // (closures, setClosedAttributes) where each route's vertices start (at[e] to at[e + 1]), each airport's routes (in
+  // NET.adjS's slots) and the flags last written
+  const rof = new Int32Array(2 * E), fill = NET.adjS.slice(0, N);
+  for (let e = 0; e < E; e++) { rof[fill[eu[e]]++] = e; rof[fill[ev[e]]++] = e; }
+  GL.close = { at: vAt, rof, on: new Uint8Array(N) };
   GL.RU = { uReveal: { value: 0 }, uAlpha: { value: 0 }, uWComm: { value: 0 }, uRndRm: { value: 0 }, uTgtRm: { value: 0 },
     uXrm: { value: 0 }, uIso: { value: -1 }, uBase: { value: new THREE.Vector3(0.16, 0.42, 1.0) }, uPal: { value: pal } };
   GL.routes = new THREE.LineSegments(rg, routeMaterial(GL.RU));
@@ -687,14 +692,30 @@ function setHighlight(key, pairs, color, opts = {}) {
   GL.highlights[key] = mesh;
   return mesh;
 }
-// explore-mode closures: flag airports and the routes that touch them
+// explore-mode closures: flag airports and the routes that touch them. (v224) Only the airports whose flag changed are
+// written, with their routes, and only the stretch of the routes' flags between the first and the last of those goes
+// to the card: a step of the slider closes or opens one airport (it was all 205,000 vertices looped and 820 KB sent a
+// step, every frame of a drag in a headset). A stretch not yet sent (three.js sends it when it next draws the routes,
+// then sets count back to -1) is widened, not replaced
 function setClosedAttributes(removed) {
-  const ax = GL.attr.aXrm;
-  for (let i = 0; i < NET.N; i++) ax[i] = removed[i] ? 1 : 0;
+  const ax = GL.attr.aXrm, C = GL.close, { N, eu, ev, adjS } = NET, ra = GL.routes.geometry.attributes.aXrm, rx = ra.array;
+  let lo = Infinity, hi = -1, n = 0;
+  for (let i = 0; i < N; i++) {
+    const v = removed[i] ? 1 : 0;
+    if (v === C.on[i]) continue;
+    C.on[i] = v; ax[i] = v; n++;
+    for (let j = adjS[i]; j < adjS[i + 1]; j++) {
+      const e = C.rof[j], a = C.at[e], b = C.at[e + 1], f = removed[eu[e]] || removed[ev[e]] ? 1 : 0;
+      if (rx[a] !== f) { rx.fill(f, a, b); if (a < lo) lo = a; if (b > hi) hi = b; }
+    }
+  }
+  if (!n) return;
   GL.dots.geometry.attributes.aXrm.needsUpdate = true;
   GL.pillars.geometry.attributes.aXrm.needsUpdate = true;
-  const ra = GL.routes.geometry.attributes.aXrm, eo = GL.routeEdgeOf, { eu, ev } = NET;
-  for (let k = 0; k < eo.length; k++) { const e = eo[k]; ra.array[k] = removed[eu[e]] || removed[ev[e]] ? 1 : 0; }
+  if (hi < 0) return;
+  const U = ra.updateRange;
+  if (U.count !== -1) { lo = Math.min(lo, U.offset); hi = Math.max(hi, U.offset + U.count); }
+  U.offset = lo; U.count = hi - lo;
   ra.needsUpdate = true;
 }
 function setPathAttribute(path) {
@@ -1737,19 +1758,36 @@ function xrIdle(xr, dt) {
   audioSync(); GL.renderer.render(GL.scene, GL.camera); window.__frames = (window.__frames || 0) + 1;
   return true;
 }
+// (v224) something made after the load (a label's sprite or sign, a late mesh), compiled at once with the scene's
+// lights and its textures sent to the card, not on the frame that first shows it: three.js r128 keys every program by
+// the scene's light counts, an unlit material's too, so one compiled in a scene without lights was linked again there.
+// Returns o (the engine's compileLate part, tools/engine/e5_xr.js)
+function compileLate(o) {
+  const r = GL.renderer;
+  if (!r || !o || !GL.scene) return o;
+  const sc = compileLate.sc || (compileLate.sc = new THREE.Scene());
+  try {
+    sc.children = GL.scene.children.filter(x => x.isLight).concat({ traverse: f => o.traverse(f), traverseVisible() {} });
+    r.compile(sc, GL.camera);
+    const tex = t => { if (t && t.isTexture && t.image) r.initTexture(t); };   // (a map, or a shader's texture: ovary's stain)
+    o.traverse(x => { for (const m of [].concat(x.material || [])) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); } });
+  } catch (e) { /* compiled on first use instead */ }
+  sc.children = [];
+  return o;
+}
 // the headset's own materials compiled in the load, not in the frame that first shows one (v137): a label's sprite, a 3D
-// sign or panel, a panel on top, a controller's dot and ray. Kept (never disposed: a compiled program goes when the last
-// material that uses it does), a handful of objects
+// sign or panel, a panel on top, a controller's dot and ray, with the scene's lights (compileLate, v224). Kept (never
+// disposed: a compiled program goes when the last material that uses it does), a handful of objects
 function xrWarm() {
   try {
-    const sc = new THREE.Scene(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
+    const sc = new THREE.Group(), t = new THREE.Texture(), g = new THREE.BufferGeometry();
     g.setAttribute('position', new THREE.Float32BufferAttribute([0, 0, 0, 1, 0, 0, 0, 1, 0], 3));
     sc.add(new THREE.Sprite(new THREE.SpriteMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t, transparent: true, alphaTest: 0.1 })),
       new THREE.Mesh(g, new THREE.MeshBasicMaterial({ color: 0xffffff, transparent: true, depthTest: false, depthWrite: false })),
       new THREE.Line(g, new THREE.LineBasicMaterial({ color: 0x9fe8ff, transparent: true, depthTest: false, depthWrite: false })));
-    GL.renderer.compile(sc, GL.camera);
+    compileLate(sc);
     XR.warmed = sc;
   } catch (e) { /* compiled on first use instead */ }
 }
@@ -1846,7 +1884,7 @@ function labelSprite(L) {
   sp.renderOrder = t.tip ? 11 : 10;
   sp.userData.aspect = t.aspect;
   sp.center.set(-0.35 / sp.userData.aspect, 0.5);
-  GL.world.add(sp);
+  GL.world.add(compileLate(sp));
   return (L.sprite = sp);
 }
 // labels in 3D: a flat sign at the sprite's place and size, turned to you each frame, readable from both sides (a quad facing +z and one facing
@@ -1862,7 +1900,7 @@ function labelSign(L) {
   const sg = new THREE.Mesh(g, new THREE.MeshBasicMaterial({ map: t.tex, transparent: true, alphaTest: 0.1 }));
   sg.renderOrder = -1;
   sg.userData.aspect = t.aspect;
-  GL.world.add(sg);
+  GL.world.add(compileLate(sg));
   return (L.sign = sg);
 }
 function dropSprite(L) {
@@ -1917,7 +1955,32 @@ function xrTip(S) {
 // ------------------------------------------------------- picking on globe --
 // Closest airport to a ray, in globe coordinates (unit sphere). Like the
 // screen version, big hubs win ties and airports beyond the horizon are skipped.
-function pickAirportRay(o, d) {
+// (v224) a headset points each controller every frame: a ray that has not moved, over a scene that has not moved or
+// changed, is not tested again (fn(a, b) tests it). Its key: the ray, the world's matrix and what pickSig(out) adds
+// (what can be picked; false: test this ray). Two keys are kept, one a controller (a miss takes the place of the one
+// used longer ago). The engine's pickMemo part (tools/engine/e5_xr.js), without its sets
+const PKM = { k: [[], []], r: [null, null], u: [0, 0], t: [], n: 0 };
+function pickMemo(o, d, fn, a, b) {
+  const K = PKM.t;
+  K.length = 0;
+  if (typeof pickSig !== 'function' || pickSig(K) === false) return fn(a, b);
+  K.push(o.x, o.y, o.z, d.x, d.y, d.z);
+  for (const e of GL.world.matrixWorld.elements) K.push(e);
+  for (let j = 0; j < 2; j++) {
+    const P = PKM.k[j];
+    if (P.length !== K.length) continue;
+    let same = true;
+    for (let i = 0; i < K.length && same; i++) same = P[i] === K[i];
+    if (same) { PKM.u[j] = ++PKM.n; return PKM.r[j]; }
+  }
+  const j = PKM.u[0] <= PKM.u[1] ? 0 : 1, r = fn(a, b);
+  PKM.t = PKM.k[j]; PKM.k[j] = K; PKM.r[j] = r; PKM.u[j] = ++PKM.n;
+  return r;
+}
+// what a pick reads besides the ray: the pillars' heights (pickMemo)
+function pickSig(out) { out.push(XS.deg_h, XS.btw_h); }
+function pickAirportRay(o, d) { return pickMemo(o, d, pickAirportWith, o, d); }
+function pickAirportWith(o, d) {
   const { P, N, deg, maxDeg } = NET, ah = GL.attr.aHDeg, bh = GL.attr.aHBtw;
   let best = -1, bs = Infinity;
   for (let i = 0; i < N; i++) {
@@ -3417,6 +3480,27 @@ const APP = {
   },
 };
 
+// (v224) a page at rest draws nothing, as a headset away from its station does (xrIdle): a paused story, its frame
+// once drawn (its look depends only on the story's time), is not worked out or drawn again until something changes:
+// the story's time, mode or play, the window's size, the page's classes, theme or clear colour (focus mode, the panels,
+// the look), any input on the page (pointer, wheel, keys, a control), and at least once a second. The clock, the
+// slideshow, the sound effects and the narration go on every frame; explore mode and a headset draw every frame, as
+// before. The engine's pageIdle part (tools/engine/e7_app.js); this story builds everything in its load (pageBusy)
+const PAGE = { v: [], at: 0, wake: 1, on: false };
+const pageWake = () => { PAGE.wake = 1; };
+const pageBusy = () => false;
+function pageIdle(now, dt) {
+  if (!PAGE.on) { PAGE.on = true; for (const e of ['pointerdown', 'pointermove', 'pointerup', 'wheel', 'keydown', 'keyup', 'input', 'change', 'resize', 'focus', 'touchstart']) window.addEventListener(e, pageWake, { capture: true, passive: true }); }
+  const V = PAGE.v, b = document.body, h = document.documentElement, cc = GL.renderer.getClearColor(_pgc).getHex() + GL.renderer.getClearAlpha();
+  const same = V[0] === APP.t && V[1] === APP.mode && V[2] === APP.playing && V[3] === window.innerWidth && V[4] === window.innerHeight &&
+    V[5] === window.devicePixelRatio && V[6] === b.className && V[7] === h.className && V[8] === h.getAttribute('data-theme') && V[9] === cc;
+  if (same && !PAGE.wake && APP.mode === 'story' && !APP.playing && LOAD.done && now - PAGE.at < 1000 && !pageBusy()) return true;
+  V[0] = APP.t; V[1] = APP.mode; V[2] = APP.playing; V[3] = window.innerWidth; V[4] = window.innerHeight;
+  V[5] = window.devicePixelRatio; V[6] = b.className; V[7] = h.className; V[8] = h.getAttribute('data-theme'); V[9] = cc;
+  PAGE.at = now; PAGE.wake = 0;
+  return false;
+}
+const _pgc = new THREE.Color();
 let lastNow = 0;
 function frame(now, xrFrame) {
   const dt = lastNow ? Math.min(0.1, Math.max(0, (now - lastNow) / 1000)) : 0;
@@ -3436,6 +3520,7 @@ function frame(now, xrFrame) {
   // the end: Repeat (shell) starts this story or the next one again, else explore mode opens
   if (APP.mode === 'story' && APP.playing && APP.t >= T_END) { APP.t = T_END; if (HOST.ended()) APP.playing = false; else APP.enterExplore(); }
   audioSync();
+  if (!xr && pageIdle(now, dt)) { window.__frames = (window.__frames || 0) + 1; return; }   // (a page at rest: nothing changed, nothing drawn)
   const ts = storyT(APP.t); // original story time for this point in the narration
   if (APP.mode === 'story') {
     S = storyState(ts);

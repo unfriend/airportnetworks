@@ -481,7 +481,10 @@ void main() {
     set.mats.push(m);
     orgMesh = new THREE.Mesh(g, m);
     orgMesh.frustumCulled = false; orgMesh.renderOrder = 3; orgMesh.raycast = () => {};
-    set.group.add(orgMesh);
+    // (v224) its program linked now, with the scene's lights (the engine's compileLate), not on the frame it first shows;
+    // and its buffers (some 1.2 MB) sent to the card off screen (PRIME) if the set was sent there before they were built
+    set.group.add(typeof compileLate === 'function' ? compileLate(orgMesh) : orgMesh);
+    if (typeof PRIME !== 'undefined' && set.primed) PRIME.q.push(orgMesh);
   }
   const orgStep = ms => { if (!orgMesh && O3) { if (!O3.driven) O3.step(ms); buildOrgans(); } };   // (the engine steps them itself)
 

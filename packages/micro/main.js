@@ -4170,7 +4170,10 @@ void main() {
       vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
     set.mats.push(m);
     orgMesh = new THREE.Mesh(g, m); orgMesh.frustumCulled = false; orgMesh.renderOrder = 4; orgMesh.raycast = () => {};
-    set.group.add(orgMesh);
+    // (v224) its program linked now, with the scene's lights (the engine's compileLate), not on the frame it first shows;
+    // and its buffers (some 1.2 MB) sent to the card off screen (PRIME) if the set was sent there before they were built
+    set.group.add(typeof compileLate === 'function' ? compileLate(orgMesh) : orgMesh);
+    if (typeof PRIME !== 'undefined' && set.primed) PRIME.q.push(orgMesh);
   }
 
   // ---------------------------------------------------------------- the volcano
@@ -5181,7 +5184,10 @@ void main() {
     set.mats.push(m);
     orgMesh = new THREE.Mesh(g, m);
     orgMesh.frustumCulled = false; orgMesh.renderOrder = 3; orgMesh.raycast = () => {};
-    set.group.add(orgMesh);
+    // (v224) its program linked now, with the scene's lights (the engine's compileLate), not on the frame it first shows;
+    // and its buffers (some 1.2 MB) sent to the card off screen (PRIME) if the set was sent there before they were built
+    set.group.add(typeof compileLate === 'function' ? compileLate(orgMesh) : orgMesh);
+    if (typeof PRIME !== 'undefined' && set.primed) PRIME.q.push(orgMesh);
   }
   const orgStep = ms => { if (!orgMesh && O3) { if (!O3.driven) O3.step(ms); buildOrgans(); } };   // (the engine steps them itself)
 
@@ -7282,7 +7288,8 @@ function compileLate(o) {
   try {
     sc.children = GL.scene.children.filter(x => x.isLight).concat({ traverse: f => o.traverse(f), traverseVisible() {} });
     r.compile(sc, GL.camera);
-    o.traverse(x => { for (const m of [].concat(x.material || [])) if (m.map && m.map.image) r.initTexture(m.map); });
+    const tex = t => { if (t && t.isTexture && t.image) r.initTexture(t); };   // (a map, or a shader's texture: ovary's stain)
+    o.traverse(x => { for (const m of [].concat(x.material || [])) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); } });
   } catch (e) { /* compiled on first use instead */ }
   sc.children = [];
   return o;

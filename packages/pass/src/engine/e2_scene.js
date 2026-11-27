@@ -43,7 +43,7 @@ function buildSet(k) {
   s.setAlpha(0);
   if (s.setLang) s.setLang(LANG);
 }
-//#use sceneJoin
+//#use sceneJoin PRIME primeCheck primeStep
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
@@ -55,8 +55,9 @@ function updateSets(S, t, dt, story) {
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
-    else if (s.idle) s.idle(dt);   // a hidden set may build in slices
+    else { if (s.idle) s.idle(dt); primeCheck(s); }   // a hidden set may build in slices; once built it is sent to the card before it shows (primeStep, v224)
   }
+  primeStep(dt);   // (the globe's 18,858 routes and its land, the cell's links: one thing a frame while frames come fast, not all on the frame the globe first shows)
 }
 
 // on a small screen held sideways the scene stands back to fit the strip above the panel (resize)

@@ -866,20 +866,21 @@ function buildScene(canvas) {
   const arcs = new Array(E);
   for (let e = 0; e < E; e++) { arcs[e] = arcPoints(eu[e], ev[e], 2.5); const m = arcs[e].length / 3; tot += m; segs += m - 1; }
   const rp = new Float32Array(tot * 3), aT = new Float32Array(tot), aRv = new Float32Array(tot), aC = new Float32Array(tot);
-  const aR = new Float32Array(tot), aWv = new Float32Array(tot), edgeOf = new Int32Array(tot), ri = new Uint32Array(segs * 2);
+  const aR = new Float32Array(tot), aWv = new Float32Array(tot), vAt = new Int32Array(E + 1), ri = new Uint32Array(segs * 2);
   const er = mulberry(3);
   let o = 0, io = 0;
   for (let e = 0; e < E; e++) {
     const a = arcs[e], m = a.length / 3, u = eu[e], v = ev[e], rv = er();
     const c = comm[u] === comm[v] ? comm[u] : 10, rf = Math.max(rndFlag[u], rndFlag[v]);
     const wu = wave[u], wv = wave[v], wv2 = wu > 0 && wv > 0 ? Math.min(wu, wv) : Math.max(wu, wv);
-    rp.set(a, o * 3);
+    rp.set(a, o * 3); vAt[e] = o;
     for (let k = 0; k < m; k++) {
-      aT[o + k] = k / (m - 1); aRv[o + k] = rv; aC[o + k] = c; aR[o + k] = rf; aWv[o + k] = wv2; edgeOf[o + k] = e;
+      aT[o + k] = k / (m - 1); aRv[o + k] = rv; aC[o + k] = c; aR[o + k] = rf; aWv[o + k] = wv2;
       if (k < m - 1) { ri[io++] = o + k; ri[io++] = o + k + 1; }
     }
     o += m;
   }
+  vAt[E] = o;
   const rg = new THREE.BufferGeometry();
   rg.setAttribute('position', new THREE.BufferAttribute(rp, 3));
   rg.setAttribute('aT', new THREE.BufferAttribute(aT, 1)); rg.setAttribute('aRv', new THREE.BufferAttribute(aRv, 1));
@@ -887,7 +888,11 @@ function buildScene(canvas) {
   rg.setAttribute('aWave', new THREE.BufferAttribute(aWv, 1));
   rg.setAttribute('aXrm', new THREE.BufferAttribute(new Float32Array(tot), 1));
   rg.setIndex(new THREE.BufferAttribute(ri, 1));
-  GL.routeEdgeOf = edgeOf;
+  // (closures, setClosedAttributes) where each route's vertices start (at[e] to at[e + 1]), each airport's routes (in
+  // NET.adjS's slots) and the flags last written
+  const rof = new Int32Array(2 * E), fill = NET.adjS.slice(0, N);
+  for (let e = 0; e < E; e++) { rof[fill[eu[e]]++] = e; rof[fill[ev[e]]++] = e; }
+  GL.close = { at: vAt, rof, on: new Uint8Array(N) };
   GL.RU = { uReveal: { value: 0 }, uAlpha: { value: 0 }, uWComm: { value: 0 }, uRndRm: { value: 0 }, uTgtRm: { value: 0 },
     uXrm: { value: 0 }, uIso: { value: -1 }, uBase: { value: new THREE.Vector3(0.16, 0.42, 1.0) }, uPal: { value: pal } };
   GL.routes = new THREE.LineSegments(rg, routeMaterial(GL.RU));
@@ -910,14 +915,30 @@ function setHighlight(key, pairs, color, opts = {}) {
   GL.highlights[key] = mesh;
   return mesh;
 }
-// explore-mode closures: flag airports and the routes that touch them
+// explore-mode closures: flag airports and the routes that touch them. (v224) Only the airports whose flag changed are
+// written, with their routes, and only the stretch of the routes' flags between the first and the last of those goes
+// to the card: a step of the slider closes or opens one airport (it was all 205,000 vertices looped and 820 KB sent a
+// step, every frame of a drag in a headset). A stretch not yet sent (three.js sends it when it next draws the routes,
+// then sets count back to -1) is widened, not replaced
 function setClosedAttributes(removed) {
-  const ax = GL.attr.aXrm;
-  for (let i = 0; i < NET.N; i++) ax[i] = removed[i] ? 1 : 0;
+  const ax = GL.attr.aXrm, C = GL.close, { N, eu, ev, adjS } = NET, ra = GL.routes.geometry.attributes.aXrm, rx = ra.array;
+  let lo = Infinity, hi = -1, n = 0;
+  for (let i = 0; i < N; i++) {
+    const v = removed[i] ? 1 : 0;
+    if (v === C.on[i]) continue;
+    C.on[i] = v; ax[i] = v; n++;
+    for (let j = adjS[i]; j < adjS[i + 1]; j++) {
+      const e = C.rof[j], a = C.at[e], b = C.at[e + 1], f = removed[eu[e]] || removed[ev[e]] ? 1 : 0;
+      if (rx[a] !== f) { rx.fill(f, a, b); if (a < lo) lo = a; if (b > hi) hi = b; }
+    }
+  }
+  if (!n) return;
   GL.dots.geometry.attributes.aXrm.needsUpdate = true;
   GL.pillars.geometry.attributes.aXrm.needsUpdate = true;
-  const ra = GL.routes.geometry.attributes.aXrm, eo = GL.routeEdgeOf, { eu, ev } = NET;
-  for (let k = 0; k < eo.length; k++) { const e = eo[k]; ra.array[k] = removed[eu[e]] || removed[ev[e]] ? 1 : 0; }
+  if (hi < 0) return;
+  const U = ra.updateRange;
+  if (U.count !== -1) { lo = Math.min(lo, U.offset); hi = Math.max(hi, U.offset + U.count); }
+  U.offset = lo; U.count = hi - lo;
   ra.needsUpdate = true;
 }
 function setPathAttribute(path) {
@@ -4612,6 +4633,44 @@ function buildSet(k) {
 }
 // once every set is built (a step of the load): what joins them (nothing here)
 function sceneJoin() {}
+// A set that has finished building sends its textures and buffers to the graphics card before it is shown, one thing a
+// frame (v137): its first frame on show otherwise uploads some 5 MB of textures and 20 MB of buffers at once. Each mesh
+// is drawn once, unseen, into a 1 x 1 target by a camera looking away from everything (frustum culling and the headset's view off for that draw), put back where
+// it was; a texture goes through renderer.initTexture. Any failure stops it for good; nothing else depends on it.
+const PRIME = { q: [], sc: null, cam: null, off: false };
+function primeCheck(s) {
+  if (PRIME.off || s.primed || (s.idle && s.buildPend !== false) || !GL.renderer) return;
+  s.primed = true;
+  const seen = new Set(), tex = t => { if (t && t.isTexture && !seen.has(t) && (t.isDataTexture || (t.image && t.image.width >= 256))) { seen.add(t); PRIME.q.push(t); } };
+  s.group.traverse(o => {
+    if (!o.material || !o.geometry || !(o.isMesh || o.isPoints || o.isLine)) return;
+    const ms = [].concat(o.material);
+    for (const m of ms) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); }
+    if (ms.some(m => m.isMeshStandardMaterial || m.isMeshPhongMaterial || m.isMeshLambertMaterial)) return;   // (a lit built-in would link a program for this scene's lack of lights)
+    const p = o.geometry.attributes.position;
+    if (o.isInstancedMesh || (p && p.count > 3000)) PRIME.q.push(o);
+  });
+}
+function primeStep(dt) {
+  const r = GL.renderer;
+  if (PRIME.off || !PRIME.q.length || !r || dt > 0.02) return;   // (only while frames come at 50 a second or better)
+  const o = PRIME.q.shift();
+  try {
+    if (o.isTexture) { r.initTexture(o); return; }
+    const par = o.parent;
+    if (!par || [].concat(o.material).some(m => !(r.properties.get(m).currentProgram))) return;   // (no program yet: drawing it would link one here)
+    const rt = r.primeRT || (r.primeRT = new THREE.WebGLRenderTarget(1, 1)), sc = PRIME.sc || (PRIME.sc = new THREE.Scene());
+    let cam = PRIME.cam;
+    if (!cam) { cam = PRIME.cam = new THREE.PerspectiveCamera(50, 1, 0.1, 10); cam.position.set(0, 1e5, 0); cam.lookAt(0, 2e5, 0); cam.updateMatrixWorld(); }   // (looking away from everything: all clipped, nothing shaded)
+    const vis = o.visible, cull = o.frustumCulled, mw = o.matrixWorld.clone(), was = r.getRenderTarget(), xr = r.xr.enabled, ar = r.autoClear;
+    rt.texture.encoding = r.outputEncoding;   // (the same program as the real frame's)
+    sc.add(o); o.visible = true; o.frustumCulled = false; r.xr.enabled = false; r.autoClear = false;
+    try { r.setRenderTarget(rt); r.render(sc, cam); } finally {
+      r.setRenderTarget(was); r.xr.enabled = xr; r.autoClear = ar;
+      sc.remove(o); par.add(o); o.visible = vis; o.frustumCulled = cull; o.matrixWorld.copy(mw);
+    }
+  } catch (e) { PRIME.off = true; PRIME.q.length = 0; console.warn('prime: stopped', e); }
+}
 // show each set as far as S fades it in, and let the visible ones update (the hidden ones idle); in the story a set
 // may be turned to meet the camera (see buildCamera)
 function updateSets(S, t, dt, story) {
@@ -4623,8 +4682,9 @@ function updateSets(S, t, dt, story) {
     s.group.rotation.y = story ? setYaw(k, t) * D2R : 0;
     s.setAlpha(a);
     if (a > 0.003) s.update(S, t, dt);
-    else if (s.idle) s.idle(dt);   // a hidden set may build in slices
+    else { if (s.idle) s.idle(dt); primeCheck(s); }   // a hidden set may build in slices; once built it is sent to the card before it shows (primeStep, v224)
   }
+  primeStep(dt);   // (the globe's 18,858 routes and its land, the cell's links: one thing a frame while frames come fast, not all on the frame the globe first shows)
 }
 
 // on a small screen held sideways the scene stands back to fit the strip above the panel (resize)
@@ -6453,7 +6513,8 @@ function compileLate(o) {
   try {
     sc.children = GL.scene.children.filter(x => x.isLight).concat({ traverse: f => o.traverse(f), traverseVisible() {} });
     r.compile(sc, GL.camera);
-    o.traverse(x => { for (const m of [].concat(x.material || [])) if (m.map && m.map.image) r.initTexture(m.map); });
+    const tex = t => { if (t && t.isTexture && t.image) r.initTexture(t); };   // (a map, or a shader's texture: ovary's stain)
+    o.traverse(x => { for (const m of [].concat(x.material || [])) { tex(m.map); for (const k in m.uniforms || {}) tex(m.uniforms[k].value); } });
   } catch (e) { /* compiled on first use instead */ }
   sc.children = [];
   return o;

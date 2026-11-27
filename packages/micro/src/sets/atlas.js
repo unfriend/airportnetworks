@@ -802,7 +802,10 @@ void main() {
       vertexShader: sh.vertex, fragmentShader: sh.fragment, transparent: true });
     set.mats.push(m);
     orgMesh = new THREE.Mesh(g, m); orgMesh.frustumCulled = false; orgMesh.renderOrder = 4; orgMesh.raycast = () => {};
-    set.group.add(orgMesh);
+    // (v224) its program linked now, with the scene's lights (the engine's compileLate), not on the frame it first shows;
+    // and its buffers (some 1.2 MB) sent to the card off screen (PRIME) if the set was sent there before they were built
+    set.group.add(typeof compileLate === 'function' ? compileLate(orgMesh) : orgMesh);
+    if (typeof PRIME !== 'undefined' && set.primed) PRIME.q.push(orgMesh);
   }
 
   // ---------------------------------------------------------------- the volcano
