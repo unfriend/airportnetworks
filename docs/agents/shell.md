@@ -1,47 +1,48 @@
 # The shell
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 51: The font, the story list and the cards (6.0 KB)
-- 106: Starting a story: listeners and the renderer (1.2 KB)
-- 126: Controllers after standby (`HOST.inputsGuard`) (4.8 KB)
-- 171: Loading, and taking over a headset session (2.0 KB)
-- 193: The start screen and the address (4.8 KB)
-- 241: Repeat and the slideshow (3.6 KB)
-- 279: Placement in the headset (3.2 KB)
-- 311: Labels, cards, free moving and subtitles (3.9 KB)
-- 348: The frame rate and the refresh rate (4.6 KB)
-- 390: Automatic quality (4.0 KB)
-- 428: Sharp text: the modes (4.0 KB)
-- 468: Sharp text: the session, each frame, the menu and the panel (5.8 KB)
-- 522: Sharp text: when things go wrong, and what was tried (2.6 KB)
-- 548: Two more settings: real-world occlusion, and your menu shown to your circle (5.7 KB)
-- 603: Moving with the sticks (5.3 KB)
-- 653: Moving with the sticks: in a room, and the studio's two modes (4.9 KB)
-- 700: My body, and what labels, cards, free moving and subtitles do in each mode (5.5 KB)
-- 775: Focus mode (3.4 KB)
-- 807: Phones and tablets (`HOST.handheld`) (6.1 KB)
-- 866: Panels per story (1.4 KB)
-- 887: Developer mode (`HOST.dev`) (4.5 KB)
-- 930: Sound belongs to the shell (`HOST.audio`) (6.7 KB)
-- 1008: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
-- 1053: The two sound switches and the narration switch (4.4 KB)
-- 1106: What plays when, and the background (2.3 KB)
-- 1139: The sound board (`tools/sfx.html`) (2.3 KB)
-- 1172: Sounds inside the stories (phase 2) (4.5 KB)
-- 1214: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
-- 1262: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
-- 1325: Real-world occlusion: bias, what it hides, tests (3.1 KB)
-- 1356: The developer notebook (`HOST.notes`, `notes.js`) (6.2 KB)
-  - 1388: Run logs (*Record a run*) (1.0 KB)
-  - 1400: Reading notes in a headset (v148) (2.4 KB)
-- 1426: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1470: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1535: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1579: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 1666: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 1732: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 1830: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 1921: From CLAUDE.md (6.1 KB)
+- 52: The font, the story list and the cards (6.0 KB)
+- 107: Starting a story: listeners and the renderer (1.2 KB)
+- 127: The shell's modules on demand (`HOST.mods`, v226) (3.4 KB)
+- 164: Controllers after standby (`HOST.inputsGuard`) (4.8 KB)
+- 209: Loading, and taking over a headset session (2.0 KB)
+- 231: The start screen and the address (4.8 KB)
+- 279: Repeat and the slideshow (3.6 KB)
+- 317: Placement in the headset (3.2 KB)
+- 349: Labels, cards, free moving and subtitles (3.9 KB)
+- 386: The frame rate and the refresh rate (4.6 KB)
+- 428: Automatic quality (4.0 KB)
+- 466: Sharp text: the modes (4.0 KB)
+- 506: Sharp text: the session, each frame, the menu and the panel (5.8 KB)
+- 560: Sharp text: when things go wrong, and what was tried (2.6 KB)
+- 586: Two more settings: real-world occlusion, and your menu shown to your circle (5.7 KB)
+- 641: Moving with the sticks (5.3 KB)
+- 691: Moving with the sticks: in a room, and the studio's two modes (4.9 KB)
+- 738: My body, and what labels, cards, free moving and subtitles do in each mode (5.5 KB)
+- 813: Focus mode (3.4 KB)
+- 845: Phones and tablets (`HOST.handheld`) (6.1 KB)
+- 904: Panels per story (1.4 KB)
+- 925: Developer mode (`HOST.dev`) (4.5 KB)
+- 968: Sound belongs to the shell (`HOST.audio`) (6.7 KB)
+- 1046: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
+- 1091: The two sound switches and the narration switch (4.4 KB)
+- 1144: What plays when, and the background (2.3 KB)
+- 1177: The sound board (`tools/sfx.html`) (2.3 KB)
+- 1210: Sounds inside the stories (phase 2) (4.5 KB)
+- 1252: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
+- 1300: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
+- 1363: Real-world occlusion: bias, what it hides, tests (3.1 KB)
+- 1394: The developer notebook (`HOST.notes`, `notes.js`) (6.2 KB)
+  - 1426: Run logs (*Record a run*) (1.0 KB)
+  - 1438: Reading notes in a headset (v148) (2.4 KB)
+- 1464: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1508: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1573: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1617: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 1704: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 1770: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 1868: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 1959: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -122,6 +123,43 @@ repeat the above (the `sfxCue`, `sfxHold`, `sfxAct` and `sfxLive` line, the narr
   story change, look here first.
 - Stories must create the renderer with `HOST.makeRenderer(...)`, never
   `new THREE.WebGLRenderer`.
+
+## The shell's modules on demand (`HOST.mods`, v226)
+
+- `occlusion.js`, `ships.js` and `notes.js` are no longer `<script>` tags in `index.html`. `HOST.mods.load(name)`
+  (`index.html`, next to `HOST.flightLoad`) adds the script once and resolves to the module (or `null`; a failed load is
+  tried again next time). `HOST.mods.xr()` asks for occlusion and the spaceships together; `HOST.mods.loaded()` names
+  the ones that came (tests).
+- When each comes:
+  - occlusion and the spaceships: when a headset session is asked for (`HOST.xr.request`) and when `HOST.session` is
+    set; before that, in idle time after the boot, on a device where `isSessionSupported('immersive-vr')` is true (a
+    headset), so a press in its first session never waits for a file. A phone's AR fetches them as its session is asked
+    for. A link with `#occl=` or `#occlsmooth=` fetches occlusion to store the setting.
+  - the spaceships also on a page that hears someone's ship first (a presence with `sh`, or a `ships` effect:
+    `shared.js` `onFx`); presences repeat, so nothing is lost. The right stick's double click before the file is here
+    fetches it and answers the click as it comes (`shipPress`).
+  - the notebook when developer mode is on: at the boot (stored or `#dev=on`) and in `HOST.dev.set(true)`. A note left in
+    the outbox while developer mode is off waits until it is on again.
+- Until a module has come `HOST.occlusion`, `HOST.ships` or `HOST.notes` is unset: every call site asks for it first
+  (`HOST.ships && ...`), as before. Three things are bound late so a module that comes after the story's frame loop is
+  given still works: the loading wrap (`HOST.loading.wrap`) asks for `HOST.occlusion.wrap` each frame and wraps the story's
+  frame with it once it is there, and calls `HOST.notes.frame` the same way; the studio tells the shell its scene's
+  occlusion only once `HOST.occlusion` is there (`settingsStep`, `tools/studio/engine/e6d_shapes.js`), and asks again
+  each step until then. A module already present (a test's stand-in) is kept, never fetched over.
+- Each file runs inside `HOST.quietly(...)` (its listeners are the shell's: a story change never takes them), and is
+  linked in as it comes: the spaceships with `HOST.shellLink`, the notebook with `HOST.notesLink` (both made at the end of
+  `shared.js`).
+- Depth sensing is unchanged: `HOST.xr.request` asks for it in every AR session whether occlusion has come or not, and
+  occlusion starts on its first AR frame (a few frames late at worst), so it never pauses depth sensing.
+- The three files stay in `sw.js` `SHELL` and the relay's `APP_FILES`, so an installed copy has them offline.
+- Not on demand: the arrangement editor (`HOST.arrange`, "A story's copy"). Its editor (about 35 KB of its 55 KB) shares
+  its state and some fifteen helpers with the copy's runtime, which every device at a station needs as a story loads
+  (`HOST.arrange.current`, called at once by every built story).
+- The headset's canvases (v226): a story panel's or a Stories card's canvas (`makePanel` in `tools/engine/e6_panels.js`,
+  the three hand-written stories and the studio's `e9_panels.js`) and each of `shared.js`'s sheets (the menu, the
+  notices, the subtitles, the welcome ...: `sheet()`) get their 2D context, and so their memory, at their first draw
+  (`P.ctx` is a getter). The meshes and textures are made as before; a page that never enters a headset draws none
+  (airports on a desktop: 27 canvases, 51 MB, before; one empty canvas after).
 
 ## Controllers after standby (`HOST.inputsGuard`)
 

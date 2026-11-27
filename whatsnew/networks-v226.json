@@ -1,0 +1,22 @@
+{
+  "version": "networks-v226",
+  "date": "2026-11-27",
+  "new": [
+    "The studio's file is about a third smaller: its comments are left out, and the parts for converting models and for the page's arrows come only when they are needed.",
+    "Real-world occlusion and the spaceships now load when a headset session starts, or earlier on a headset; a phone or a laptop no longer fetches them.",
+    "The developer notebook loads only once developer mode is on.",
+    "The headset's panels, Stories cards, menu and subtitles take memory only once they are first drawn: on a laptop a story now keeps about 50 MB less."
+  ],
+  "test": [
+    "Open the studio, upload an FBX or OBJ model and convert it: it works as before.",
+    "In the studio's edit mode, select an item: the arrows still move and size it.",
+    "Turn developer mode on: the notebook's round button appears at the bottom right within a second.",
+    "Open a story on a laptop and on a phone: it looks and plays as before."
+  ],
+  "untested": [
+    "Everything in a headset: nothing since v220 has been tried in one.",
+    "In a headset: real-world occlusion in AR, the spaceships (the right stick clicked twice), the notebook's B or Y held, and the menu, panels, cards and subtitles drawn from their first frame.",
+    "The calibration fault you saw (after the second cross both crosses were gone and the room was not lined up) could not be reproduced without a headset. One cause was found and fixed in v220: from the start page the trigger reached nothing. Whether that was your fault is not known: it may not be fixed.",
+    "Every synthetic voice is unheard."
+  ]
+}

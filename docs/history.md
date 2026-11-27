@@ -409,6 +409,23 @@ the one still pending is not sent again. Nothing is lost by that: on one socket 
 room on this device) answers every set with its broadcast or a refusal naming the keys, a slow reader's socket is closed
 rather than skipped, and every new socket's welcome clears what was pending and takes the room's values.
 
+### Smaller files and memory only when it is used (v226, audit row J)
+
+The audit found every page paying for what only some use. The studio's 2.33 MB file was 22% comments and carried a
+model converter that only uploads use. v226 builds it without comments (licence lines kept) and in three files: the
+core, `stories/studio-convert.js` (the FBX, OBJ, MTL, PLY, STL and TGA loaders, the exporter, the simplifier) and
+`stories/studio-edit.js` (the page's arrows), each part checked against the core's build. The core is 1.47 MB, 429 KB
+gzipped (39% less). The shell no longer loads the occlusion, spaceship and notebook files (190 KB) with every page:
+`HOST.mods` fetches them when a headset session is asked for (earlier, in idle time, on a device that can enter VR),
+when someone's ship is first heard, or with developer mode. The headset's canvases (a story's panel and foot, a card
+per story on the Stories screen, `shared.js`'s menu, notices and subtitles) take their memory only at their first draw:
+measured in headless Chromium after GC, airports held 27 canvases (51 MB) on a page before and none after, the tour 53
+MB and 2 MB (its own two screen pictures); bytes before ready fell 184 KB on the start page, airports and the tour; heap,
+ArrayBuffers and script time did not change beyond noise. Left: the arrangement editor stays inline (its editor shares
+its state with the copy's runtime that every station needs at a story's load); `ik.js` is still pasted into the studio;
+`xrWarm` still compiles the headset's materials on every device; the example scenes' KTX2 textures (the generators
+would need the Basis encoder in their pages; Bliss XP about 70 MB on the graphics card, 18 MB with KTX2).
+
 ### Loading late and holding less (v225, audit row I)
 
 The audit found stories waiting at the load for things their first chapter does not need, keeping copies they never

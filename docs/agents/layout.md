@@ -96,15 +96,17 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   board), loaded by `index.html` just before `shared.js` (see the sound notes under
   docs/agents/shell.md, "Sounds inside the stories (phase 2)"). `tools/sfx.html` is its sound board and
   `tools/sfx-render.mjs` renders every sound to MP3 files for listening.
-- `occlusion.js` - real-world occlusion in AR (`HOST.occlusion`), loaded by `index.html` after `sfx.js` and before
-  `shared.js` (see "Real-world occlusion" below).
-- `notes.js` - the developer notebook (`HOST.notes`, v142), loaded by `index.html` after `ships.js` and before
-  `shared.js`, which links itself to it at its end: spoken notes with pictures, pins and the app's context, sent to the
+- `occlusion.js` - real-world occlusion in AR (`HOST.occlusion`), loaded on demand since v226 (`HOST.mods`: as a headset
+  session is asked for, or earlier on a headset; docs/agents/shell.md, "The shell's modules on demand"; see
+  "Real-world occlusion" below).
+- `notes.js` - the developer notebook (`HOST.notes`, v142), loaded on demand since v226 once developer mode is on
+  (`HOST.mods`), and linked in to `shared.js` as it comes (`HOST.notesLink`): spoken notes with pictures, pins and the app's context, sent to the
   relay ("The developer notebook" below). `notes/` - its notes page (served as an app folder, never cached by the
   service worker). `tools/notes/` - its contract (`SPEC.md`), `notes.mjs` (list, pull, transcribe, done) and
   `transcribe.py` (faster-whisper).
-- `ships.js` - the spaceships (`HOST.ships`, v132), the shell's own mini-game in headsets, loaded by `index.html` after
-  `occlusion.js` and before `shared.js`, which links itself in at its end (see "Spaceships" below).
+- `ships.js` - the spaceships (`HOST.ships`, v132), the shell's own mini-game in headsets, loaded on demand since v226
+  (`HOST.mods`: with occlusion, or when someone's ship is first heard) and linked in to `shared.js` as it comes
+  (`HOST.shellLink`; see "Spaceships" below).
 - `flight.js` - the VR goggles' game (`HOST.flight`, v197): a flight through the cell of *Back into the cell*, the
   shell's own, loaded on demand by `HOST.flightLoad()` (the studio, for its goggles); "VR goggles" in
   `docs/agents/shell.md`.

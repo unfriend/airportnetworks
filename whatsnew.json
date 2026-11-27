@@ -1,23 +1,22 @@
 {
-  "version": "networks-v225",
+  "version": "networks-v226",
   "date": "2026-11-27",
   "new": [
-    "Back into the cell no longer fetches four protein models it only ever drew as balls while it loads.",
-    "The tour, Tissue microanatomy, Whole-body PET, the tissue topology, ovary and soil stories keep less in memory once their scenes are built.",
-    "Building the ovary sections and the heart in the muscle story makes far less rubbish for the browser to clear up.",
-    "The cell map story no longer works out where its proteins go each time it opens: the result is stored, so it starts about a tenth of a second sooner on a laptop (measured in a test browser; a headset should gain more, not measured).",
-    "The quantum network story stores its two starting layouts the same way."
+    "The studio's file is about a third smaller: its comments are left out, and the parts for converting models and for the page's arrows come only when they are needed.",
+    "Real-world occlusion and the spaceships now load when a headset session starts, or earlier on a headset; a phone or a laptop no longer fetches them.",
+    "The developer notebook loads only once developer mode is on.",
+    "The headset's panels, Stories cards, menu and subtitles take memory only once they are first drawn: on a laptop a story now keeps about 50 MB less."
   ],
   "test": [
-    "Open Back into the cell and jump straight to the lenses, then the binding sites: they are there, with their models, as before.",
-    "Watch the cell map story and Networks for everyone's cell: the proteins sit where they did before.",
-    "Open the tour, Tissue microanatomy and the ovary story and jump between chapters: everything shows as before."
+    "Open the studio, upload an FBX or OBJ model and convert it: it works as before.",
+    "In the studio's edit mode, select an item: the arrows still move and size it.",
+    "Turn developer mode on: the notebook's round button appears at the bottom right within a second.",
+    "Open a story on a laptop and on a phone: it looks and plays as before."
   ],
   "untested": [
     "Everything in a headset: nothing since v220 has been tried in one.",
+    "In a headset: real-world occlusion in AR, the spaceships (the right stick clicked twice), the notebook's B or Y held, and the menu, panels, cards and subtitles drawn from their first frame.",
     "The calibration fault you saw (after the second cross both crosses were gone and the room was not lined up) could not be reproduced without a headset. One cause was found and fixed in v220: from the start page the trigger reached nothing. Whether that was your fault is not known: it may not be fixed.",
-    "The install's download of every story on a Quest's storage and wifi, and a real host's deploy.",
-    "Every synthetic voice is unheard.",
-    "The globe in Networks for everyone is meant to be sent to the graphics card before it shows; the gain there and in the ovary sections is reasoned, not measured."
+    "Every synthetic voice is unheard."
   ]
 }
