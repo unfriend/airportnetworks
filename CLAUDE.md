@@ -58,6 +58,8 @@ session and every agent and workflow it starts avoid them, and every agent promp
 - The story files and `shared.js`, `index.html`, `tools/smoke.mjs`, `tools/collab.mjs` and the `docs/agents/` files are
   large (up to 2 MB; some lines are hundreds of kilobytes of data). Search with Grep and read line ranges; never read
   them whole. `docs/narration.md` and `docs/props.md` are print-outs: Grep them, do not open them.
+- The `docs/agents/` files open with a generated table of contents: read it, then one line range; run
+  `node tools/docs/toc.mjs` after editing one. `docs/history/` is the old, longer text: Grep it, never read it whole.
 - Prefer small, exact edits.
 - Verify visual changes by serving the folder and taking headless Chromium screenshots (hashes such as
   `#spatial&t=60` jump straight to a moment). Report anything that can only be checked on a real headset as untested.

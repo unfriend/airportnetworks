@@ -52,7 +52,7 @@ The files an agent needs before it knows where to look; every file and folder is
   XR session, loads and swaps stories.
 - `packages/<key>/` - one story each. `main.js` is `HOST.register('<key>', function (HOST) { ... })` returning
   `{ inputs, caption, recenter, panels, xrPose, collab, peek, dispose }`. A built story's sources are
-  `packages/<key>/src/` (engine layer, `sets/`, `build.mjs`, a `README.md`, most with a `SPEC.md`);
+  `packages/<key>/src/` (engine layer, `sets/`, `build.mjs`, a `README.md`, most with a `SPEC.md`, the builder's brief);
   `packages/order.json` (hand-written) is the Stories screen's order; `packages/index.json` is written by
   `node tools/packages/scan.mjs`. Narrations are `packages/<key>/audio/narration.mp3`.
 - `stories/list.js` - `STORY_EXTRA` (the studio); `stories/studio.js` is built from `tools/studio/`.
@@ -67,6 +67,8 @@ The files an agent needs before it knows where to look; every file and folder is
 - `tools/studio/` - the studio's sources (engine parts, sets, `vendor/` never edited, the build, the converter,
   test scenes, the example scenes' generators); `examples/` - generated example scenes.
 - `tools/packages/` - the package contract (`SPEC.md`), `scan.mjs`, `check.mjs`, `publish.mjs`, `template/`.
+- `tools/docs/` - `toc.mjs` (the detail files' tables of contents) and `kept.mjs` (proves a restructured doc lost
+  no sentence).
 - `tools/` - the tests (`smoke.mjs`, `collab.mjs`, `audio.mjs`, `live.mjs`, `update.mjs`, `perf.mjs`),
   `release.mjs`, the voice, notes, trackers and output tools.
 - `docs/` - handover pages for people, `history.md` (why rules are as they are) and `docs/agents/`.
@@ -75,7 +77,9 @@ The files an agent needs before it knows where to look; every file and folder is
 
 ## Detail files (read the one you need, when you need it)
 
-Never read these whole: Grep for the topic, then read the line range.
+Never read these whole. Each file opens with a generated table of contents (line numbers and sizes): read it,
+then one section's line range, or Grep for the topic. After editing one, run `node tools/docs/toc.mjs`
+(`--check` says whether the tables are current). The older, longer text is `docs/history/` (Grep it).
 
 | File | Covers | Read it before |
 | --- | --- | --- |
@@ -85,10 +89,10 @@ Never read these whole: Grep for the topic, then read the line range.
 | `docs/agents/studio.md` | the studio: scenes, models and the converter, items and their features, editing, saving, examples, trackers | touching `tools/studio/`, `examples/` or the relay's scenes |
 | `docs/agents/packages.md` | story packages: the folder, `story.json`, the index, the shell's loading, the service worker's cache, publishing | touching `packages/`, `tools/packages/`, or the shell's loading of a package |
 | `docs/agents/stories.md` | how the built stories are made (kit, sets, build budget, `keepClear`, life size) and each one's sets, data, permissions, spelling | touching any story or its `src/` |
-| `docs/agents/testing.md` | every suite, smoke block and collab round, the tools, useful URL hashes | running or changing a test, or judging what a change needs |
+| `docs/agents/testing.md` | when each suite runs, what every smoke block and collab round protects (`--list` names the checks), the known red results, the test-writer's traps, the tools, useful URL hashes | running or changing a test, or judging what a change needs |
 | `docs/history.md` | version history and the owner's words behind the rules; the `FORMAT` history | wondering why a rule is as it is |
 
-New features document themselves in the matching detail file (and the tool's `SPEC.md` where there is one). This
+New features document themselves in the matching detail file (and the tool's `SPEC.md` where there is one; the studio's is only an index, its features go into `studio.md`). This
 file gets at most a line per feature, and only when an agent needs it before it knows where to look.
 
 ## The app in brief
@@ -300,7 +304,8 @@ of step).
 
 ## Testing
 
-There is no unit-test suite. What each command checks, block by block, is `docs/agents/testing.md`.
+There is no unit-test suite. What each block protects is `docs/agents/testing.md`; `--list` on `smoke.mjs`,
+`collab.mjs` and `audio.mjs` names the checks without running them.
 
 **When the suites run** (the owner, 7 November 2026: "only running when pushing to main makes sense for now"):
 every suite a change touches runs before `main` moves, the smoke test always. A push to `dev` gets only the
