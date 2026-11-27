@@ -4,7 +4,7 @@
 - 35: Running it (11.4 KB)
 - 127: The shared password (`COLLAB_TOKEN`) (4.4 KB)
 - 174: Rooms on this network (2.2 KB)
-- 198: Where the rest is (0.8 KB)
+- 198: Where the rest is (1.7 KB)
 <!-- /toc -->
 
 A small server that lets several headsets and desktop browsers share a room: each sees the same stations
@@ -205,3 +205,17 @@ This file is for running a relay. The rest of what used to be here, word for wor
 - [relay/docs/protocol.md](docs/protocol.md) - the HTTP API, the WebSocket protocol, rooms across updates (`--keep`),
   the introduction server for peer to peer (`/peerjs`), and how it compares with asdf10k-collab-backend.
 - [relay/docs/testing.md](docs/testing.md) - `node relay/test.mjs`: its flags and every group of checks it makes.
+
+Other files and code comments say `relay/README.md, "<section>"`: this is where each section is now.
+
+| Section | File |
+| --- | --- |
+| Running it; The shared password (`COLLAB_TOKEN`); Rooms on this network | this file |
+| A session on one Wi-Fi, step by step | `relay/docs/operations.md` |
+| Public hosting on Coolify; The test place on Coolify | `relay/docs/operations.md` |
+| Your own scenes (the studio); Uploading (the upload page); Converting a video | `relay/docs/operations.md` |
+| Scenes in Cloudflare R2; The owner's steps | `relay/docs/operations.md` |
+| The PC's Vive trackers; OSC and the output page; Live sound; Talk | `relay/docs/operations.md` |
+| The developer notebook; Shared networks; Hot reload (`--watch`) | `relay/docs/operations.md` |
+| HTTP API; WebSocket protocol; Rooms across updates; Introduction server for peer to peer; Compared with asdf10k-collab-backend | `relay/docs/protocol.md` |
+| Testing | `relay/docs/testing.md` |
