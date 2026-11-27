@@ -10124,13 +10124,17 @@ try {
     await steps(25);
     out.handClosed = !HOST.collab.menu;
     const pinch = src => X.fire('selectstart', { inputSource: src });
-    // (no frame stepped between the two: on a loaded machine one step can take longer than the 0.4 s a double pinch has)
-    pinch(left); await wait(150); pinch(left); await steps(2); out.pinch2 = HOST.collab.menu;
-    pinch(left); await wait(120); pinch(left); await steps(2); out.pinch2Closed = !HOST.collab.menu;
+    // (no frame stepped between the two: on a loaded machine one step can take longer than the 0.4 s a double pinch has;
+    // the pairs below waited with wait(), which steps frames, until 27 November 2026: idle() waits without one)
+    const idle = ms => new Promise(r => setTimeout(r, ms));
+    pinch(left); await idle(150); pinch(left); await steps(2); out.pinch2 = HOST.collab.menu;
+    await idle(500);   // (a pause between two double pinches, as a person makes: the next pair's first within 0.4 s of the last would be heard as part of that one)
+    pinch(left); await idle(120); pinch(left); await steps(2); out.pinch2Closed = !HOST.collab.menu;
+    await idle(500);
     pinch(left); await wait(700); out.pinch1 = HOST.collab.menu;
     pinch(left); await wait(600); pinch(left); await steps(2); out.pinchSlow = HOST.collab.menu;
     await wait(500);
-    pinch(rightH); await wait(120); pinch(rightH); await steps(2); out.pinchRight = HOST.collab.menu;
+    pinch(rightH); await idle(120); pinch(rightH); await steps(2); out.pinchRight = HOST.collab.menu;
     await wait(500);
     // two pinches with the left hand's ray on the story's own panel are the panel's, not a toggle (the scene, the
     // flock's sky here, counts as nothing: the double pinches above pointed up into it)
@@ -10138,11 +10142,11 @@ try {
     if (pm) {
       const m = new M4().compose(lp, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), pm.clone().sub(lp).normalize()), new V(1, 1, 1));
       X.aim(1, m); left.targetRaySpace = J(m); await steps(3);
-      pinch(left); await wait(120); pinch(left); await steps(2); out.pinchOnPanel = HOST.collab.menu;
+      pinch(left); await idle(120); pinch(left); await steps(2); out.pinchOnPanel = HOST.collab.menu;
       X.aim(1, up); left.targetRaySpace = J(up); await steps(3); await wait(500);
     } else out.pinchOnPanel = 'no panel';
     // open (by two pinches), the left hand's ray on the menu: two pinches there are the menu's, not a toggle
-    pinch(left); await wait(120); pinch(left); await steps(3);
+    pinch(left); await idle(120); pinch(left); await steps(3);
     const lo = headNow().add(byHead(-0.15, -0.25, -0.1)), onMenu = () => { const m = new M4().compose(lo, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), mid().sub(lo).normalize()), new V(1, 1, 1)); X.aim(1, m); left.targetRaySpace = J(m); };
     onMenu(); await steps(3); onMenu(); await steps(2);
     pinch(left); await wait(120); onMenu(); pinch(left); await steps(2); out.pinchOnMenu = HOST.collab.menu;
@@ -11240,6 +11244,8 @@ try {
     C.note = 'A note three lines long: the relay could not be reached, so this room stays on this headset until one answers, and nobody else can join it yet.';
     S.sig = ''; X.step(); X.step();
     const out = { plain, tall: fits(), vis: S.vis, h: S.h, open: HOST.collab.menu, tab: HOST.collab.menuTab(), drawn: S.regions.map(r => r.id).join(), shown: HOST.collab.overlay().panelG.visible };
+    // (a draw outside the frame, which would show an error the frame's own draw keeps to itself)
+    if (!out.plain || !out.tall) { try { HOST.collab.menuFind('col:7'); out.err = ''; } catch (e) { out.err = String((e && e.stack) || e).slice(0, 500); } }
     C.note = keep; S.sig = ''; X.step();
     return out;
   });
