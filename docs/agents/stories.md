@@ -1,5 +1,29 @@
 # The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, CDK5, pass, flock, robots, tutorial, design room)
 
+<!-- toc (tools/docs/toc.mjs) -->
+- 29: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (2.0 KB)
+- 50: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
+- 142: The tour (`packages/lbi/main.js`) is built from sets (2.2 KB)
+- 176: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
+- 243: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
+- 265: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
+- 313: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
+- 336: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
+- 383: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.2 KB)
+- 407: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
+- 455: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
+- 519: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.0 KB)
+- 587: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (6.8 KB)
+- 653: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
+- 739: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
+- 822: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
+- 884: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
+- 934: Back into the cell (`packages/ppicell/`, a story package) is built the same way (4.4 KB)
+- 977: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.1 KB)
+- 1027: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1078: From CLAUDE.md (6.4 KB)
+<!-- /toc -->
+
 Read on demand; the rules every agent needs are in AGENTS.md.
 
 ## Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass)

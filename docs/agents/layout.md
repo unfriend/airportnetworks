@@ -199,7 +199,8 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   (the review of the packages migration): notes, not read by any tool.
 - `tools/perf.mjs` (v145) - measures what each scene costs per frame in a pretend headset (`node tools/perf.mjs [url] [--only
   words] [--json f] [--md f] [--frames N] [--list]`, `--from a.json,b.json --md r.md` merges runs); see "Testing".
-- `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration and sound effects test;
+- `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration and sound effects test (the three big tests
+  print what they hold with `--list` and exit: "Listing the tests and the docs' tools" in Testing);
   `tools/sfx-cues.mjs` - the stories' sound cues checked without listening (see "Sound effects");
   `tools/update.mjs` - update test for the service worker; `tools/live.mjs` -
   hot reload and live updates test; `tools/release.mjs` - writes `version.json`
@@ -208,6 +209,12 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
   `NARRATION_SYNC` that paces a story without a recording (see "Inside a story").
+- `tools/docs/` - the docs' own tools (see "Listing the tests and the docs' tools" in Testing): `toc.mjs` writes the
+  table of contents (line numbers, section sizes) between the `<!-- toc (tools/docs/toc.mjs) -->` markers at the top of
+  the big `docs/agents/` files, `--check` says whether it is current; `kept.mjs` is the loss check for a restructured
+  doc (every sentence of the old text found in the new files, or listed in an allow file). `tools/release.mjs` also
+  writes the state lines between the `<!-- state (tools/release.mjs) -->` markers in `HANDOVER.md` and
+  `docs/setup-and-release.md`.
 - `tools/mol/` - protein models for the stories (`README.md`, `SPEC.md`): `build.py` (Python with numpy, scikit-image
   and fast-simplification in a venv outside the repository; mmCIF files cached in `~/molcache`) reads a story's
   `models.json` and writes `<name>.mol` (a Gaussian surface with baked ambient occlusion, a cartoon, the balls' residue

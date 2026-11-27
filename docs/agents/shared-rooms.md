@@ -1,5 +1,15 @@
 # Shared rooms and the PC's Vive trackers
 
+<!-- toc (tools/docs/toc.mjs) -->
+- 15: Shared rooms (`shared.js`, `relay/`) (250.5 KB)
+- 2319: Live sound (v162, `shared.js` "live sound: hearing"; `tools/output/SPEC.md` "v162") (3.7 KB)
+- 2356: Talk (v178, `shared.js` "talk: shared", "talk: sending", "talk: hearing") (14.2 KB)
+- 2488: Vive trackers (`tools/trackers/`, `relay/trackers.mjs`) (11.8 KB)
+  - 2496: The bridge and the relay (v126) (3.6 KB)
+  - 2531: The shell (v126, `shared.js`: "the PC's trackers") (7.7 KB)
+- 2603: From CLAUDE.md (1.9 KB)
+<!-- /toc -->
+
 Read on demand; the rules every agent needs are in AGENTS.md. History (old versions, the owner's dated words) is kept apart; this file says what is true now.
 
 ## Shared rooms (`shared.js`, `relay/`)

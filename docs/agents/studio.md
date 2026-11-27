@@ -1,5 +1,13 @@
 # The studio (`stories/studio.js`, `tools/studio/`)
 
+<!-- toc (tools/docs/toc.mjs) -->
+- 13: The studio is built the same way (175.8 KB)
+- 1496: Live sound (v162) (0.9 KB)
+- 1507: Props on trackers and a character worn with them (6.4 KB)
+- 1568: Nice to have, later: glTF round trips (Blender, Unity) (3.5 KB)
+- 1624: From CLAUDE.md (1.8 KB)
+<!-- /toc -->
+
 Read on demand; the rules every agent needs are in AGENTS.md.
 
 ## The studio is built the same way

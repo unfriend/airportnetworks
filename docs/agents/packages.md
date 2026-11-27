@@ -1,5 +1,24 @@
 # Story packages
 
+<!-- toc (tools/docs/toc.mjs) -->
+- 32: The folder (1.4 KB)
+- 55: The index: `tools/packages/scan.mjs` (1.3 KB)
+- 71: The shell (`index.html`, `HOST.packages`) (4.2 KB)
+- 113: The service worker (`sw.js`) (5.9 KB)
+- 173: The relay (`relay/server.mjs`) (0.8 KB)
+- 184: Shared rooms (1.2 KB)
+- 198: Miniatures (v190) (1.3 KB)
+- 212: The rules a package keeps (0.3 KB)
+- 218: The app's own stories as packages (v185) (3.6 KB)
+- 255: Publishing a package's change (v193: `tools/packages/publish.mjs`) (7.3 KB)
+- 335: Writing one (11.8 KB)
+  - 346: The template (`tools/packages/template/`) (3.0 KB)
+  - 379: The example (`packages/hello/`) (2.5 KB)
+  - 408: The cell stress test (`packages/cellstress/`) (2.6 KB)
+  - 431: Back into the cell (`packages/ppicell/`, in development) (2.4 KB)
+  - 455: Checking one (`tools/packages/check.mjs`) (0.4 KB)
+<!-- /toc -->
+
 A story in one folder, `packages/<key>/`, written by a colleague or someone the owner trusts and brought in through git
 (a pull request, or a fork they host themselves): the owner, 18 November 2026, "all contained within a folder and
 independent from the rest of the app". The contract is `tools/packages/SPEC.md`; this file says how the app keeps it.

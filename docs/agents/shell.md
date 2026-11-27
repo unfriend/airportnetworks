@@ -1,5 +1,19 @@
 # The shell
 
+<!-- toc (tools/docs/toc.mjs) -->
+- 19: How the shell and stories fit together (112.0 KB)
+- 1154: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (15.2 KB)
+- 1292: The developer notebook (`HOST.notes`, `notes.js`) (6.2 KB)
+  - 1324: Run logs (*Record a run*) (1.0 KB)
+  - 1336: Reading notes in a headset (v148) (2.4 KB)
+- 1362: Spaceships (`HOST.ships`, `ships.js`) (16.4 KB)
+- 1509: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 1596: A story's copy (arrangements, `HOST.arrange`, v170) (7.1 KB)
+- 1663: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 1761: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 1854: From CLAUDE.md (6.1 KB)
+<!-- /toc -->
+
 Read on demand; the rules every agent needs are in AGENTS.md.
 
 ## How the shell and stories fit together

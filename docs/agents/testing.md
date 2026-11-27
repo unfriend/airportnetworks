@@ -1,5 +1,102 @@
 # Testing: every suite, block and what it checks
 
+<!-- toc (tools/docs/toc.mjs) -->
+- 102: When the suites run (1.5 KB)
+- 118: Listing the tests and the docs' tools (2.5 KB)
+- 150: Windows: a tool's own folder, and line endings (fixed 16 November 2026) (3.0 KB)
+- 179: The smoke test (`tools/smoke.mjs`) (131.2 KB)
+  - 321: `--only <words>` (0.7 KB)
+  - 330: smoke: packages order (0.7 KB)
+  - 339: smoke: take all (0.6 KB)
+  - 348: smoke: away idle (1.5 KB)
+  - 364: smoke: stick moving (5.9 KB)
+  - 420: smoke: goggles (1.6 KB)
+  - 437: smoke: spaceship (4.1 KB)
+  - 478: smoke: frame rate (2.4 KB)
+  - 502: smoke: developer mode (1.4 KB)
+  - 517: smoke: update the room (1.2 KB)
+  - 531: smoke: phone ar (2.6 KB)
+  - 557: smoke: controllers after standby (2.9 KB)
+  - 585: smoke: trackers (2.9 KB)
+  - 613: Playwright, SwiftShader and what only a headset shows (0.5 KB)
+  - 623: smoke: studio (the main studio block and its numbered pages) (6.8 KB)
+  - 685: smoke: studio textures (1.2 KB)
+  - 699: smoke: studio follow (2.1 KB)
+  - 721: smoke: studio cuts (4.4 KB)
+  - 759: smoke: studio groups (3.2 KB)
+  - 789: smoke: studio faces (1.0 KB)
+  - 801: smoke: studio tint (2.7 KB)
+  - 827: smoke: studio shapes (5.6 KB)
+  - 880: smoke: studio behaviours (2.3 KB)
+  - 903: smoke: studio motions (3.2 KB)
+  - 934: smoke: studio paths (5.0 KB)
+  - 981: smoke: studio walks (1.7 KB)
+  - 999: smoke: studio recorder (3.9 KB)
+  - 1036: smoke: studio texture swaps (3.1 KB)
+  - 1066: smoke: studio cube starts (4.6 KB)
+  - 1109: smoke: studio cube switches (3.6 KB)
+  - 1143: smoke: studio edit speed (1.9 KB)
+  - 1162: smoke: studio everyone (1.2 KB)
+  - 1175: smoke: studio walls (1.6 KB)
+  - 1192: smoke: studio shows (0.8 KB)
+  - 1202: smoke: studio screens (1.0 KB)
+  - 1213: smoke: studio paint (1.0 KB)
+  - 1225: smoke: studio examples (3.9 KB)
+  - 1261: smoke: studio trackers (1.7 KB)
+  - 1278: smoke: studio puppet (2.1 KB)
+  - 1299: smoke: studio sequences (0.9 KB)
+  - 1303: smoke: studio press (0.5 KB)
+  - 1307: smoke: studio live (1.0 KB)
+  - 1319: smoke: talk (1.6 KB)
+  - 1336: smoke: studio sends (2.8 KB)
+  - 1351: smoke: studio colour (0.6 KB)
+  - 1355: collab.mjs --names (room names) (1.4 KB)
+  - 1359: smoke: studio xp (1.1 KB)
+  - 1372: smoke: studio tour (1.3 KB)
+  - 1386: smoke: studio guide (1.6 KB)
+  - 1404: smoke: bodies (2.5 KB)
+  - 1431: smoke: sharp text (2.8 KB)
+  - 1456: smoke: auto quality (and other steps changed by automatic quality) (0.9 KB)
+- 1466: `tools/perf.mjs` (measuring, not a test) (1.4 KB)
+- 1481: `tools/audio.mjs` (narration and sound effects) (3.8 KB)
+- 1530: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 1539: `tools/live.mjs` (hot reload and live updates) (1.8 KB)
+- 1562: `tools/update.mjs` (service worker updates) (1.6 KB)
+- 1581: `relay/test.mjs` and `tools/collab.mjs` (shared rooms) (93.6 KB)
+  - 1583: relay/test.mjs (13.1 KB)
+  - 1706: collab.mjs main run (per story, then the rounds `codeRound`, `allRound`, `guideRound`, `placesRound`, `areasRound`, `reloadRound`, settings, follow, pretend headset, peer to peer, rooms on this network) (30.5 KB)
+  - 2021: collab.mjs --quick (0.1 KB)
+  - 2025: collab.mjs --arr (1.1 KB)
+  - 2038: collab.mjs --net (1.7 KB)
+  - 2056: collab.mjs --standby (0.7 KB)
+  - 2066: collab.mjs --narration (1.6 KB)
+  - 2083: collab.mjs --walk (1.8 KB)
+  - 2102: collab.mjs --ships (2.0 KB)
+  - 2123: collab.mjs --camera (3.6 KB)
+  - 2158: collab.mjs --preview (5.3 KB)
+  - 2207: collab.mjs --design (0.1 KB)
+  - 2211: collab.mjs --token (1.0 KB)
+  - 2223: collab.mjs --studio (9.6 KB)
+  - 2308: collab.mjs --follow (0.3 KB)
+  - 2314: collab.mjs --circles (ten-headset round) (1.9 KB)
+  - 2334: collab.mjs --ask (circles asked first) (2.5 KB)
+  - 2358: collab.mjs --menus (your menu shown to your circle) (3.4 KB)
+  - 2393: collab.mjs --studio-scenes (0.9 KB)
+  - 2404: collab.mjs --home (0.7 KB)
+  - 2413: collab.mjs --behave (1.4 KB)
+  - 2428: collab.mjs --trackers (3.4 KB)
+  - 2460: collab.mjs --output (3.3 KB)
+  - 2493: collab.mjs --talk (1.1 KB)
+  - 2505: collab.mjs --smooth (2.5 KB)
+- 2529: `tools/room-test.mjs` (room and depth test page) (1.8 KB)
+- 2547: Set harnesses (`shot.mjs`, `sweep.mjs`, `test-data.mjs`) (1.9 KB)
+- 2563: The studio's tools (`scan.mjs`, `convert.mjs`, `test-images.mjs`, `test-ik.mjs`, `test-ktx2.mjs`) (7.0 KB)
+- 2626: Refactor checks: does a change of the shared engine change what a story does? (1.5 KB)
+- 2644: Story packages (`tools/packages/check.mjs`, `scan.mjs`) (2.2 KB)
+- 2666: Useful URL hashes and the console (4.6 KB)
+- 2710: From CLAUDE.md (1.1 KB)
+<!-- /toc -->
+
 Read on demand; the rules every agent needs are in AGENTS.md.
 
 ## When the suites run
@@ -17,6 +114,38 @@ a story package or not) or, in a page, `HOST.list` and `HOST.meta(k)` (`m.pkg ? 
 smoke's `STORY_KEYS` are `HOST.list`'s stories (the app's own packages included, others' left out), collab's `STORIES`
 are checked against `tools/stories.mjs`, so a story that moves stays in every check. `tools/engine/all.mjs --check`
 covers the app's packages too.
+
+## Listing the tests and the docs' tools
+
+The three big tests say what they hold without running (nothing starts: no server, relay or browser):
+
+- `node tools/smoke.mjs --list` - every block (`block <name>`) and step (`step <name>`, indented inside a block),
+  read from the file's text as written (`${key}` left unfilled). `--only <words>` takes these names.
+- `node tools/collab.mjs --list` - every flag with the round it runs and whether that round is in the main run
+  (`(main)`) or not; `--list --checks` - every `check(...)` name under the round (function) that holds it, as written,
+  and the count; `--help` - the flags, as `--list`. A flag the code reads but `FLAGS` does not name is printed as a
+  `note:`.
+- `node tools/audio.mjs --list` - every step; `--list --checks` - under each step the `ok   ...` lines it prints when
+  its checks pass; `--help` - its usage.
+
+The docs' tools (`tools/docs/`, Node, no packages):
+
+- `node tools/docs/toc.mjs [--check] [file.md ...]` - writes a table of contents between `<!-- toc
+  (tools/docs/toc.mjs) -->` and `<!-- /toc -->` at the top of each file (after its `#` title): a line per `##` and
+  deeper heading with its line number and the section's size in KB (subsections counted in). Default files:
+  `docs/agents/shared-rooms.md`, `shell.md`, `studio.md`, `stories.md`, `packages.md`, `testing.md`. The line numbers
+  are those of the file with its table. Run it after editing one of them; `--check` exits 1 when a table is missing or
+  not current. Headings inside ``` fences are skipped.
+- `node tools/docs/kept.mjs <old file | git rev:path> <new file>... [--allow <file>]` - the loss check for a
+  restructured doc: the old text cut into headings, bullets, paragraphs and table cells, then sentences (after `.`,
+  `!`, `?` or `;`), each normalised (markdown marks, links, HTML comments and the generated tables out, whitespace
+  collapsed, a final `.`, `;`, `:` or `,` dropped) and looked for in the new files run together. Every piece found
+  nowhere is printed with its old line number; exit 1 if any. `--allow` names a file of pieces that may go (one a
+  line, as printed; `#` a comment), so what was dropped on purpose is written down. Example: `node tools/docs/kept.mjs
+  HEAD:docs/agents/shell.md docs/agents/shell.md docs/history.md`.
+- `node tools/release.mjs` also writes the state line (release, shell, room format, `whatsnew.json`'s date) between
+  `<!-- state (tools/release.mjs) -->` and `<!-- /state -->` in `HANDOVER.md` and `docs/setup-and-release.md`;
+  `--check` fails while it is not current or a file has lost its markers.
 
 ## Windows: a tool's own folder, and line endings (fixed 16 November 2026)
 
