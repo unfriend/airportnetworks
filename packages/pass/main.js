@@ -973,7 +973,8 @@ const PASS_SPATIAL = function (HOST) {
 'use strict';
 // Spatial interactome data: a curated, illustrative set of well-documented human
 // proteins, where in the cell they work, and how they bind. Edit the lists below
-// to change the cell; positions are worked out when the page loads.
+// to change the cell, then run node packages/spatial/src/layout.mjs to store the new
+// positions (until then the page works them out as it loads).
 
 // Compartments: key, name, short name (used in sentences), colour
 const PLACES = [
@@ -1768,8 +1769,11 @@ const CELL = (() => {
 // ------------------------------------------------------------------ layout --
 // Places every copy where it belongs (on a membrane, inside an organelle, in the
 // cytoplasm), with interacting proteins pulled together. Seeded, so the cell
-// looks the same on every visit.
-const LAYOUT = (() => {
+// looks the same on every visit. It takes about 0.1 s on a desktop (several times
+// that in a headset, before any loading card), so its result is stored below in
+// LAYOUT_DATA by node packages/spatial/src/layout.mjs, which runs this same code;
+// the page solves it again only when the lists or the cell no longer match.
+function solveLayout() {
   const { NC, cPlace, cHint, cProt, eu, ev, iu, iv, PK } = NET;
   const K = PK.reduce((o, k, i) => (o[k] = i, o), {});
   const rng = mulberry(5);
@@ -1975,6 +1979,26 @@ const LAYOUT = (() => {
   }
   for (let c = 0; c < NC; c++) { pos[3 * c] = P[c][0]; pos[3 * c + 1] = P[c][1]; pos[3 * c + 2] = P[c][2]; }
   return { pos, inst, pores: usePores };
+}
+// what the layout depends on: the copies, their places and hints, the links, the groups and the cell's organelles
+// (fractions rounded to 5 places: browsers' sin and cos may differ in the last digit, and that must not count as a change)
+function layoutSig() {
+  const { NC, cPlace, cHint, eu, ev, iu, iv } = NET, txt = JSON.stringify([NC, cPlace, cHint, eu, ev, iu, iv, TOGETHER,
+    CELL.mitos, CELL.lysos, CELL.endos, CELL.peroxs, CELL.pores, CELL.mts].map(a => (a && a.length !== undefined ? Array.from(a) : a)),
+    (k, v) => (typeof v === 'number' && !Number.isInteger(v) ? +v.toFixed(5) : v));
+  let h = 0x811c9dc5;
+  for (let i = 0; i < txt.length; i++) h = Math.imul(h ^ txt.charCodeAt(i), 0x01000193);
+  return (h >>> 0).toString(16) + ':' + txt.length;
+}
+// written by node packages/spatial/src/layout.mjs (never by hand): positions as Float32, organelle per copy as Int32, little-endian base64
+const LAYOUT_DATA = {"sig":"4c408f15:13025","by":"Chromium 158.0.8127.36","pos":"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","inst":"/////////////////////wUAAAD//////////wUAAAD//////////wMAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8FAAAA/////wUAAAD///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////8FAAAA/////////////////////////////////////wIAAAD//////////////////////////////////////////////////////////////////////////wUAAAD/////////////////////////////////////////////////////////////////////BgAAAP//////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////AgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAIAAAACAAAAAgAAAAYAAAAGAAAABgAAAAUAAAAFAAAABQAAAAUAAAAFAAAABQAAAP////8FAAAA/////wAAAAAFAAAAAAAAAAUAAAAFAAAABQAAAP////8AAAAAAAAAAP////8AAAAAAAAAAAIAAAAGAAAABgAAAAYAAAAGAAAABgAAAAYAAAD/////BgAAAP////8GAAAAAwAAAAMAAAADAAAAAwAAAAMAAAADAAAAAAAAAAAAAAADAAAAAwAAAAMAAAAEAAAA/////wQAAAAEAAAABAAAAAIAAAACAAAAAgAAAAIAAAACAAAA////////////////////////////////////////////////","pores":[33,25]};
+const LAYOUT = (() => {
+  const D = LAYOUT_DATA, bin = (b64, T) => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); return new T(u.buffer); };
+  if (D && D.sig === layoutSig()) {
+    const pos = bin(D.pos, Float32Array), inst = bin(D.inst, Int32Array);
+    if (pos.length === NET.NC * 3 && inst.length === NET.NC) return { pos, inst, pores: D.pores.slice() };
+  }
+  return solveLayout();
 })();
 
 // positions of the copies, plus their direction and distance from the cell centre

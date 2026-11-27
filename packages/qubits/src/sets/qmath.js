@@ -510,7 +510,20 @@ const QMATH = (() => {
     const s = 1 / (rr[Math.floor(n * 0.98)] || 1);
     return Float32Array.from(P, v => v * s);
   }
-  const layout = (net, o) => run(layoutG(net, o));
+  // The two layouts the story makes as it loads are stored in main.js by the build (QLAY_STORED, base64 Float32, by the key
+  // of everything a layout depends on: the network, the options and the starting places), so a load need not repeat
+  // them; any other call (other networks, explore, Node) works it out as before, and so does one whose inputs changed.
+  const layoutKey = (net, o) => {
+    const txt = JSON.stringify([net.n, net.m, Array.from(net.edges), o.dim || 3, o.iters || 60, o.seed || 3, o.k || 1, o.gravity || 0.1,
+      o.temp || 0.2, o.init ? Array.from({ length: net.n }, (_, i) => o.init(i)) : 0],
+      (k, v) => (typeof v === 'number' && !Number.isInteger(v) ? +v.toFixed(6) : v));   // (browsers' sin and cos may differ in the last digit)
+    let h = 0x811c9dc5;
+    for (let i = 0; i < txt.length; i++) h = Math.imul(h ^ txt.charCodeAt(i), 0x01000193);
+    return (h >>> 0).toString(16) + ':' + txt.length;
+  };
+  const STORED = typeof QLAY_STORED !== 'undefined' ? QLAY_STORED : {};
+  const unpack = (b64, n) => { const s = atob(b64), u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i); const f = new Float32Array(u.buffer); return f.length === n * 3 ? f : null; };
+  const layout = (net, o = {}) => { const s = STORED[layoutKey(net, o)], f = s && unpack(s, net.n); return f || run(layoutG(net, o)); };
 
   // ------------------------------------------------------------------ small facts for the text
   // the number of unordered pairs of n genes
@@ -523,7 +536,7 @@ const QMATH = (() => {
   return {
     rng, pop, NETS, DEFAULT, network, planted, random, modes, cut, cutG, cut3G, layoutG, randomCut, prefix, purity, sizes, cut3,
     coarse, sinkhorn, cubeShare, wht, pauli, fromPauli, entry, name, parse, parts, kind, ys, anti,
-    closure, generators, algebra, fit, order, rebuild, errors, trotter, analyze, layout, pairs, soDim, CELL_COLORS,
+    closure, generators, algebra, fit, order, rebuild, errors, trotter, analyze, layout, layoutKey, pairs, soDim, CELL_COLORS,
   };
 })();
 if (typeof module !== 'undefined') module.exports = QMATH;

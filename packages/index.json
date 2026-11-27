@@ -254,11 +254,11 @@
       "minis": "minis.js",
       "icon": "qubits.cube",
       "needs": 185,
-      "fp": "abd54e6bb6752eb8",
-      "bytes": 4658417,
+      "fp": "f7684ac14cc38a55",
+      "bytes": 4670138,
       "files": {
         "audio/narration.mp3": "d22fa71e0e837e63",
-        "main.js": "afe88518c3ad929f",
+        "main.js": "f6548296f829334d",
         "minis.js": "56e165930de5d25b",
         "story.json": "ca7b559403b0857c"
       }
@@ -344,12 +344,12 @@
       "minis": "minis.js",
       "icon": "pass.fish",
       "needs": 185,
-      "fp": "9100013cf51cc540",
-      "bytes": 7549419,
+      "fp": "ce232a76fdff373f",
+      "bytes": 7557277,
       "files": {
         "audio/narration-de.mp3": "1d3995bde9711a52",
         "audio/narration.mp3": "0c33c976e1f19b54",
-        "main.js": "7cbe23392ee2e4f9",
+        "main.js": "737565466c3259bb",
         "minis.js": "cd39558cecb01581",
         "story.json": "d98bd9920210db13"
       }
@@ -510,11 +510,11 @@
       "minis": "minis.js",
       "icon": "spatial.cell",
       "needs": 185,
-      "fp": "7f8afb4ff8dc8c51",
-      "bytes": 3015957,
+      "fp": "48fbbc5f52319041",
+      "bytes": 3023815,
       "files": {
         "audio/narration.mp3": "00886ba8d141ecf8",
-        "main.js": "b3960ed4e1daca6c",
+        "main.js": "1c852ebb792f6ed5",
         "minis.js": "c0520a8890297ce2",
         "story.json": "8898c19432e2e881"
       }
