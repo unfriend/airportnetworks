@@ -10,7 +10,7 @@
 //   machines or sessions. --blocks: only these ids (comma-separated). --from: the list from this id on. --timeout: seconds
 //   a block may take (default 900; a few long blocks have more, LONG below). --logs: where each block's output goes
 //   (default a new folder in the system's temporary folder). --list: the ids and their timeouts, nothing run. --help: this.
-// Exit 1 when any block failed or timed out. Timing checks fail under load: run a failed block again alone
+// Exit 1 when any block failed, timed out or ran no step (EMPTY). Timing checks fail under load: run a failed block again alone
 // (`node tools/smoke.mjs <url> --block <id>`) before calling it real.
 import fs from 'node:fs';
 import os from 'node:os';
@@ -71,7 +71,9 @@ const runOne = id => new Promise(done => {
   ch.on('close', code => {
     clearTimeout(timer); out.end();
     const fails = text.split('\n').filter(l => l.startsWith('FAIL ')).map(l => l.slice(5)), oks = text.split('\n').filter(l => l.startsWith('ok   ')).length;
-    const r = { id, status: timedOut ? 'TIMEOUT' : code === 0 ? 'ok' : 'FAILED', code, s: Math.round((Date.now() - t0) / 1000), oks, fails, log: file };
+    // (EMPTY: a block that exits 0 with no step run and nothing said skipped, as a gate that matches nothing would: not ok)
+    const empty = code === 0 && !oks && !fails.length && !/^skip /m.test(text);
+    const r = { id, status: timedOut ? 'TIMEOUT' : empty ? 'EMPTY' : code === 0 ? 'ok' : 'FAILED', code, s: Math.round((Date.now() - t0) / 1000), oks, fails, log: file };
     results.set(id, r);
     console.log(`${r.status.padEnd(7)} ${id} (${r.s} s, ${oks} ok, ${fails.length} failed)${fails.length ? '\n        ' + fails.map(f => f.slice(0, 160)).join('\n        ') : ''}`);
     done(r);

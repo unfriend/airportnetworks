@@ -1,7 +1,8 @@
 // Headless test of the room and depth test page (room-test/index.html), a test page that is not part of the app.
 //   node tools/room-test.mjs
-// It starts its own relay (--static . on port 8131, with --logs in a temporary folder) and drives the page with a
-// pretend headset in headless Chromium: navigator.xr, XRWebGLLayer and XRWebGLBinding are stand-ins, and the frames are
+//   node tools/room-test.mjs --port <n>   (the relay's port; a free one otherwise)
+// It starts its own relay (--static . on a free port, 8131 before row K; --logs in a temporary folder) and drives the page
+// with a pretend headset in headless Chromium: navigator.xr, XRWebGLLayer and XRWebGLBinding are stand-ins, and the frames are
 // driven by hand through three.js r128's own WebXR path (its WebXRManager, the ArrayCamera, one sub-camera per eye). The
 // pretend depth is a real WebGL2 texture array made in the page (near, 0.5 m, on the left half of each eye, far, 4 m, on
 // the right), so Occlusion is checked by reading the framebuffer's pixels: a test pillar and the big panel hidden where
@@ -18,9 +19,10 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { freePort, portArg } from './lib/serve.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const PORT = 8131, base = `http://127.0.0.1:${PORT}/`;
+const PORT = portArg(process.argv) || await freePort(), base = `http://127.0.0.1:${PORT}/`;
 const logs = fs.mkdtempSync(path.join(os.tmpdir(), 'room-test-logs-'));
 const relay = spawn(process.execPath, ['relay/server.mjs', '--static', '.', '--port', String(PORT), '--host', '127.0.0.1', '--logs', logs, '--quiet'], { cwd: ROOT, stdio: ['ignore', 'pipe', 'pipe'] });
 let relayOut = '';

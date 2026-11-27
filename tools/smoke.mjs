@@ -77,6 +77,13 @@ const blockIds = async () => {
   return [...new Set([ids[0], ...keys, ...ids.slice(1)])];   // (the stories' steps come right after the start page's)
 };
 if (ARGS.includes('--blocks')) { for (const id of await blockIds()) console.log(id); process.exit(0); }
+// (--block or --only with no words after it would match everything and start the whole run of 1.5 h: refused, with the ids)
+for (const [at, flag] of [[BLOCK_AT, '--block'], [ONLY_AT, '--only']]) {
+  if (at >= 0 && (!ARGS[at + 1] || ARGS[at + 1].startsWith('--'))) {
+    console.log(`${flag} needs a block id or words after it (nothing ran). The blocks:\n  ` + (await blockIds()).join('\n  '));
+    process.exit(1);
+  }
+}
 const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1) && (BLOCK_AT < 0 || i !== BLOCK_AT + 1))[0] || 'http://127.0.0.1:8123/';
 // The pretend headsets' seats (the owner, 27 November 2026, after a headset fault no test saw because every pretend
 // headset stood at the origin facing -z: "put the test headsets about 180 cm in each direction around origin so that we
@@ -13738,8 +13745,9 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     c.g.matrixWorld.copy(c.g.matrix); })()`);
   const grab = (i, kind, on) => sx(`(c => { c.hover = ${kind === 'panel' ? '{ kind: "panel", P: XR.main }' : `{ kind: "${kind}", i: -1 }`}; xrGrab(c, ${on}); return !!c.grab; })(XR.ctrls[${i}])`);
   // (lq: the world's turn in the rig, which hangs at the head turned as it faced when placed: a life-size story's world is
-  // not turned in it, whatever way the seat faces)
-  const POSE = `(() => { GL.scene.updateMatrixWorld(true); return { wq: GL.world.getWorldQuaternion(new THREE.Quaternion()).toArray(), lq: GL.world.quaternion.toArray(), rot: XR.rot.toArray(),
+  // not turned in it, whatever way the seat faces; sq: that turn, the seat's yaw about the vertical, which the world's own
+  // turn in the room (wq) must be, so a turn of the rig or of anything above the world shows too)
+  const POSE = `(() => { GL.scene.updateMatrixWorld(true); const sy = window.__xrSeat ? window.__xrSeat.yaw : 0; return { wq: GL.world.getWorldQuaternion(new THREE.Quaternion()).toArray(), lq: GL.world.quaternion.toArray(), sq: new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), sy).toArray(), rot: XR.rot.toArray(),
     pq: XR.panelGroup.quaternion.toArray(), up: new THREE.Vector3(0, 1, 0).applyQuaternion(XR.panelGroup.quaternion).y }; })()`;
 
   // each mode of each setting, at the moment with the most labels (the flock: explore mode with a falcon): the labels
@@ -13841,7 +13849,7 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
       await ctrl(0, [0.25, 1.4, -0.9]); await tick(1);
       if (await grab(0, 'sky', true)) bad.push('the grip took the sky');
       const w0 = await sx(POSE);
-      if (qa(w0.lq, [0, 0, 0, 1]) > 1e-6) bad.push('the flock\'s world is turned');
+      if (qa(w0.lq, [0, 0, 0, 1]) > 1e-6 || qa(w0.wq, w0.sq) > 0.01) bad.push(`the flock's world is turned (in the rig ${qa(w0.lq, [0, 0, 0, 1]).toFixed(4)} deg, in the room ${qa(w0.wq, w0.sq).toFixed(4)} deg from the head's facing)`);
     } else {
       await ctrl(0, [0.25, 1.4, -0.9]); await tick(1);
       const g = await grab(0, 'globe', true), p0 = await sx(POSE);
@@ -13876,7 +13884,7 @@ if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings
     await grab(0, 'panel', false); await tick(3);
     const pn = await sx(POSE), tilt = Math.acos(Math.min(1, pn.up)) * 180 / Math.PI, pq = await sx('HOST.cur.xrPose().pq.toArray()');
     if (!(tilt > 25 && tilt < 35) || qa(pq, pn.pq) > 1e-6) bad.push(`the panel held and turned tilts ${tilt.toFixed(2)} deg (xrPose().pq ${qa(pq, pn.pq).toFixed(4)} deg from it)`);
-    if (life && qa((await sx(POSE)).lq, [0, 0, 0, 1]) > 1e-6) bad.push('the flock\'s world turned with the panel');
+    if (life) { const w1 = await sx(POSE); if (qa(w1.lq, [0, 0, 0, 1]) > 1e-6 || qa(w1.wq, w1.sq) > 0.01) bad.push(`the flock's world turned with the panel (in the rig ${qa(w1.lq, [0, 0, 0, 1]).toFixed(4)} deg, in the room ${qa(w1.wq, w1.sq).toFixed(4)} deg from the head's facing)`); }
     await setLook(null, false); await tick(2);
     if (Math.abs((await sx(POSE)).up - 1) > 1e-6) bad.push('free moving off, the panel does not stand upright again');
     await setLook(null, true);
