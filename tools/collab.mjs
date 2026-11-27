@@ -6405,7 +6405,9 @@ async function tokenRound() {
     await A.press('#shPass', 'Enter');
     const opened = await until(A, () => HOST.collab.status === 'open' && HOST.collab.via === 'relay' && !!HOST.collab.code, null, 15000);
     const rc = await A.evaluate(() => HOST.collab.code), aDone = await auth(A), aKept = await kept(A);
-    const hidden = await A.evaluate(() => document.querySelector('#shared .sh-pass').hidden);
+    // (the dialog redraws through changed(), 60 ms after the password is accepted: the room is open about 45 ms before the
+    // field goes, so a read at once saw it still shown on a busy machine. Waited for, up to 5 s: a field left showing fails)
+    const hidden = await until(A, () => document.querySelector('#shared .sh-pass').hidden, null, 5000);
     check('password: the right one is accepted, kept under the relay\'s origin (relayTokens), the field goes, and the room that waited starts on the relay',
       opened && aKept === PASS && !aDone.state && aDone.kept && hidden, JSON.stringify({ opened, rc, aDone, kept: aKept === PASS, hidden, st: await A.evaluate(() => [HOST.collab.status, HOST.collab.via]) }));
     // a second device that has it joins by the link, which carries no password
@@ -8883,10 +8885,10 @@ async function reloadRound() {
     await deploy(NEW);
     await sleep(3000);
     await H1.evaluate(() => HOST.collab.publish([['st.t2', { story: 'robots', x: 2.4, z: -2, yaw: 0 }]]));
-    // (asked: the station must be on every page before the press. Red in four runs on a machine at a load average near 20
-    // (27 November 2026), green in a full run at 3: after the relay restarts as a deploy, the host listed only itself
-    // (members 1) while its guests still listed three, and the station it added reached neither guest in 20 s; the reload
-    // that follows brought everyone back with it. Reported as a possible app fault, docs/agents/testing.md, known red)
+    // (asked: the station must be on every page before the press. Red, an app fault (docs/agents/testing.md, known red):
+    // PeerJS emits open again when the host reconnects to the restarted introduction server, and shared.js claim() runs
+    // host() on it, so the host makes a second, empty hub (members 1) while its guests stay on the first; the station it
+    // adds then reaches neither guest. The reload that follows brings everyone back with it)
     const pre5 = await every([H1, G1, G2], s => s.st === 't1,t2', 20000);
     const preS = pre5 ? '' : await sAll([H1, G1, G2]);
     await press(G2);
