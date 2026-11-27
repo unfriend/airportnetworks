@@ -38,8 +38,23 @@
 // story and the robots (live: their vacuums); an explore pick; a pretend headset's press on a story panel clicking at
 // the button through an HRTF panner.
 // Whether sound really comes out of a headset can only be confirmed on the device (and how the effects sound, by ear).
-// Usage: serve the folder, then node tools/audio.mjs [http://127.0.0.1:8123/]
+// Usage: serve the folder, then node tools/audio.mjs [http://127.0.0.1:8123/]   (--list: every step; --list --checks: with its checks; --help)
 // Needs the airports story's recording (packages/airports/audio/narration.mp3). PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
+// --list: every step's name (read from this file's text, as written, templates unfilled) and exit; --list --checks: under
+// each step the lines it prints when a check passes ('ok   ...'); --help: these flags. Nothing starts a browser.
+if (process.argv.includes('--list') || process.argv.includes('--help')) {
+  if (process.argv.includes('--help')) console.log('node tools/audio.mjs [base-url]   (default http://127.0.0.1:8123/; serve the folder first)\n  --list            every step and exit\n  --list --checks   every step with the checks it prints and exit\n  --help            this');
+  else {
+    const fs = await import('node:fs'), { fileURLToPath } = await import('node:url'), checks = process.argv.includes('--checks');
+    const text = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'), s = /\bstep\((['"`])((?:\\.|(?!\1)[^\\])*)\1/g, k = /console\.log\((['"`])ok {3}((?:\\.|(?!\1)[^\\])*)\1/g;
+    const un = t => t.replace(/\\(.)/g, '$1');
+    for (const line of text.split('\n')) {
+      for (const m of line.matchAll(s)) console.log('step ' + un(m[2]));
+      if (checks) for (const m of line.matchAll(k)) console.log('  check ' + un(m[2]));
+    }
+  }
+  process.exit(0);
+}
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const base = process.argv[2] || 'http://127.0.0.1:8123/';
 const browser = await chromium.launch({

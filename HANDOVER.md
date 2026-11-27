@@ -59,6 +59,10 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 
 ## Where things stand
 
+<!-- state (tools/release.mjs) -->
+The current release is `networks-v224` (shell 223), the room format `networks-61`, released 27 November 2026. (Written by `node tools/release.mjs`, checked by its `--check`.)
+<!-- /state -->
+
 **The state is read, not typed here.** The current release is `version.json` (its `version`, `shell` and `date`; `sed -n 3p
 sw.js` is the same number) and what it brought is `whatsnew.json` (the same box developer mode shows: what is new, what to
 test, what is untested); every earlier release has its own `whatsnew/networks-v<n>.json`. The room format is

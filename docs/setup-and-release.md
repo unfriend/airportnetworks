@@ -5,6 +5,10 @@ version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../
 (structure, conventions, every shared-room detail) and is the reference wherever this page is short. Facts marked
 *checked 22 October 2026* were read from GitHub or the live site on that day.
 
+<!-- state (tools/release.mjs) -->
+The current release is `networks-v224` (shell 223), the room format `networks-61`, released 27 November 2026. (Written by `node tools/release.mjs`, checked by its `--check`.)
+<!-- /state -->
+
 ## 1. Setting up a machine
 
 | Tool | Version used | Needed for |

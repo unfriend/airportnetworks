@@ -22,6 +22,9 @@
 // shell it works with, its story.json's needs (which each must have: the release that moved it, at least; the shell
 // refuses a package that needs a newer one, HOST.packages). STORY_LIST is empty since v187 (every story moved).
 // --check also runs node tools/packages/scan.mjs --check.
+// The state lines (November 2026): between <!-- state (tools/release.mjs) --> and <!-- /state --> in HANDOVER.md and
+// docs/setup-and-release.md, the release, the room format and whatsnew.json's date, written here and checked by --check
+// (a copy without the file, a test's, skips it; a file without the markers is out of date). Nothing else in them is touched.
 // whatsnew.json (developer mode's box, HOST.dev: { version, date, new, test, untested }, lists of short sentences) is
 // written by hand at every release; this script only checks it: a file that does not name sw.js's VERSION (or is not in
 // that shape) is a warning, and --check fails on it, so a release does not go out with an old box. Each release's file is
@@ -138,15 +141,28 @@ const windex = JSON.stringify({ versions: wlist.map(f => f.replace(/\.json$/, ''
 const wold = f => { try { return fs.readFileSync(path.join(wdir, f), 'utf8'); } catch (e) { return null; } };
 const wstale = () => (wnow && wold(version + '.json') !== wnow ? [version + '.json'] : []).concat(wold('index.json') !== windex ? ['index.json'] : []);
 
+// the state lines in the handover pages (only the text between the markers)
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+const wdate0 = (() => { try { const w = JSON.parse(read('whatsnew.json')); return w.version === version && /^\d{4}-\d\d-\d\d$/.test(w.date || '') ? w.date : ''; } catch (e) { return ''; } })();
+const longDate = d => d ? `${+d.slice(8)} ${MONTHS[+d.slice(5, 7) - 1]} ${d.slice(0, 4)}` : 'no date yet (whatsnew.json names another release)';
+const STATE = /(<!-- state \(tools\/release\.mjs\) -->\n)[^]*?(<!-- \/state -->)/;
+const stateLine = `The current release is \`${version}\` (shell ${n}), the room format \`${format}\`, released ${longDate(wdate0)}. (Written by \`node tools/release.mjs\`, checked by its \`--check\`.)\n`;
+const stateFiles = ['HANDOVER.md', 'docs/setup-and-release.md'].filter(f => fs.existsSync(path.join(root, f))).map(f => {
+  const text = read(f), has = STATE.test(text);
+  return { f, text, has, out: has ? text.replace(STATE, (m, a, b) => a + stateLine + b) : text };
+});
+const stateStale = stateFiles.filter(s => !s.has || s.out !== s.text).map(s => s.f + (s.has ? '' : ' (no state markers)'));
+
 const hadOut = (() => { try { return read('version.json'); } catch (e) { return ''; } })();
 if (check) {
   let scanOk = true;
   // (a copy without the packages' scan, a test's, has no index to check)
   if (fs.existsSync(path.join(root, 'tools/packages/scan.mjs'))) try { execFileSync(process.execPath, [path.join(root, 'tools/packages/scan.mjs'), '--check', '--root', root], { stdio: 'inherit' }); } catch (e) { scanOk = false; }
-  const ok = hadOut === out && stamped === index && scanOk, ws = wstale(), swOk = swOut === swText;
+  const ok = hadOut === out && stamped === index && scanOk && !stateStale.length, ws = wstale(), swOk = swOut === swText;
   console.log(hadOut === out && stamped === index ? `version.json and index.html's stamp are current (${version}, shell ${n})` :
     `${hadOut !== out ? 'version.json' : "index.html's stamp"} is out of date: run node tools/release.mjs`);
   console.log(swOk ? "sw.js's story files are current" : "sw.js's SHELL story files are out of date (stories/list.js): run node tools/release.mjs");
+  console.log(stateStale.length ? `the state lines are out of date (${stateStale.join(', ')}): run node tools/release.mjs` : `the state lines are current (${stateFiles.map(s => s.f).join(', ') || 'none here'})`);
   console.log(ws.length ? `whatsnew/ is out of date (${ws.join(', ')}): run node tools/release.mjs` : `whatsnew/ is current (${wlist.length} releases)`);
   warn();
   process.exit(ok && swOk && !news && !ws.length ? 0 : 1);
@@ -154,6 +170,10 @@ if (check) {
 if (swOut !== swText) { fs.writeFileSync(path.join(root, 'sw.js'), swOut); console.log("wrote sw.js's story files (from stories/list.js)"); }
 if (stamped !== index) fs.writeFileSync(path.join(root, 'index.html'), stamped);
 if (hadOut !== out) fs.writeFileSync(path.join(root, 'version.json'), out);
+for (const s of stateFiles) {
+  if (!s.has) console.log(`${s.f} has no state markers (<!-- state (tools/release.mjs) --> and <!-- /state -->): add them where its state line goes`);
+  else if (s.out !== s.text) { fs.writeFileSync(path.join(root, s.f), s.out); console.log(`wrote ${s.f}'s state line`); }
+}
 if (wstale().length) {
   fs.mkdirSync(wdir, { recursive: true });
   if (wnow) fs.writeFileSync(path.join(wdir, version + '.json'), wnow);

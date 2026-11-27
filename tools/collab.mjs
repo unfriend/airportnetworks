@@ -1,5 +1,5 @@
 // Headless test of shared rooms (docs/shared-space-plan.md, section 9).
-//   node tools/collab.mjs [--shots <dir>]
+//   node tools/collab.mjs [--shots <dir>]   (--list: every flag and what it runs; --list --checks: every check by round)
 // It starts its own relay (relay/server.mjs --static .) on a free port, so no other server is needed, and
 // checks: a page served by the relay starts a room; a mistyped code makes no room; Arrange all's two rows; three
 // pages see the same stations; Remove asks first; per story in STORIES (below) play, pause, a jump and mode
@@ -174,6 +174,66 @@ import os from 'os';
 import { createRequire } from 'module';
 import { fileURLToPath } from 'url';
 import { stories as storiesOf } from './stories.mjs';
+// --list prints every flag and its round's purpose (FLAGS, below), --list --checks every check's name per round (read
+// from this file's text, as written, templates unfilled), --help the flags; each exits before any relay or browser starts
+const FLAGS = [
+  ['(none)', 'the main run: rooms, per story in STORIES, the rounds marked main below, then peer to peer, rooms on this network and room names; about 15 min'],
+  ['--shots <dir>', 'also save pictures into <dir>'],
+  ['--quick', 'only the last story of STORIES in the per-story part'],
+  ['--port <n>', 'run the relay on port n (default: any free port)'],
+  ['--p2p', 'only the peer-to-peer part (main)'],
+  ['--near', 'only rooms on this network: nearby (main)'],
+  ['--names', 'only room names: namesRound, a relay of its own with --proxy (main)'],
+  ['--follow', 'only following a person: personFollow, in a room of its own (main)'],
+  ['--circles', 'only the ten-headset round: headsetRound, in a room of its own (main)'],
+  ['--smooth', 'only others\' moves drawn smoothly: smoothRound, in a room of its own (main)'],
+  ['--code', 'only a room joined by its code from a headset\'s menu: codeRound (main)'],
+  ['--all', 'only the All stories and Back to the lobby circles: allRound, in a room of its own (main)'],
+  ['--guide', 'only the room setup guide and Touch the spot: guideRound, in a room of its own (main)'],
+  ['--token', 'only the relay\'s password: tokenRound, a relay of its own with COLLAB_TOKEN (not in the main run)'],
+  ['--studio', 'only the studio in a room: studioRound, relays of its own with --scenes (main)'],
+  ['--ask', 'only the circles asked first: askRound, in a room of its own (main)'],
+  ['--arr', 'only a story\'s copy on the relay: arrRound, a relay of its own with --scenes (not in the main run)'],
+  ['--studio-scenes', 'only the studio\'s scenes as circles: scenesRound, a relay of its own with --scenes (main)'],
+  ['--home', 'only the relay the main site offers: homeRound, a browser of its own that takes the site\'s names for this machine (main)'],
+  ['--menus', 'only your menu shown to your circle: menusRound, in a room of its own (main)'],
+  ['--behave', 'only the studio\'s behaviours shared: behaveRound, a relay of its own with --scenes (main)'],
+  ['--narration', 'only the narration in headsets and the welcome: narrationRound, in a room of its own (main)'],
+  ['--camera', 'only camera mode: cameraRound, in a room of its own (main)'],
+  ['--preview', 'only the desktop preview camera: previewRound, in a room of its own (main)'],
+  ['--standby', 'only the pretend headset\'s standby with the shared space in use: standbyRound, in a room of its own (main)'],
+  ['--ships', 'only the spaceships in a shared room: shipsRound, in a room of its own (main)'],
+  ['--walk', 'only moving with the sticks for a VR headset elsewhere in a room: walkRound, in a room of its own (main)'],
+  ['--places', 'only places, a calibration kept per room: placesRound, rooms of their own (main)'],
+  ['--areas', 'only areas, more tape crosses in one room: areasRound, a room of its own (main)'],
+  ['--trackers', 'only the PC\'s Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge (main)'],
+  ['--output', 'only the output page, MIDI and OSC, end to end: outputRound, a relay of its own with --osc-out, --osc-in, --trackers and --scenes, the fake bridge (main)'],
+  ['--reload', 'only rooms across updates and Update the room: reloadRound, a relay of its own on port 8712 (main)'],
+  ['--cases <a,b>', 'with --reload: only those of its six cases'],
+  ['--talk', 'only Talk end to end: talkRound, a room of its own (not in the main run)'],
+  ['--net', 'only the cell story\'s shared networks: netRound, relays of its own with --scenes and --no-nets (not in the main run)'],
+  ['--list [--checks]', 'print the flags (with --checks: every check\'s name per round) and exit'],
+  ['--help', 'print the flags and exit'],
+];
+if (process.argv.includes('--list') || process.argv.includes('--help')) {
+  const w = Math.max(...FLAGS.map(f => f[0].length));
+  if (!process.argv.includes('--checks')) for (const [f, what] of FLAGS) console.log(f.padEnd(w + 2) + what);
+  else {
+    // (a top-level function starts a group, the main block another; a check's name is its first argument as written)
+    const text = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'), q = /\bcheck\((['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
+    let group = 'STORIES (its entries\' more and effect checks, run in the per-story part)', n = 0;
+    for (const line of text.split('\n')) {
+      const g = /^(?:async )?function (\w+)\(/.exec(line) || (/^  main: \{/.test(line) && [0, 'main']);
+      if (g) group = g[1];
+      for (const m of line.matchAll(q)) { if (group) { console.log('round ' + group); group = ''; } console.log('  check ' + m[2].replace(/\\(.)/g, '$1')); n++; }
+    }
+    console.log(n + ' checks');
+  }
+  // (every flag the code reads is in FLAGS)
+  const text = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'), named = FLAGS.map(f => f[0].split(' ')[0]);
+  for (const m of text.matchAll(/argv\.includes\('(--[\w-]+)'\)/g)) if (!['--design', '--list', '--checks', '--help'].includes(m[1]) && !named.includes(m[1])) console.log('note: ' + m[1] + ' is read but not in FLAGS');
+  process.exit(0);
+}
 
 const STORIES = {
   airports: {
