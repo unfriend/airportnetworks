@@ -17,7 +17,7 @@ Meta Quest Browser).
 | Story | What you see | Ideas |
 | --- | --- | --- |
 | **Airports** (network theory) | 3,214 airports and 18,858 routes on a globe | nodes and edges, degree and hubs, shortest paths, betweenness, communities, robustness when airports close |
-| **Proteins** (network medicine) | 254 proteins and 375 interactions inside a cell | essential hubs, modules, disease modules, drug targets, knockouts |
+| **Proteins** (network medicine; on the Experiments set) | 254 proteins and 375 interactions inside a cell | essential hubs, modules, disease modules, drug targets, knockouts |
 | **Cell map** (spatial interactome) | 249 proteins in 13 compartments of a model human cell | where proteins meet, proteins in several places, signals crossing the cell, proteins that move, proximity labelling, proteins in the wrong place |
 | **Back into the cell** (spatial interactome) | an interactome of 13,460 proteins put back into a model human cell: which of its links can happen where, with the proteins' membrane sides and complexes (UniProt, the Complex Portal) and real protein structures at the close-ups; in explore, the method's limits live, and a network of your own | why an interaction map is not yet a cell, where proteins are and which side of a membrane, complexes, which links can happen where, how to judge a network |
 | **Muscle and heart** (rare muscle diseases) | 1,182 genes of 13 groups of neuromuscular disorders in a tower of 71 layers, after the ISMB 2026 talk by Iker Núñez-Carpintero and Philipp Friedrich (LBI Network Medicine), on their data | the motor unit from nerve to sarcomere, a multiplex network, a random walk with restart, disease modules, endotypes, the overlap of congenital myopathies and cardiomyopathies, a stress test on a supercomputer; explore: pick a group, search a gene, run your own walk, knock out layers, pick endotypes, stand inside the tower |
@@ -32,10 +32,17 @@ Meta Quest Browser).
 | **The switch that sticks** (CDK5 and brain diseases; on the Experiments set) | the kinase CDK5 among 16,376 human proteins in the nine arrangements of the Menche lab's CDK5 VR project (CDK5_data, Christiane Hütter): a map of processes, its two activators, healthy signalling, the cut that leaves it stuck on, the Alzheimer's pathway and a landscape of diseases | interactomes, pathways, disease modules, over-representation "in this map" |
 | **Invisible threads** (the chemical exposome; on the Experiments set) | 9,887 substances from air, water, food and medicines and the genes they disturb, the network of 9,764 substances tied by shared genes and its communities, the model cell with the interactome where substances hit, the 6,177 diseases close to them, and 32 European countries' industrial releases on the airports globe, after Lombardo, Hütter, Unterlass and Menche (Nat Commun 2026) | exposure as a network, shared genes, communities, hazard, which diseases sit close by, releases by country |
 | **Pass it on** (networks for everyone; in English and German) | a school of fish all around you (in a headset, life size; in passthrough, in your room), the airports story's globe with an outbreak on its routes, and the cell map story's cell, for the Ludwig Boltzmann Institute for Network Medicine's outreach (about 12 and up) | no fish is in charge: each watches a few neighbours, and a warning races through the school faster than the shark; one neighbour each and the school falls apart; an infection travels along the flight routes, slowly, then through the hubs everywhere at once (a simple model, not a forecast); a signal passes hand to hand in a cell, and a protein in the wrong place stops it; explore: be the shark, change who watches whom, start an outbreak in any city and change how it spreads, the cell's proteins and moves |
-| **Flock** (collective motion) | 200 starlings at dusk flying all around you (in a headset, life size), over a field by a lake | no leader: each bird follows its seven nearest neighbours, so the flock is a network that changes from moment to moment; a falcon sets off a wave that runs through the whole flock; explore: as many birds as you like (100 to 400), who follows whom, send a falcon; then it flies on for as long as you stay |
-| **Robot gang** (swarm robotics) | a gang of 6 to 24 robot vacuums in a model living room; in a headset, in your own room (its floor, walls and furniture from the headset's room setup) | bump and turn: no map, yet the floor gets clean; then one rule, follow, on two networks of who follows whom: a star (all follow you) and a chain (a conga line). Click the floor to walk; in a headset the trigger on the floor spills crumbs |
+| **Flock** (collective motion; on the Experiments set) | 200 starlings at dusk flying all around you (in a headset, life size), over a field by a lake | no leader: each bird follows its seven nearest neighbours, so the flock is a network that changes from moment to moment; a falcon sets off a wave that runs through the whole flock; explore: as many birds as you like (100 to 400), who follows whom, send a falcon; then it flies on for as long as you stay |
+| **Robot gang** (swarm robotics; on the Experiments set) | a gang of 6 to 24 robot vacuums in a model living room; in a headset, in your own room (its floor, walls and furniture from the headset's room setup) | bump and turn: no map, yet the floor gets clean; then one rule, follow, on two networks of who follows whom: a star (all follow you) and a chain (a conga line). Click the floor to walk; in a headset the trigger on the floor spills crumbs |
+| **Cell stress test** (measuring; on the Experiments set) | the cell map's model cell filled with up to 20,000 made-up proteins and 80,000 links | reading a headset's frame rate at each size |
+| **Six handshakes** (small worlds; on the Experiments set) | sixty people in a ring, and how a few shortcuts bring everyone close; the example story package | small worlds, shortcuts, degrees of separation |
 | **The future** (LBI Network Medicine) | a 3D tour in ten scenes, after the Ludwig Boltzmann Institute for Network Medicine's welcome talk | the whole is more than its parts, networks everywhere, genes and protein shapes, a protein machine (ATP synthase) assembling and running, the interactome as a city map, rare diseases and inborn errors of immunity, network propagation for diagnosis, networks across scales, the institute's research groups, whole-body PET and organ networks, tissue as a network of cells |
 | **Your guide** (an introduction; the last card) | a robot guide that shows how the app works in a headset, then seven practice tasks | pointing, playing a story, exploring, the menu, shared rooms |
+
+The last card on the Stories screen, *Experiments*, opens a second set of cards (in a headset a second arch of cards), with
+a card back to the main set; `#experiments` opens it too. Besides the stories above, the app has one page that is not a
+story and is on no Stories screen: the **studio** (`#studio`), for your own scenes: your models, trigger cubes and sounds,
+placed life size in the room and saved by the relay (see `README.txt` and `relay/README.md`).
 
 ## Using it
 
@@ -63,7 +70,8 @@ Meta Quest Browser).
   pointing at nothing). In VR, the left stick clicked twice turns **moving with the
   sticks** on or off (this headset's own, off by default; not in AR, and not in a
   shared room except in the studio): the left stick moves you where you face, the
-  right stick turns you 30 degrees. How that feels on a Quest is untested.
+  right stick turns you (smoothly as you push it, up to 90 degrees a second, or 30 degrees a flick with the menu's *Turn:
+  steps*; `#turn=steps` in a link). How that feels on a Quest is untested.
   Changing story inside the headset keeps you in VR or AR and keeps the layout
   where you put it; *Recenter* (on the story panel and the menu's Settings tab)
   puts it back in front of you.
@@ -139,8 +147,8 @@ Meta Quest Browser).
   up: `tools/trackers/README.md`.
 - The address shows where you are, so you can share it: `#stories` on the
   Stories screen (on the page or in the headset), `#airports`, `#proteins`,
-  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#ovary`, `#qubits`, `#mutation`, `#topo`, `#soil`, `#cdk5`, `#pass`, `#flock`, `#robots`, `#ppicell`, `#exposome` or `#tutorial`
-  in a story. A story link opens that story directly; a link without
+  `#spatial`, `#lbi`, `#nmd`, `#endo`, `#pet`, `#micro`, `#ovary`, `#qubits`, `#mutation`, `#topo`, `#soil`, `#cdk5`, `#pass`, `#flock`, `#robots`, `#ppicell`, `#exposome`, `#tutorial`, `#cellstress` or `#hello`
+  in a story, `#experiments` on the second set of cards and `#studio` in the studio. A story link opens that story directly; a link without
   a hash lands on the Stories screen. Old links to `proteins.html` and
   `spatial.html` still work.
 - **Developer mode** (for testers; off by default, this device's own): the small
