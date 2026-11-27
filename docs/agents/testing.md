@@ -9,11 +9,11 @@
   - 210: `--only <words>` and `--block <id>` (1.7 KB)
   - 229: Playwright, SwiftShader and what only a headset shows (0.5 KB)
 - 239: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
-- 306: Other tools (4.5 KB)
+- 306: Other tools (4.7 KB)
 - 331: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 340: Known red results on this machine (8.5 KB)
-- 375: Traps for a test writer (4.7 KB)
-- 423: Useful URL hashes and the console (4.8 KB)
+- 340: Known red results on this machine (9.0 KB)
+- 376: Traps for a test writer (4.7 KB)
+- 424: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -80,7 +80,7 @@ The three big tests say what they hold without running (nothing starts: no serve
   and the count; `--help` - the flags, as `--list`. A flag the code reads but `FLAGS` does not name is printed as a
   `note:`.
 - `node tools/audio.mjs --list` - every step; `--list --checks` - under each step the `ok   ...` lines it prints when
-  its checks pass; `--help` - its usage.
+  its checks pass; `--help` - its usage (exit 0, runs nothing).
 
 The docs' tools (`tools/docs/`, Node, no packages):
 
@@ -309,7 +309,7 @@ One row a tool; each is a Node script run from the repository's root.
 
 | Tool | Run after | What it checks; traps |
 | --- | --- | --- |
-| `node tools/audio.mjs <url>` (`--list`, `--list --checks`) | sound | 40 steps: a strict autoplay rule (a locked `AudioContext`, a tap), narration and sound-effect switches, the headset menu's rows, the stories' cues, the voice limit. How sound really sounds only by ear |
+| `node tools/audio.mjs [url]` (`--list`, `--list --checks`, `--help`) | sound | 41 steps, about 20 min; no url: it serves the folder itself on a free port. A strict autoplay rule (a locked `AudioContext`, a tap), the start page with nothing behind its cards (v219: a step opens a story by a card's click or a link, `#airports`), narration and sound-effect switches, the headset menu's rows (its pretend headset at smoke's first seat, off the origin), the stories' cues, the voice limit. How sound really sounds only by ear |
 | `node tools/sfx-cues.mjs <url> <key\|all>` | cues | below |
 | `node tools/smoke-all.mjs [url]` | the release run | the smoke test block by block, two at a time, one table (above, "The whole run by block"); a block that exits 0 with no step run and none skipped is EMPTY, not ok. `smoke.mjs --block` or `--only` with nothing after them prints the ids and exits 1 (it ran the whole test before) |
 | `node tools/live.mjs [--port n] [--relay-port n]` | `HOST.live`, `HOST.swap`, `HOST.load`, `release.mjs`, the relay's `--watch` | a few minutes; a story added, changed and swapped live in a temporary copy of the app. Two free ports unless named (row K: two runs no longer collide on 8126 and 8127). The "within about 2 s" step allows 3 s and can still miss on a loaded machine. A story's `APP` is called only once it is built (`built()` first): before row K the step after *a shell file touched* could reach airports' `setClosedAttributes` on a reloading page (*TypeError reading 'aXrm'*), the test's, not the app's |
@@ -363,6 +363,7 @@ written down in the repository: the first person to chase one writes it here and
 | smoke `phone ar`, *the welcome says how a phone points*: *the notice The menu said []* | no longer (27 November 2026; once in a block-by-block run) | the test's: *The menu* comes 2.5 s into the session only with the 3D menu closed (`shared.js`), and *The full menu* step had it open until about 100 ms before then. The first step now waits for the notice |
 | smoke `studio`, *studio v127: Play did not go on from where the slider held it*; `studio live`, *heard ... playing false* | once each in row K's full run (two blocks at a time, another builder's browsers too); green alone | timing under load (the live sound: the trap below, *the output page's live sound starves headlessly*) |
 | smoke `goggles: the game on a page`, *the game is not drawn in the scene* | once in row K's runs, on a loaded machine; then green with the seat and at the origin | a timing flake, not the seat's |
+| `tools/audio.mjs`: *sound off by default: the start page shows Sound off before a tap* | red since v219 (27 November 2026) | the app's, not fixed: on the start page (no story) the Sound button keeps `index.html`'s `hidden` (HOST.audio's `changed()` runs first when a story starts), so a fresh device sees no Sound button until a card is picked. Before v219 a story behind the cards showed *Sound off*. Its other reds of v219 to v226 were the test's (a story expected behind the cards; corrected 27 November 2026) |
 | `relay/test.mjs --watch` (a relay stopped and restarted) | on Windows only: 5 failures about a relay stopped by SIGTERM | they come from Windows, with or without the fix; on this machine `--watch` passes |
 | `tools/live.mjs`, the step "within about 2 s" | misses by a little on a loaded machine (seen in v190 and v226) | it allows 3 s |
 | `tools/live.mjs`, *TypeError reading 'aXrm'* (airports' `setClosedAttributes` from `enterStory`) | no longer (row K) | the test's: the step after *a shell file touched* called the story's `APP.enterStory` on a page the relay's `--watch` reloaded a second time (one write of `index.html`, two reloads), on a story not yet built. The app calls `APP` only once a story is built (`HOST.putPlace` on its frame loop, `shared.js` after `collab.scene()`). The step waits for a built story on a page that has not reloaded for 2.5 s |

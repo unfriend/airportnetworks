@@ -38,12 +38,15 @@
 // story and the robots (live: their vacuums); an explore pick; a pretend headset's press on a story panel clicking at
 // the button through an HRTF panner.
 // Whether sound really comes out of a headset can only be confirmed on the device (and how the effects sound, by ear).
-// Usage: serve the folder, then node tools/audio.mjs [http://127.0.0.1:8123/]   (--list: every step; --list --checks: with its checks; --help)
+// Since v219 the start page (an address with no story) shows only the cards and starts, fetches and decodes nothing: a
+// step opens a story as a user does, a card's click on that page or a link (#airports), never expecting one behind the cards.
+// Usage: node tools/audio.mjs [base-url]   (no url: it serves this folder itself on a free port, tools/lib/serve.mjs;
+// --list: every step; --list --checks: with its checks; --help)
 // Needs the airports story's recording (packages/airports/audio/narration.mp3). PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs.
 // --list: every step's name (read from this file's text, as written, templates unfilled) and exit; --list --checks: under
 // each step the lines it prints when a check passes ('ok   ...'); --help: these flags. Nothing starts a browser.
 if (process.argv.includes('--list') || process.argv.includes('--help')) {
-  if (process.argv.includes('--help')) console.log('node tools/audio.mjs [base-url]   (default http://127.0.0.1:8123/; serve the folder first)\n  --list            every step and exit\n  --list --checks   every step with the checks it prints and exit\n  --help            this');
+  if (process.argv.includes('--help')) console.log('node tools/audio.mjs [base-url]   (no base-url: serves this folder itself on a free port)\n  --list            every step and exit\n  --list --checks   every step with the checks it prints and exit\n  --help            this');
   else {
     const fs = await import('node:fs'), { fileURLToPath } = await import('node:url'), checks = process.argv.includes('--checks');
     const text = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'), s = /\bstep\((['"`])((?:\\.|(?!\1)[^\\])*)\1/g, k = /console\.log\((['"`])ok {3}((?:\\.|(?!\1)[^\\])*)\1/g;
@@ -56,7 +59,15 @@ if (process.argv.includes('--list') || process.argv.includes('--help')) {
   process.exit(0);
 }
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const base = process.argv[2] || 'http://127.0.0.1:8123/';
+// the base url given, or this folder served here on a free port (a development server: no-cache, as python3 -m http.server)
+const urlArg = process.argv.slice(2).find(a => /^https?:\/\//.test(a));
+let srv = null;
+if (!urlArg) {
+  const { serve } = await import('./lib/serve.mjs'), { fileURLToPath } = await import('node:url'), path = await import('node:path');
+  srv = await serve(path.dirname(path.dirname(fileURLToPath(import.meta.url))));
+  console.log('serving this folder at ' + srv.url);
+}
+const base = urlArg || srv.url;
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
@@ -95,17 +106,20 @@ async function open(url, fault = '', seed = null) {
     };
   }, [fault, seed]);
   page.on('pageerror', e => errors.push(String(e)));
+  page.fetched = [];   // (every url the page asked for, from its first request)
+  page.on('request', r => page.fetched.push(r.url()));
   page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
   await page.goto(url, { waitUntil: 'load' });
   return page;
 }
 let page;
 const wait = ms => new Promise(r => setTimeout(r, ms));
-// the sound system's state, and where in the recording the sound is (null when silent)
+// the sound system's state, and where in the recording the sound is (null when silent). No story yet (the start page, or
+// a link's story still starting): story, state, t and the rest null, so until() looks again instead of failing on a throw
 const probe = () => page.evaluate(() => {
-  const n = HOST.cur && HOST.cur.peek('AUD'), A = HOST.audio.state();
-  return { story: HOST.curKey, ctx: A.ctx && A.ctx.state, state: n && n.state, decode: n && n.decode, label: n && n.label(),
-    pos: n && n.pos(), eng: HOST.audio.engine(), hum: !!A.hum, bad: A.bad, t: HOST.cur.peek('APP.t') };
+  const c = HOST.cur, n = c && c.peek('typeof AUD === "undefined" ? null : AUD'), A = HOST.audio.state();
+  return { story: c ? HOST.curKey : null, ctx: A.ctx && A.ctx.state, state: n && n.state, decode: n && n.decode, label: n && n.label(),
+    pos: n && n.pos(), eng: HOST.audio.engine(), hum: !!A.hum, bad: A.bad, t: c ? c.peek('typeof APP === "undefined" ? null : APP.t') : null };
 });
 async function until(what, ok, ms = 30000) {
   const t0 = Date.now();
@@ -128,12 +142,18 @@ async function step(what, fn) {
 }
 const ready = () => until('narration ready', p => p.story === 'airports' && p.state === 'ok' && p.decode === 'ok');
 
-// 1. the usual way: Stories screen, a click, then everything a visitor does
+// 1. the usual way: the start page's cards, a click, then everything a visitor does. Since v219 (the owner, 26 November
+// 2026: "the start page should load nothing in the background, just have the cards there") no story and no narration
+// is started or fetched behind the cards: the click on a card loads the story, and the sound starts with it
 page = await open(base, '', { narrationMuted: '1', narrationMuted2: '1' });
-await step('narration loads on the Stories screen', async () => {
-  const p = await ready();
+await step('the start page: only the cards, no story or narration behind them, silent', async () => {
+  await page.waitForSelector('#picker .card[data-story="airports"]', { timeout: 30000 });
+  await wait(3000);
+  const fetched = page.fetched.filter(u => /\/packages\/[^/]+\/(main\.js|audio\/)/.test(u)).map(u => u.replace(base, ''));
+  const p = await probe(), k = await page.evaluate(() => [HOST.cur === null, !!HOST.picking, document.body.classList.contains('nostory')].join());
+  if (p.story !== null || k !== 'true,true,true' || fetched.length) throw new Error('a story behind the cards: ' + JSON.stringify({ p, k, fetched }));
   if (p.ctx === 'running' || p.pos !== null || p.hum) throw new Error('sound before any tap: ' + JSON.stringify(p));
-  console.log('ok   narration decoded, silent before a tap');
+  console.log('ok   the start page: the cards, no story started, no story file or narration fetched, silent before a tap');
 });
 await page.click('#picker .card[data-story="airports"]');
 await step('a click on the story card', async () => {
@@ -244,14 +264,20 @@ await page.close();
 // choice is kept across a reload, on and off
 page = await open(base, '', { narrationMuted3: null, narrationMuted2: '0' });
 const btn = () => page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, b.textContent, b.getAttribute('aria-pressed'), localStorage.getItem('narrationMuted3')].join(); });
-await step('sound off by default: Sound off, and a tap plays nothing until Sound is pressed', async () => {
-  // (v145: a narration is decoded only when it is wanted and audible, so with the sound off it stays 'idle')
-  await until('narration loaded', p => p.story === 'airports' && p.state === 'ok');
+// (a step of its own, so that the steps after it run whatever it finds: on the start page (v219: the cards only, no story
+// behind them) the Sound button kept index.html's hidden until a story started, red since v219 and reported as the app's)
+await step('sound off by default: the start page shows Sound off before a tap', async () => {
+  await page.waitForSelector('#picker .card[data-story="airports"]', { timeout: 30000 });
   const b0 = await page.evaluate(() => { const b = document.getElementById('btnSound'); return [HOST.audio.muted, b.hidden, b.textContent, b.title, b.getAttribute('aria-pressed'), localStorage.getItem('narrationMuted2'), localStorage.getItem('narrationMuted3')].join('|'); });
   if (b0 !== 'true|false|Sound off|Turn the sound on|false||') throw new Error('before a tap: ' + b0);
+  console.log('ok   the start page of a fresh device (sound on under the old key) shows Sound off');
+});
+await step('sound off by default: a tap plays nothing until Sound is pressed', async () => {
+  // (v145: a narration is decoded only when it is wanted and audible, so with the sound off it stays 'idle')
+  if (!await page.evaluate(() => HOST.audio.muted)) throw new Error('not muted before a tap');
   await page.click('#picker .card[data-story="airports"]');
-  const t0 = (await probe()).t;
-  await until('the story playing, silent', p => p.ctx === 'running' && p.label === 'Sound off' && p.t > t0 + 0.5, 20000);
+  // (the story starts with the click, its clock at 0)
+  await until('the story playing, silent', p => p.story === 'airports' && p.state === 'ok' && p.ctx === 'running' && p.label === 'Sound off' && p.t > 0.5, 30000);
   await wait(1000);
   const p = await probe(), fx = await page.evaluate(() => [HOST.sfx.play('notice', { force: true }), HOST.audio.speaking(), HOST.cur.peek('APP.playing')]);
   if (p.pos !== null || fx[0] !== null || fx[1] || !fx[2]) throw new Error('with the sound off: ' + JSON.stringify([p, fx]));
@@ -259,7 +285,7 @@ await step('sound off by default: Sound off, and a tap plays nothing until Sound
   await playing('Sound pressed: the narration');
   const k = await page.evaluate(() => [HOST.audio.muted, document.getElementById('btnSound').textContent, localStorage.getItem('narrationMuted3'), !!HOST.sfx.play('notice', { force: true })].join());
   if (k !== 'false,Sound on,0,true') throw new Error('after Sound: ' + k);
-  console.log('ok   a fresh device (sound on under the old key): Sound off, a tap played the story silently (no narration, no effects), Sound turned both on (saved)');
+  console.log('ok   a fresh device (sound on under the old key): muted, a tap played the story silently (no narration, no effects), Sound turned both on (saved)');
 });
 // (hello, the example package: never a recording, as a story may have one where its MP3 was made but not committed; the
 // design room until v217, parked)
@@ -344,9 +370,11 @@ await page.close();
 // 4. a slow decode: the <audio> element plays meanwhile, then Web Audio takes over
 page = await open(base, 'slowdecode');
 await step('a slow decode', async () => {
-  await until('file found', p => p.story === 'airports' && p.state === 'ok');
+  // (the start page's card: the click loads the story, finds the file and starts its 12 s decode; 20 s for all that)
   await page.click('#picker .card[data-story="airports"]');
-  await playing('while decoding', 'media', 10000);
+  await until('file found', p => p.story === 'airports' && p.state === 'ok');
+  if ((await probe()).decode === 'ok') throw new Error('decoded already: the slow decode did not hold it back');
+  await playing('while decoding', 'media', 20000);
   await playing('after decoding', 'webaudio', 30000);
 });
 await page.close();
@@ -354,13 +382,15 @@ await page.close();
 // 5. faults: each time the <audio> element takes over
 for (const [fault, what, ms] of [['decode', 'Web Audio cannot decode the file', 30000], ['nostart', 'Web Audio never starts', 30000],
   ['clock', 'the Web Audio clock stops', 40000]]) {
-  page = await open(base, fault);
+  // (a link's story: since v219 the start page decodes nothing before its card's click, and the tap has to come after the
+  // decode, below; the tap is Play sound, as in 2)
+  page = await open(base + '#airports', fault);
   await step(what, async () => {
     await until('file found', p => p.story === 'airports' && p.state === 'ok');
     // (decoded first, or failed to: else the <audio> element playing while Web Audio decodes, as in 4, passes for the
     // fallback, and a moment later Web Audio takes over; on a loaded machine the decode outlasted the click)
-    await until('decoded, or failed to', p => p.decode === 'ok' || p.decode === 'failed', ms);
-    await page.click('#picker .card[data-story="airports"]');
+    await until('decoded, or failed to, waiting for a tap', p => (p.decode === 'ok' || p.decode === 'failed') && p.label === 'Play sound', ms);
+    await page.click('#btnSound');
     await playing(what + ' -> fallback', 'media', ms);
     const p = await probe();
     console.log(`     reason: ${p.bad.webaudio || (p.decode === 'failed' ? 'decoding failed' : '-')}`);
@@ -442,6 +472,9 @@ await step('sound effects: through HOST.audio\'s one context', async () => {
   console.log(`ok   a sound plays through the narration's context (output peak ${(20 * Math.log10(m)).toFixed(1)} dBFS at 50 %)`);
 });
 await step('sound effects: a page button\'s click, ducked under the narration', async () => {
+  // (the Stories screen opened from the flock shows the Experiments set, the set it came from (follow, v188): its Back
+  // card first, to the main cards, as a user does)
+  if (await page.evaluate(() => document.getElementById('picker').classList.contains('exp'))) await page.click('#picker .card[data-story="stories"]');
   const n0 = (await fxs()).played;
   await page.click('#picker .card[data-story="airports"]');
   await fxUntil('a click for the card', s => s.played > n0);
@@ -503,8 +536,9 @@ await step('sound effects: silent with the audio element engine, back with Web A
 // the two switches kept across a reload, with Sound check's own buttons saying so
 await step('the two switches: kept across a reload', async () => {
   await page.evaluate(() => { HOST.xr.setVoice(false); HOST.sfx.set(false); });
+  // (a reload on the Stories screen gives the start page: no story since v219, and none is needed, the switches are the shell's)
   await page.reload({ waitUntil: 'load' });
-  await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.sfx && HOST.xr && HOST.cur, null, { timeout: 60000 });
+  await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.sfx && HOST.xr && HOST.soundCheck, null, { timeout: 60000 });
   await page.evaluate(() => { HOST.openPicker(); HOST.soundCheck(true); });
   const k = await page.evaluate(() => [HOST.xr.voice(), HOST.sfx.on(), document.querySelector('[data-snd="voice"]').textContent, document.querySelector('[data-snd="sfx"]').textContent].join());
   if (k !== 'false,false,Narration: off,Sound effects: off') throw new Error(k);
@@ -540,10 +574,14 @@ await step('sound effects: #sfx=on in a link, nothing before a tap', async () =>
   if (!await page.evaluate(() => !!HOST.sfx.play('notice', { force: true }))) throw new Error('no sound after the tap');
   console.log('ok   #sfx=on turns them on; silent until a tap, then sounds');
 });
-// a pretend headset (as the smoke test's): the menu's row, and the listener following the head for sounds from places
+// a pretend headset (as the smoke test's): the menu's row, and the listener following the head for sounds from places.
+// It stands off the origin, as the smoke test's do (its first seat, XR_SEATS in tools/smoke.mjs: 1.8 m out in x and z,
+// 1.6 m up, turned 37 degrees), never at 0, 0, 0 facing -z
+const SEAT = [1.8, 1.8, 37];
 await step('sound effects: the headset menu\'s row, sounds from places', async () => {
-  await page.evaluate(() => {
-    window.__head = { p: [0, 1.6, 0], q: [0, 0, 0, 1] };
+  await page.evaluate(seat => {
+    const yaw = seat[2] * Math.PI / 180;
+    window.__head = { p: [seat[0], 1.6, seat[1]], q: [0, Math.sin(yaw / 2), 0, Math.cos(yaw / 2)] };
     const pose = () => { const h = window.__head; return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
     window.__frame = { getViewerPose: pose }; window.__raf = [];
     HOST.renderer.xr.getReferenceSpace = () => ({});
@@ -567,8 +605,8 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
       }
     };
     window.__tick(3);
-  });
-  const r = await page.evaluate(() => {
+  }, SEAT);
+  const r = await page.evaluate(seat => {
     const ids = () => HOST.collab.menuIds(), tap = id => { const x = HOST.collab.menuFind(id); if (x && x.fn) x.fn(); window.__tick(2); return !!(x && x.fn); };
     HOST.collab.panelOpen(true); window.__tick(3);
     const out = { row: ids().includes('sfx') && ids().includes('sfxvol') && ids().includes('voice'), v0: HOST.sfx.volume() };
@@ -578,17 +616,22 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
     out.vol = tap('sfxvol') && HOST.sfx.volume(); out.off = tap('sfx') && HOST.sfx.on(); out.on = tap('sfx') && HOST.sfx.on();
     out.voff = tap('voice') && HOST.xr.voice(); out.vsave = localStorage.getItem('xrNarration'); out.von = tap('voice') && HOST.xr.voice();
     HOST.collab.panelOpen(false);
-    window.__head.p = [0.5, 1.7, -0.2]; window.__tick(2);
+    // the head moves (half a metre to the side, 10 cm up, from the seat); a sound from a place a metre to its right:
+    // the listener follows the head as the sound starts (v218: the listener is moved only while a sound from a place
+    // plays or as one starts, so it is read after the play, not before)
+    window.__head.p = [seat[0] + 0.5, 1.7, seat[1] - 0.2]; window.__tick(2);
+    const v = HOST.sfx.play('notice', { at: [seat[0] + 1.5, 1.7, seat[1] - 0.2], force: true });
     const L = HOST.audio.ctx.listener;
-    out.listener = [L.positionX.value, L.positionY.value, L.positionZ.value].map(v => +v.toFixed(3));
-    const v = HOST.sfx.play('notice', { at: [1.5, 1.7, -0.2], force: true });
+    out.listener = [L.positionX.value, L.positionY.value, L.positionZ.value, L.forwardX.value, L.forwardY.value, L.forwardZ.value].map(v => +v.toFixed(3));
     out.spatial = !!v && HOST.sfx.state().spatial && v.p && v.p.panningModel;
     // a press on a button of the story's own panel (phase 2): a soft click at the button, from there (HRTF)
     out.press = HOST.cur.peek(`(() => {
       const P = XR.foot, r = P.regions.find(x => x.id === 'next' && x.fn) || P.regions.find(x => x.fn && !x.drag), c = XR.ctrls[0];
       if (!r) return 'no button on the story panel';
       const n0 = HOST.sfx.state().played;
-      c.hover = { kind: 'panel', P, x: r.x + r.w / 2, y: r.y + r.h / 2, point: new THREE.Vector3(0.3, 1.4, -0.9) };
+      // (the ray's point: where the story's panel hangs in the room, not a fixed spot in front of the origin)
+      const at = XR.panelGroup.getWorldPosition(new THREE.Vector3());
+      c.hover = { kind: 'panel', P, x: r.x + r.w / 2, y: r.y + r.h / 2, point: at };
       xrPress(c); xrRelease(c); c.hover = null;
       const s = HOST.sfx.state();
       return [r.id, s.played - n0, s.last, s.spatial, SFXQ.log[SFXQ.log.length - 1][0]].join();
@@ -600,16 +643,19 @@ await step('sound effects: the headset menu\'s row, sounds from places', async (
       for (const Q of [XR.main, XR.foot]) { const x = Q && Q.regions.find(q => q.id === 'sound' && q.fn); if (x && !r) { P = Q; r = x; } }
       if (!r) return 'no Sound button on the story panel';
       const c = XR.ctrls[0], at = () => [AUD.label(), AUD.on(), HOST.xr.voice()].join('/');
-      const press = () => { c.hover = { kind: 'panel', P, x: r.x + r.w / 2, y: r.y + r.h / 2, point: new THREE.Vector3(0.3, 1.4, -0.9) }; xrPress(c); xrRelease(c); c.hover = null; };
+      const press = () => { c.hover = { kind: 'panel', P, x: r.x + r.w / 2, y: r.y + r.h / 2, point: XR.panelGroup.getWorldPosition(new THREE.Vector3()) }; xrPress(c); xrRelease(c); c.hover = null; };
       const a = at(); press(); const b = at(), saved = localStorage.getItem('xrNarration'); press();
       return [a, b, saved, at()].join();
     })()`);
     HOST.session = null; window.__s = null;
-    out.flat = !!HOST.sfx.play('click', { at: [1.5, 1.7, -0.2], force: true }) && HOST.sfx.state().spatial;
+    out.flat = !!HOST.sfx.play('click', { at: [seat[0] + 1.5, 1.7, seat[1] - 0.2], force: true }) && HOST.sfx.state().spatial;
     return out;
-  });
-  if (!r.row || r.mute !== 'true,true,1,true,false,0,0' || r.vsave !== 'off' || r.panel !== 'Narration on/true/true,Narration off/false/false,off,Narration on/true/true' || r.v0 !== 0.75 || r.vol !== 1 || r.off !== false || r.on !== true || r.voff !== false || r.von !== true || r.listener.join() !== '0.5,1.7,-0.2' || r.spatial !== 'HRTF' || r.flat !== false || !/^\w+,1,click,true,click$/.test(r.press)) throw new Error(JSON.stringify(r));
-  console.log(`ok   the headset menu has Sound (the session's mute: off and on again, saved as xrMuted, the page's untouched), Sound effects, Narration (off and on again, saved as xrNarration), the story panel's button turning the narration off and on (${r.panel.split(',').slice(0, 2).join(' -> ')}), and the effects' volume (0.75 -> ${r.vol}); the listener follows the head (${r.listener}); a sound from a place goes through an ${r.spatial} panner, none on a screen; a press on the story panel's ${r.press.split(',')[0]} clicks at the button (HRTF)`);
+  }, SEAT);
+  // the head's facing at the seat: -z turned by its yaw
+  const yaw = SEAT[2] * Math.PI / 180, want = [SEAT[0] + 0.5, 1.7, SEAT[1] - 0.2, -Math.sin(yaw), 0, -Math.cos(yaw)].map(v => +v.toFixed(3));
+  const near = r.listener.length === 6 && r.listener.every((x, i) => Math.abs(x - want[i]) < 0.002);
+  if (!r.row || r.mute !== 'true,true,1,true,false,0,0' || r.vsave !== 'off' || r.panel !== 'Narration on/true/true,Narration off/false/false,off,Narration on/true/true' || r.v0 !== 0.75 || r.vol !== 1 || r.off !== false || r.on !== true || r.voff !== false || r.von !== true || !near || r.spatial !== 'HRTF' || r.flat !== false || !/^\w+,1,click,true,click$/.test(r.press)) throw new Error(JSON.stringify({ r, want }));
+  console.log(`ok   the headset menu has Sound (the session's mute: off and on again, saved as xrMuted, the page's untouched), Sound effects, Narration (off and on again, saved as xrNarration), the story panel's button turning the narration off and on (${r.panel.split(',').slice(0, 2).join(' -> ')}), and the effects' volume (0.75 -> ${r.vol}); the listener follows the head off the origin (at ${r.listener.slice(0, 3)}, facing ${r.listener.slice(3)}) as a sound from a place starts; that sound goes through an ${r.spatial} panner, none on a screen; a press on the story panel's ${r.press.split(',')[0]} clicks at the button (HRTF)`);
 });
 await page.close();
 // a fresh device (no sound turned on anywhere): a headset session's own defaults (v124): unmuted, effects playing, the
@@ -617,7 +663,7 @@ await page.close();
 // reload and a new session, and the page's own mute as it was (Sound off) after the session
 page = await open(base, '', { narrationMuted3: null, xrNarration: null });
 await step('a headset session: its own sound (unmuted, no narration), the page\'s own after it', async () => {
-  await until('narration loaded', p => p.state === 'ok');   // (v145: decoded only once wanted and audible)
+  // (the start page's card, the story loading with the click (v219); v145: decoded only once wanted and audible)
   await page.click('#picker .card[data-story="airports"]');   // (a tap on the page: Sound off, nothing plays)
   await until('the story, its engine started by the tap', p => p.story === 'airports' && p.state === 'ok' && p.ctx === 'running');
   const pg = await page.evaluate(() => [HOST.audio.muted, HOST.cur.peek('AUD.label()'), HOST.xr.voice()].join());
@@ -750,12 +796,13 @@ for (const key of ['airports', 'lbi', 'soil', 'robots']) await step(`story sound
 });
 await page.close();
 // a Web Audio engine that never starts: the audio element plays the narration, and the sound effects stay silent
-page = await open(base + '#sfx=on', 'nostart');
+// (a link's story, #airports: since v219 the start page decodes nothing before a card's click; the tap is Play sound)
+page = await open(base + '#airports&sfx=on', 'nostart');
 await step('sound effects: silent when Web Audio never starts', async () => {
   // decoded first: while Web Audio decodes, the element plays anyway, and a decode ending between the two looks
   // handed the narration to the stuck Web Audio for the watchdog's 3 s, so the element seen was not yet the fallback
-  await ready();
-  await page.click('#picker .card[data-story="airports"]');
+  await until('narration ready, waiting for a tap', p => p.story === 'airports' && p.state === 'ok' && p.decode === 'ok' && p.label === 'Play sound');
+  await page.click('#btnSound');
   await playing('Web Audio never starts -> fallback', 'media', 30000);
   const s = await page.evaluate(() => [HOST.sfx.play('notice', { force: true }), HOST.sfx.state()]);
   if (s[0] !== null || s[1].played !== 0 || s[1].bed) throw new Error(JSON.stringify(s[1]));
