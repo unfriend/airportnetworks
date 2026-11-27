@@ -225,7 +225,9 @@ of step).
 | `docs/narration.md` | the running stories | `node tools/narration.mjs` |
 
 - airports, proteins and spatial are hand-written: their `main.js` is the source; after editing one, run the
-  scan (and the pass story's build for airports and spatial, the exposome's for airports).
+  scan (and the pass story's build for airports and spatial, the exposome's for airports). spatial's cell layout
+  is stored in its `main.js` (`LAYOUT_DATA`): after editing its lists, its cell or `solveLayout()`, run
+  `node packages/spatial/src/layout.mjs` (`--check`) before the pass build.
 - Rebuild the dependants after a shared source changes (`node tools/engine/all.mjs` builds them all):
   `tools/engine/*.js` and `kit.js` (every built story; `kit.js` also the studio), `packages/lbi/src/sets/body.js`
   (pet, micro, ovary, topo), `tissue.js` (micro), `web.js` (soil), `packages/micro/src/sets/organs.js` (pet,
@@ -332,6 +334,7 @@ once (`--only`).
 | `shared.js`, the relay, a story's hooks or `state()` | `node relay/test.mjs` and `node tools/collab.mjs` (about 15 min; one round with its flag) |
 | `output.js` | `node tools/output/test-page.mjs` |
 | a story's maths, data or sets | its `packages/<key>/src/test-*.mjs`; a changed set: its harness (`src/shot.mjs`), then `sweep.mjs` |
+| spatial's lists, cell or `solveLayout()` | `node packages/spatial/src/layout.mjs --check` |
 | a package or the template | `node tools/packages/check.mjs packages/<key> --load` |
 | `ik.js`, `bodies.js`'s mannequin | `node tools/studio/test-ik.mjs` |
 | the studio's images or converter | `node tools/studio/test-images.mjs`, `tools/studio/convert.mjs <model>` |
