@@ -10,15 +10,19 @@
 //    touched builds and swaps its story, the list read again, a station's swap writing nothing to the shared room, a
 //    station of a story this device does not know (asked about, kept by Arrange all), a shell file reloading the page
 //    with its place.
-// Usage: node tools/live.mjs   (PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs; ports 8126 and 8127)
-import http from 'node:http';
+// Usage: node tools/live.mjs [--port <n>] [--relay-port <n>]   (PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs; two
+// free ports unless named, so two runs never collide; --help prints this and runs nothing)
+const USAGE = `usage: node tools/live.mjs [--port <n>] [--relay-port <n>]
+  A copy of the app in a temporary folder, served as GitHub Pages does (--port) and by the relay with --watch --build
+  (--relay-port); free ports unless named. A few minutes. PLAYWRIGHT_MODULE, CHROMIUM_PATH as in tools/smoke.mjs.`;
+if (process.argv.includes('--help') || process.argv.includes('-h')) { console.log(USAGE); process.exit(0); }
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { spawn, execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { stories } from './stories.mjs';
+import { serve, freePort, portArg } from './lib/serve.mjs';
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const wait = ms => new Promise(r => setTimeout(r, ms));
@@ -54,22 +58,9 @@ setVersion();
 fs.rmSync(file('version.json'), { force: true });
 release();
 
-// ---- the live site: a static server like GitHub Pages (max-age 600 and ETags)
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.webmanifest': 'application/manifest+json', '.png': 'image/png', '.mp3': 'audio/mpeg', '.txt': 'text/plain' };
-const pages = http.createServer((req, res) => {
-  let f = path.join(T, decodeURIComponent(new URL(req.url, 'http://x').pathname));
-  if (f.endsWith('/')) f = path.join(f, 'index.html');
-  fs.readFile(f, (err, body) => {
-    if (err) { res.writeHead(404); res.end(); return; }
-    const tag = '"' + crypto.createHash('md5').update(body).digest('hex') + '"';
-    const h = { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'max-age=600', ETag: tag, 'Accept-Ranges': 'bytes' };
-    if (req.headers['if-none-match'] === tag) { res.writeHead(304, h); res.end(); return; }
-    const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
-    if (m) { const s = m[1] ? +m[1] : 0, e = m[2] ? Math.min(+m[2], body.length - 1) : body.length - 1; res.writeHead(206, { ...h, 'Content-Range': `bytes ${s}-${e}/${body.length}` }); res.end(body.subarray(s, e + 1)); return; }
-    res.writeHead(200, h); res.end(body);
-  });
-});
-await new Promise(r => pages.listen(8126, '127.0.0.1', r));
+// ---- the live site: a static server like GitHub Pages (max-age 600 and ETags: tools/lib/serve.mjs), on a free port
+const pages = await serve(T, { port: portArg(process.argv) || 0, pages: true }), LIVE = pages.url;
+const RELAY_PORT = portArg(process.argv, '--relay-port') || await freePort(), DEV = `http://127.0.0.1:${RELAY_PORT}/`;
 
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-live-prof-'));
 const ctx = await chromium.launchPersistentContext(prof, { executablePath: process.env.CHROMIUM_PATH || undefined, args: ARGS, viewport: { width: 1100, height: 700 } });
@@ -92,7 +83,7 @@ const near = (a, b, d = 0.02) => Math.abs(a - b) <= d;
 const sameView = (a, b) => JSON.stringify(a) === JSON.stringify(b) || (Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((x, i) => Math.abs(x - b[i]) < 0.05));
 
 try {
-  await page.goto('http://127.0.0.1:8126/#airports');
+  await page.goto(LIVE + '#airports');
   await built(page, 'airports');
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload();
@@ -250,7 +241,7 @@ await ctx.close();
 pages.close();
 
 // ---- while developing: the relay with --watch --build serving the copy
-const relay = spawn(process.execPath, [path.join(REPO, 'relay/server.mjs'), '--static', T, '--watch', '--build', '--port', '8127', '--host', '127.0.0.1', '--no-peer'], { stdio: ['ignore', 'pipe', 'pipe'] });
+const relay = spawn(process.execPath, [path.join(REPO, 'relay/server.mjs'), '--static', T, '--watch', '--build', '--port', String(RELAY_PORT), '--host', '127.0.0.1', '--no-peer'], { stdio: ['ignore', 'pipe', 'pipe'] });
 let relayOut = '';
 relay.stdout.on('data', d => { relayOut += d; }); relay.stderr.on('data', d => { relayOut += d; });
 for (let i = 0; i < 50 && !/listening/.test(relayOut); i++) await wait(100);
@@ -259,10 +250,11 @@ const dev = await browser.newPage({ viewport: { width: 1100, height: 700 } });
 await dev.addInitScript(soundOn);
 watchErrors(dev, 'dev');
 try {
-  await dev.goto('http://127.0.0.1:8127/#airports');
+  await dev.goto(DEV + '#airports');
   await built(dev, 'airports');
   report('the page learns that the relay watches (api/ping)', await until(dev, () => HOST.live.watching, null, 8000));
   await wait(500);
+  await built(dev, 'airports');   // (the story's APP is the shell's to call only once it is built: see below)
   await dev.evaluate(() => { window.__mark = 1; const A = HOST.cur.collab.APP; A.enterStory(60); A.playing = false; });
   // a story file touched: swapped within about 2 s
   {
@@ -360,8 +352,15 @@ try {
   }
   // a reload that ended a headset session: one button to go back in, the story waiting
   {
-    await dev.evaluate(() => { const A = HOST.cur.collab.APP; A.enterStory(30); A.playing = true; });
-    await dev.evaluate(() => { const P = HOST.place(); P.xr = 'immersive-vr'; P.at = Date.now(); sessionStorage.setItem('livePlace', JSON.stringify(P)); location.reload(); });
+    // (the story built first: the shell file's step can leave the page reloading once more as the relay sees its last
+    // write, and a story's APP called before its build (HOST.cur set, the scene not) throws: it was this test's
+    // "TypeError reading 'aXrm'" from airports' setClosedAttributes; the app calls APP only once the story is built,
+    // HOST.putPlace on its frame loop, shared.js after collab.scene())
+    // (and the page settled: no reload for 2.5 s. Seen 27 November 2026: one write of index.html above reloaded the page
+    // twice, the second after the step had passed, so a place set here went with it. A relay matter while developing, not
+    // what this step checks; the place is set and saved in one go on a settled page)
+    for (let k = 0; k < 8; k++) { await built(dev, 'airports'); await dev.evaluate(() => { window.__settle = 1; }); await wait(2500); if (await dev.evaluate(() => window.__settle === 1).catch(() => false)) break; }
+    await dev.evaluate(() => { const A = HOST.cur.collab.APP; A.enterStory(30); A.playing = true; const P = HOST.place(); P.xr = 'immersive-vr'; P.at = Date.now(); sessionStorage.setItem('livePlace', JSON.stringify(P)); location.reload(); });
     const back = await until(dev, () => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene() && !document.getElementById('xrgo').hidden, null, 30000);
     await wait(1000);
     const r = await dev.evaluate(() => ({ text: document.getElementById('xrgo').textContent, mode: HOST.cur.collab.APP.mode, t: HOST.cur.collab.APP.t, playing: HOST.cur.collab.APP.playing }));

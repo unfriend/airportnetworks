@@ -6,40 +6,29 @@
 // of them at install).
 // Usage: git worktree add /tmp/old <an earlier commit>
 //        node tools/update.mjs /tmp/old [.]
-// PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs. Uses port 8125.
-import http from 'node:http';
+// PLAYWRIGHT_MODULE and CHROMIUM_PATH as in smoke.mjs. A free port (both versions on the same one: the worker's origin), or
+// --port <n>; --help prints this usage and runs nothing.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import crypto from 'node:crypto';
 import { stories } from './stories.mjs';
+import { serve as serveDir, freePort, portArg } from './lib/serve.mjs';
+const ARGV = process.argv.slice(2);
+const USAGE = `usage: node tools/update.mjs <folder with an older version> [folder with this version, default .] [--port <n>]
+  The older version is a worktree of an earlier commit: git worktree add <scratch>/old <commit>
+  Installs it (worker and cache), then serves the newer one as GitHub Pages does, on the same port (a free one unless
+  --port names it), and checks page and stories are new on the first visit, the next and offline. --help: this.`;
+if (ARGV.includes('--help') || ARGV.includes('-h')) { console.log(USAGE); process.exit(0); }
+const PORT_ARG = portArg(ARGV), POS = ARGV.filter((a, i) => !a.startsWith('--') && ARGV[i - 1] !== '--port');
+const [oldDir, newDir = '.'] = POS;
+if (!oldDir) { console.log(USAGE); process.exit(2); }
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
-const [oldDir, newDir = '.'] = process.argv.slice(2);
-if (!oldDir) { console.log('usage: node tools/update.mjs <folder with an older version> [folder with this version]'); process.exit(2); }
 const wait = ms => new Promise(r => setTimeout(r, ms));
-const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.webmanifest': 'application/manifest+json',
-  '.png': 'image/png', '.mp3': 'audio/mpeg', '.txt': 'text/plain' };
-// a static server like GitHub Pages: max-age 600 and ETags, byte ranges for the narration
-function serve(dir) {
-  const srv = http.createServer((req, res) => {
-    let f = path.join(dir, decodeURIComponent(new URL(req.url, 'http://x').pathname));
-    if (f.endsWith(path.sep) || f.endsWith('/')) f = path.join(f, 'index.html');
-    fs.readFile(f, (err, body) => {
-      if (err) { res.writeHead(404); res.end(); return; }
-      const tag = '"' + crypto.createHash('md5').update(body).digest('hex') + '"';
-      const h = { 'Content-Type': TYPES[path.extname(f)] || 'application/octet-stream', 'Cache-Control': 'max-age=600', ETag: tag, 'Accept-Ranges': 'bytes' };
-      if (req.headers['if-none-match'] === tag) { res.writeHead(304, h); res.end(); return; }
-      const m = /bytes=(\d*)-(\d*)/.exec(req.headers.range || '');
-      if (m) {
-        const s = m[1] ? +m[1] : 0, e = m[2] ? Math.min(+m[2], body.length - 1) : body.length - 1;
-        res.writeHead(206, { ...h, 'Content-Range': `bytes ${s}-${e}/${body.length}` }); res.end(body.subarray(s, e + 1)); return;
-      }
-      res.writeHead(200, h); res.end(body);
-    });
-  });
-  return new Promise(r => srv.listen(8125, '127.0.0.1', () => r(srv)));
-}
-const stop = srv => { srv.closeAllConnections(); return new Promise(r => srv.close(r)); };
+// a static server like GitHub Pages: max-age 600 and ETags, byte ranges for the narration (tools/lib/serve.mjs), the old
+// and the new version on one port, so the page's origin and its worker stay the same
+const PORT = PORT_ARG || await freePort(), ORIGIN = `http://127.0.0.1:${PORT}/`;
+const serve = dir => serveDir(dir, { port: PORT, pages: true });
+const stop = srv => srv.close();
 
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'networks-update-'));
 const ctx = await chromium.launchPersistentContext(prof, { executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -78,7 +67,7 @@ let srv = await serve(oldDir);
 const same = FNS.filter(f => { const m = new RegExp('\\nfunction ' + f + '\\(').exec(OLD.story); return m && NEW.story.includes(OLD.story.slice(m.index + 1, OLD.story.indexOf('\n}\n', m.index) + 2)); });
 if (same.length === FNS.length && OLD.shell === NEW.shell) console.log('note: the two versions look the same to this test');
 // (#airports: an older version of v219 or later starts no story on its start page)
-await page.goto('http://127.0.0.1:8125/#airports');
+await page.goto(ORIGIN + '#airports');
 await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.cur, null, { timeout: 30000 });
 await page.evaluate(() => navigator.serviceWorker.ready);
 await wait(3000);
