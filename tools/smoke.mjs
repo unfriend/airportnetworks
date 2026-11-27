@@ -34,20 +34,84 @@
 // and stays green; without it, a missing one fails (v218).
 // --list: print every block and step name (read from this file's text, the step names as written) and exit.
 const ARGS = process.argv.slice(2), ONLY_AT = ARGS.indexOf('--only'), ONLY = ONLY_AT >= 0 ? ARGS[ONLY_AT + 1] || '' : '';
+// --block <id>: exactly one block (its id as --blocks prints it), every step in it, nothing else (tools/smoke-all.mjs runs
+// the whole test so, a block at a time)
+const BLOCK_AT = ARGS.indexOf('--block'), BLOCK = BLOCK_AT >= 0 ? ARGS[BLOCK_AT + 1] || '' : '';
+if (ARGS.includes('--help') || ARGS.includes('-h')) {
+  console.log(`node tools/smoke.mjs [base-url] [options]     (base-url: default http://127.0.0.1:8123/, a plain file server of this folder)
+  --list               every block and step name, as written (nothing starts)
+  --blocks             every block's id, one a line (the ids --block takes; the stories' ids from packages/; nothing starts)
+  --block <id>         exactly that block and every step in it (stories: their key; see --blocks)
+  --only <words>       the steps whose names start with the words and the blocks whose ids start with them (or that the
+                       words start with); a match of nothing fails and prints the blocks
+  --skip-missing       what this machine lacks (ffmpeg, a tracker hook) is skipped, said, not failed
+  --help               this
+  env: SHOTS=<dir> pictures; SMOKE_SHOW=1 a failure's text under its line; PLAYWRIGHT_MODULE, CHROMIUM_PATH
+  The whole run takes about 1.5 h: node tools/smoke-all.mjs runs it block by block, k at a time.`);
+  process.exit(0);
+}
 const SKIP_MISSING = ARGS.includes('--skip-missing');
 if (ARGS.includes('--list')) {
   const fs = await import('node:fs'), { fileURLToPath } = await import('node:url');
   const text = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8'), q = /\bstep\((['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
   for (const line of text.split('\n')) {
-    const b = /^if \(runs\((['"])(.*?)\1\)/.exec(line);
+    const b = /^if \((?:runs|inGroup)\((['"])(.*?)\1\)/.exec(line);
     if (b) console.log('block ' + b[2]);
     for (const m of line.matchAll(q)) console.log((/^\s/.test(line) ? '  step ' : 'step ') + m[2]);
   }
   process.exit(0);
 }
-const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1))[0] || 'http://127.0.0.1:8123/';
+// the block ids (--blocks, and the list printed when --only matches nothing): the file's runs('...') and inGroup('...')
+// blocks, and each of the app's stories on either set of cards (its steps, its load and anchored placement) by its key
+const blockIds = async () => {
+  const fs = await import('node:fs'), { fileURLToPath } = await import('node:url'), path = await import('node:path');
+  const me = fileURLToPath(import.meta.url), root = path.resolve(path.dirname(me), '..'), text = fs.readFileSync(me, 'utf8');
+  const ids = [...text.matchAll(/^if \((?:runs|inGroup)\((['"])(.*?)\1\)/gm)].map(m => m[2]);
+  let keys = [];
+  try {
+    // (the app's own packages are those packages/order.json names: STORY_KEYS below, HOST.stories()' with app set)
+    const ix = JSON.parse(fs.readFileSync(path.join(root, 'packages/index.json'), 'utf8')), order = JSON.parse(fs.readFileSync(path.join(root, 'packages/order.json'), 'utf8')).order;
+    keys = order.filter(k => ix.packages.some(m => m.key === k && m.list !== 'hidden'));
+  } catch (e) { /* no index: the stories left out */ }
+  return [...new Set([ids[0], ...keys, ...ids.slice(1)])];   // (the stories' steps come right after the start page's)
+};
+if (ARGS.includes('--blocks')) { for (const id of await blockIds()) console.log(id); process.exit(0); }
+const base = ARGS.filter((a, i) => !a.startsWith('--') && (ONLY_AT < 0 || i !== ONLY_AT + 1) && (BLOCK_AT < 0 || i !== BLOCK_AT + 1))[0] || 'http://127.0.0.1:8123/';
+// The pretend headsets' seats (the owner, 27 November 2026, after a headset fault no test saw because every pretend
+// headset stood at the origin facing -z: "put the test headsets about 180 cm in each direction around origin so that we
+// catch things like this in future runs"): [x, z, yaw in degrees] of the head in the session's 'local' space, the head
+// at 1.6 m, turned by a yaw that is no multiple of 90 degrees. A context takes the next one in turn (browser.newContext
+// below), so two headsets in one block stand apart.
+const XR_SEATS = [[1.8, 1.8, 37], [-1.8, 1.8, -128], [1.8, -1.8, 143], [-1.8, -1.8, -52]];
+// In the page (an init script, before any fake): window.__xrSeat, the one place a pretend headset's head comes from.
+// Every fake below takes its head, eyes and controllers through it, so the controllers move with the head:
+//   m(mat, lift): a column-major 4x4 held by the head (viewer, eye, grip, ray; in the head's frame, lift added to its
+//     height first) into the reference space; p({x,y,z}) a head-frame point, q({x,y,z,w}) a head-frame turn likewise;
+//   pose(mat): an XRPose's transform (matrix, position, orientation) of a matrix; x, z, yaw (radians), deg; H: the head
+//   height a fake whose head stood at y = 0 is lifted by (1.6 m; 0 at the origin); origin: true at the origin.
+// At the origin (seat null) every function is the identity and H is 0: what the fakes did before (27 November 2026).
+function XR_SEAT(at) {
+  const s = at || [0, 0, 0], yaw = s[2] * Math.PI / 180, c = Math.cos(yaw), n = Math.sin(yaw);
+  const M = new Float32Array([c, 0, -n, 0, 0, 1, 0, 0, n, 0, c, 0, s[0], 0, s[1], 1]);
+  const mul = (a, b) => { const o = new Float32Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k * 4 + j] * b[i * 4 + k]; o[i * 4 + j] = v; } return o; };
+  const quat = m => {
+    const t = m[0] + m[5] + m[10];
+    if (t > 0) { const k = 0.5 / Math.sqrt(t + 1); return { x: (m[6] - m[9]) * k, y: (m[8] - m[2]) * k, z: (m[1] - m[4]) * k, w: 0.25 / k }; }
+    if (m[0] > m[5] && m[0] > m[10]) { const k = 2 * Math.sqrt(1 + m[0] - m[5] - m[10]); return { x: 0.25 * k, y: (m[4] + m[1]) / k, z: (m[8] + m[2]) / k, w: (m[6] - m[9]) / k }; }
+    if (m[5] > m[10]) { const k = 2 * Math.sqrt(1 + m[5] - m[0] - m[10]); return { x: (m[4] + m[1]) / k, y: 0.25 * k, z: (m[9] + m[6]) / k, w: (m[8] - m[2]) / k }; }
+    const k = 2 * Math.sqrt(1 + m[10] - m[0] - m[5]); return { x: (m[8] + m[2]) / k, y: (m[9] + m[6]) / k, z: 0.25 * k, w: (m[1] - m[4]) / k };
+  };
+  const hy = Math.sin(yaw / 2), hw = Math.cos(yaw / 2), H = at ? 1.6 : 0;
+  window.__xrSeat = { x: s[0], z: s[1], yaw, deg: s[2], H, origin: !at, M, mul, quat,
+    m: (m, lift) => { const a = new Float32Array(m); a[13] += lift || 0; return at ? mul(M, a) : a; },
+    p: v => ({ x: c * v.x + n * v.z + s[0], y: v.y, z: -n * v.x + c * v.z + s[1] }),
+    q: v => ({ x: hw * v.x + hy * v.z, y: hw * v.y + hy * v.w, z: hw * v.z - hy * v.x, w: hw * v.w - hy * v.y }),
+    pose: m => ({ matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: quat(m) }) };
+}
 // (a block of steps runs when --only names it, a step of it or nothing)
-const runs = tag => !ONLY || tag.startsWith(ONLY) || ONLY.startsWith(tag);
+const runs = tag => (BLOCK ? tag === BLOCK : !ONLY || tag.startsWith(ONLY) || ONLY.startsWith(tag));
+// a group of top-level steps that is no runs() block (with --only their names choose them, as before); with --block, its id
+const inGroup = id => !BLOCK || id === BLOCK;
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({
   executablePath: process.env.CHROMIUM_PATH || undefined,
@@ -59,10 +123,15 @@ const browser = await chromium.launch({
 // through browser.newContext, so this covers both. And with the studio's textures JPEG/PNG at most 2,048 px (v151: a page
 // makes KTX2 by default, which a plain GLTFLoader cannot read back), as the steps written before it expect; the KTX2
 // steps' pages ask for none ({ studioTex: null }: the default, KTX2 up to 8k)
+// Every context is one pretend headset standing at its own seat (XR_SEAT, below): the next of XR_SEATS in turn, or the
+// origin with { xrSeat: 'origin' } for a check that truly needs it (say why where it is asked)
 const newContext = browser.newContext.bind(browser);
+let seatN = 0;
 browser.newContext = async (o = {}) => {
-  const { studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
+  const { studioTex = 'img2', xrSeat, ...rest } = o, ctx = await newContext(rest);
   await ctx.addInitScript(t => { try { localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('tutorialHold', 'off'); if (t) localStorage.setItem('studioTexKind', t); } catch (e) { /* storage blocked */ } }, studioTex);
+  // (SMOKE_SEAT=origin puts every pretend headset back at the origin: to tell a red the seat brings out from one it does not)
+  await ctx.addInitScript(XR_SEAT, xrSeat === 'origin' || process.env.SMOKE_SEAT === 'origin' ? null : XR_SEATS[seatN++ % XR_SEATS.length]);
   return ctx;
 };
 const page = await browser.newPage({ viewport: { width: 1280, height: 760 } });
@@ -70,7 +139,7 @@ const errors = [];
 page.on('pageerror', e => errors.push(e.stack || e.message));
 page.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push(m.text()); });
 let stepsRun = 0;
-const step = async (name, fn, always) => { if (ONLY && !always && !name.startsWith(ONLY)) return; stepsRun++; const n = errors.length; try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); if (errors.length > n && process.env.SMOKE_SHOW) console.log(errors.slice(n).map(e => '     ' + String(e).slice(0, 1500)).join('\n')); };
+const step = async (name, fn, always) => { if (!BLOCK && ONLY && !always && !name.startsWith(ONLY)) return; stepsRun++; const n = errors.length; try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } console.log((errors.length > n ? 'FAIL ' : 'ok   ') + name); if (errors.length > n && process.env.SMOKE_SHOW) console.log(errors.slice(n).map(e => '     ' + String(e).slice(0, 1500)).join('\n')); };
 const smokeStep = step;
 
 // (v219: what the start page asks for, from its first request: a story's file or a narration is a failure below)
@@ -94,6 +163,7 @@ page.off('request', onStartReq);
 const STORY_KEYS = await page.evaluate(() => HOST.stories().filter(s => !s.pkg || s.app).map(s => s.key));
 if (STORY_KEYS.length < 2) { console.log('FAIL the page gives no list of stories (stories/list.js)'); process.exit(1); }
 const EXTRA = await page.evaluate(() => (self.STORY_EXTRA || []).map(s => s.key));
+if (inGroup('start page')) {
 await step('start screen is the landing page', async () => {
   if (!await page.evaluate(() => HOST.picking)) errors.push('start screen not shown on load');
 });
@@ -125,6 +195,7 @@ await step('start page: the cards only, no story fetched or built', async () => 
   await page.evaluate(() => HOST.closePicker());
   if (!await page.evaluate(() => HOST.picking)) errors.push('the Stories screen closed with no story behind it');
 });
+}
 // sound effects (phase 2): one explore action per story and the sound it asks for (code run inside the story, the name);
 // a built story with more than one scene and no entry here is checked with another scene opened (a whoosh), and every
 // story with a scene in its state with that scene applied as from the room (silent)
@@ -517,7 +588,9 @@ for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
         wall(-2, -2.5, 2, -2.5, 0, 1), wall(2, -2.5, 2, 2.5, -1, 0), wall(2, 2.5, -2, 2.5, 0, -1), wall(-2, 2.5, -2, -2.5, 1, 0),
         plane('couch', 'horizontal', V(1.45, FY + 0.45, 0), V(0, 1, 0), rect(1.0, 1.9, -1, 1, FY + 0.45))]);
       const pose = (p, q) => ({ transform: { position: { x: p.x, y: p.y, z: p.z }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w } } });
-      window.__frame = { getViewerPose: () => pose(V(0.3, FY + 1.6, 0.2), new THREE.Quaternion()), getPose: s => pose(s.c, s.q), get detectedPlanes() { return planes; } };
+      // (the head at its seat, window.__xrSeat, inside this room: the room is the world's, the head stands and turns in it)
+      const S = window.__xrSeat, HEAD = S.origin ? V(0.3, FY + 1.6, 0.2) : V(S.x, FY + 1.6, S.z), HQ = new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), S.yaw);
+      window.__frame = { getViewerPose: () => pose(HEAD, HQ), getPose: s => pose(s.c, s.q), get detectedPlanes() { return planes; } };
       const s = { visibilityState: 'visible', renderState: {}, enabledFeatures: ['local', 'plane-detection'], environmentBlendMode: 'opaque', addEventListener() {}, removeEventListener() {} };
       const xr = HOST.renderer.xr, getRef = xr.getReferenceSpace, anchorWas = HOST.anchor.on;
       xr.getReferenceSpace = () => ({}); HOST.anchor.set(false);
@@ -533,7 +606,7 @@ for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
         if (Math.abs(w[0] - 1) + Math.abs(w[1] - FY) + Math.abs(w[2] - 1) > 1e-4) out.push(`the room's floor is at (${w.map(v => v.toFixed(3))}), not (1, ${FY}, 1)`);
         peek('setCtl("robots", "rule", "bounce"); setCtl("robots", "robots", "12")'); run(20);
         const st = peek('GL.sets.robots.state()');
-        if (Math.hypot(st.player.x - 0.3, st.player.z - 0.2) > 1e-3) out.push('the player is not where the head is');
+        if (Math.hypot(st.player.x - HEAD.x, st.player.z - HEAD.z) > 1e-3) out.push(`the player is at (${st.player.x.toFixed(2)}, ${st.player.z.toFixed(2)}), not where the head is (${HEAD.x}, ${HEAD.z})`);
         const off = st.robots.filter(r => !(Math.abs(r.x) < 1.85 && Math.abs(r.z) < 2.35)).length, couch = st.robots.filter(r => r.x > 1 && r.x < 1.9 && Math.abs(r.z) < 1).length;
         if (st.robots.length !== 12 || off || couch) out.push(`${st.robots.length} robots, ${off} off the floor, ${couch} in the couch`);
         // the trigger aimed at the floor spills crumbs there (the dot lies on the floor)
@@ -1173,7 +1246,7 @@ for (const key of STORY_KEYS.filter(k => runs(k) || runs('load ' + k))) {
 // run's longest was about 0.5 s, a loaded one's 2.9 s), and the shared-room hooks see the scene only once all of it is
 // built. A story picked while another builds stops that one's steps and keeps the headset's controllers and place
 const LOAD_LIMIT = 4000;
-for (const key of [...STORY_KEYS, ...EXTRA]) await step(`${key}: loads in steps, the page's bar shows and goes`, async () => {
+for (const key of [...STORY_KEYS, ...EXTRA]) if (inGroup(key)) await step(`${key}: loads in steps, the page's bar shows and goes`, async () => {
   const built = k => page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 60000 });
   if (await page.evaluate(k => HOST.curKey === k, key)) { const o = key === 'flock' ? 'robots' : 'flock'; await page.evaluate(o => HOST.start(o), o); await built(o); }
   const bad = await page.evaluate(async ([k, limit]) => {
@@ -1206,7 +1279,7 @@ for (const key of [...STORY_KEYS, ...EXTRA]) await step(`${key}: loads in steps,
   }, [key, LOAD_LIMIT]);
   if (bad.length) errors.push(...bad.map(b => `${key} load: ${b}`));
 });
-await step('a story picked while another builds: its steps stop, the headset\'s controllers and place stay', async () => {
+if (inGroup('switch while loading')) await step('a story picked while another builds: its steps stop, the headset\'s controllers and place stay', async () => {
   const bad = await page.evaluate(async () => {
     const out = [], sleep = ms => new Promise(r => setTimeout(r, ms)), keep = [HOST.inputs, HOST.xrPose], mark = { mark: 1 }, src = { src: 1 };
     try {
@@ -1252,9 +1325,10 @@ if (runs('headset')) {
         xr.getReferenceSpace = () => ({});
         xr.isPresenting = true; HOST.mode = mode;
         r.setClearColor(0x000000, mode === 'immersive-ar' ? 0 : 1);   // (as the story before left it)
-        const grip = new THREE.Matrix4().makeTranslation(-0.2, 1.1, -0.3);
+        // (the head at its seat, window.__xrSeat: 1.6 m up, off the origin and turned; the grip held in the head's frame)
+        const S = window.__xrSeat, grip = new THREE.Matrix4().fromArray(S.m(new THREE.Matrix4().makeTranslation(-0.2, 1.1, -0.3).elements));
         const frame = { session: { inputSources: [{ handedness: 'left', gripSpace: { grip: 1 } }] },
-          getViewerPose: () => ({ transform: { position: { x: 0, y: 1.6, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }),
+          getViewerPose: () => ({ transform: { position: S.p({ x: 0, y: 1.6, z: 0 }), orientation: S.q({ x: 0, y: 0, z: 0, w: 1 }) } }),
           getPose: s => (s && s.grip ? { transform: { matrix: grip.elements }, emulatedPosition: false } : null) };
         const near = (a, b, what) => { if (!a || a.some((v, i) => Math.abs(v - b[i]) > 0.01)) out.push(`${what} at ${JSON.stringify(a && a.map(v => +v.toFixed(3)))}, not ${JSON.stringify(b)}`); };
         const t0 = performance.now();
@@ -1271,7 +1345,8 @@ if (runs('headset')) {
           if (early) out.push('the loading scene showed before 0.4 s');
           if (!shown) out.push('no card while the story built');
           else {
-            near(shown.cardAt, [0, 1.45, -1.2], 'the card');
+            const at = S.p({ x: 0, y: 1.45, z: -1.2 });   // (1.2 m ahead of the head, a little below the eyes)
+            near(shown.cardAt, [at.x, at.y, at.z], 'the card');
             if (!drawn.includes(L.parts().scene)) out.push('the loading scene was not drawn');
             if (alpha !== (mode === 'immersive-ar' ? 0 : 1)) out.push(`the clear colour's alpha was ${alpha} while it loaded`);
             HOST.cur.peek('GL.scene').traverse(o => { if (o === L.parts().card) inStory++; });
@@ -1347,7 +1422,7 @@ if (runs('start page headset')) {
 }
 // The design room is parked since v217 (tools/design/README.md; the owner, 26 November 2026): not in STORY_EXTRA, no card,
 // and #design, HOST.go('design') and HOST.start('design') behave as any key this device does not know (nothing starts)
-await step('parked: the design room is not offered, and asking for it starts nothing', async () => {
+if (inGroup('parked')) await step('parked: the design room is not offered, and asking for it starts nothing', async () => {
   const r = await page.evaluate(async () => {
     const was = HOST.curKey;
     HOST.start('design'); HOST.go('design');
@@ -9690,6 +9765,10 @@ if (runs('studio sequences')) {
     await s2(`(collabApply(${JSON.stringify(st)}), 0)`);
     const out = [], moments = [T + 600, T + 1100, T + 1600, T + 1900, T + 2050, T + 2600, T + 3500, T + 4100];
     const look = '[window.__sq.y(), window.__sq.sh("fig001"), window.__sq.a("fig001"), window.__sq.sh("box001"), window.__sq.a("box001"), window.__sq.dx("shp001"), JSON.stringify(STUDIO.tex("box001").on)]';
+    // (both pages' own frame loops held: a fade's alpha steps with each frame's dt (0.4 s to full), so a page's own frames
+    // between the test's held ones moved it on by as many as that page drew: page one 0.75 against page two 0.25 at 1.6 s,
+    // the step's known red until 27 November 2026. Held, each page steps only through the same held frames)
+    await ss('(GL.renderer.setAnimationLoop(null), 0)'); await s2('(GL.renderer.setAnimationLoop(null), 0)');
     for (const m of moments) {
       // (each page steps to the moment through the frames before it, as a running page would; the second as a fresh joiner would at that moment)
       await ss(`window.__sq.at(${m - 300}, 3)`); await ss(`window.__sq.at(${m}, 1)`);
@@ -9697,6 +9776,7 @@ if (runs('studio sequences')) {
       const a = await ss(look), b = await s2(look);
       if (JSON.stringify(a) !== JSON.stringify(b)) out.push(`at ${(m - T) / 1000} s: page one ${JSON.stringify(a)}, page two ${JSON.stringify(b)}`);
     }
+    await ss('(GL.renderer.setAnimationLoop(frame), 0)');
     await sp2.close();
     bad(out);
   });
@@ -13395,7 +13475,7 @@ if (runs('studio guide')) {
   await gp.close();
 }
 // Repeat on the Stories screen: one story again and again, or all of them in turn (the last leads to the first)
-await step('Repeat one and Repeat all', async () => {
+if (inGroup('repeat')) await step('Repeat one and Repeat all', async () => {
   const ready = k => page.waitForFunction(k => HOST.curKey === k && !HOST.picking && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), k, { timeout: 30000 });
   const toEnd = () => page.evaluate(() => HOST.cur.peek('(APP.seek(T_END - 0.5), APP.playing = true)'));
   const playsFromTop = (k, what) => page.waitForFunction(k => HOST.curKey === k && HOST.cur.peek('APP.mode === "story" && APP.playing && APP.t < 10'), k, { timeout: 30000 })
@@ -13418,13 +13498,16 @@ await step('Repeat one and Repeat all', async () => {
 });
 // Anchored mode with a pretend headset: a room whose tracking origin can jump (recentring) and
 // anchors that keep their place in it, saved under a handle (Quest's persistent anchors)
-for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () => {
+for (const key of STORY_KEYS) if (inGroup(key)) await step(`${key}: anchored placement`, async () => {
   await page.evaluate(k => HOST.start(k), key);
   await page.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene() && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0'), key, { timeout: 30000 });
   const bad = await page.evaluate(async () => {
     const sleep = ms => new Promise(r => setTimeout(r, ms)), out = [];
     const grip = ['flock', 'robots', 'tutorial'].includes(HOST.curKey) ? 'panel' : 'globe';   // in the flock, the robot gang and the tutorial the grip moves only the panel
-    const R = { shift: 0, head: { x: 0, y: 1.6, z: 0 }, live: new Set(), handles: new Map(), n: 0, slow: 0, hidden: false };
+    // (the head at its seat, window.__xrSeat: off the origin and turned, 1.6 m up; the steps below move it along x from
+    // there, H0, and the places expected are the first placement's, x0, moved by as much)
+    const S = window.__xrSeat, H0 = { x: S.x, y: 1.6, z: S.z };
+    const R = { shift: 0, head: { x: H0.x, y: H0.y, z: H0.z }, live: new Set(), handles: new Map(), n: 0, slow: 0, hidden: false };
     const later = v => (R.slow ? new Promise(r => setTimeout(() => r(v), R.slow)) : Promise.resolve(v));
     const mk = room => { const a = { room, anchorSpace: {}, delete() { R.live.delete(a); },
       requestPersistentHandle: () => { const u = 'h' + ++R.n; R.handles.set(u, a.room); return Promise.resolve(u); } };
@@ -13434,7 +13517,7 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
       deletePersistentAnchor: u => { R.handles.delete(u); return Promise.resolve(); } });
     // positions in the tracking space are room positions minus the origin's shift
     window.__frame = {
-      getViewerPose: () => ({ transform: { position: { x: R.head.x - R.shift, y: R.head.y, z: R.head.z }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }),
+      getViewerPose: () => ({ transform: { position: { x: R.head.x - R.shift, y: R.head.y, z: R.head.z }, orientation: S.q({ x: 0, y: 0, z: 0, w: 1 }) } }),
       createAnchor: t => later(mk({ x: t.position.x + R.shift, y: t.position.y, z: t.position.z, q: t.orientation })),
       getPose: s => { const r = s.a.room; return { transform: { position: { x: r.x - R.shift, y: r.y, z: r.z }, orientation: r.q } }; },
       get trackedAnchors() { return new Set(R.hidden ? [] : R.live); },
@@ -13453,25 +13536,27 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
       HOST.anchor.set(true);
       begin(session()); await frames(4);
       if (!HOST.anchor.held() || R.live.size !== 1 || R.handles.size !== 1) out.push('the first placement was not anchored and saved');
-      near(rigX(), 0, 'first placement');
+      // the first placement: in front of the head, on the line it faces (or at it), which the rest is measured from
+      const x0 = rigX(), rz = peek('GL.rig.position.z'), fx = -Math.sin(S.yaw), fz = -Math.cos(S.yaw), dx = x0 - H0.x, dz = rz - H0.z;
+      if (Math.abs(dx * fz - dz * fx) > 1e-3 || dx * fx + dz * fz < -1e-3) out.push(`the first placement (${x0.toFixed(3)}, ${rz.toFixed(3)}) is not in front of the head at (${H0.x}, ${H0.z}) turned ${S.deg} degrees`);
       R.shift = 0.5; peek('XR.needRecenter = true'); await frames(2); // the headset recentres
-      near(rigX(), -0.5, 'after recentring the place moved in the room');
-      R.head.x = 2; peek('xrFreshStart()'); await frames(2); // taken off; the next wearer stands elsewhere
-      near(rigX(), -0.5, 'after taking the headset off the place moved');
+      near(rigX(), x0 - 0.5, 'after recentring the place moved in the room');
+      R.head.x = H0.x + 2; peek('xrFreshStart()'); await frames(2); // taken off; the next wearer stands elsewhere
+      near(rigX(), x0 - 0.5, 'after taking the headset off the place moved');
       if (!peek('XR.stories')) out.push('the next wearer did not land on the Stories screen');
       peek(`(XR.stories = false, XR.ctrls[0].hover = { kind: "${grip}", i: -1 }, xrGrab(XR.ctrls[0], true))`);
       if (peek('!!XR.ctrls[0].grab')) out.push('the grip still moves things while anchored');
       peek('XR.ctrls[0].hover = null');
       end(); HOST.session = null; R.live.clear();
       begin(session()); await frames(4); // a new headset session (or a reload): the saved place comes back
-      near(rigX(), -0.5, 'the saved place was not restored');
+      near(rigX(), x0 - 0.5, 'the saved place was not restored');
       HOST.anchor.again(); peek('XR.needRecenter = true'); await frames(4);
-      near(rigX(), 1.5, 'Place again did not move everything in front of you');
+      near(rigX(), x0 + 1.5, 'Place again did not move everything in front of you');
       if (R.handles.size !== 1 || !HOST.anchor.held()) out.push('Place again did not replace the saved place');
       // Place again pressed again while the anchor is still being made: only the newest place counts
       R.slow = 40; HOST.anchor.again(); peek('XR.needRecenter = true'); await frames(1);
-      R.head.x = 3; HOST.anchor.again(); peek('XR.needRecenter = true'); await frames(2); await sleep(120); await frames(2);
-      near(rigX(), 2.5, 'Place again during anchoring left the older place in charge');
+      R.head.x = H0.x + 3; HOST.anchor.again(); peek('XR.needRecenter = true'); await frames(2); await sleep(120); await frames(2);
+      near(rigX(), x0 + 2.5, 'Place again during anchoring left the older place in charge');
       if (R.live.size !== 1 || R.handles.size !== 1) out.push(`Place again during anchoring left ${R.live.size} anchors and ${R.handles.size} saved places`);
       R.slow = 0;
       // the saved place is not in this room (or not found yet): hold things in front of you and keep it for next time
@@ -13481,12 +13566,16 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
       if (N.uuid !== u || !R.handles.has(u)) out.push('a saved place that was not found was forgotten');
       if (!HOST.anchor.held() || !/not found/.test(HOST.anchor.status())) out.push('a saved place that was not found is not reported');
       end(); HOST.session = null; R.live.clear();
-      R.head.x = 0; R.hidden = true; begin(session()); await frames(2); // restored, but the headset cannot find it in the room
-      if (!/Finding/.test(HOST.anchor.status())) out.push('no word while the saved place is being looked for');
-      await sleep(100); await frames(2);
+      // restored, but the headset cannot find it in the room. (The wait before "not found" is the app's 8 s, N.wait, made
+      // short for the test: 60 ms was shorter than the first frames of a story just started under --only, 2 s is not;
+      // then frames until the wait has passed, up to 10 s, rather than one fixed sleep)
+      N.wait = 2000; R.head.x = H0.x; R.hidden = true; begin(session()); await frames(2);
+      if (!/Finding/.test(HOST.anchor.status())) out.push(`no word while the saved place is being looked for (${HOST.anchor.status()})`);
+      for (const t0 = performance.now(); performance.now() - t0 < 10000 && !/not found/.test(HOST.anchor.status());) await frames(1);
+      N.wait = 60;
       if (!HOST.anchor.held() || !/not found/.test(HOST.anchor.status())) out.push('a saved place never found is not reported');
       R.hidden = false; await frames(2);
-      near(rigX(), 2.5, 'the saved place found late was not taken');
+      near(rigX(), x0 + 2.5, 'the saved place found late was not taken');
       if (!/Anchored in the room/.test(HOST.anchor.status())) out.push('the status did not recover once the saved place was found');
       HOST.anchor.set(false); await frames(1);
       if (R.handles.size || HOST.anchor.held()) out.push('switching Anchor off did not forget the place');
@@ -13497,9 +13586,9 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
       // a headset without anchors: the place still holds until the headset view ends
       const f = window.__frame; window.__frame = { getViewerPose: f.getViewerPose };
       HOST.anchor.set(true); begin(session()); await frames(3);
-      const x0 = rigX();
-      R.head.x = -1; peek('xrFreshStart()'); await frames(2);
-      near(rigX(), x0, 'without anchors the place moved when the headset was taken off');
+      const xa = rigX();
+      R.head.x = H0.x - 1; peek('xrFreshStart()'); await frames(2);
+      near(rigX(), xa, 'without anchors the place moved when the headset was taken off');
       if (!HOST.anchor.held() || !/no room anchors/.test(HOST.anchor.status())) out.push('without anchors the place is not held');
     } finally {
       end(); HOST.session = null; xr.getReferenceSpace = getRef;
@@ -13524,7 +13613,9 @@ for (const key of STORY_KEYS) await step(`${key}: anchored placement`, async () 
 // panel like a real object, what you hold staying in your hand). Kept across a reload (a device's old labels choice, under the old key, left behind), set by a
 // link. In a page of its own (its own storage, as a new device), with a pretend headset whose frames the test drives: a
 // scene story (qubits), a life-size one (flock) and a hand-written one (airports)
-if (!ONLY) {
+// (its steps have mixed names: it runs without --only, with --block or --only 'headset settings', every step then)
+if (inGroup('headset settings') && (BLOCK || !ONLY || ONLY === 'headset settings')) {
+  const step = (name, fn) => smokeStep(name, fn, true);
   const sp = await browser.newPage({ viewport: { width: 640, height: 400 } });
   sp.on('pageerror', e => errors.push('settings: ' + (e.stack || e.message)));
   sp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('settings: ' + m.text()); });
@@ -13542,8 +13633,11 @@ if (!ONLY) {
     await sp.waitForFunction(k => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup'), key, { timeout: 30000 });
     await sp.evaluate(() => HOST.mods.xr());   // (ships.js and occlusion.js, loaded on demand since v226, as a session's start would)
     await sp.evaluate(() => {
+      // (window.__head is in the seat's frame, window.__xrSeat: the steps move and turn it from there; __headW() is where the
+      // headset has it, off the origin and turned)
       window.__head = { p: [0, 1.6, 0], q: [0, 0, 0, 1] };
-      const pose = () => { const h = window.__head; return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
+      window.__headW = () => { const S = window.__xrSeat, h = window.__head, p = S.p({ x: h.p[0], y: h.p[1], z: h.p[2] }), q = S.q({ x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] }); return { p: [p.x, p.y, p.z], q: [q.x, q.y, q.z, q.w] }; };
+      const pose = () => { const h = window.__headW(); return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
       window.__frame = { getViewerPose: pose };
       window.__raf = [];
       HOST.renderer.xr.getReferenceSpace = () => ({});
@@ -13632,9 +13726,11 @@ if (!ONLY) {
     await sp.evaluate(() => HOST.collab.panelOpen(false)); await tick(1);
     return [ok === true ? hov : ok, now];
   };
-  // the controller i at p (in the room; the rig stands at the head, facing -z), turned yaw and pitched, in degrees
+  // the controller i at p (in the seat's frame, as the head: the rig stands at the head, facing its -z), turned yaw and
+  // pitched, in degrees; put where the headset has it through the seat
   const ctrl = (i, p, yaw, pitch) => sx(`(() => { const c = XR.ctrls[${i}]; c.src = { targetRayMode: 'tracked-pointer', gamepad: null }; c.g.visible = true;
-    c.g.matrix.compose(new THREE.Vector3(${p.join(',')}), new THREE.Quaternion().setFromEuler(new THREE.Euler(${(pitch || 0) * Math.PI / 180}, ${(yaw || 0) * Math.PI / 180}, 0, 'YXZ')), new THREE.Vector3(1, 1, 1));
+    const S = window.__xrSeat, at = S.p({ x: ${p[0]}, y: ${p[1]}, z: ${p[2]} }), q = new THREE.Quaternion().setFromEuler(new THREE.Euler(${(pitch || 0) * Math.PI / 180}, ${(yaw || 0) * Math.PI / 180} + S.yaw, 0, 'YXZ'));
+    c.g.matrix.compose(new THREE.Vector3(at.x, at.y, at.z), q, new THREE.Vector3(1, 1, 1));
     c.g.matrixWorld.copy(c.g.matrix); })()`);
   const grab = (i, kind, on) => sx(`(c => { c.hover = ${kind === 'panel' ? '{ kind: "panel", P: XR.main }' : `{ kind: "${kind}", i: -1 }`}; xrGrab(c, ${on}); return !!c.grab; })(XR.ctrls[${i}])`);
   const POSE = `(() => { GL.scene.updateMatrixWorld(true); return { wq: GL.world.getWorldQuaternion(new THREE.Quaternion()).toArray(), rot: XR.rot.toArray(),
@@ -13831,7 +13927,8 @@ if (!ONLY) {
       return !!s && s.split(' ').every(w => all.includes(w.replace(/:$/, ''))); };
     const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
     const deg = (a, b) => Math.acos(Math.max(-1, Math.min(1, a[0] * b[0] + a[1] * b[1] + a[2] * b[2]))) * 180 / Math.PI;
-    const ahead = yaw => { const d = 16 * Math.PI / 180; return [-Math.sin(yaw) * Math.cos(d), -Math.sin(d), -Math.cos(yaw) * Math.cos(d)]; };
+    const seatYaw = await sp.evaluate(() => window.__xrSeat.yaw);   // (the head turned from the seat's own turn)
+    const ahead = yaw => { const d = 16 * Math.PI / 180; yaw += seatYaw; return [-Math.sin(yaw) * Math.cos(d), -Math.sin(d), -Math.cos(yaw) * Math.cos(d)]; };
     await openXR('qubits');
     // off by default: nothing drawn at a line
     const s0 = await at(60);
@@ -14008,7 +14105,8 @@ if (!ONLY) {
   // and draw calls; nothing drawn when off
   await step('the frame-rate read-out in the headset: off by default; on through the menu, kept, set by a link; the story\'s triangles and draw calls, low in the view', async () => {
     const bad = [];
-    const FP = () => sp.evaluate(() => { const S = HOST.collab.overlay().fps, m = S.mesh.material, p = S.mesh.position, h = window.__head.p, d = [p.x - h[0], p.y - h[1], p.z - h[2]], l = Math.hypot(...d);
+    // (where it is in the head's view: the head as the headset has it, __headW, its turn taken off)
+    const FP = () => sp.evaluate(() => { const S = HOST.collab.overlay().fps, m = S.mesh.material, p = S.mesh.position, h = window.__headW(), v = new THREE.Vector3(p.x - h.p[0], p.y - h.p[1], p.z - h.p[2]).applyQuaternion(new THREE.Quaternion(...h.q).invert()), d = v.toArray(), l = Math.hypot(...d);
       return { vis: S.mesh.visible, text: S.text, top: !m.depthTest && S.mesh.renderOrder === 52, down: Math.asin(-d[1] / l) * 180 / Math.PI, left: Math.atan2(-d[0], -d[2]) * 180 / Math.PI, dist: l }; });
     const press = async id => { await tick(2); const ok = await sp.evaluate(id => { const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn(); return !!(r && r.fn); }, id); await tick(2); return ok; };
     await openXR('qubits');
@@ -14021,7 +14119,7 @@ if (!ONLY) {
     // does, from the pretend head at a moment with a scene on show, until a second's numbers are in)
     await sx('(APP.seek(60), APP.playing = false)');
     await sp.evaluate(async () => {
-      const cam = new THREE.PerspectiveCamera(90, 1.6, 0.05, 200), h = window.__head;
+      const cam = new THREE.PerspectiveCamera(90, 1.6, 0.05, 200), h = window.__headW();
       cam.position.set(...h.p); cam.quaternion.set(...h.q);
       const f = HOST.perf.wrap(() => HOST.renderer.render(HOST.cur.peek('GL.scene'), cam)), t0 = performance.now();
       while (performance.now() - t0 < 30000 && !(HOST.perf.stats() && HOST.perf.stats().n > 1)) { window.__tick(1); f(performance.now()); await new Promise(r => setTimeout(r, 25)); }
@@ -14034,7 +14132,7 @@ if (!ONLY) {
     if (!(Math.abs(f1.down - 22) < 1 && Math.abs(f1.left - 14) < 1 && Math.abs(f1.dist - 1) < 0.01)) bad.push('the read-out is not about 22 degrees down and 14 to the left, 1 m away: ' + JSON.stringify(f1));
     // turned with the head: still in the same place in the view
     await head([0, 1.6, 0], 0.7); await tick(2);
-    const f2 = await sp.evaluate(() => { const S = HOST.collab.overlay().fps, p = S.mesh.position, h = window.__head, q = new THREE.Quaternion(...h.q).invert(), d = new THREE.Vector3(p.x - h.p[0], p.y - h.p[1], p.z - h.p[2]).applyQuaternion(q).normalize(); return [Math.asin(-d.y) * 180 / Math.PI, Math.atan2(-d.x, -d.z) * 180 / Math.PI]; });
+    const f2 = await sp.evaluate(() => { const S = HOST.collab.overlay().fps, p = S.mesh.position, h = window.__headW(), q = new THREE.Quaternion(...h.q).invert(), d = new THREE.Vector3(p.x - h.p[0], p.y - h.p[1], p.z - h.p[2]).applyQuaternion(q).normalize(); return [Math.asin(-d.y) * 180 / Math.PI, Math.atan2(-d.x, -d.z) * 180 / Math.PI]; });
     if (Math.abs(f2[0] - 22) > 1 || Math.abs(f2[1] - 14) > 1) bad.push('it does not stay put in the view as the head turns: ' + JSON.stringify(f2));
     await head([0, 1.6, 0], 0);
     // kept across a reload, a link turns it off, and off nothing is drawn
@@ -14158,7 +14256,11 @@ function FPS_FAKE() {
       return fn.apply(this, a);
     };
   }
-  const pose = m => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
+  // (the head, its eyes and the controllers through the seat, window.__xrSeat: off the origin, 1.6 m up, turned; perf.mjs
+  // reads this function without a seat: the origin, as before)
+  const seat = () => window.__xrSeat || { m: m => m, H: 0, pose: null };
+  const pose = m => { const S = seat(); return { transform: S.pose ? S.pose(m) : { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }; };
+  const head = m => { const S = seat(); return S.m(m, S.H); };
   const space = o => Object.assign({ addEventListener() {}, removeEventListener() {} }, o);
   const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [] });
   const ctrlM = x => rotX(-0.35, x, -0.35, -0.3);
@@ -14197,8 +14299,10 @@ function FPS_FAKE() {
     this.framebuffer = fb; this.antialias = true; this._ff = 0; }
     get fixedFoveation() { return this._ff; } set fixedFoveation(v) { this._ff = v; F.fov.push(v); }
     getViewport(v) { const w = this.framebufferWidth / 2; return { x: v.eye === 'left' ? 0 : w, y: 0, width: w, height: this.framebufferHeight }; } };
-  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(96, 1, 0.05, 100), transform: { matrix: tr(x, 0, 0), position: { x, y: 0, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }));
-  F.frame = () => ({ session: F.session, getViewerPose: () => Object.assign(pose(ident()), { views }), getPose: s => (s && s.floor ? pose(tr(0, -1.6, 0)) : s && s.matrix ? pose(s.matrix) : null), detectedPlanes: undefined, detectedMeshes: new Set() });
+  // (the views' objects are kept from frame to frame: a step stubs requestViewportScale on them; their transform follows the seat)
+  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(96, 1, 0.05, 100), transform: null, x }));
+  // (the floor, local-floor in 'local', stays 1.6 m under the head; controllers held in the head's frame move with it)
+  F.frame = () => { for (const v of views) v.transform = pose(head(tr(v.x, 0, 0))).transform; return { session: F.session, getViewerPose: () => Object.assign(pose(head(ident())), { views }), getPose: s => (s && s.floor ? pose(tr(0, seat().H - 1.6, 0)) : s && s.matrix ? pose(head(s.matrix)) : null), detectedPlanes: undefined, detectedMeshes: new Set() }; };
   F.step = (n = 1) => {
     for (let i = 0; i < n; i++) {
       F.time += 1000 / 72;
@@ -14620,7 +14724,9 @@ if (runs('bodies')) {
     for (let k = 0; performance.now() < end; k++) {
       W.t = (performance.now() - W.t0) / 1000;
       const ts = Math.round(C.now());
-      people.forEach((P, i) => { const b = fns[i](W.t); C.presIn(P.id, { st: '', head: [b.x, b.h || 1.62, b.z, ...q(b.yaw)], hands: [], g: b.g === false ? [null, null] : [grip(b, 1), grip(b, -1)], ts }); });
+      // (each person's place is given as seen from the head at the origin facing -z: put where the seat has this head,
+      // window.__xrSeat, so the same person stands as far ahead of it; with the seat at the origin nothing moves)
+      people.forEach((P, i) => { const b0 = fns[i](W.t), S = window.__xrSeat, sp = S.p({ x: b0.x, y: 0, z: b0.z }), b = Object.assign({}, b0, { x: sp.x, z: sp.z, yaw: b0.yaw + S.yaw }); C.presIn(P.id, { st: '', head: [b.x, b.h || 1.62, b.z, ...q(b.yaw)], hands: [], g: b.g === false ? [null, null] : [grip(b, 1), grip(b, -1)], ts }); });
       F.step(1);
       if (HOST.collab.menu) HOST.collab.panelOpen(false);
       const O = C.overlay().people;
@@ -14633,7 +14739,7 @@ if (runs('bodies')) {
   const state = () => bp.evaluate(() => { const s = HOST.collab.bodyState(), m = HOST.bodies && HOST.bodies.meshes(), O = HOST.collab.overlay(), C = HOST.collab.internals();
     const I = m && m.body ? m.body.geometry.attributes.aInst.array : null;
     return Object.assign(s, { heads: O && O.people ? [...O.people.values()].filter(o => o.avatar.visible && !o.asBody).length : 0, count: m && m.body ? m.body.geometry.instanceCount : 0,
-      selfRows: I ? Array.from({ length: m.body.geometry.instanceCount }, (_, k) => I[k * 4 + 2]).filter(v => v === 1).length : 0, myBody: HOST.xr.body(), stored: localStorage.getItem('xrBody') }); });
+      seat: [window.__xrSeat.x, window.__xrSeat.z], selfRows: I ? Array.from({ length: m.body.geometry.instanceCount }, (_, k) => I[k * 4 + 2]).filter(v => v === 1).length : 0, myBody: HOST.xr.body(), stored: localStorage.getItem('xrBody') }); });
   // (draws a frame: each of the two meshes' renders over n frames, by the pretend headset's two eyes)
   const draws = n => bp.evaluate(n => { const a = HOST.bodies.stats().calls; window.__fp.step(n); const b = HOST.bodies.stats().calls; return { body: (b.body - a.body) / n / 2, halo: (b.halo - a.halo) / n / 2 }; }, n);
   // (standing until 0.6 s, then 2.75 m along an arc of 2.2 m at 0.55 m/s, turning with it, then standing from 5.6 s)
@@ -14680,9 +14786,11 @@ if (runs('bodies')) {
     if (d4.body !== 1 || d4.halo !== 1) bad.push('four people, the draws a frame (an eye): ' + JSON.stringify(d4));
     const one = await bp.evaluate(() => { const o = HOST.collab.overlay().people.get('p4'); return o && o.body ? HOST.bodies.info(o.body).hands : null; });
     if (!one || one[0] !== 0 || one[1] !== 0) bad.push('a person with no grips: their hands not hanging: ' + JSON.stringify(one));
-    // (v216) controllers held naturally ahead (facing +z here): both hands point ahead along them, the palms in
+    // (v216) controllers held naturally ahead (facing +z here, turned by the seat's yaw as feed turns the person): both
+    // hands point ahead along them, the palms in
     const way = await bp.evaluate(() => { const o = HOST.collab.overlay().people.get('w1'); const I = o && o.body ? HOST.bodies.info(o.body) : null; return I ? { aim: I.aim, palm: I.palm } : null; });
-    if (!way || !AIM_OK(way.aim[0], [0, 0, 1], 20) || !AIM_OK(way.aim[1], [0, 0, 1], 20) || !AIM_OK(way.palm[0], [-1, 0, 0], 30) || !AIM_OK(way.palm[1], [1, 0, 0], 30)) bad.push('controllers held naturally ahead: the hands not along them, palms in: ' + JSON.stringify(way));
+    const Y = await bp.evaluate(() => window.__xrSeat.yaw), turn = v => [Math.cos(Y) * v[0] + Math.sin(Y) * v[2], v[1], -Math.sin(Y) * v[0] + Math.cos(Y) * v[2]];
+    if (!way || !AIM_OK(way.aim[0], turn([0, 0, 1]), 20) || !AIM_OK(way.aim[1], turn([0, 0, 1]), 20) || !AIM_OK(way.palm[0], turn([-1, 0, 0]), 30) || !AIM_OK(way.palm[1], turn([1, 0, 0]), 30)) bad.push('controllers held naturally ahead: the hands not along them, palms in: ' + JSON.stringify(way));
     if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
   });
 
@@ -14701,8 +14809,9 @@ if (runs('bodies')) {
     // a jump: standing, then 3 m away at once; the feet at the new place within a frame of it showing, no steps walked there
     await feed([{ id: 'w1', at: 't => ({ x: -1.5, z: -2.5, yaw: 0 })' }], 1);
     const j = await feed([{ id: 'w1', at: 't => ({ x: 1.5, z: -2.5, yaw: 0 })' }], 0.6, ['w1']);
-    const at = j.findIndex(f => f.w1 && f.w1.head && f.w1.head[0] > 1.4), J = at >= 0 && j[Math.min(j.length - 1, at + 1)].w1.info, last = j[j.length - 1].w1.info;
-    const under = J && J.feet.every(p => Math.hypot(p[0] - 1.5, p[2] + 2.5) < 0.35);
+    const J0 = await bp.evaluate(() => { const v = window.__xrSeat.p({ x: 1.5, y: 0, z: -2.5 }); return [v.x, v.z]; });   // (the new place, as feed puts it by the seat)
+    const at = j.findIndex(f => f.w1 && f.w1.head && Math.hypot(f.w1.head[0] - J0[0], f.w1.head[2] - J0[1]) < 0.1), J = at >= 0 && j[Math.min(j.length - 1, at + 1)].w1.info, last = j[j.length - 1].w1.info;
+    const under = J && J.feet.every(p => Math.hypot(p[0] - J0[0], p[2] - J0[1]) < 0.35);
     if (at < 0 || !under || !J.on[0] || !J.on[1] || last.steps > 1) bad.push('a jump of 3 m: ' + JSON.stringify({ shownAt: at, feet: J && J.feet.map(p => p.map(v => +v.toFixed(2))), on: J && J.on, steps: last && last.steps }) + ' (want both feet planted under the new place at once, not walked there)');
     if (bad.length) errors.push(...bad.map(b => 'bodies: ' + b));
   });
@@ -14722,7 +14831,7 @@ if (runs('bodies')) {
     else {
       const S = s1.self;
       if (!(S.neck < 0.001)) bad.push('your own body\'s head and neck not folded away: the neck scaled ' + S.neck);
-      if (!S.on[0] || !S.on[1] || !S.feet.every(p => p[1] - s1.selfFloor > 0.05 && p[1] - s1.selfFloor < 0.12 && Math.hypot(p[0], p[2]) < 0.4)) bad.push('your own feet not on the floor under you: ' + JSON.stringify({ feet: S.feet, floor: s1.selfFloor }));
+      if (!S.on[0] || !S.on[1] || !S.feet.every(p => p[1] - s1.selfFloor > 0.05 && p[1] - s1.selfFloor < 0.12 && Math.hypot(p[0] - s1.seat[0], p[2] - s1.seat[1]) < 0.4)) bad.push('your own feet not on the floor under you: ' + JSON.stringify({ feet: S.feet, floor: s1.selfFloor }));
       if (!(S.hands[0] > 0.9 && S.hands[1] > 0.9)) bad.push('your own hands not on your controllers: ' + JSON.stringify(S.hands));
     }
     const l1 = await press('mybody');
@@ -15299,7 +15408,8 @@ if (runs('away idle')) {
     const bad = await ap.evaluate(async key => {
       const out = [], V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion, r = HOST.renderer, xr = r.xr, P = s => HOST.cur.peek(s);
       const W = { t: 5000, raf: [] }, sp = name => ({ name, addEventListener() {}, removeEventListener() {} }), REF = sp('local');
-      const at = (x, y, z) => new M4().makeTranslation(x, y, z);
+      // (the head and the hands in the seat's frame, put where the headset has them by the seat, window.__xrSeat)
+      const at = (x, y, z) => new M4().fromArray(window.__xrSeat.m(new M4().makeTranslation(x, y, z).elements));
       const pose = m => { const p = new V3(), q = new Q(); m.decompose(p, q, new V3()); return { transform: { position: { x: p.x, y: p.y, z: p.z, w: 1 }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w }, matrix: Float32Array.from(m.elements) }, views: [], emulatedPosition: false }; };
       const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [] });
       const L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: sp('L'), gripSpace: sp('Lg'), gamepad: pad() }, R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: sp('R'), gripSpace: sp('Rg'), gamepad: pad() };
@@ -15461,7 +15571,9 @@ if (runs('stick moving')) {
     await wp.waitForFunction(([k, r]) => typeof HOST !== 'undefined' && HOST.curKey === k && HOST.cur && HOST.cur.peek('typeof ST !== "undefined" && ST.items.length > 0 && !!XR.panelGroup' + (r ? ' && (' + r + ')' : '')), [key, ready || ''], { timeout: 60000 });
     await wp.evaluate(() => {
       const V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion;
-      const W = window.__w = { head: { p: [0, 1.6, 0], yaw: 0 }, t: 5000, raf: [], last: null };
+      // (the head starts at its seat, window.__xrSeat: off the origin and turned; the hands and the anchor are placed from
+      // there, in the seat's frame)
+      const S = window.__xrSeat, W = window.__w = { head: { p: [S.x, 1.6, S.z], yaw: S.yaw }, t: 5000, raf: [], last: null };
       const sp = name => ({ name, addEventListener() {}, removeEventListener() {} });
       const REF = W.ref = sp('local');
       REF.getOffsetReferenceSpace = T => Object.assign(sp('moved'), { base: REF, T });
@@ -15473,7 +15585,8 @@ if (runs('stick moving')) {
       const L = W.L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: sp('Lray'), gripSpace: sp('Lgrip'), gamepad: pad() };
       const R = W.R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: sp('Rray'), gripSpace: sp('Rgrip'), gamepad: pad() };
       W.anchor = sp('anchor');
-      const real = W.real = new Map([[L.targetRaySpace, at(-0.2, 1.1, -0.3)], [L.gripSpace, at(-0.2, 1.1, -0.3)], [R.targetRaySpace, at(0.2, 1.1, -0.3)], [R.gripSpace, at(0.2, 1.1, -0.3)], [W.anchor, at(0, 1, -2)]]);
+      const seat = m => new M4().fromArray(S.m(m.elements));
+      const real = W.real = new Map([[L.targetRaySpace, seat(at(-0.2, 1.1, -0.3))], [L.gripSpace, seat(at(-0.2, 1.1, -0.3))], [R.targetRaySpace, seat(at(0.2, 1.1, -0.3))], [R.gripSpace, seat(at(0.2, 1.1, -0.3))], [W.anchor, seat(at(0, 1, -2))]]);
       W.frame = () => ({ getViewerPose: s => pose(into(s, at(...W.head.p, W.head.yaw))), getPose: (s, b) => (real.has(s) ? pose(into(b, real.get(s))) : null), getJointPose: () => null });
       const ls = {};
       W.s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [L, R],
@@ -15531,7 +15644,9 @@ if (runs('stick moving')) {
     await wp.evaluate(() => HOST.collab.panelOpen(false)); await wp.waitForTimeout(500); await tick(1);
     // twice: on, its notice, and no menu, then or later
     await click('L', 2);
-    const on = await wp.evaluate(() => [HOST.xr.walk(), localStorage.getItem('xrWalk'), HOST.collab.menu]), n1 = await note();
+    // (its notice by its title: the session's own first notice, The menu, comes 2.5 s of real time in and may come after it
+    // on a loaded machine, as the last notice)
+    const on = await wp.evaluate(() => [HOST.xr.walk(), localStorage.getItem('xrWalk'), HOST.collab.menu]), n1 = await wp.evaluate(() => { const n = HOST.collab.notes().filter(x => /^Moving with the sticks/.test(x.title || '')).slice(-1)[0] || {}; return [n.title || '', n.text || ''].join(': '); });
     await wp.waitForTimeout(500); await tick(1);
     const m2 = await wp.evaluate(() => HOST.collab.menu);
     if (!(on[0] && on[1] === 'on' && !on[2] && !m2)) bad.push('the left stick clicked twice: ' + JSON.stringify({ on, menuLater: m2 }));
@@ -15689,7 +15804,10 @@ if (runs('stick moving')) {
     // moved and turned just before the room is joined (a flick right too), so the join's reset has travel to take back
     await stick('R', 0.9, 0); await tick(3); await stick('R', 0, 0); await tick(1);
     const p0 = await seen(), dg = (a, b) => ((a - b + 540) % 360) - 180;
-    if (noMove(p0.travel) || dist(p0.head, [0, 1.6, 0]) < 0.3 || Math.abs(dg(p0.yaw, 0) + 30) > 0.5) bad.push('not moved and turned before the room is joined: ' + JSON.stringify({ travel: p0.travel, head: p0.head, yaw: p0.yaw }));
+    // (where you really stand: the seat, window.__xrSeat, off the origin and turned: H0 and Y0; 1.5 m ahead of it, AHEAD)
+    const [H0, Y0] = await wp.evaluate(() => [[window.__xrSeat.x, 1.6, window.__xrSeat.z], window.__xrSeat.deg]);
+    const AHEAD = [H0[0] - 1.5 * Math.sin(Y0 * Math.PI / 180), 1.6, H0[2] - 1.5 * Math.cos(Y0 * Math.PI / 180)];
+    if (noMove(p0.travel) || dist(p0.head, H0) < 0.3 || Math.abs(dg(p0.yaw, Y0) + 30) > 0.5) bad.push('not moved and turned before the room is joined: ' + JSON.stringify({ travel: p0.travel, head: p0.head, yaw: p0.yaw }));
     await wp.waitForTimeout(500);
     await wp.evaluate(() => { const C = HOST.collab; window.__room = { joined: Object.getOwnPropertyDescriptor(C, 'joined'), code: Object.getOwnPropertyDescriptor(C, 'code'), here: C.here };
       window.__code = 'WLK'; Object.defineProperty(C, 'joined', { get: () => true, configurable: true }); Object.defineProperty(C, 'code', { get: () => window.__code, configurable: true });
@@ -15697,10 +15815,10 @@ if (runs('stick moving')) {
     try {
       await tick(2);
       const e0 = await seen();
-      if (e0.why !== '' || !e0.walking || !noMove(e0.travel) || dist(e0.head, [0, 1.6, 0]) > 1e-6 || Math.abs(e0.yaw) > 1e-3) bad.push('a shared room joined, elsewhere: ' + JSON.stringify({ why: e0.why, walking: e0.walking, travel: e0.travel, head: e0.head, yaw: e0.yaw }) + ' (want it applying, the travel gone: back where you stand)');
+      if (e0.why !== '' || !e0.walking || !noMove(e0.travel) || dist(e0.head, H0) > 1e-6 || Math.abs(dg(e0.yaw, Y0)) > 1e-3) bad.push('a shared room joined, elsewhere: ' + JSON.stringify({ why: e0.why, walking: e0.walking, travel: e0.travel, head: e0.head, yaw: e0.yaw }) + ' (want it applying, the travel gone: back where you stand)');
       await stick('L', 0, -1); await tick(60); await stick('L', 0, 0); await tick(1);
       const e1 = await seen();
-      if (dist(e1.head, [0, 1.6, -1.5]) > 0.05) bad.push('elsewhere in a room, forward for a second: the head at ' + e1.head.map(v => v.toFixed(3)) + ', not 0, 1.6, -1.5');
+      if (dist(e1.head, AHEAD) > 0.05) bad.push('elsewhere in a room, forward for a second: the head at ' + e1.head.map(v => v.toFixed(3)) + ', not ' + AHEAD.map(v => v.toFixed(3)) + ' (1.5 m ahead of where you stand)');
       await stick('R', 0.9, 0); await tick(3); await stick('R', 0, 0); await tick(1);
       const e2 = await seen();
       if (Math.abs(dg(e2.yaw, e1.yaw) + 30) > 0.5 || dist(e2.head, e1.head) > 1e-3) bad.push(`elsewhere in a room, a flick right: turned ${dg(e2.yaw, e1.yaw).toFixed(2)} degrees, moved ${dist(e2.head, e1.head).toFixed(4)} m`);
@@ -15710,10 +15828,10 @@ if (runs('stick moving')) {
       // moved and turned once more, so answering "In this room" below has travel to take back
       await wp.evaluate(() => { window.__code = 'WLB'; }); await tick(2);
       const b0 = await seen();
-      if (b0.why !== '' || !b0.walking || !noMove(b0.travel) || dist(b0.head, [0, 1.6, 0]) > 1e-6 || Math.abs(b0.yaw) > 1e-3) bad.push('another room joined while moved: ' + JSON.stringify({ why: b0.why, walking: b0.walking, travel: b0.travel, head: b0.head, yaw: b0.yaw }) + ' (want the travel gone)');
+      if (b0.why !== '' || !b0.walking || !noMove(b0.travel) || dist(b0.head, H0) > 1e-6 || Math.abs(dg(b0.yaw, Y0)) > 1e-3) bad.push('another room joined while moved: ' + JSON.stringify({ why: b0.why, walking: b0.walking, travel: b0.travel, head: b0.head, yaw: b0.yaw }) + ' (want the travel gone)');
       await stick('L', 0, -1); await tick(20); await stick('L', 0, 0); await stick('R', 0.9, 0); await tick(3); await stick('R', 0, 0); await tick(1);
       const b1 = await seen();
-      if (noMove(b1.travel) || dist(b1.head, [0, 1.6, 0]) < 0.3 || Math.abs(dg(b1.yaw, 0) + 30) > 0.5) bad.push('in the other room, the sticks did not move and turn you: ' + JSON.stringify({ travel: b1.travel, head: b1.head, yaw: b1.yaw }));
+      if (noMove(b1.travel) || dist(b1.head, H0) < 0.3 || Math.abs(dg(b1.yaw, Y0) + 30) > 0.5) bad.push('in the other room, the sticks did not move and turn you: ' + JSON.stringify({ travel: b1.travel, head: b1.head, yaw: b1.yaw }));
       // answered "In this room": back where you stand, the sticks move nothing, two clicks say why, the row greyed
       await wp.waitForTimeout(500);
       await wp.evaluate(() => { window.__here = true; }); await tick(2);
@@ -15722,7 +15840,7 @@ if (runs('stick moving')) {
       const h1 = await seen();
       await click('L', 2);
       const hn = await note(), hr = await row(), hw = await wp.evaluate(() => HOST.xr.walk());
-      if (h0.why !== 'room' || h0.walking || !noMove(h0.travel) || dist(h0.head, [0, 1.6, 0]) > 1e-6 || Math.abs(h0.yaw) > 1e-3) bad.push('in the room with the others: not back where you stand: ' + JSON.stringify({ why: h0.why, travel: h0.travel, head: h0.head, yaw: h0.yaw }));
+      if (h0.why !== 'room' || h0.walking || !noMove(h0.travel) || dist(h0.head, H0) > 1e-6 || Math.abs(dg(h0.yaw, Y0)) > 1e-3) bad.push('in the room with the others: not back where you stand: ' + JSON.stringify({ why: h0.why, travel: h0.travel, head: h0.head, yaw: h0.yaw }));
       if (dist(h1.head, h0.head) > 1e-6 || Math.abs(h1.yaw - h0.yaw) > 1e-3 || !noMove(h1.travel)) bad.push('in the room with the others, the sticks moved you: ' + JSON.stringify([h0.head, h1.head, h1.travel]));
       if (hn !== 'Moving with the sticks: Not while you are in the room with the others: there you walk for real.' || !hw) bad.push(`in the room with the others, two clicks said '${hn}' and left it ${hw ? 'on' : 'off'}`);
       if (hr !== 'none') bad.push('in the room with the others, the menu\'s row is ' + hr + ', not greyed');
@@ -15743,6 +15861,7 @@ if (runs('stick moving')) {
       ['a shared room, an older shared.js', () => { window.__joined = Object.getOwnPropertyDescriptor(HOST.collab, 'joined'); window.__hereFn = HOST.collab.here; delete HOST.collab.here; Object.defineProperty(HOST.collab, 'joined', { get: () => true, configurable: true }); },
         () => { Object.defineProperty(HOST.collab, 'joined', window.__joined); HOST.collab.here = window.__hereFn; }, 'room', 'Not while you are in the room with the others'],
     ];
+    const SEAT0 = await wp.evaluate(() => [window.__xrSeat.x, 1.6, window.__xrSeat.z]);   // (where you really stand: the seat)
     for (const [where, on, off, why, says] of cases) {
       await wp.waitForTimeout(500);
       const a = await seen();
@@ -15754,7 +15873,7 @@ if (runs('stick moving')) {
       await wp.evaluate(off); await tick(1);
       const room = where.startsWith('a shared room');
       if (b.why !== why || b.walking) bad.push(`${where}: walkWhy '${b.why}', walking ${b.walking}`);
-      if (room ? (b.travel.space || b.travel.x || b.travel.z || b.travel.yaw || dist(b.head, [0.0, 1.6, 0]) > 1e-6) : dist(b.head, a.head) > 1e-6 || Math.abs(b.yaw - a.yaw) > 1e-3)
+      if (room ? (b.travel.space || b.travel.x || b.travel.z || b.travel.yaw || dist(b.head, SEAT0) > 1e-6) : dist(b.head, a.head) > 1e-6 || Math.abs(b.yaw - a.yaw) > 1e-3)
         bad.push(`${where}: ${room ? 'not back where you stand' : 'the sticks moved you'}: ` + JSON.stringify([a.head, b.head, b.travel]));
       if (!n.startsWith('Moving with the sticks: ' + says) || !w) bad.push(`${where}: two clicks said '${n}' and left it ${w ? 'on' : 'off'}`);
       if (r !== 'none') bad.push(`${where}: the menu's row is ${r}, not greyed`);
@@ -16081,8 +16200,10 @@ if (runs('spaceship')) {
       const real = W.real = new Map([[L.targetRaySpace, at(-0.2, 1.1, -0.3)], [L.gripSpace, at(-0.2, 1.1, -0.3)], [R.targetRaySpace, at(0.2, 1.1, -0.3)], [R.gripSpace, at(0.2, 1.1, -0.3)]]);
       // a controller's grip and ray held at p, turned (degrees) about the vertical, then up, then rolled right about its own forward axis
       W.hold = (hand, p, yaw, pitch, roll) => { const m = new M4().compose(new V3(...p), new Q().setFromEuler(new THREE.Euler((pitch || 0) * Math.PI / 180, (yaw || 0) * Math.PI / 180, -(roll || 0) * Math.PI / 180, 'YXZ')), new V3(1, 1, 1)); real.set(W[hand].gripSpace, m); real.set(W[hand].targetRaySpace, m.clone()); };
+      // (W.head and W.hold are in the seat's frame: the headset has them off the origin and turned, window.__xrSeat)
+      const seat = m => new M4().fromArray(window.__xrSeat.m(m.elements));
       W.frame = () => {
-        const f = { getViewerPose: s => pose(into(s, at(...W.head.p, W.head.yaw))), getPose: (s, b) => (real.has(s) ? pose(into(b, real.get(s))) : null), getJointPose: () => null };
+        const f = { getViewerPose: s => pose(into(s, seat(at(...W.head.p, W.head.yaw)))), getPose: (s, b) => (real.has(s) ? pose(into(b, seat(real.get(s)))) : null), getJointPose: () => null };
         if (W.planes) f.detectedPlanes = W.planes;
         return f;
       };
@@ -16147,8 +16268,11 @@ if (runs('spaceship')) {
     const m0 = await sp.evaluate(() => HOST.collab.menu);
     if (!s0.flying || m0) bad.push('the right stick twice: flying ' + s0.flying + ', the menu ' + m0);
     if (!/^Spaceship: Right stick: left and right turn, forward dives, back climbs\. Trigger: shoot/.test(n0)) bad.push('the launch notice: ' + n0);
-    const want = [0.2, 1.1, -0.3 - 0.5];
-    if (dist(s0.p, want) > 0.1 || Math.abs(s0.yaw) > 0.01 || Math.abs(s0.pitch) > 0.01) bad.push('the ship at ' + s0.p.map(v => v.toFixed(3)) + ' yaw ' + s0.yaw.toFixed(3) + ', not 0.5 m ahead of the controller facing -z');
+    // (the controller held at (0.2, 1.1, -0.3) in the seat's frame, window.__xrSeat: the headset has it off the origin and
+    // turned, and the ship 0.5 m ahead of it, facing as the head does)
+    const SEAT = await sp.evaluate(() => { const S = window.__xrSeat, a = S.p({ x: 0.2, y: 1.1, z: -0.8 }), b = S.p({ x: 0.2, y: 1.2, z: -0.8 }); return { ahead: [a.x, a.y, a.z], at: [b.x, b.y, b.z], yaw: S.yaw }; });
+    const want = SEAT.ahead, wrap = a => Math.atan2(Math.sin(a), Math.cos(a));
+    if (dist(s0.p, want) > 0.1 || Math.abs(wrap(s0.yaw - SEAT.yaw)) > 0.01 || Math.abs(s0.pitch) > 0.01) bad.push('the ship at ' + s0.p.map(v => v.toFixed(3)) + ' yaw ' + s0.yaw.toFixed(3) + ', not 0.5 m ahead of the controller at ' + want.map(v => v.toFixed(3)) + ' facing as the head, ' + SEAT.yaw.toFixed(3));
     await click('L', 2); await tick(1);
     const w = await sp.evaluate(() => HOST.xr.walk());
     if (!w) bad.push('the left stick twice did not turn moving with the sticks on');
@@ -16379,10 +16503,13 @@ if (runs('spaceship')) {
     const r = await through('r');
     if (!(r.rapid > 1000)) bad.push('the rapid fire pickup: ' + r.rapid);
     await sp.evaluate(() => HOST.ships.debug.place([0, 1.5, 0], 0, 0));
-    const n0 = (await st()).bolts.length;
+    const r0 = await st(), n0 = r0.bolts.length;
     await btn('R', 0, 1); await secs(1); await btn('R', 0, 0); await tick(1);
-    const n1 = (await st()).bolts.length;
-    if (n1 - n0 < 10 || n1 - n0 > 11) bad.push('rapid fire for a second: ' + (n1 - n0) + ' bolts, not 10');
+    const r1 = await st(), n1 = r1.bolts.length;
+    // (flaky, 5 and 8 bolts seen once each: rapid fire off for all or part of the second. What the ship's state and its log
+    // said then is printed with it, so the next red names its cause)
+    if (n1 - n0 < 10 || n1 - n0 > 11) bad.push('rapid fire for a second: ' + (n1 - n0) + ' bolts, not 10: ' + JSON.stringify({ rapid: [r0.rapid, r1.rapid], on: [r0.on, r1.on], flying: [r0.flying, r1.flying], health: [r0.health, r1.health],
+      bolts: r1.bolts.slice(-12).map(B => [B.by, B.dr]), log: await sp.evaluate(() => (window.__collabLog || []).filter(l => /^ship|drone|pickup/.test(l.ev || '')).slice(-8)) }));
     await secs(1.2); const r2 = await st();
     if (r2.rapid > 0) bad.push('rapid fire did not run out after its time');
     const s = await through('s');
@@ -16416,7 +16543,8 @@ if (runs('spaceship')) {
     await secs(4.8); const b = await st();
     await secs(0.4); const c = await st();
     if (!b.down || c.down || c.shield !== 100 || c.health !== 100 || Math.abs(c.pitch) > 0.01) bad.push('5 s later (the controller nosed up 15 degrees: level all the same): ' + JSON.stringify({ at48: b.down, down: c.down, shield: c.shield, health: c.health, pitch: c.pitch }));
-    if (dist(c.p, [0.2, 1.2, -0.8]) > 0.4) bad.push('the new ship at ' + c.p.map(v => v.toFixed(2)) + ', not at the controller');
+    const near = await sp.evaluate(() => { const v = window.__xrSeat.p({ x: 0.2, y: 1.2, z: -0.8 }); return [v.x, v.y, v.z]; });   // (the controller's, in the seat's frame)
+    if (dist(c.p, near) > 0.4) bad.push('the new ship at ' + c.p.map(v => v.toFixed(2)) + ', not at the controller (' + near.map(v => v.toFixed(2)) + ')');
     if (bad.length) errors.push(...bad.map(b => 'spaceship: ' + b));
   });
 
@@ -16616,16 +16744,19 @@ if (runs('goggles')) {
     await ss(`(() => { const g = STU.items.get('${id}').holder.getWorldPosition(new THREE.Vector3()); STU.edit = false; WALK.pos.set(g.x - 0.1, 1.6, g.z - 0.4); WALK.yaw = Math.PI + 0.22; WALK.pitch = -Math.atan2(1.6 - g.y, 0.42); GL.camera.fov = 50; GL.camera.updateProjectionMatrix(); })()`);
     if (process.env.SHOTS) { const t = await sp.addStyleTag({ content: 'body > *:not(canvas):not(#gl){visibility:hidden !important}' }); await sp.waitForTimeout(1500); await shot('goggles-studio'); await t.evaluate(e => e.remove()); }
     await sp.waitForFunction(() => !!HOST.flight, null, { timeout: 20000 }).catch(() => out.push('flight.js was not loaded for a scene with goggles'));
-    // a pretend VR session: the head at (0, 1.6, 0.6) facing -z, the right controller with a gamepad
+    // a pretend VR session: the head at its seat (window.__xrSeat: off the origin, turned), the right controller with a
+    // gamepad; the hand's places at the face are given as they were for a head at (0, 1.6, 0.6) facing -z, and W.at puts
+    // them by the head where the seat has it
     await sp.evaluate(() => {
       const V3 = THREE.Vector3, M4 = THREE.Matrix4, Q = THREE.Quaternion;
-      const W = window.__g = { head: new V3(0, 1.6, 0.6), t: 1000, raf: [], real: new Map() };
+      const S = window.__xrSeat, sp0 = S.p({ x: 0, y: 1.6, z: 0 }), W = window.__g = { head: new V3(sp0.x, sp0.y, sp0.z), hq: new Q(...['x', 'y', 'z', 'w'].map(k => S.q({ x: 0, y: 0, z: 0, w: 1 })[k])), t: 1000, raf: [], real: new Map() };
+      W.at = (x, y, z) => { const v = S.p({ x, y, z: z - 0.6 }); return new V3(v.x, v.y, v.z); };
       const spc = name => ({ name });
       const pad = () => ({ axes: [0, 0, 0, 0], buttons: [0, 1, 2, 3, 4, 5].map(() => ({ pressed: false, touched: false, value: 0 })), hapticActuators: [{ pulse() { return Promise.resolve(true); } }] });
       W.R = { handedness: 'right', targetRayMode: 'tracked-pointer', targetRaySpace: spc('Rray'), gripSpace: spc('Rgrip'), gamepad: pad() };
       W.L = { handedness: 'left', targetRayMode: 'tracked-pointer', targetRaySpace: spc('Lray'), gripSpace: spc('Lgrip'), gamepad: pad() };
       const pose = (p, q) => ({ transform: { position: { x: p.x, y: p.y, z: p.z }, orientation: { x: q.x, y: q.y, z: q.z, w: q.w } } });
-      W.frame = { getViewerPose: () => pose(W.head, new Q()), getPose: s => (W.real.has(s) ? pose(W.real.get(s), new Q()) : null) };
+      W.frame = { getViewerPose: () => pose(W.head, W.hq), getPose: s => (W.real.has(s) ? pose(W.real.get(s), new Q()) : null) };
       W.s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [W.L, W.R], addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => W.raf.push(cb) };
       W.ref = { ls: [], addEventListener(t, fn) { if (t === 'reset') this.ls.push(fn); }, removeEventListener(t, fn) { this.ls = this.ls.filter(f => f !== fn); } }; W.getRef = HOST.renderer.xr.getReferenceSpace; HOST.renderer.xr.getReferenceSpace = () => W.ref;
       HOST.session = W.s; HOST.mode = 'immersive-vr';
@@ -16645,10 +16776,10 @@ if (runs('goggles')) {
     if (!gr) out.push('the grip did not take them to wear');
     const rev0 = await ss('STU.rev');
     // carried half way: not on yet, nothing written
-    await sp.evaluate(([x, y, z]) => { const g = window.__g; g.hand(new THREE.Vector3((x + 0) / 2, (y + 1.6) / 2, (z + 0.6) / 2)); g.tick(2); }, g0);
+    await sp.evaluate(([x, y, z]) => { const g = window.__g; g.hand(new THREE.Vector3((x + g.head.x) / 2, (y + g.head.y) / 2, (z + g.head.z) / 2)); g.tick(2); }, g0);
     if (await sp.evaluate(() => HOST.flight.on())) out.push('on before they reached the face');
     // at the face: on, the hand let go, the goggles back in place
-    await sp.evaluate(() => { const g = window.__g; g.R.gamepad.buttons[1].pressed = true; g.hand(new THREE.Vector3(0.02, 1.58, 0.5)); g.tick(3); });
+    await sp.evaluate(() => { const g = window.__g; g.R.gamepad.buttons[1].pressed = true; g.hand(window.__g.at(0.02, 1.58, 0.5)); g.tick(3); });
     const s1 = await sp.evaluate(() => [HOST.flight.on(), HOST.flight.owner(), HOST.flight.shown()]);
     if (!s1[0] || s1[1] !== 'studio') out.push('not on at the face: ' + JSON.stringify(s1));
     const back = await ss(`STU.items.get('${id}').holder.getWorldPosition(new THREE.Vector3()).toArray()`);
@@ -16661,15 +16792,15 @@ if (runs('goggles')) {
     if (!await sp.evaluate(() => HOST.flight.claims(window.__g.R))) out.push('the right controller is not the game\'s');
     if (await sp.evaluate(() => HOST.flight.state().grip) !== 0) out.push('the grip that carried them is a throttle before it is let go');
     // the same grip still held, pulled away: nothing (it must be let go first)
-    await sp.evaluate(() => { const g = window.__g; g.hand(new THREE.Vector3(0.3, 1.2, 0.1)); g.tick(2); });
+    await sp.evaluate(() => { const g = window.__g; g.hand(window.__g.at(0.3, 1.2, 0.1)); g.tick(2); });
     if (!await sp.evaluate(() => HOST.flight.on())) out.push('the grip that put them on took them off without being let go');
     // let go, pressed again at the face, pulled away: off
-    await sp.evaluate(() => { const g = window.__g; g.R.gamepad.buttons[1].pressed = false; g.tick(1); g.hand(new THREE.Vector3(0.05, 1.55, 0.5)); g.R.gamepad.buttons[1].pressed = true; g.tick(2); g.hand(new THREE.Vector3(0.35, 1.3, 0.2)); g.tick(2); g.R.gamepad.buttons[1].pressed = false; g.tick(2); });
+    await sp.evaluate(() => { const g = window.__g; g.R.gamepad.buttons[1].pressed = false; g.tick(1); g.hand(window.__g.at(0.05, 1.55, 0.5)); g.R.gamepad.buttons[1].pressed = true; g.tick(2); g.hand(window.__g.at(0.35, 1.3, 0.2)); g.tick(2); g.R.gamepad.buttons[1].pressed = false; g.tick(2); });
     const s2 = await sp.evaluate(() => HOST.flight.on());
     if (s2) out.push('the grip pulled from the face did not take them off');
     if (!await ss('GL.world.visible')) out.push('the scene not shown again once they are off');
     // (v198) on again, then the reference space's reset (a recentre): off, and the listener gone
-    await sp.evaluate(([x, y, z, id]) => { const g = window.__g; g.hand(new THREE.Vector3(x, y, z)); g.tick(1); HOST.cur.peek("(XR.ctrls[1].hover = { kind: 'item', id: '" + id + "' }, xrGrab(XR.ctrls[1], true), 0)"); g.hand(new THREE.Vector3(0.02, 1.58, 0.5)); g.tick(3); }, [...g0, id]);
+    await sp.evaluate(([x, y, z, id]) => { const g = window.__g; g.hand(new THREE.Vector3(x, y, z)); g.tick(1); HOST.cur.peek("(XR.ctrls[1].hover = { kind: 'item', id: '" + id + "' }, xrGrab(XR.ctrls[1], true), 0)"); g.hand(window.__g.at(0.02, 1.58, 0.5)); g.tick(3); }, [...g0, id]);
     const on3 = await sp.evaluate(() => [HOST.flight.on(), window.__g.ref.ls.length]);
     if (!on3[0] || on3[1] !== 1) out.push('on again with one reset listener: ' + JSON.stringify(on3));
     await sp.evaluate(() => { const g = window.__g; for (const fn of g.ref.ls.slice()) fn({ type: 'reset' }); g.tick(2); });
@@ -16773,7 +16904,11 @@ function OCCL_FAKE() {
   const F = window.__occl = { o: { refuseUS: false, failDepth: false, cpu: false }, session: null, time: 0, texs: [], texArr: true, texFrame: -1, frameNo: 0, made: 0, near: 0.5, far: 4, drop: null, inits: [], pauses: 0, resumes: 0,
     dead: null, active: true, gen: 0, bindings: 0, unposed: false, tt: 'texture-array' };
   const toWin = m => 1 - WN / m;   // (a depth buffer's value with no far plane)
-  const pose = m => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } });
+  // (the head, its eyes, the controllers and the planes, all in the head's frame, through the seat: window.__xrSeat, see
+  // XR_SEAT; perf.mjs reads this function without a seat: the origin, as before)
+  const seat = () => window.__xrSeat || { m: m => m, H: 0, pose: null };
+  const pose = m => { const S = seat(); return { transform: S.pose ? S.pose(m) : { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }; };
+  const head = m => { const S = seat(); return S.m(m, S.H); };
   // a wall 0.6 m ahead, from 3 m to the left to the middle, from the floor (1.6 m down) to 1 m above the eyes (newPlanes:
   // the same wall as a new set of objects, as a room scan given again)
   const wall = () => new Set([{ planeSpace: { matrix: rotX(Math.PI / 2, 0, -1.6, -0.6) }, polygon: [{ x: -3, y: 0, z: 0 }, { x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: -2.6 }, { x: -3, y: 0, z: -2.6 }], orientation: 'vertical', semanticLabel: 'wall', lastChangedTime: 1 }]);
@@ -16839,11 +16974,11 @@ function OCCL_FAKE() {
         normDepthBufferFromNormView: { matrix: ident() }, depthNear: WN, depthFar: Infinity };
     }
   };
-  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(90, 1, 0.05, 100), transform: { matrix: tr(x, 0, 0), position: { x, y: 0, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }));
-  F.frame = () => ({
+  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(90, 1, 0.05, 100), transform: null, x }));
+  F.frame = () => (views.forEach(v => { v.transform = pose(head(tr(v.x, 0, 0))).transform; }), {
     session: F.session,
-    getViewerPose: () => Object.assign(pose(ident()), { views }),
-    getPose: s => (s && s.floor ? pose(tr(0, -1.6, 0)) : s && s.matrix ? (F.unposed ? null : pose(s.matrix)) : null),
+    getViewerPose: () => Object.assign(pose(head(ident())), { views }),
+    getPose: s => (s && s.floor ? pose(tr(0, seat().H - 1.6, 0)) : s && s.matrix ? (F.unposed ? null : pose(head(s.matrix))) : null),
     detectedPlanes: F.planes, detectedMeshes: new Set(),
     // CPU depth (a phone's): metres in an array of its own, rows from the top
     getDepthInformation: v => {
@@ -16911,9 +17046,11 @@ if (runs('occlusion')) {
   op.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('occlusion: ' + m.text()); });
   await op.addInitScript(OCCL_FAKE);
   const ready = k => op.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 30000 }).then(() => op.evaluate(() => HOST.mods.xr()));   // (occlusion.js on demand since v226: as a session's start loads it)
-  // the magenta test plane, 1.2 m by 0.8 m, 0.8 m ahead in the story's scene (its root is the headset's space)
+  // the magenta test plane, 1.2 m by 0.8 m, 0.8 m ahead of the head in the story's scene (its root is the headset's space,
+  // where the seat puts the head off the origin, turned: window.__xrSeat), facing it
   const plane = () => op.evaluate(() => { const sc = HOST.cur.collab.scene(), m = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.8), new THREE.MeshBasicMaterial({ color: 0xff00ff, toneMapped: false, fog: false }));
-    m.position.set(0, 0, -0.8); m.name = 'occlusion test'; sc.add(m); return 0; });
+    const S = window.__xrSeat, p = S.p({ x: 0, y: S.H, z: -0.8 });
+    m.position.set(p.x, p.y, p.z); m.rotation.y = S.yaw; m.name = 'occlusion test'; sc.add(m); return 0; });
   // the plane on the left and the right of each eye's middle, above the eyes (clear of the notice and the menu)
   const PTS = [[0, 0.3, 0.62], [0, 0.7, 0.62], [1, 0.3, 0.62], [1, 0.7, 0.62]];
   const mag = px => px[0] > 200 && px[1] < 70 && px[2] > 200 && px[3] > 200;
@@ -16975,7 +17112,9 @@ if (runs('occlusion')) {
     await op.evaluate(() => { window.__occl.near = window.__occl.far = 0.3; HOST.collab.panelOpen(true); HOST.collab.menuTab('settings'); });
     await op.evaluate(() => window.__occl.step(4));
     const at = await op.evaluate(() => {   // the menu's middle in the left eye (90 degree views, the eye 3.2 cm to the left)
-      const m = HOST.collab.overlay().panel.mesh, p = m.getWorldPosition(new THREE.Vector3());
+      // (in the head's frame: the seat's place and turn taken off, window.__xrSeat)
+      const Z = window.__xrSeat, Sm = new THREE.Matrix4().fromArray(Z.m(new THREE.Matrix4().elements, Z.H)).invert();
+      const m = HOST.collab.overlay().panel.mesh, p = m.getWorldPosition(new THREE.Vector3()).applyMatrix4(Sm);
       return [0, 0.5 + (p.x + 0.032) / -p.z / 2, 0.5 + p.y / -p.z / 2, m.material.depthTest];
     });
     const px = await op.evaluate(pts => window.__occl.look(pts, 2), [at.slice(0, 3), [0, 0.7, 0.62]]);
@@ -17260,7 +17399,10 @@ function PHONE_FAKE() {
   const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
   const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
   const F = window.__phone = { o: { overlay: true }, session: null, time: 0, inits: [], ends: 0 };
-  const pose = (m, q) => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: q || { x: 0, y: 0, z: 0, w: 1 } } });
+  // (the phone, its views and a tap's ray, in the phone's frame, through the seat: window.__xrSeat, see XR_SEAT; held 1.6 m up)
+  const seat = () => window.__xrSeat || { m: m => m, H: 0, pose: null };
+  const pose = (m, q) => { const S = seat(); return { transform: S.pose ? S.pose(m) : { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: q || { x: 0, y: 0, z: 0, w: 1 } } }; };
+  const head = m => { const S = seat(); return S.m(m, S.H); };
   const space = o => Object.assign({ addEventListener() {}, removeEventListener() {} }, o);
   class Session extends EventTarget {
     constructor(mode, feats, overlay) {
@@ -17278,11 +17420,11 @@ function PHONE_FAKE() {
   WebGL2RenderingContext.prototype.makeXRCompatible = function () { return Promise.resolve(); };
   window.XRWebGLLayer = class { constructor(s, gl) { this.framebufferWidth = gl.drawingBufferWidth; this.framebufferHeight = gl.drawingBufferHeight; this.framebuffer = null; this.antialias = true; }
     getViewport(v) { const w = this.framebufferWidth / 2; return { x: v.eye === 'left' ? 0 : w, y: 0, width: w, height: this.framebufferHeight }; } };
-  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(70, 0.5, 0.05, 100), transform: { matrix: tr(x, 0, 0), position: { x, y: 0, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }));
-  F.frame = () => ({
+  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(70, 0.5, 0.05, 100), transform: null, x }));
+  F.frame = () => (views.forEach(v => { v.transform = pose(head(tr(v.x, 0, 0))).transform; }), {
     session: F.session,
-    getViewerPose: () => Object.assign(pose(ident()), { views }),
-    getPose: s => (s && s.ray ? pose(s.ray, s.q) : s && s.floor ? pose(tr(0, -1.6, 0)) : null),
+    getViewerPose: () => Object.assign(pose(head(ident())), { views }),
+    getPose: s => (s && s.ray ? pose(head(s.ray), s.q) : s && s.floor ? pose(tr(0, seat().H - 1.6, 0)) : null),
   });
   F.step = (n = 1) => {
     for (let i = 0; i < n; i++) {
@@ -17460,7 +17602,9 @@ if (runs('phone ar')) {
     // the menu open: two quick taps at it (its left margin, no button there) leave it open
     await p.waitForTimeout(500);
     await p.evaluate(() => { HOST.collab.panelOpen(true); window.__phone.step(3); });
-    const at = await p.evaluate(() => { const m = HOST.collab.overlay().panel.mesh, w = m.geometry.parameters.width; return m.localToWorld(new THREE.Vector3(-w * 0.49, 0, 0)).toArray(); });
+    // (a tap's direction is in the phone's frame: the menu's point with the seat's place and turn taken off, window.__xrSeat)
+    const at = await p.evaluate(() => { const m = HOST.collab.overlay().panel.mesh, w = m.geometry.parameters.width, Z = window.__xrSeat, Sm = new THREE.Matrix4().fromArray(Z.m(new THREE.Matrix4().elements, Z.H)).invert();
+      return m.localToWorld(new THREE.Vector3(-w * 0.49, 0, 0)).applyMatrix4(Sm).toArray(); });
     const r4 = await p.evaluate(at => { const F = window.__phone, a = F.tap(at), hv = HOST.collab.internals().hov.get(0), b = F.tap(at); F.step(1); return [Math.round(b - a), HOST.collab.menu, hv && hv.target && hv.target.kind]; }, at);
     if (!r4[1] || r4[2] !== 'panel') errors.push('phone ar: two quick taps at the menu (' + at.map(v => v.toFixed(2)) + ', ' + r4[0] + ' ms apart, pointing at ' + r4[2] + ') closed it');
     await p.evaluate(() => HOST.collab.panelOpen(false));
@@ -17519,7 +17663,7 @@ if (runs('phone ar')) {
 // and closing it, explore's drawer closed by default then open and closed, nothing on the Stories screen; #focus=off
 // giving the layout as ever, and a desktop page off and unchanged. (With --only: 'focus mode', 'phones', 'tablets' or
 // 'iPhone' runs these two blocks, each step by its name)
-if (['focus mode', 'phones', 'tablets', 'iPhone'].some(runs)) {
+if (inGroup('focus mode') && (BLOCK || ['focus mode', 'phones', 'tablets', 'iPhone'].some(runs))) {
   const ready = () => HOST.cur && HOST.cur.collab.scene() && document.getElementById('loading').classList.contains('gone');
   const watch = p => {
     p.on('pageerror', e => errors.push(e.stack || e.message));
@@ -17893,7 +18037,10 @@ function CTRL_FAKE() {
   const tr = (x, y, z) => { const m = ident(); m[12] = x; m[13] = y; m[14] = z; return m; };
   const persp = (fov, asp, n, f) => { const t = 1 / Math.tan(fov * Math.PI / 360); return new Float32Array([t / asp, 0, 0, 0, 0, t, 0, 0, 0, 0, (f + n) / (n - f), -1, 0, 0, 2 * f * n / (n - f), 0]); };
   const F = window.__ctl = { session: null, got: [], sess: [] };
-  const pose = (m, q) => ({ transform: { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: q || { x: 0, y: 0, z: 0, w: 1 } } });
+  // (the head, its views and the controllers' rays and grips, in the head's frame, through the seat: window.__xrSeat, see XR_SEAT)
+  const seat = () => window.__xrSeat || { m: m => m, H: 0, pose: null };
+  const pose = (m, q) => { const S = seat(); return { transform: S.pose ? S.pose(m) : { matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: q || { x: 0, y: 0, z: 0, w: 1 } } }; };
+  const head = m => { const S = seat(); return S.m(m, S.H); };
   const space = o => Object.assign({ addEventListener() {}, removeEventListener() {} }, o);
   class Session extends EventTarget {
     constructor(mode, feats) {
@@ -17910,11 +18057,11 @@ function CTRL_FAKE() {
   WebGL2RenderingContext.prototype.makeXRCompatible = function () { return Promise.resolve(); };
   window.XRWebGLLayer = class { constructor(s, gl) { this.framebufferWidth = gl.drawingBufferWidth; this.framebufferHeight = gl.drawingBufferHeight; this.framebuffer = null; this.antialias = true; }
     getViewport(v) { const w = this.framebufferWidth / 2; return { x: v.eye === 'left' ? 0 : w, y: 0, width: w, height: this.framebufferHeight }; } };
-  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(90, 0.5, 0.05, 100), transform: { matrix: tr(x, 0, 0), position: { x, y: 0, z: 0, w: 1 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }));
-  F.frame = () => ({
+  const views = [-0.032, 0.032].map((x, i) => ({ eye: i ? 'right' : 'left', projectionMatrix: persp(90, 0.5, 0.05, 100), transform: null, x }));
+  F.frame = () => (views.forEach(v => { v.transform = pose(head(tr(v.x, 0, 0))).transform; }), {
     session: F.session,
-    getViewerPose: () => Object.assign(pose(ident()), { views }),
-    getPose: s => (s && s.ray ? pose(s.ray, s.q) : s && s.floor ? pose(tr(0, -1.6, 0)) : null),
+    getViewerPose: () => Object.assign(pose(head(ident())), { views }),
+    getPose: s => (s && s.ray ? pose(head(s.ray), s.q) : s && s.floor ? pose(tr(0, seat().H - 1.6, 0)) : null),
     getJointPose: () => null,
   });
   F.step = (n = 1) => { for (let i = 0; i < n; i++) { const cbs = [...F.session.cbs.values()]; F.session.cbs.clear(); const fr = F.frame(); for (const cb of cbs) cb(performance.now(), fr); } };
@@ -17973,8 +18120,11 @@ if (runs('controllers after standby')) {
     const r = HOST.collab.menuFind('subs'), S = HOST.collab.overlay().panel;
     if (!r) return 'no subs row';
     F.step(2);
-    const p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.vis) * S.mw * S.h / S.w, 0)), o = new V(0.2, -0.3, -0.2);
-    const m = new THREE.Matrix4().lookAt(o, p, new V(0, 1, 0)).setPosition(o), q = new THREE.Quaternion().setFromRotationMatrix(m);
+    // (the ray is held in the head's frame, which the seat puts off the origin and turned: aimed in the world from the hand
+    // where the headset has it, then given back in the head's frame)
+    const Z = window.__xrSeat, Sm = new THREE.Matrix4().fromArray(Z.m(new THREE.Matrix4().elements, Z.H));
+    const p = S.mesh.localToWorld(new V(((r.x + r.w / 2) / S.w - 0.5) * S.mw, (0.5 - (r.y + r.h / 2) / S.vis) * S.mw * S.h / S.w, 0)), o = new V(0.2, -0.3, -0.2).applyMatrix4(Sm);
+    const m = Sm.clone().invert().multiply(new THREE.Matrix4().lookAt(o, p, new V(0, 1, 0)).setPosition(o)), q = new THREE.Quaternion().setFromRotationMatrix(m);
     F.R.targetRaySpace.ray = Float32Array.from(m.elements); F.R.targetRaySpace.q = { x: q.x, y: q.y, z: q.z, w: q.w };
     F.step(3);
     const h = HOST.collab.internals().hov.get(1), hit = h && h.target.kind === 'panel' ? S.at(h.x, h.y) : null;
@@ -18259,8 +18409,11 @@ if (runs('developer mode')) {
       HOST.collab.autoWelcome(w); HOST.collab.welcomeMs(1500);
       const dc = () => !document.getElementById('devCard').hidden;
       HOST.dev.card(true, 'hand'); window.__devCard = [dc()];   // (open as the session starts: it closes, as Later)
+      // (window.__head is in the seat's frame, window.__xrSeat: the steps move and turn it from there; __headW() is where the
+      // headset has it, off the origin and turned)
       window.__head = { p: [0, 1.6, 0], q: [0, 0, 0, 1] };
-      const pose = () => { const h = window.__head; return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
+      window.__headW = () => { const S = window.__xrSeat, h = window.__head, p = S.p({ x: h.p[0], y: h.p[1], z: h.p[2] }), q = S.q({ x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] }); return { p: [p.x, p.y, p.z], q: [q.x, q.y, q.z, q.w] }; };
+      const pose = () => { const h = window.__headW(); return { transform: { position: { x: h.p[0], y: h.p[1], z: h.p[2] }, orientation: { x: h.q[0], y: h.q[1], z: h.q[2], w: h.q[3] } } }; };
       window.__frame = { getViewerPose: pose };
       window.__raf = [];
       HOST.renderer.xr.getReferenceSpace = () => ({});
@@ -18933,7 +19086,8 @@ if (runs('update the room')) {
     const r = await up.evaluate(async () => {
       const w = ms => new Promise(x => setTimeout(x, ms)), C = HOST.collab;
       // a pretend headset session (the menu is drawn in the shell's frame callback)
-      const raf = [], fr = { getViewerPose: () => ({ transform: { position: { x: 0, y: 1.6, z: 0 }, orientation: { x: 0, y: 0, z: 0, w: 1 } } }) };
+      // (the head at its seat, window.__xrSeat: off the origin and turned)
+      const S = window.__xrSeat, raf = [], fr = { getViewerPose: () => ({ transform: { position: S.p({ x: 0, y: 1.6, z: 0 }), orientation: S.q({ x: 0, y: 0, z: 0, w: 1 }) } }) };
       HOST.renderer.xr.getReferenceSpace = () => ({});
       const s = { visibilityState: 'visible', renderState: {}, environmentBlendMode: 'opaque', enabledFeatures: [], inputSources: [], addEventListener() {}, removeEventListener() {}, requestAnimationFrame: cb => raf.push(cb) };
       HOST.session = s;
@@ -19010,11 +19164,11 @@ if (runs('update the room')) {
   await up.evaluate(() => { try { sessionStorage.removeItem('roomReload'); HOST.collab.leave(); } catch (e) { /* gone */ } });
   await ctx.close();
 }
-await step('old links forward to the app', async () => {
+if (inGroup('old links')) await step('old links forward to the app', async () => {
   await page.goto(base + 'spatial.html#t=20');
   await page.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'spatial', null, { timeout: 30000 });
 });
 await browser.close();
-if (ONLY && !stepsRun) errors.push('--only ' + JSON.stringify(ONLY) + ' matched no block or step (node tools/smoke.mjs --list names them)');
+if ((ONLY || BLOCK) && !stepsRun) errors.push((BLOCK ? '--block ' + JSON.stringify(BLOCK) : '--only ' + JSON.stringify(ONLY)) + ' matched no block or step. The blocks (--block takes these ids; --list names every step):\n  ' + (await blockIds()).join('\n  '));
 if (errors.length) { console.log('\n' + errors.join('\n\n')); process.exit(1); }
 console.log('\nall good');
