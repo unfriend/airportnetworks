@@ -66,7 +66,7 @@
 // starts the room and is kept; a second page joins by the link, which has no password; a pretend headset uses the menu's
 // keypad page and joins; the password in no log, address, room key or relay line; Forget the password; with --shots
 // token-*.png);
-// --studio only the studio in a room (studioRound, also in the main run: relays of its own from port 8790 up, with --scenes
+// --studio only the studio in a room (studioRound, also in the main run: relays of its own on free ports, with --scenes
 // on a temporary copy of tools/studio/test/scenes; three pages and a pretend headset at a studio station: Studio here, a
 // scene picked for all, two edits at once both kept, the headset's trigger cube, Save from the headset (.history/), a file
 // added to the folder in the Add lists, the story's lock, Convert to GLB switching every page, a texture added from a
@@ -74,7 +74,7 @@
 // there), a sound following the dancer's head on every device and in the saved layout, a long sound streamed, the
 // relay's /upload and the Upload pane sorting the test originals into models/, sounds/ and originals/; then a relay with
 // COLLAB_TOKEN: nothing without the password, everything with it, the password written nowhere; then the scenes in R2
-// (--scenes r2) against the stand-in S3 on another port (from 8840 up): files by signed links, Save, Convert to GLB and
+// (--scenes r2) against the stand-in S3 on another free port: files by signed links, Save, Convert to GLB and
 // the Upload pane straight into the bucket, the pretend headset, the password nowhere; with --shots studio-*.png);
 // --ask only the circles asked first (askRound, also in the main run after the ten-headset round: a room of its own with two
 // story circles and the lobby; a page's dialog turns the room's switch on; a pretend headset walking into a circle enters
@@ -128,7 +128,7 @@
 // given once; A lands and B takes the set over where it was; A fires at B, B decides (shield 80 everywhere), B destroyed and
 // A credited (the page's people list), B back 5 s later; no room key written, no effect at a story's hook; a few minutes);
 // --trackers only the PC's Vive trackers end to end (trackersRound, also in the main run after the studio's behaviours: a
-// relay of its own from port 8730 up with --trackers and --scenes on a copy of the test and puppet scenes, the fake bridge
+// relay of its own on a free port with --trackers and --scenes on a copy of the test and puppet scenes, the fake bridge
 // with SteamVR's space turned and moved against the room, three pages and a pretend VR headset that is not a Quest's
 // browser: the dialog's switch, lining up by hand through /api/trackers/still, names; the trackers within 2 mm of the truth
 // at one held time; the headset lined up by them (the Index); at a studio circle a shape on a prop tracker within 5 mm, the
@@ -145,7 +145,7 @@
 // floor that moved, its turn steadied against a wobble and following a turn of local-floor at once, and eight such places
 // fitting; an older single calibration taken by the first room it lines up in; eight or nine minutes);
 // --reload only rooms across updates and Update the room (reloadRound, v136, also in the main run after the areas round: a
-// relay of its own on port 8712, restarted serving another copy of the app as a deploy; copies old (this code), new (its
+// relay of its own on a free port, restarted on it serving another copy of the app as a deploy; copies old (this code), new (its
 // FORMAT one more) and v135 (git 7c32b37) made by tools/release.mjs in a temporary folder: a deploy bumping FORMAT with old
 // pages in a room, the new page waiting and everyone back once the old ones reload; the switch for the same version (the
 // order of reloading, a pretend headset back at its station without walking in); across FORMAT from a refused page, with
@@ -210,7 +210,7 @@ const FLAGS = [
   ['--areas', 'only areas, more tape crosses in one room: areasRound, a room of its own (main)'],
   ['--trackers', 'only the PC\'s Vive trackers end to end: trackersRound, a relay of its own with --trackers and --scenes, and the fake bridge (main)'],
   ['--output', 'only the output page, MIDI and OSC, end to end: outputRound, a relay of its own with --osc-out, --osc-in, --trackers and --scenes, the fake bridge (main)'],
-  ['--reload', 'only rooms across updates and Update the room: reloadRound, a relay of its own on port 8712 (main)'],
+  ['--reload', 'only rooms across updates and Update the room: reloadRound, a relay of its own on a free port (main)'],
   ['--cases <a,b>', 'with --reload: only those of its six cases'],
   ['--talk', 'only Talk end to end: talkRound, a room of its own (not in the main run)'],
   ['--net', 'only the cell story\'s shared networks: netRound, relays of its own with --scenes and --no-nets (not in the main run)'],
@@ -454,7 +454,9 @@ const HEADSET_STORY = 'flock', OTHER_STORY = 'spatial', PICK_STORY = 'proteins',
 
 const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const argv = process.argv.slice(2), shots = argv.includes('--shots') ? argv[argv.indexOf('--shots') + 1] : '';
-const P2P = argv.includes('--p2p'), P2P_KEY = 'proteins', P2P_T = STORIES[P2P_KEY];   // (peer to peer: the station followed there)
+// (peer to peer: the station followed there, one Arrange all places: a story of the main set; proteins, its story until
+// v226, went to the Experiments set in v188, so it had no station there and the part stopped at its Follow)
+const P2P = argv.includes('--p2p'), P2P_KEY = 'spatial', P2P_T = STORIES[P2P_KEY];
 const NAMES_ONLY = argv.includes('--names');   // (only room names: namesRound, a relay of its own with --proxy)
 const NEAR_ONLY = argv.includes('--near');   // (only rooms on this network)
 // (--design ran the design room in a room until v217: the design room is parked, tools/design/README.md)
@@ -494,7 +496,9 @@ const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright')
 // (the fake microphone, granted without asking: the studio's voice recorded with a movement, v125)
 const LAUNCH_ARGS = ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--disable-features=WebRtcHideLocalIpsWithMdns', '--allow-loopback-in-peer-connection',
   '--use-fake-ui-for-media-stream', '--use-fake-device-for-media-stream'];
-const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: LAUNCH_ARGS });
+// (let: a browser that died under a round, as one did on a machine running out of memory, is launched again for the
+// next round by round(), so one crash does not fail every round after it)
+let browser = null;
 // every device starts with the room's automatic All stories circles off (a page's arc in a room with no stations, the
 // first headset's circle: v109), as installXR turns the first headset's off: only the All stories round asks for them
 // ({ arc: true } with a context's options, or open(hash, size, true)). Likewise every device starts with a room that never
@@ -503,19 +507,35 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 // device starts with the headsets' welcome (v124, Getting around: once a session, in front of the headset) off, so a
 // pretend headset's view and its notices are as before (the notice The menu shows instead); installXR turns it on for a
 // session that asks ({ welcome: true }: the narration round's)
-const newContext = browser.newContext.bind(browser);
-browser.newContext = async (o = {}) => {
-  const { arc, ask, welcome, studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
-  // (and the studio's textures JPEG/PNG at most 2,048 px, as the rounds written before v151 expect: a page makes KTX2 by
-  // default, which their plain GLTFLoader cannot read back)
-  await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('tutorialHold', 'off'); localStorage.setItem('xrTurn', 'steps'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
-  return ctx;
-};
+async function launchBrowser() {
+  browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined, args: LAUNCH_ARGS });
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (o = {}) => {
+    const { arc, ask, welcome, studioTex = 'img2', ...rest } = o, ctx = await newContext(rest);
+    // (and the studio's textures JPEG/PNG at most 2,048 px, as the rounds written before v151 expect: a page makes KTX2 by
+    // default, which their plain GLTFLoader cannot read back)
+    await ctx.addInitScript(w => { try { if (!w.arc) localStorage.setItem('collabAutoAll', 'off'); if (!w.ask) localStorage.setItem('collabAskDefault', 'walk'); if (!w.welcome) localStorage.setItem('collabAutoWelcome', 'off'); localStorage.setItem('collabMenus', 'full'); localStorage.setItem('tutorialHold', 'off'); localStorage.setItem('xrTurn', 'steps'); if (w.tex) localStorage.setItem('studioTexKind', w.tex); } catch (e) { /* storage blocked */ } }, { arc: !!arc, ask: !!ask, welcome: !!welcome, tex: studioTex });
+    return ctx;
+  };
+}
+await launchBrowser();
 const fails = [], errors = [];
 const check = (name, ok, detail) => {
   console.log((ok ? 'ok   ' : 'FAIL ') + name + (!ok && detail ? ': ' + detail : ''));
   if (!ok) fails.push(name);
 };
+// every round runs through round(): a thrown error there is that round's FAIL (with the error), and the next round still
+// runs; the end says how many rounds and checks failed (rounds: { name, ok, s, threw })
+const rounds = [];
+async function round(name, fn) {
+  const f0 = fails.length, t0 = Date.now();
+  let threw = false;
+  console.log('---- ' + name);
+  if (!browser.isConnected()) { console.log('     (the browser had died: launched again for this round)'); await launchBrowser(); }
+  if (relay && relay.exitCode !== null) { console.log('     (the main relay had stopped: started again on its port for this round)'); await startRelay(port).catch(e => console.log('     (it could not start: ' + e.message + ')')); }
+  try { await fn(); } catch (e) { threw = true; console.log('FAIL ' + name + ' threw: ' + ((e && (e.stack || e.message)) || e)); fails.push(name + ' threw'); }
+  rounds.push({ name, ok: fails.length === f0, s: Math.round((Date.now() - t0) / 1000), threw });
+}
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const near = (a, b, tol) => a.length === b.length && a.every((v, i) => Math.abs(v - b[i]) <= tol);
 const dist = (a, b) => Math.hypot(...a.map((v, i) => v - b[i]));
@@ -574,6 +594,47 @@ const SHARED = [-1, 0, 0.5, 1.1], FLOOR = [0.4, 0, -0.7, -0.5], LOCAL = [0.9, 1.
 // origin TIP over the true floor (y 0 in the pretend room; shared.js's FLOOR_TIP)
 const TIP = 0.02;
 const frameFor = (P, uuid, by, at) => ({ uuid, o: unapply(SHARED, [P[0], P[1], P[2]]), x: rot(-SHARED[3], rot(P[3], [1, 0, 0])), by, at, src: 'marks' });
+// Every pretend headset stands away from its session's origin (the owner, 27 November 2026, after a headset fault the
+// tests could not see because a pretend head stood at the origin with no turn: "put the test headsets about 180 cm in
+// each direction around origin"). Each pretend device (a browser context) takes the next of SPOTS ([x, z, yaw]): its own
+// spaces (local, local-floor, and a shared space that is only its own floor) are moved in the pretend room, by D, so that
+// at its first session's start its head stands in its local space 1.8 m off in x and in z, turned by a yaw that is no
+// multiple of 90 degrees, a different spot for each device. local keeps its height (WebXR's local space starts at the eyes
+// on a headset; local-floor stays on the floor, the head 1.6 m over it, or the height a round gives on purpose). Everything
+// physical stays where the round puts it: the head (so the controllers held from it), the room, the stations, the shared
+// space, anchors and marks. So a round gives every pose of a headset's own spaces (installXR's local and floor, a
+// floorReset, a re-made local) before D, the page moves it by D (X.own), and an expectation in the headset's own
+// coordinates takes its space through ownPose(page, P). { origin: true }: the spaces exactly as given (D none), only for a
+// check that truly needs a headset at its origin, saying why at the call. D stays the device's across its sessions, as a
+// headset's floor does.
+const SPOTS = [[1.8, 1.8, 0.6], [-1.8, 1.8, -2.3], [1.8, -1.8, 2.0], [-1.8, -1.8, -0.9]];
+const spotOf = new WeakMap();
+let spotN = 0, spotChecked = false;
+const compose = (A, B) => [...apply(A, B.slice(0, 3)), A[3] + B[3]];
+const inverse = P => [...rot(-P[3], [-P[0], -P[1], -P[2]]), -P[3]];
+// a pose of page's own spaces (as the round gives it) where that headset has it: moved by its device's D
+const ownPose = (page, P) => { const D = spotOf.get(page.context()); return D ? compose(D, P) : P; };
+function xrInstall(page, o) {
+  const ctx = page.context();
+  let D = o.origin ? [0, 0, 0, 0] : spotOf.get(ctx);
+  if (!D) {
+    const [qx, qz, qa] = SPOTS[spotN++ % SPOTS.length], h = o.head, L = o.local;
+    // local's origin flat on the head's spot less the head's place in it, then D carries the given local there
+    D = compose(compose([h[0], 0, h[2], h[3] || 0], inverse([qx, 0, qz, qa])), inverse([L[0], 0, L[2], L[3]]));
+  }
+  spotOf.set(ctx, D);
+  const first = !o.origin && !spotChecked;
+  if (first) spotChecked = true;
+  return page.evaluate(installXR, Object.assign({}, o, { D, sharedOwn: o.shared === o.floor })).then(async r => {
+    if (!first) return r;
+    // (once a run: the first pretend headset's head, as its session sees it in the story's local space, is off its origin)
+    const h = await page.evaluate(() => { const X = window.__xr, m = X.W.local.clone().invert().multiply(X.W.head), p = new THREE.Vector3().setFromMatrixPosition(m); return [p.x, p.y, p.z, 2 * Math.atan2(new THREE.Quaternion().setFromRotationMatrix(m).y, new THREE.Quaternion().setFromRotationMatrix(m).w)]; });
+    const q = SPOTS[0];
+    check('the pretend headsets stand away from their session\'s origin: the first one\'s head 1.8 m off in x and z of its local space, turned by no multiple of 90 degrees',
+      Math.abs(h[0] - q[0]) < 1e-3 && Math.abs(h[2] - q[1]) < 1e-3 && angle(h[3], q[2]) < 1e-3, fmt(h));
+    return r;
+  });
+}
 
 // a pretend headset session in a page (WebXR in software, as tools/smoke.mjs does): fake spaces and frames
 // whose poses come from the room above; the story's xrBegin and the shell's own frame callback are driven by step()
@@ -583,7 +644,9 @@ function installXR(o) {
   if (HOST.collab.autoWelcome) HOST.collab.autoWelcome(!!o.welcome);   // (the welcome, Getting around, once a session: likewise)
   const V = (x, y, z) => new THREE.Vector3(x, y, z), Y = V(0, 1, 0);
   const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(Y, a[3]), V(1, 1, 1));
-  const X = window.__xr = { W: { local: M(o.local), floor: M(o.floor), shared: M(o.shared), head: M(o.head) }, raf: [], made: [], handles: window.__handles || new Map(), resets: {}, n: 0 };
+  // (o.D: this device's spot, xrInstall's: own(a) is a pose of its own spaces as the round gives it, moved there)
+  const DM = M(o.D || [0, 0, 0, 0]), own = a => DM.clone().multiply(M(a));
+  const X = window.__xr = { W: { local: own(o.local), floor: own(o.floor), shared: o.sharedOwn ? own(o.shared) : M(o.shared), head: M(o.head) }, own, D: o.D || [0, 0, 0, 0], raf: [], made: [], handles: window.__handles || new Map(), resets: {}, n: 0 };
   window.__handles = X.handles;   // saved anchors outlive a session, as on a headset
   // the place this headset keeps for the room it is in (v130: roomFrames, a calibration per room), as stored; null: none
   window.__stored = () => { try { const s = JSON.parse(localStorage.getItem('roomFrames') || 'null'); return ((s && s.places) || []).find(p => p.code === HOST.collab.code) || null; } catch (e) { return null; } };
@@ -691,12 +754,12 @@ function installXR(o) {
     c.g.matrix.compose(ol, new THREE.Quaternion().setFromUnitVectors(V(0, 0, -1), dl), V(1, 1, 1));
   };
   X.end = () => { try { HOST.cur.peek('xrEnded()'); } catch (e) { /* no story */ } HOST.session = null; HOST.mode = null; xr.getReferenceSpace = X.getRef; };
-  // local-floor moves to F (the room's pose of its origin) and says so as Quest Browser does: a reset whose
+  // local-floor moves to F (the room's pose of its origin, before this device's spot) and says so as Quest Browser does: a reset whose
   // transform carries points from the old coordinates into the new ones, its height the head's change (dy, which
   // must not count); err moves the reported origin (Quest's was 1 to 1.5 cm out)
   X.floorReset = (F, dy, err) => {
-    const old = X.W.floor, E = err ? M([F[0] + err[0], F[1], F[2] + err[2], F[3]]) : M(F);
-    X.W.floor = M(F);
+    const old = X.W.floor, E = err ? own([F[0] + err[0], F[1], F[2] + err[2], F[3]]) : own(F);
+    X.W.floor = own(F);
     const newFromOld = new THREE.Matrix4().makeTranslation(0, dy || 0, 0).multiply(E.clone().invert().multiply(old));
     for (const fn of X.resets['local-floor'] || []) fn({ transform: { matrix: Float32Array.from(newFromOld.elements), inverse: { matrix: Float32Array.from(newFromOld.clone().invert().elements) } } });
   };
@@ -761,7 +824,7 @@ async function standbySteps(H, wantO) {
   const back6 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, note: HOST.room.floorNote(), after: window.__collabLog.filter(e => e.ev === 'shared after wake').slice(-1)[0] || null,
     // (what the room did meanwhile, for a failure: its height comes back from the shared space, and is lost if the space's id changed)
     trail: window.__collabLog.filter(e => /shared|floor|wake|frame|reset|visib|height/.test(e.ev)).slice(-16).map(e => [e.t, e.ev, e.id || e.src || e.d || e.was || ''].join(' ')) }));
-  const w6 = unapply(F6, ROOM.slice(0, 3)), x6 = rot(-F6[3], rot(ROOM[3], [1, 0, 0]));
+  const F6h = ownPose(H, F6), w6 = unapply(F6h, ROOM.slice(0, 3)), x6 = rot(-F6h[3], rot(ROOM[3], [1, 0, 0]));   // (F6 where this headset has it: its spot)
   check('headset: after standby, while the shared space is wrong, the frame the floor\'s reset carried over holds', held6.src === 'adopted' && held6.held && !!held6.frame &&
     near([held6.frame.o[0], held6.frame.o[2]], [w6[0], w6[2]], 2e-3) && near(held6.frame.x, x6, 2e-3), JSON.stringify(Object.assign(held6, { want: [w6, x6] })));
   check('headset: once the shared space agrees again the room is where it was, at the same height though the floor moved 15 cm', looked && back6.src === 'adopted' &&
@@ -792,7 +855,7 @@ async function standbyRound() {
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
   await H.evaluate(() => HOST.room.sharedAlign(true));
-  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+  await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => window.__xr.head([-6, 1.6, 6, 0]));   // (away from the stations, as in the main run)
@@ -802,7 +865,7 @@ async function standbyRound() {
   // that loaded quickly gets here sooner, so wait for it)
   await until(H, () => { window.__xr.step(); return HOST.room.src === 'adopted'; }, null, 8000);
   const fr = await H.evaluate(() => HOST.room.frame && { o: HOST.room.frame.o, x: HOST.room.frame.x, src: HOST.room.src });
-  const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
+  const FH = ownPose(H, FLOOR), wantO = unapply(FH, ROOM.slice(0, 3)), wantX = rot(-FH[3], rot(ROOM[3], [1, 0, 0]));
   check('standby: the pretend headset aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),
     fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
   // (the main run waits here for the notice saying how to open the menu, 2.5 s into the session)
@@ -816,6 +879,15 @@ const frames = (page, ms) => page.evaluate(async ms => {
   const t0 = performance.now();
   while (performance.now() - t0 < ms) { window.__xr.step(); await new Promise(r => setTimeout(r, 16)); }
 }, ms);
+// frames on pretend headsets hs (all at once) until fn(arg) holds on page Q, ms at most: a wait on a condition instead of a
+// fixed time (a busy machine draws a pretend headset's frames far apart, and what a page hears of it comes later)
+async function framesUntil(hs, Q, fn, arg, ms) {
+  const go = Promise.all(hs.map(h => h.evaluate(async ms => { window.__go = true; const t0 = performance.now(); while (window.__go && performance.now() - t0 < ms) { window.__xr.step(); await new Promise(r => setTimeout(r, 16)); } }, ms)));
+  const ok = await until(Q, fn, arg, ms);
+  await Promise.all(hs.map(h => h.evaluate(() => { window.__go = false; }).catch(() => {})));
+  await go;
+  return ok;
+}
 // frames on pretend headsets, all at once, until each is lined up (30 s at most). A headset takes a frame published for
 // its shared space only once its socket has been open 5 s (the room's members known: shared.js align's early); since
 // v219's quicker start (no story behind the start page, a story's file run as a script element) a fixed 300 ms after the
@@ -1228,7 +1300,7 @@ async function nearby() {
     // the headset's menu lists the rooms on this network too, and one press there joins
     const Hm = await nopen(at(HP, '#airports'));
     await ready(Hm, 'airports');
-    await Hm.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await xrInstall(Hm, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
     await Hm.evaluate(() => { window.__xr.begin(); HOST.collab.panelOpen(true); });
     await frames(Hm, 400);
     await until(Hm, c => (HOST.collab.nearby() || []).some(r => r.code === c), R1, 15000);
@@ -1491,7 +1563,7 @@ async function namesRound(dir) {
     // 5. a pretend headset's menu
     const H = await nopen(at(HP, '#airports')); pages.push(H);
     await ready(H, 'airports');
-    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
     await H.evaluate(() => { window.__xr.begin(); HOST.collab.panelOpen(true); });
     await frames(H, 300);
     await H.evaluate(async c => { await HOST.collab.detect(); HOST.collab.join(c); }, XYZ);
@@ -1662,7 +1734,7 @@ async function personFollow(code, dir) {
     await see('.sh-people', 'follow-person-1-people.png');
     // not at a station yet: the dialog stays open and says so
     await click(`[data-sh="who:${G.id}"]`);
-    const w0 = await until(D, () => !document.getElementById('shared').hidden && document.querySelector('#shared .sh-room span').textContent === 'Following Guide (not at a station yet)', null, 5000);
+    const w0 = await until(D, () => !document.getElementById('shared').hidden && document.querySelector('#shared .sh-room span').textContent === 'Following Guide (not at a station yet)', null, 10000);   // (10 s, not 5: red once under load, then right)
     check('follow a person not at a station yet: the dialog stays open and says so', w0 && (await fol())[0] === G.id, JSON.stringify([await line(), await fol()]));
     // they walk into a circle: the page follows that station, and the dialog says where they are
     go(s1, 0);
@@ -1765,7 +1837,7 @@ async function headsetRound(dir) {
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
   await H.evaluate(() => { HOST.room.sharedAlign(true); localStorage.removeItem('collabPeople'); });
-  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+  await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
@@ -1918,7 +1990,7 @@ async function headsetRound(dir) {
     // 1.6 m from another station's spot (out of its 1.1 m circle): its ring comes back (pointable), and goes beyond 2.2 m
     const ringNear = async (s, dist) => {
       await goRoom(H, s.x, 1.6, s.z - dist, 0);   // (beyond it, away from the other two)
-      await until(H, ([id, on]) => { window.__xr.step(); const o = HOST.collab.overlay().rings.get(id); return on ? o.near > 0.95 : !o.ring.visible; }, [s.id, dist < 2], 8000);   // (it fades in and out)
+      await until(H, ([id, on]) => { window.__xr.step(); const o = HOST.collab.overlay().rings.get(id); return on ? o.near > 0.95 : !o.ring.visible; }, [s.id, dist < 2], 20000);   // (it fades in and out: 20 s at most, not 8, red once under load mid-fade)
       return H.evaluate(id => { window.__xr.step(); const O = HOST.collab.overlay(), o = O.rings.get(id); return { vis: o.ring.visible, hit: O.hit.includes(o.ring), k: +o.near.toFixed(2), mine: HOST.collab.mine() }; }, s.id);
     };
     const nr = await ringNear(S3, 1.6), fr = await ringNear(S3, 2.6);
@@ -2023,7 +2095,7 @@ async function askRound(dir) {
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
   await H.evaluate(() => HOST.room.sharedAlign(true));
-  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+  await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
@@ -2172,7 +2244,7 @@ async function askRound(dir) {
     for (let k = 0; k < 60 && !inS2; k++) { await frames(H, 300); inS2 = await H.evaluate(k => HOST.curKey === k, K2); }
     inS2 = inS2 && await ready(H, K2, 150000);
     if (inS2) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 600); }
-    const w4 = await where(), rig = await rigOf(H), want = rigAt(S2), pres = await until(A, ([h, s]) => { const P = HOST.collab.people().get(h); return !!P && P.st === s; }, [hId, S2.id], 5000);
+    const w4 = await where(), rig = await rigOf(H), want = rigAt(S2, ownPose(H, LOCAL)), pres = await until(A, ([h, s]) => { const P = HOST.collab.people().get(h); return !!P && P.st === s; }, [hId, S2.id], 5000);
     check('ask: Go in enters that circle (its live station, its story placed at its circle, the presence there), the headset standing elsewhere', gi === 'pressed' && inS2 && w4.mine === S2.id && !w4.away && w4.placing &&
       near(rig.slice(0, 3), want.slice(0, 3), 0.02) && angle(rig[3], want[3]) < 0.02 && pres, JSON.stringify({ gi, inS2, w4, rig: fmt(rig), want: fmt(want), pres }));
     // still standing in the first circle: nothing enters it
@@ -2215,10 +2287,10 @@ async function askRound(dir) {
     for (let k = 0; k < 40 && !in10; k++) { await frames(H, 300); in10 = (await where()).mine === S1.id; }
     const rec10 = (await roomInfo(rc)).keys['st.' + S1.id];
     await A.evaluate(id => HOST.collab.stAsk(id, ''), S1.id);
-    const r11 = await ringsWhen(r => r.every(x => !x.ring), 8000), rec11 = (await roomInfo(rc)).keys['st.' + S1.id];
+    const r11 = await ringsWhen(r => r.every(x => !x.ring), 15000), rec11 = (await roomInfo(rc)).keys['st.' + S1.id];
     check('ask: a circle set to walk in on its own (st\'s ask) is walked into in a room that asks first; back to the room\'s, its ring goes',
       sw && r10.filter(x => x.id !== S1.id).every(x => !x.ring) && af10[0] === false && af10[1] === 'mixed' && in10 &&
-      !!rec10 && rec10.v.ask === 'walk' && !!rec11 && !('ask' in rec11.v) && r11.every(x => !x.ring), JSON.stringify({ sw, r10, af10, in10, rec10: rec10 && rec10.v, rec11: rec11 && rec11.v }));
+      !!rec10 && rec10.v.ask === 'walk' && !!rec11 && !('ask' in rec11.v) && r11.every(x => !x.ring), JSON.stringify({ sw, r10, af10, in10, rec10: rec10 && rec10.v, rec11: rec11 && rec11.v, r11 }));
     // (back at the other circle, as before this check, for the rounds after it: walked into, set so for the moment)
     if (in10 && await ready(H, K1, 150000)) { await H.evaluate(() => HOST.cur.peek('xrAdopt()')); await frames(H, 600); }
     await A.evaluate(id => HOST.collab.stAsk(id, 'walk'), S2.id);
@@ -2304,7 +2376,7 @@ async function narrationRound() {
   // a new session (the last one ended), lined up unless o.later; o.hands: the left input source a tracked hand
   const session = async (H, o = {}) => {
     await H.evaluate(() => { if (window.__xr && HOST.session) window.__xr.end(); });
-    await H.evaluate(installXR, Object.assign({}, xrOpts, o));
+    await xrInstall(H, Object.assign({}, xrOpts, o));
     if (o.hands) await H.evaluate(() => { window.__xr.session.inputSources.push({ handedness: 'left', targetRayMode: 'tracked-pointer', gamepad: null, targetRaySpace: {}, hand: new Map([['wrist', {}]]) }); });
     await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); });
     await frames(H, 300);
@@ -2391,8 +2463,10 @@ async function narrationRound() {
     await session(H2, { welcome: true, later: true });
     const w0 = await welWhen(H2, w => w.done, 3500);
     const lined = await lineUpH(H2), w1 = await welWhen(H2, w => w.shown, 10000);
-    check('welcome: not before this headset is lined up; then once, asked first: the trigger\'s words and the controllers\' buttons, in front of it, not pointable, no notice The menu',
-      !w0.done && w0.lu !== 'ok' && lined && w1.shown && w1.vis && !w1.hit && w1.lu === 'ok' && w1.mode === 'ask' && !w1.hands &&
+    // (pointable since v182, the owner's note: the trigger on it closes it at once, welClose('pressed'); this check said
+    // "not pointable" from v124 and stayed red from then on)
+    check('welcome: not before this headset is lined up; then once, asked first: the trigger\'s words and the controllers\' buttons, in front of it, pointable, no notice The menu',
+      !w0.done && w0.lu !== 'ok' && lined && w1.shown && w1.vis && w1.hit && w1.lu === 'ok' && w1.mode === 'ask' && !w1.hands &&
       /Point at a circle's card or icon and press the trigger to go in\./.test(w1.text) && /Trigger \(index finger\): click\./.test(w1.text) &&
       /Grip \(middle finger\): grab and move things\./.test(w1.text) && /Click a stick: the menu\./.test(w1.text) && !w1.menuNote, JSON.stringify({ w0, w1 }));
     // the menu opening closes it early, and it does not come back this session
@@ -2477,7 +2551,7 @@ async function shipsRound() {
   // (the ships' own clocks are the relay's here: frames real time apart)
   const effects = H => H.evaluate(() => { const C = HOST.collab.internals(), h = C.hook; if (h && h.effect && !h.effect.__count) { const f = h.effect; h.effect = function () { window.__fxHook = (window.__fxHook || 0) + 1; return f.apply(this, arguments); }; h.effect.__count = true; } return window.__fxHook || 0; });
   try {
-    for (const H of [A, B]) { await H.evaluate(installXR, xrOpts); await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); }); await frames(H, 300); }
+    for (const H of [A, B]) { await xrInstall(H, xrOpts); await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); }); await frames(H, 300); }
     const al = (await lineUpH(A)) && (await lineUpH(B));
     // each at its own circle: A at the first, B at the second
     await goRoom(A, S1.x, 1.6, S1.z + 0.3, 0); await goRoom(B, S2.x, 1.6, S2.z + 0.3, 0);
@@ -2720,9 +2794,15 @@ async function walkRound() {
   const me = P => P.evaluate(ME);
   // the headset as the page hears it: its head in room coordinates, smoothed from its presence, and the station it says
   // (age: ms since its last presence came; raw: whether that one had a head). Read while the headset goes on drawing frames
-  // (ms of them): a presence older than 2 s is no one's head, and a busy machine may let the page take that long
-  const heard = ms => Promise.all([frames(H, ms || 600), sleep((ms || 600) * 0.6).then(() => A.evaluate(id => { const b = HOST.collab.body(id), P = HOST.collab.people().get(id);
-    return { head: b && b.head, st: P ? P.st : null, age: P ? Math.round(performance.now() - P.at) : null, raw: !!(P && P.head) }; }, hid))]).then(r => r[1]);
+  // (ms of them): a presence older than 2 s is no one's head, and a busy machine may let the page take that long. So, after
+  // ms of frames at rest, the frames go on until the page has a presence from it under 300 ms old (8 s at most), and the
+  // page is read then (a fixed read at 0.6 ms once found the last presence 2.4 s old, so no head: not the app's fault)
+  const heard = async ms => {
+    await frames(H, ms || 600);
+    await framesUntil([H], A, id => { const P = HOST.collab.people().get(id); return !!P && !!P.head && performance.now() - P.at < 300; }, hid, 8000);
+    return A.evaluate(id => { const b = HOST.collab.body(id), P = HOST.collab.people().get(id);
+      return { head: b && b.head, st: P ? P.st : null, age: P ? Math.round(performance.now() - P.at) : null, raw: !!(P && P.head) }; }, hid);
+  };
   // a stick pushed for ms of frames, then let go and a few frames more
   const push = async (P, hand, x, y, ms) => { await P.evaluate(([h, x, y]) => window.__xr.stick(h, x, y), [hand, x, y]); await frames(P, ms); await P.evaluate(h => window.__xr.stick(h, 0, 0), hand); await frames(P, 100); };
   // the left stick held forward until its head is past z in the room (or 40 s: a frame's step is at most 0.1 s of moving,
@@ -2743,7 +2823,7 @@ async function walkRound() {
   const xz = v => [v[0], v[2]], d2 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
   try {
     // ---- a VR headset elsewhere: its own floor, the room's circles round it
-    await H.evaluate(installXR, { mode: 'immersive-vr', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0.3, 1.7, -0.2, 0.6], walk: true });
+    await xrInstall(H, { mode: 'immersive-vr', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0.3, 1.7, -0.2, 0.6], walk: true });
     await H.evaluate(() => { HOST.collab.menuIdle(400); window.__xr.begin(); HOST.collab.setHere(false); });   // (Somewhere else)
     await frames(H, 600);
     await H.evaluate(() => { HOST.collab.panelOpen(false); HOST.collab.menuIdle(20000); });
@@ -2807,7 +2887,7 @@ async function walkRound() {
     // ---- a second headset in the room with the others (AR): no travel from its sticks
     H2 = await open('#s=' + rc, { width: 320, height: 200 });
     await until(H2, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000); await ready(H2, K);
-    await H2.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0], walk: true });
+    await xrInstall(H2, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0], walk: true });
     await H2.evaluate(() => { window.__xr.begin(); HOST.xr.setWalk(true); });
     await frames(H2, 300);
     await push(H2, 'L', 0, -1, 500);
@@ -2868,7 +2948,7 @@ async function menusRound(dir) {
     await until(h, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 2, null, 20000);
     await ready(h, 'airports');
     await h.evaluate(() => HOST.room.sharedAlign(true));
-    await h.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+    await xrInstall(h, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
     await h.evaluate(() => window.__xr.begin());
     await frames(h, 400);
     await h.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
@@ -3105,7 +3185,7 @@ async function menusRound(dir) {
 }
 
 // ---- the studio's behaviours shared (behaveRound; --behave runs only it, also in the main run after the studio's scenes as
-// circles): a relay of its own (from port 8750 up) with --scenes on a copy of the test scene alone (so every device at a
+// circles): a relay of its own (on a free port) with --scenes on a copy of the test scene alone (so every device at a
 // studio circle opens it by itself), a studio circle at the room's origin facing -z (its scene's frame the room's), two
 // pretend headsets in it and a page following it. A ball that follows (nearest, range 3, 1 m in front, 1 m/s) and a cube
 // that looks (first, range 3) put in on the page: the nearest headset drives the ball and every device says so; where it
@@ -3134,7 +3214,7 @@ async function behaveRound() {
   const sp = (p, s) => p.evaluate(s => HOST.cur.peek(s), s);
   const sUntil = (p, s, ms) => until(p, s => { try { return !!HOST.cur.peek(s); } catch (e) { return false; } }, s, ms || 10000);
   try {
-    R = await relayOn(['--static', '.', '--scenes', tmp, '--scenes-readonly', '--quiet'], {}, 8750);
+    R = await relayOn(['--static', '.', '--scenes', tmp, '--scenes-readonly', '--quiet'], {});
     const sb = `http://127.0.0.1:${R.port}/`;
     const A = await sopen(sb + 'index.html#stories', 'Pia');
     await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
@@ -3150,7 +3230,7 @@ async function behaveRound() {
     await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
     for (const [H, head] of [[H1, [-1, 1.6, 2, 0.4]], [H2, [1, 1.6, 2, -0.4]]]) {
       await H.evaluate(() => HOST.room.sharedAlign(true));
-      await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head });
+      await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head });
       await H.evaluate(() => window.__xr.begin());
     }
     await Promise.all([frames(H1, 400), frames(H2, 400)]);
@@ -3388,7 +3468,7 @@ async function trackersRound(dir) {
     return { D, T, out, caught };
   };
   try {
-    R = await relayOn(['--static', '.', '--scenes', SC, '--trackers', '0', '--quiet'], {}, 8730);
+    R = await relayOn(['--static', '.', '--scenes', SC, '--trackers', '0', '--quiet'], {});
     const udp = +((/UDP 127\.0\.0\.1:(\d+)/.exec(R.out) || [])[1] || 0), sb = `http://127.0.0.1:${R.port}/`;
     F = startFake({ port: udp, rate: 90, turn: TURN, move: MOVE, clock, devices });
     const A = await sopen(sb + 'index.html#stories', 'Anna', { width: 1000, height: 760 });
@@ -3409,7 +3489,7 @@ async function trackersRound(dir) {
     // 'h' is in the pretend real room (the room at ROOM there). In VR before the room uses the trackers: the question asked
     // (in this room?), nothing to line up by yet; its first frames, slow in software, over before the trackers come
     const head = [...apply(ROOM, [IDX.x, 1.6, IDX.z]), ROOM[3] + IDX.yaw];
-    await H.evaluate(installXR, { mode: 'immersive-vr', features: ['local-floor'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head });
+    await xrInstall(H, { mode: 'immersive-vr', features: ['local-floor'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head });
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 3000);
     const ask0 = await H.evaluate(() => [HOST.collab.guide().status.w, HOST.room.src, HOST.collab.notes().map(n => n.title)]);
@@ -3486,7 +3566,7 @@ async function trackersRound(dir) {
     const ix = await H.evaluate(() => ({ ua: /OculusBrowser|Quest/.test(navigator.userAgent), o: HOST.room.frame && HOST.room.frame.o.slice(), x: HOST.room.frame && HOST.room.frame.x.slice(), src: HOST.room.src,
       lu: HOST.collab.guide().status, here: HOST.collab.internals().hereSet, notes: HOST.collab.notes().map(n => n.title),
       log: window.__collabLog.filter(e => /^(notice|align|here|trackers)/.test(e.ev)).slice(-24).map(e => [e.t, e.ev, e.state || e.title || e.here || ''].join(' ')) }));
-    const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
+    const FH = ownPose(H, FLOOR), wantO = unapply(FH, ROOM.slice(0, 3)), wantX = rot(-FH[3], rot(ROOM[3], [1, 0, 0]));
     const ixCm = ix.o ? dist(ix.o, wantO) * 100 : 99, ixDeg = ix.x ? angle(Math.atan2(-ix.x[2], ix.x[0]), Math.atan2(-wantX[2], wantX[0])) * 180 / Math.PI : 99;
     console.log(`      the Index's frame from the trackers: ${ixCm.toFixed(2)} cm and ${ixDeg.toFixed(3)} degrees from the room's`);
     await A.evaluate(() => HOST.collab.dialog(true));
@@ -3556,7 +3636,11 @@ async function trackersRound(dir) {
     for (const p of [A, B, C, H]) pu.push(await sUntil(p, `STU.scene === 'puppet' && STUDIO.ready() && !!(STU.items.get('pup001') || {}).model`, 90000));
     F.off(SPOT); F.off(PROP);
     await sleep(1200);
-    await sp(A, `(setEdit(true), select('pup001'), itemAct('pwear', 'full', 'pup001'), itemAct('pupline', '', 'pup001'), 0)`);
+    // (worn with whatever trackers it finds, 'any': the card's one choice since v203, which took 'full' out; the test still
+    // asked for 'full', which the studio ignores, so nothing was worn and the four puppet checks were red. And its head
+    // from the trackers only ('pupby' none): 'any' takes the head from a headset by default, here the fake bridge's Index,
+    // while the performer wears all six parts as trackers, LHR-HEAD0002 its head)
+    await sp(A, `(setEdit(true), select('pup001'), itemAct('pwear', 'any', 'pup001'), itemAct('pupby', 'none', 'pup001'), itemAct('pupline', '', 'pup001'), 0)`);
     const count = await sp(A, `!!PUP.line`);
     const lu = await sUntil(A, `!PUP.line && !!(STU.items.get('pup001').rec.puppet || {}).on`, 15000);
     const pr = await sp(A, `[STU.items.get('pup001').rec, PUP.note]`), rec = pr[0];
@@ -3678,7 +3762,7 @@ async function outputRound(dir) {
   const midiSent = O => O.evaluate(() => window.__midiSent.map(b => b.join(',')));
   const J = JSON.stringify;
   try {
-    R = await relayOn(['--static', '.', '--scenes', SC, '--trackers', '0', '--osc-out', '127.0.0.1:' + lport, '--osc-in', '127.0.0.1:0', '--quiet'], {}, 8870);
+    R = await relayOn(['--static', '.', '--scenes', SC, '--trackers', '0', '--osc-out', '127.0.0.1:' + lport, '--osc-in', '127.0.0.1:0', '--quiet'], {});
     const trkUdp = +((/readings on UDP 127\.0\.0\.1:(\d+)/.exec(R.out) || [])[1] || 0), inUdp = +((/in on UDP [\d.]+:(\d+)/.exec(R.out) || [])[1] || 0);
     const sb = `http://127.0.0.1:${R.port}/`, ping = await (await fetch(sb + 'api/ping')).json();
     check('output: the relay with --osc-out, --osc-in and --trackers says so (its ping: osc { out: 1, in: its port, trk: true }, no target\'s address)',
@@ -3695,7 +3779,7 @@ async function outputRound(dir) {
     await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
     await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
     await H.evaluate(() => HOST.room.sharedAlign(true));
-    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-1, 1.6, 2, 0.4] });
+    await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-1, 1.6, 2, 0.4] });
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 400);
     await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
@@ -3885,7 +3969,7 @@ async function outputRound(dir) {
 // here adds the room's plain studio circle, then moves it, also once a scene is picked there (plain or not is how a circle
 // was made, its record's sc, never its state); a scene circle moved keeps its sc
 async function scenesRound() {
-  const R = await relayOn(['--static', '.', '--scenes', path.join(root, 'tools', 'studio', 'test', 'scenes'), '--scenes-readonly', '--quiet'], {}, 8770);
+  const R = await relayOn(['--static', '.', '--scenes', path.join(root, 'tools', 'studio', 'test', 'scenes'), '--scenes-readonly', '--quiet'], {});
   const b = `http://127.0.0.1:${R.port}/`, pages = [];
   const sopen = async hash => {
     const ctx = await browser.newContext({ viewport: { width: 900, height: 700 } });
@@ -3981,7 +4065,7 @@ const ARR_STANDIN = `(() => {
 })()`;
 async function arrRound() {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-arr-'));
-  const R = await relayOn(['--static', '.', '--scenes', tmp, '--quiet'], {}, 8860);
+  const R = await relayOn(['--static', '.', '--scenes', tmp, '--quiet'], {});
   const b = `http://127.0.0.1:${R.port}/`, pages = [];
   const aopen = async (hash, size) => {
     const ctx = await browser.newContext({ viewport: size || { width: 1280, height: 760 } });
@@ -4063,7 +4147,7 @@ async function arrRound() {
 // its line. (--shots <dir>: pictures of the panes and the headset's Network tab drawn as in a headset)
 async function netRound(dir) {
   const KEY = 'ppicell', tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-net-')), pages = [];
-  const R = await relayOn(['--static', '.', '--scenes', tmp, '--quiet'], {}, 8880);
+  const R = await relayOn(['--static', '.', '--scenes', tmp, '--quiet'], {});
   let R2 = null;
   if (dir) fs.mkdirSync(dir, { recursive: true });
   const nopen = async (b, hash, tag) => {
@@ -4233,7 +4317,7 @@ async function netRound(dir) {
     for (const p of pages.splice(0)) await p.context().close().catch(() => {});
 
     // a relay without shared networks: the button absent and its line; a room naming one stays whole, on the built-in one
-    R2 = await relayOn(['--static', '.', '--scenes', tmp, '--no-nets', '--quiet'], {}, 8900);
+    R2 = await relayOn(['--static', '.', '--scenes', tmp, '--no-nets', '--quiet'], {});
     const b2 = `http://127.0.0.1:${R2.port}/`, Q = await room(b2);
     await Q.A.evaluate(i => HOST.collab.follow(i), Q.sid);
     await built(Q.A);
@@ -4363,7 +4447,7 @@ async function codeRound() {
   const rc = await A.evaluate(() => HOST.collab.code);
   const H = await open('#airports', { width: 320, height: 200 });
   await ready(H, 'airports');
-  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+  await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
   await H.evaluate(() => { window.__xr.begin(); HOST.collab.panelOpen(true); });
   await frames(H, 300);
   // a press on the menu (a region's own function, as a ray or a fingertip gives it), then a frame so it draws again
@@ -4444,7 +4528,7 @@ async function allRound() {
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
   await H.evaluate(() => HOST.room.sharedAlign(true));
   const HEAD = { x: -0.4, z: 1.5, yaw: 0.35 };   // (the head in the room: facing a little to the left of -z)
-  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: headAt(HEAD, ROOM[3] + HEAD.yaw), autoAll: true });
+  await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: headAt(HEAD, ROOM[3] + HEAD.yaw), autoAll: true });
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
@@ -4476,7 +4560,7 @@ async function allRound() {
       land: HOST.cur.peek('XR.land.slice(1).every(P => P.mesh.visible)'), back: HOST.cur.peek('!!XR.land[0].regions.find(r => r.id === "back")'),
       drawn: (!!o && (o.ring.visible || o.icon.g.visible)) || !!(cd && cd.mesh.visible), zone: HOST.collab.internals().zone };
   }, AID);
-  const rig = await rigOf(H), rw = rigAt(ALs), pres = await until(A, ([id, st]) => (HOST.collab.people().get(id) || {}).st === st, [hId, AID], 3000), quiet = await keysOf(A, AID);
+  const rig = await rigOf(H), rw = rigAt(ALs, ownPose(H, LOCAL)), pres = await until(A, ([id, st]) => (HOST.collab.people().get(id) || {}).st === st, [hId, AID], 3000), quiet = await keysOf(A, AID);
   check('arc: the headset is at the arc without walking in (standing at its spot, never walked into): its cards in front (no Back), the scene hidden, no ring, card or icon for it, the rig at its spot, its presence there, nothing synced',
     c1.mine === AID && c1.cards && c1.here && !c1.away && c1.stories && !c1.world && c1.land && !c1.back && !c1.drawn && dist(rig.slice(0, 3), rw.slice(0, 3)) < 0.02 && angle(rig[3], rw[3]) < 0.02 &&
     c1.zone !== AID && pres && !quiet.length, JSON.stringify({ c1, rig, rw, pres, quiet }));
@@ -4553,7 +4637,7 @@ async function allRound() {
   }, AID);
   const got = !mp.err && await until(H, ([id, x, z]) => { const s = HOST.collab.station(id); return !!s && Math.abs(s.x - x) < 0.01 && Math.abs(s.z - z) < 0.01; }, [AID, mp.to[0], mp.to[1]], 5000);
   const r0 = await rigOf(H), path1 = await H.evaluate(async () => { const X = window.__xr, out = []; for (let k = 0; k < 30; k++) { X.step(); const r = HOST.cur.peek('GL.rig.position'); out.push([r.x, r.y, r.z]); await new Promise(res => setTimeout(res, 30)); } return out; });
-  const r1 = rigAt(await H.evaluate(() => HOST.collab.arc())), mid = path1.filter(q => dist(q, r0.slice(0, 3)) > 0.01 && dist(q, r1.slice(0, 3)) > 0.01).length;
+  const r1 = rigAt(await H.evaluate(() => HOST.collab.arc()), ownPose(H, LOCAL)), mid = path1.filter(q => dist(q, r0.slice(0, 3)) > 0.01 && dist(q, r1.slice(0, 3)) > 0.01).length;
   check('arc: the room map moves it (still the arc, the page still following it), and the headset\'s cards glide there', got && mp.arc === true && mp.follow === AID && Math.abs(mp.to[0] - mp.from[0] - 0.8) < 0.05 &&
     mid >= 2 && dist(path1[path1.length - 1], r1.slice(0, 3)) < 0.02, JSON.stringify({ mp, got, mid, last: path1[path1.length - 1], r1 }));
   // the circles lock refuses the grip on it (a notice says so); Move here (the menu) puts it at the headset, facing its way
@@ -4775,7 +4859,7 @@ async function smoothRound() {
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
   await H.evaluate(() => { HOST.room.sharedAlign(true); HOST.collab.dialog(false); });   // (a headset has no dialog open)
-  await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
+  await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-6, 1.6, 6, 0] });
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
   await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
@@ -4811,12 +4895,18 @@ async function smoothRound() {
     // someone else turns it for a second and lets go, and the headset grips it at once and lets go a moment later: it stays
     // where the headset left it (their samples dropped as the grip takes it, never put again once it is let go here)
     // (the headset's frames run on meanwhile, and it grips as soon as their let-go has come)
-    const rgP = H.evaluate(async kPl => {
+    // (its let-go, not the first turn's: the buffer that turn left, a let-go already, could start the grip before this
+    // second turn had sent anything, and the case went untested while the check stayed green: so it waits for a let-go
+    // stamped after this turn began, t1, and the check asks that the grip came after it)
+    const t1 = Date.now();
+    const rgP = H.evaluate(async ([kPl, t1]) => {
       const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z), R = HOST.cur.peek('GL.rig');
       const at = p => X.aim(0, new THREE.Matrix4().compose(V(...p).applyMatrix4(R.matrixWorld), R.quaternion.clone(), V(1, 1, 1)));
       const grab = on => HOST.cur.peek(`(c => { if (${on}) c.hover = { kind: "globe", i: -1, point: c.o.clone() }; xrGrab(c, ${on}); })(XR.ctrls[0])`);
       const B = () => HOST.collab.smooth().BUF.get(kPl), w0 = performance.now();
-      while (!(B() && B().s.length > 3 && !B().s[B().s.length - 1].h) && performance.now() - w0 < 8000) { X.step(); await new Promise(r => setTimeout(r, 4)); }
+      const ended = () => { const b = B(), l = b && b.s[b.s.length - 1]; return !!l && !l.h && l.ts > t1 && b.s.filter(q => q.ts > t1).length > 3; };
+      while (!ended() && performance.now() - w0 < 8000) { X.step(); await new Promise(r => setTimeout(r, 4)); }
+      const waited = ended();
       at([0.1, -0.2, -0.6]); X.step();
       const x0 = HOST.cur.xrPose().off.x, gripAt = Date.now();
       const had = HOST.collab.smooth().BUF.has(kPl);
@@ -4828,15 +4918,15 @@ async function smoothRound() {
       for (let i = 1; i <= 10; i++) { at([0.1 + 0.03 * i, -0.2, -0.6]); X.step(); }
       grab(false); X.step();
       X.ctrl(0, null); X.step();
-      return { x0, x1: HOST.cur.xrPose().off.x, had, dropped, ms: performance.now() - t0, gripAt, at: Date.now() };
-    }, kPl);
+      return { x0, x1: HOST.cur.xrPose().off.x, had, dropped, ms: performance.now() - t0, gripAt, at: Date.now(), waited };
+    }, [kPl, t1]);
     await sleep(200);
     const sr = await drive((a, ts, h) => W.set(kPl, Object.assign({ x: 0, y: 0, z: 0, s: 1, q: qAt(a), story: K, ts }, h ? { h: 1 } : {})), 1000, s => s * W2);
     const rg = await rgP;
     const regrip = await record(H, 1500, 'x'), back = Math.max(...regrip.map(f => Math.abs(f[3] - rg.x1)));
     console.log(`      a grip right after someone else let go: gripped ${rg.gripAt - sr.end} ms after they let go, held ${rg.ms.toFixed(0)} ms, moved ${(rg.x1 - rg.x0).toFixed(3)} m, let go ${rg.at - sr.end} ms after them; then at most ${back.toFixed(4)} m from there in ${regrip.length} frames`);
     check('smooth: a grip here right after someone else let go drops their samples and stays where it is let go (never pulled back to theirs)',
-      rg.had && rg.dropped && rg.x1 - rg.x0 > 0.2 && back < 0.005, JSON.stringify({ rg, back, end: sr.end }));
+      rg.waited && rg.gripAt >= sr.end && rg.had && rg.dropped && rg.x1 - rg.x0 > 0.2 && back < 0.005, JSON.stringify({ rg, back, end: sr.end }));
     // a sample written for another story (from before the station changed story) moves nothing: the relay refuses it
     const xNow = await H.evaluate(() => HOST.cur.xrPose().off.x);
     for (let i = 0; i < 4; i++) { W.set(kPl, { x: xNow + 1, y: 0, z: 0, s: 1, story: 'airports', ts: Date.now(), h: 1 }); await sleep(66); }
@@ -4972,7 +5062,7 @@ async function guideRound() {
   await A.evaluate(k => HOST.collab.add(k, { x: 5, z: -5, yaw: 0 }), PICK_STORY);   // (a station far off: no menu opening by itself for an empty room)
   const H1 = await open('#s=' + rc, { width: 320, height: 200 }), H2 = await open('#s=' + rc, { width: 320, height: 200 });
   for (const H of [H1, H2]) { await until(H, () => HOST.collab.status === 'open' && HOST.collab.stations().length === 1, null, 20000); await ready(H, 'airports'); }
-  const xr = (H, head, o) => H.evaluate(installXR, Object.assign({ mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head, guide: true }, o || {}));
+  const xr = (H, head, o) => xrInstall(H, Object.assign({ mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head, guide: true }, o || {}));
   const inSpace = H => H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'G1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
   const stepUntil = async (H, fn, arg, ms) => { const t0 = Date.now(); for (;;) { await frames(H, 300); if (await H.evaluate(fn, arg)) return true; if (Date.now() - t0 > ms) return false; } };
   const both = ms => Promise.all([frames(H1, ms), frames(H2, ms)]);   // (presence goes out only while a headset's frames run)
@@ -5559,7 +5649,7 @@ async function calibRound() {
       await H.goto(base() + 'index.html#airports', { timeout: 90000 });
       await H.waitForFunction(() => typeof HOST !== 'undefined' && HOST.collab, null, { timeout: 90000, polling: 100 });
       await ready(H, 'airports');
-      await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: 'C1', head: [1.6, 1.6, 0, 0.3], guide: true, autoAll: true });
+      await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: 'C1', head: [1.6, 1.6, 0, 0.3], guide: true, autoAll: true });
       await H.evaluate(first => {   // (a new XRFrame each frame, the same one to every callback of the frame)
         const X = window.__xr, F0 = X.frame, story = f => { if (HOST.cur && HOST.cur.peek('typeof XR !== "undefined" && XR.on')) HOST.cur.peek('xrBegin')(f, 0.016); };
         window.XRFrame = class XRFrame {};   // (the page's own stand-in: Chromium's XRFrame has getters a plain object cannot answer)
@@ -5620,7 +5710,7 @@ async function placesRound() {
   const F2 = [0.3, 0, -0.2, 1.4], L2 = [0.3, 1.6, -0.2, 1.4], F3 = [-0.8, 0, 0.6, -2.1], L3 = [-0.8, 1.6, 0.6, -2.1];
   const AT_X = [1.6, 1.6, 0, 0.3], AT_Y = [14.6, 1.6, 2.6, -1.0];
   const go = async (head, o) => {
-    await H.evaluate(installXR, Object.assign({ mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head }, o || {}));
+    await xrInstall(H, Object.assign({ mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head }, o || {}));
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 300);
   };
@@ -5639,8 +5729,8 @@ async function placesRound() {
       await H.evaluate(() => HOST.collab.code), 10000);
   };
   // the room's frame for spots a and b on local-floor F (the floor under a; x towards b), and whether the headset has it
-  // (within 1 cm and 0.5 degrees)
-  const want = (F, a, b) => { const fa = unapply(F, a), fb = unapply(F, b); return { o: [fa[0], 0, fa[2]], x: unit([fb[0] - fa[0], 0, fb[2] - fa[2]]) }; };
+  // (within 1 cm and 0.5 degrees; F as the round gives it, moved by the headset's spot: ownPose)
+  const want = (F, a, b) => { F = ownPose(H, F); const fa = unapply(F, a), fb = unapply(F, b); return { o: [fa[0], 0, fa[2]], x: unit([fb[0] - fa[0], 0, fb[2] - fa[2]]) }; };
   const now = () => H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, code: HOST.collab.code, status: HOST.collab.status, by: HOST.collab.internals().byPlace || '',
     auto: HOST.collab.internals().auto || '', mk: HOST.room.marks, line: HOST.room.sourceLine() }));
   const lined = (f, w) => !!f.frame && dist(f.frame.o, w.o) < 0.01 && Math.acos(Math.min(1, f.frame.x[0] * w.x[0] + f.frame.x[2] * w.x[2])) < 0.5 * Math.PI / 180;
@@ -5723,7 +5813,7 @@ async function placesRound() {
     const yA = (await PS()).list.find(p => p.code === Y).anchors;
     const evs = l => l.filter(e => /^place|join|anchors (found|not)|marks/.test(e.ev)).map(e => [e.ev, e.code || e.room || '', e.own || '', e.found || e.here || '']);
     await mark('test places wait');
-    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: L2, floor: F2, shared: SHARED, sharedId: '', head: AT_Y });
+    await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: L2, floor: F2, shared: SHARED, sharedId: '', head: AT_Y });
     await H.evaluate(ys => {
       const S = window.__xr.session, r = S.restorePersistentAnchor;
       S.restorePersistentAnchor = u => (ys.includes(u) ? new Promise(res => setTimeout(() => res(r(u)), 5000)) : r(u));   // (Y's, slow)
@@ -5903,7 +5993,7 @@ async function placesRound() {
     await H.evaluate(([F, L]) => {
       const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
       const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
-      X.W.floor = M(F); X.W.local = M(L);
+      X.W.floor = X.own(F); X.W.local = X.own(L);
     }, [F4, L4]);
     let tr = null;
     for (let k = 0; k < 16; k++) { await frames(H, 250); tr = await now(); if (lined(tr, want(F4, YA, YB))) break; }
@@ -5993,7 +6083,7 @@ async function areasRound() {
   // the room's truth: origin the floor under spot A, x towards spot B; a point of the pretend room in room coordinates
   const RX = unit([SB[0] - SA[0], 0, SB[2] - SA[2]]), RW = [SA[0], 0, SA[2], Math.atan2(-RX[2], RX[0])], inRoom = p => unapply(RW, p);
   const go = async (H, head, o) => {
-    await H.evaluate(installXR, Object.assign({ mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head }, o || {}));
+    await xrInstall(H, Object.assign({ mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head }, o || {}));
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 300);
   };
@@ -6300,8 +6390,10 @@ async function tokenRound() {
     // a pretend headset without it: the menu's Relay password row, its keypad page, a wrong one refused, then the right one
     const H = await topen('#airports', { size: { width: 320, height: 200 } });
     await ready(H, 'airports');
-    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
-    await H.evaluate(async () => { window.__xr.begin(); await HOST.collab.detect(); HOST.collab.panelOpen(true); HOST.collab.menuTab('circles'); });
+    await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    // (the menu kept open while the keys are typed: a tap here calls the row's own function, which does not count as use,
+    // so the menu closed by itself 20 s after opening, and on a busy machine that came in the middle of the password)
+    await H.evaluate(async () => { window.__xr.begin(); await HOST.collab.detect(); HOST.collab.menuIdle(600000); HOST.collab.panelOpen(true); HOST.collab.menuTab('circles'); });
     await frames(H, 300);
     const tap = id => H.evaluate(async id => { const X = window.__xr, r = HOST.collab.menuFind(id), ok = !!(r && r.fn); if (ok) r.fn();
       for (let k = 0; k < 2; k++) { X.step(); await new Promise(r => setTimeout(r, 20)); } return ok; }, id);
@@ -6407,7 +6499,7 @@ async function tokenRound() {
     // a pretend headset: the menu's Circles tab offers it (Relay password), its keypad takes the password
     const G = await hopen('#airports&peer=off', { size: { width: 320, height: 200 } });
     await ready(G, 'airports');
-    await G.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await xrInstall(G, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
     await G.evaluate(async u => { window.__xr.begin(); await HOST.collab.detect(); HOST.collab.homeRelay(u); HOST.collab.panelOpen(true); HOST.collab.menuTab('circles'); }, tb);
     await frames(G, 300);
     const gtap = id => G.evaluate(async id => { const X = window.__xr, r = HOST.collab.menuFind(id), ok = !!(r && r.fn); if (ok) r.fn();
@@ -6430,7 +6522,7 @@ async function tokenRound() {
   }
 }
 
-// ---- the studio in a room (--studio runs only this; also in the main run): a relay of its own (from port 8790 up) that
+// ---- the studio in a room (--studio runs only this; also in the main run): a relay of its own (on a free port) that
 // serves the app and, with --scenes, a temporary copy of tools/studio/test/scenes and a second scene (so none is picked by
 // itself: a station picks a scene only when the listing has exactly one); three pages and a pretend headset at a studio
 // station. The headset menu's Studio here puts the circle at its feet; the scene picked on one page reaches all; an
@@ -6463,30 +6555,31 @@ async function tokenRound() {
 // 16-bit WAV; a long one made mono MP3 by the relay's ffmpeg when this machine has it, else a mono WAV). Then a relay with
 // COLLAB_TOKEN: a page without the password cannot list or save, one with it lists, saves and keeps a studio station in a
 // room; the password is in no page's log, address or room key, nor in the relay's lines, log files or the saved layout.
-// Then the scenes in Cloudflare R2 (--scenes r2) against the stand-in S3 (relay/s3fake.mjs) on another port (from 8840
-// up): a page and the pretend headset open the test scene from the bucket (every file by its signed link, CORS, ranges
+// Then the scenes in Cloudflare R2 (--scenes r2) against the stand-in S3 (relay/s3fake.mjs) on another free
+// port: a page and the pretend headset open the test scene from the bucket (every file by its signed link, CORS, ranges
 // and crossOrigin exercised by the browser; a long sound streamed), Save writes layout.json and .history/ there, Convert
 // to GLB and the Upload pane send their files straight into the bucket (signed PUTs), a link the bucket refuses is read
 // again, an upload it refuses goes through the relay, a copy from another scene is the bucket's (CopyObject), and the
 // password goes nowhere.
 // dir: pictures (studio-*.png)
-async function relayOn(args, env, from) {
-  for (let p = from; p < from + 20; p++) {
-    const R = { proc: null, port: 0, out: '' };
-    const ok = await new Promise(res => {
-      R.proc = spawn(process.execPath, ['relay/server.mjs', '--port', String(p), '--host', '127.0.0.1', ...args],
-        { cwd: root, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '', ...env } });
-      const t = setTimeout(() => res(false), 15000);
-      R.proc.stdout.on('data', d => { R.out += d; if (!R.port && /listening on http:\/\/[^:]+:\d+/.test(R.out)) { R.port = p; clearTimeout(t); res(true); } });
-      R.proc.stderr.on('data', d => { R.out += d; });
-      R.proc.on('exit', () => { clearTimeout(t); res(false); });
-    });
-    if (ok) return R;
-    if (R.proc.exitCode === null) R.proc.kill();
-    if (!/EADDRINUSE/.test(R.out)) throw new Error('the relay did not start: ' + R.out);
-  }
-  throw new Error('no free port from ' + from);
+// a relay of a round's own on a free port (the system's: --port 0, its number read from the relay's own line; v226 and
+// before scanned 20 ports up from a fixed number, so two runs on one machine could meet)
+async function relayOn(args, env) {
+  const R = { proc: null, port: 0, out: '' };
+  const ok = await new Promise(res => {
+    R.proc = spawn(process.execPath, ['relay/server.mjs', '--port', '0', '--host', '127.0.0.1', ...args],
+      { cwd: root, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '', COLLAB_SCENES: '', ...env } });
+    const t = setTimeout(() => res(false), 15000);
+    R.proc.stdout.on('data', d => { R.out += d; const m = !R.port && /listening on http:\/\/[^:]+:(\d+)/.exec(R.out); if (m) { R.port = +m[1]; clearTimeout(t); res(true); } });
+    R.proc.stderr.on('data', d => { R.out += d; });
+    R.proc.on('exit', () => { clearTimeout(t); res(false); });
+  });
+  if (ok) return R;
+  if (R.proc.exitCode === null) R.proc.kill();
+  throw new Error('the relay did not start: ' + R.out);
 }
+// a port free now (the system's), for a server that must come back on the same one
+const freePort = () => new Promise((res, rej) => { const v = http.createServer(); v.on('error', rej); v.listen(0, '127.0.0.1', () => { const p = v.address().port; v.close(() => res(p)); }); });
 const relayOff = R => new Promise(r => { if (!R || !R.proc || R.proc.exitCode !== null) return r(); R.proc.once('exit', r); R.proc.kill(); });
 // an MP3's first frame (past an ID3 tag): MPEG-1 layer III, 44.1 kHz, mono?
 function mp3Head(buf) {
@@ -6529,7 +6622,7 @@ async function studioRound(dir) {
   const click = async (p, sel) => (await until(p, sel => { const b = document.querySelector(sel); return !!b && !b.disabled; }, sel, 8000)) &&
     p.evaluate(sel => { const b = document.querySelector(sel); if (b && !b.disabled) { b.click(); return true; } return false; }, sel);
   try {
-    R = await relayOn(['--static', '.', '--scenes', SC], {}, 8790);
+    R = await relayOn(['--static', '.', '--scenes', SC], {});
     const sb = `http://127.0.0.1:${R.port}/`;
     const A = await sopen(sb + 'index.html#stories', { name: 'Anna' });
     await A.evaluate(async () => { await HOST.collab.detect(); HOST.collab.create(); });
@@ -6544,7 +6637,7 @@ async function studioRound(dir) {
     await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
     await until(A, () => !HOST.collab.internals().pending.size, null, 3000);
     await H.evaluate(() => HOST.room.sharedAlign(true));
-    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-1, 1.6, 2, 0.4] });
+    await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [-1, 1.6, 2, 0.4] });
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 400);
     await H.evaluate(() => { const X = window.__xr; X.spaces.shared.UUId = 'U1'; for (const fn of X.resets.shared || []) fn({ transform: null }); });
@@ -7412,7 +7505,7 @@ async function studioRound(dir) {
     // wrong one typed in the Shared dialog is never sent by the studio; the right one opens the scene without a reload;
     // then a save, an upload and a studio station in a room, and the password written nowhere
     const PASS = 'studio' + Math.floor(1000 + Math.random() * 9000) + 'scenes';   // (made here: no password is kept in the repository)
-    T = await relayOn(['--static', '.', '--scenes', SC2, '--logs', logs], { COLLAB_TOKEN: PASS }, 8791);
+    T = await relayOn(['--static', '.', '--scenes', SC2, '--logs', logs], { COLLAB_TOKEN: PASS });
     const tb = `http://127.0.0.1:${T.port}/`, reqs = [];   // (the studio's calls: [status, path, ?token= carried, header carried]; never their addresses)
     const P = await sopen(tb + 'index.html#studio&scene=test&edit', { name: 'Pia', size: { width: 900, height: 700 }, reqs });
     await studioIn(P);
@@ -7489,14 +7582,14 @@ async function studioRound(dir) {
     const { startFake } = await import(new URL('../relay/s3fake.mjs', import.meta.url));
     const { typeOf } = await import(new URL('../relay/scenes.mjs', import.meta.url));
     const R2K = 'COLLABTESTKEYID', R2S = 'collab-made-up-secret-' + Math.floor(Math.random() * 1e9);
-    for (let p = 8840; p < 8860 && !S3r; p++) S3r = await startFake({ port: p, bucket: 'scenes', keys: { [R2K]: R2S } }).catch(() => null);
+    S3r = await startFake({ port: 0, bucket: 'scenes', keys: { [R2K]: R2S } }).catch(() => null);   // (a free port the system gives)
     const walk = (d, rel = '') => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => (e.isDirectory() ? walk(path.join(d, e.name), rel + e.name + '/') : [rel + e.name]));
     for (const rel of walk(path.join(TEST, 'test'))) S3r.put('studio/test/' + rel, fs.readFileSync(path.join(TEST, 'test', rel)), { type: typeOf(rel) });
     // (a second scene, to copy from)
     S3r.put('studio/shelf/props/statue.fbx', fs.readFileSync(path.join(TEST, 'test', 'figure.fbx')), { type: typeOf('statue.fbx') });
     S3r.put('studio/shelf/props/figure.png', fs.readFileSync(path.join(TEST, 'test', 'figure.png')), { type: 'image/png' });
     const PASS3 = 'rtwo' + Math.floor(1000 + Math.random() * 9000) + 'scenes';
-    Q = await relayOn(['--static', '.', '--scenes', 'r2'], { R2_ENDPOINT: S3r.url, R2_ACCESS_KEY_ID: R2K, R2_SECRET_ACCESS_KEY: R2S, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', COLLAB_TOKEN: PASS3 }, 8792);
+    Q = await relayOn(['--static', '.', '--scenes', 'r2'], { R2_ENDPOINT: S3r.url, R2_ACCESS_KEY_ID: R2K, R2_SECRET_ACCESS_KEY: R2S, R2_BUCKET: 'scenes', R2_PREFIX: 'studio', R2_POLL: '1', COLLAB_TOKEN: PASS3 });
     const qb = `http://127.0.0.1:${Q.port}/`, qo = `http://127.0.0.1:${Q.port}`, s3o = S3r.url;
     const fromPage = () => S3r.requests.filter(r => r.origin === qo);   // (what the page's browser asked of the bucket itself)
     const G = await sopen(qb + 'index.html#studio&scene=test&edit', { name: 'Gus', size: { width: 900, height: 700 }, token: PASS3, origin: qo });
@@ -7619,7 +7712,7 @@ async function studioRound(dir) {
     // the pretend headset opens the scene from the bucket too
     const H2 = await sopen(qb + 'index.html#studio&scene=test', { name: 'Hal', size: { width: 320, height: 200 }, token: PASS3, origin: qo });
     await studioIn(H2);
-    await H2.evaluate(installXR, { mode: 'immersive-vr', features: ['local-floor'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
+    await xrInstall(H2, { mode: 'immersive-vr', features: ['local-floor'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] });
     await H2.evaluate(() => window.__xr.begin());
     await frames(H2, 300);
     const hR2 = await sUntil(H2, `XR.on && SRC.state === 'ok' && STU.scene === 'test' && STU.listing === 'ok' && STU.items.size === 4 && STUDIO.ready() && STU.files.every(f => f.url)`, 60000);
@@ -7753,7 +7846,7 @@ async function cameraRound(dir) {
     check('camera: the Shared dialog\'s Camera mode button on a phone with AR, with a line saying what it is (none on a desktop page, none in a headset\'s browser)',
       dP.offered && dP.button && /phone's camera/.test(dP.text) && /screen recorder/.test(dP.text) && !dA.button && !dA.offered && !dH.button && !dH.offered, JSON.stringify({ dP, dA, dH }));
     // the headset: lined up on the room's floor spots (its controller's tip on each tape cross), then into the first circle
-    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.6, 1.5]), 0] });
+    await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.6, 1.5]), 0] });
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 600);
     const touch = async p => { await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650); await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150); };
@@ -7774,7 +7867,7 @@ async function cameraRound(dir) {
     const inH = await walk(H, S1, K1, 0, 150000);
     check('camera: the headset walks into the first circle', inH && await H.evaluate(id => HOST.collab.mine() === id, S1.id));
     // the phone: Camera mode pressed in its dialog starts the story's AR session (as Enter AR does)
-    await P.evaluate(installXR, { phone: true, guide: true, mode: 'immersive-ar', features: ['local-floor', 'anchors', 'hit-test', 'dom-overlay'], local: PL, floor: PF, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.4, 2]), 0] });
+    await xrInstall(P, { phone: true, guide: true, mode: 'immersive-ar', features: ['local-floor', 'anchors', 'hit-test', 'dom-overlay'], local: PL, floor: PF, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.4, 2]), 0] });
     await P.evaluate(() => { window.__xr.noFloor = true; HOST.renderer.xr.setSession = async () => {}; window.__sent = []; HOST.collab.dialog(true); });
     await until(P, () => !!document.querySelector('#shared [data-sh="camera"]'), null, 4000);
     await P.evaluate(() => document.querySelector('#shared [data-sh="camera"]').click());
@@ -7849,7 +7942,7 @@ async function cameraRound(dir) {
     const f1 = await whileH(async () => await until(P, k => HOST.curKey === k, K1, 30000) && await ready(P, K1, 120000));
     if (f1) { await P.evaluate(() => HOST.cur.peek('xrAdopt()')); }
     await frames(P, 600);
-    const c3 = await P.evaluate(() => HOST.collab.camera()), rig = await rigOf(P), want = rigAt(S1, PL);
+    const c3 = await P.evaluate(() => HOST.collab.camera()), rig = await rigOf(P), want = rigAt(S1, ownPose(P, PL));
     check('camera: the overlay lists the people in a headset and the circles; following the headset, the phone\'s live station is the headset\'s, its story loaded there and its rig at the station\'s spot',
       list.includes('who:' + hId) && list.includes('st:' + S1.id) && list.includes('st:' + S2.id) && list.includes('none') && f1 && c3.follow === 'person:' + hId && c3.station === S1.id &&
       dist(rig.slice(0, 3), want.slice(0, 3)) < 0.03 && angle(rig[3], want[3]) < 0.02, JSON.stringify({ list, f1, c3, rig, want }));
@@ -7983,7 +8076,7 @@ async function cameraRound(dir) {
       other.asked && other.want && !other.on && !other.after && other.told && other.off, JSON.stringify(other));
     // started again: it lines up afresh (Set spot A at once), with no marks kept from before; marks that a browser kept with
     // handles (planted here: a phone's Chrome keeps none) are let go, never looked for
-    await P.evaluate(installXR, { phone: true, guide: true, mode: 'immersive-ar', features: ['local-floor', 'anchors', 'hit-test', 'dom-overlay'], local: PL, floor: PF, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.4, 2]), 0] });
+    await xrInstall(P, { phone: true, guide: true, mode: 'immersive-ar', features: ['local-floor', 'anchors', 'hit-test', 'dom-overlay'], local: PL, floor: PF, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.4, 2]), 0] });
     const i1 = await P.evaluate(() => {
       const R = HOST.room.internals(), X = window.__xr;
       X.handles.set('old1', new THREE.Matrix4()); X.handles.set('old2', new THREE.Matrix4().makeTranslation(2, 0, 0));
@@ -8176,7 +8269,7 @@ async function previewRound(dir) {
       n5 === 3 && k5 && k5.v.fov === 52 && n6 === 4 && !!a6 && Math.abs(a6.aim - (-50 * DEG)) < 0.1 * DEG && Math.abs(a6.tilt - (-6 * DEG)) < 0.1 * DEG && near(k6.v.p, k4.v.p, 1e-9) && onKey(c6, k6.v),
       JSON.stringify({ n5, fov: k5 && k5.v.fov, n6, a6: a6 && { aim: a6.aim / DEG, tilt: a6.tilt / DEG }, cam: c6.cam }));
     // the headset: lined up on the room's floor spots (its controller's tip on each tape cross), then into the first circle
-    await H.evaluate(installXR, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.6, 1.5]), 0] });
+    await xrInstall(H, { mode: 'immersive-ar', features: ['local-floor', 'anchors'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [...apply(ROOM, [1, 1.6, 1.5]), 0] });
     await H.evaluate(() => window.__xr.begin());
     await frames(H, 600);
     const touch = async p => { await H.evaluate(p => window.__xr.ctrl(0, p, [0, -1, 0]), p); await frames(H, 650); await H.evaluate(() => HOST.cur.peek('XR.ctrls[0].wantPress = true')); await frames(H, 150); };
@@ -8503,14 +8596,25 @@ async function talkRound() {
 const RELOAD_ONLY = argv.includes('--reload');
 async function reloadRound() {
   const fmtN = v => +((/^networks-(\d+)$/.exec(v || '') || [])[1] || 0), J = v => JSON.stringify(v);
-  const F = FORMAT, G = 'networks-' + (fmtN(F) + 1), RP = 8712;
+  // (RP: the relay's one port, restarted on it as a deploy: a free one the system gives at the start, not 8712 as before)
+  const F = FORMAT, G = 'networks-' + (fmtN(F) + 1), RP = await freePort();
   const T = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-reload-'));
   const FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'version.json', 'whatsnew.json'];
   const copy = (name, format, v, git) => {
     const d = path.join(T, name);
     fs.mkdirSync(d, { recursive: true });
-    if (git) execFileSync('sh', ['-c', `git -C "${root}" archive ${git} ${[...FILES, 'stories', 'icons'].join(' ')} | tar -x -C "${d}"`]);
-    else { for (const f of FILES) fs.copyFileSync(path.join(root, f), path.join(d, f)); for (const x of ['stories', 'icons']) fs.cpSync(path.join(root, x), path.join(d, x), { recursive: true }); }
+    // (of FILES, those that release had: occlusion.js, ships.js and others came later, and git archive refuses a path it
+    // does not have, so the v135 cases were skipped in every run before this)
+    if (git) { const had = new Set(execFileSync('git', ['-C', root, 'ls-tree', '--name-only', git], { encoding: 'utf8' }).split('\n')); execFileSync('sh', ['-c', `git -C "${root}" archive ${git} ${[...FILES, 'stories', 'icons'].filter(f => had.has(f)).join(' ')} | tar -x -C "${d}"`]); }
+    else {
+      // (this code: every file sw.js's SHELL names and the story packages, without their sources and narrations: since
+      // v185 the stories are packages, and tools/release.mjs --root refuses a copy without packages/; v226 and before
+      // copied only FILES, stories/ and icons/, so the round stopped there)
+      const shell = [...((/const SHELL = \[([^\]]*)\]/.exec(fs.readFileSync(path.join(root, 'sw.js'), 'utf8')) || [])[1] || '').matchAll(/'\.\/([^']+)'/g)].map(m => m[1]);
+      for (const f of new Set([...FILES, ...shell])) if (fs.existsSync(path.join(root, f))) { fs.mkdirSync(path.dirname(path.join(d, f)), { recursive: true }); fs.copyFileSync(path.join(root, f), path.join(d, f)); }
+      for (const x of ['stories', 'icons']) fs.cpSync(path.join(root, x), path.join(d, x), { recursive: true });
+      fs.cpSync(path.join(root, 'packages'), path.join(d, 'packages'), { recursive: true, filter: f => !/[\\/]packages[\\/][^\\/]+[\\/](src|audio)$/.test(f) });
+    }
     const ed = (f, re, to) => fs.writeFileSync(path.join(d, f), fs.readFileSync(path.join(d, f), 'utf8').replace(re, to));
     ed('shared.js', /const FORMAT = '[^']+'/, `const FORMAT = '${format}'`);
     ed('sw.js', /const VERSION = '[^']+'/, `const VERSION = 'networks-v${v}'`);
@@ -8640,7 +8744,7 @@ async function reloadRound() {
     const aId = await A.evaluate(() => HOST.collab.id);
     await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
     await pending(A);
-    await H.evaluate(installXR, xrOpts);
+    await xrInstall(H, xrOpts);
     await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); });
     const al = await lineUp(H), S1 = await A.evaluate(() => HOST.collab.station('s1'));
     const atS1 = al && await walk(H, S1, 'airports');
@@ -8665,7 +8769,7 @@ async function reloadRound() {
     const bt = await until(B, () => HOST.collab.following() === 's1' && HOST.cur && HOST.collab.internals().ready && Math.abs(HOST.cur.collab.APP.t - 5) < 1, null, 40000);
     check('reload (2): each a new member (its id made afresh); B follows its station again, at the station\'s clock (paused at 5 s, within 1 s)', bt && ids2b.every((x, i) => x && x !== ids2[i]), JSON.stringify({ bt, t: await ev(B, () => [HOST.collab.following(), HOST.cur && HOST.cur.collab.APP.t]) }));
     const xg = await ev(H, () => { const b = document.getElementById('xrgo'); return b && !b.hidden ? b.textContent : ''; });
-    await H.evaluate(installXR, xrOpts);
+    await xrInstall(H, xrOpts);
     await H.evaluate(() => { HOST.room.sharedAlign(true); window.__xr.begin(); });
     const al2 = await lineUp(H);
     await frames(H, 600);
@@ -8687,8 +8791,10 @@ async function reloadRound() {
     const lab3 = await Q3.evaluate(() => HOST.collab.roomReload.can() ? HOST.collab.roomReload.label() : '');
     await press(Q3);
     const ok3 = await every([Q1, Q2, Q3], s => s.loads === 2 && s.fmt === G && s.status === 'open' && s.code === c3 && s.st === 't1,t2', 60000), i3 = await info(c3);
+    // (the two old pages reload first, in the order the restarted relay saw them come back, shared.js reloadIn: by since,
+    // then id; this check had wanted Q1 first, so it failed whenever Q2 reconnected first. The presser last, rank 2)
     check(`reload (3): a new page refused by the old room (older) offers Update the room, presses it: the relay's endpoint reaches the old pages, they reload (ranks 0, 1) and come back new, the presser too (rank 2), the room on ${G} with its stations`,
-      !!q3 && lab3 === 'Update the room' && !!ok3 && i3.version === G && J(ok3.map(s => s.rr && s.rr.rank)) === J([0, 1, 2]) && rlog.some(l => l.includes(`${c3} reload to ${G} (2 members)`)), JSON.stringify({ lab3, v: i3 && i3.version, s: await sAll([Q1, Q2, Q3]) }));
+      !!q3 && lab3 === 'Update the room' && !!ok3 && i3.version === G && J(ok3.slice(0, 2).map(s => s.rr && s.rr.rank).sort()) === J([0, 1]) && ok3[2].rr && ok3[2].rr.rank === 2 && rlog.some(l => l.includes(`${c3} reload to ${G} (2 members)`)), JSON.stringify({ lab3, v: i3 && i3.version, s: await sAll([Q1, Q2, Q3]) }));
     await closeAll();
     if (V135) {
       await deploy(V135);
@@ -8739,12 +8845,12 @@ async function reloadRound() {
     await deploy(NEW);
     await sleep(3000);
     await H1.evaluate(() => HOST.collab.publish([['st.t2', { story: 'robots', x: 2.4, z: -2, yaw: 0 }]]));
-    await every([H1, G1, G2], s => s.st === 't1,t2', 10000);
+    const pre5 = await every([H1, G1, G2], s => s.st === 't1,t2', 20000);   // (asked: the station must be on every page before the press)
     await press(G2);
     const ok5 = await every([H1, G1, G2], s => s.loads === 2 && s.fmt === G && s.status === 'open' && s.code === c6 && s.via === 'peer' && s.members === 3 && s.hosts === 1 && s.st === 't1,t2', 90000);
     const plog = p => ev(p, () => window.__collabLog.filter(e => /peer|host|guest|local|take|join|welcome|close/.test(e.ev)).slice(-10).map(e => e.ev + (e.code ? ' ' + e.code : '') + (e.reason ? ' ' + e.reason : '')));
     check(`reload (5): peer to peer, an order from a guest: host and guests reload into ${G}, one room on the new id with every station (one added just before the press too), one host, no split`,
-      !!p5 && !!ok5, (await sAll([H1, G1, G2])) + ' ' + JSON.stringify({ p5: !!p5, logs: await Promise.all([H1, G1, G2].map(plog)) }));
+      !!p5 && !!pre5 && !!ok5, (await sAll([H1, G1, G2])) + ' ' + JSON.stringify({ p5: !!p5, pre5: !!pre5, logs: await Promise.all([H1, G1, G2].map(plog)) }));
     await closeAll();
     }
     // ------------------------------------------------------------------ (6)
@@ -8755,10 +8861,11 @@ async function reloadRound() {
         const f = path.join(OLD, decodeURIComponent(new URL(req.url, 'http://x').pathname).replace(/\/$/, '/index.html'));
         fs.readFile(f, (err, body) => { if (err) { res.writeHead(404); res.end(); return; } res.writeHead(200, { 'Content-Type': /\.html$/.test(f) ? 'text/html' : /\.js$/.test(f) ? 'text/javascript' : /\.json$/.test(f) ? 'application/json' : 'application/octet-stream' }); res.end(body); });
       });
-      await new Promise(r => srv.listen(8713, '127.0.0.1', r));
+      await new Promise(r => srv.listen(0, '127.0.0.1', r));
+      const OP = srv.address().port;   // (a free port, not 8713 as before)
       try {
         const V = await ropen('V', '#airports'), c7 = await room(V, ST);
-        const O = await ropen('O', `#airports&s=${c7}&relay=ws://127.0.0.1:${RP}`, { port: 8713 });
+        const O = await ropen('O', `#airports&s=${c7}&relay=ws://127.0.0.1:${RP}`, { port: OP });
         await every([V, O], s => s.status === 'open' && s.code === c7 && s.st === 't1,t2' && s.members === 2, 30000);
         await press(O);
         const ob = await until2(O, s => s.loads === 2 && s.status === 'open' && s.code === c7, 40000);
@@ -8806,35 +8913,38 @@ try {
   await startRelay(relayPort);
   main: {   // (--p2p: only the peer-to-peer part, after this block; --near: only rooms on this network)
   if (P2P || NEAR_ONLY) break main;
-  if (NAMES_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await namesRound(shots); break main; }
-  if (FOLLOW_ONLY) { await followOnly(); break main; }
-  if (CIRCLES_ONLY) { await circlesOnly(); break main; }
-  if (SMOOTH_ONLY) { await smoothRound(); break main; }
-  if (CODE_ONLY) { await codeRound(); break main; }
-  if (ALL_ONLY) { await allRound(); break main; }
-  if (GUIDE_ONLY) { await guideRound(); break main; }
-  if (TOKEN_ONLY) { await tokenRound(); break main; }
-  if (STUDIO_ONLY) { await studioRound(shots); break main; }
-  if (ASK_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await askRound(shots); break main; }
-  if (SCENES_ONLY) { await scenesRound(); break main; }
-  if (ARR_ONLY) { await arrRound(); break main; }
-  if (NET_ONLY) { await netRound(shots); break main; }
-  if (HOME_ONLY) { await homeRound(); break main; }
-  if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await menusRound(shots); break main; }
-  if (BEHAVE_ONLY) { await behaveRound(); break main; }
-  if (STANDBY_ONLY) { await standbyRound(); break main; }
-  if (NARR_ONLY) { await narrationRound(); break main; }
-  if (WALK_ONLY) { await walkRound(); break main; }
-  if (SHIPS_ONLY) { await shipsRound(); break main; }
-  if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await cameraRound(shots); break main; }
-  if (PREVIEW_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await previewRound(shots); break main; }
-  if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await trackersRound(shots); break main; }
-  if (OUTPUT_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await outputRound(shots); break main; }
-  if (CALIB_ONLY) { await calibRound(); break main; }
-  if (PLACES_ONLY) { await placesRound(); break main; }
-  if (AREAS_ONLY) { await areasRound(); break main; }
-  if (RELOAD_ONLY) { await reloadRound(); break main; }
-  if (TALK_ONLY) { await talkRound(); break main; }
+  if (NAMES_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await round('namesRound', () => namesRound(shots)); break main; }
+  if (FOLLOW_ONLY) { await round('followOnly', () => followOnly()); break main; }
+  if (CIRCLES_ONLY) { await round('circlesOnly', () => circlesOnly()); break main; }
+  if (SMOOTH_ONLY) { await round('smoothRound', () => smoothRound()); break main; }
+  if (CODE_ONLY) { await round('codeRound', () => codeRound()); break main; }
+  if (ALL_ONLY) { await round('allRound', () => allRound()); break main; }
+  if (GUIDE_ONLY) { await round('guideRound', () => guideRound()); break main; }
+  if (TOKEN_ONLY) { await round('tokenRound', () => tokenRound()); break main; }
+  if (STUDIO_ONLY) { await round('studioRound', () => studioRound(shots)); break main; }
+  if (ASK_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await round('askRound', () => askRound(shots)); break main; }
+  if (SCENES_ONLY) { await round('scenesRound', () => scenesRound()); break main; }
+  if (ARR_ONLY) { await round('arrRound', () => arrRound()); break main; }
+  if (NET_ONLY) { await round('netRound', () => netRound(shots)); break main; }
+  if (HOME_ONLY) { await round('homeRound', () => homeRound()); break main; }
+  if (MENUS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await round('menusRound', () => menusRound(shots)); break main; }
+  if (BEHAVE_ONLY) { await round('behaveRound', () => behaveRound()); break main; }
+  if (STANDBY_ONLY) { await round('standbyRound', () => standbyRound()); break main; }
+  if (NARR_ONLY) { await round('narrationRound', () => narrationRound()); break main; }
+  if (WALK_ONLY) { await round('walkRound', () => walkRound()); break main; }
+  if (SHIPS_ONLY) { await round('shipsRound', () => shipsRound()); break main; }
+  if (CAMERA_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await round('cameraRound', () => cameraRound(shots)); break main; }
+  if (PREVIEW_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await round('previewRound', () => previewRound(shots)); break main; }
+  if (TRACKERS_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await round('trackersRound', () => trackersRound(shots)); break main; }
+  if (OUTPUT_ONLY) { if (shots) fs.mkdirSync(shots, { recursive: true }); await round('outputRound', () => outputRound(shots)); break main; }
+  if (CALIB_ONLY) { await round('calibRound', () => calibRound()); break main; }
+  if (PLACES_ONLY) { await round('placesRound', () => placesRound()); break main; }
+  if (AREAS_ONLY) { await round('areasRound', () => areasRound()); break main; }
+  if (RELOAD_ONLY) { await round('reloadRound', () => reloadRound()); break main; }
+  if (TALK_ONLY) { await round('talkRound', () => talkRound()); break main; }
+  // (the main run's own part, the per-story part and the pretend headset in the main room, is one round: a thrown error
+  // there is its FAIL, and the rounds after it still run; its pictures (--shots) are taken at its end)
+  await round('main run (per story, three pages, the pretend headset)', async () => {
   // ------------------------------------------------------------ rooms --
   const A = await open('#stories');
   check('a page served by the relay finds it', await A.evaluate(async () => { await HOST.collab.detect(); return HOST.collab.relay === location.origin; }));
@@ -8844,7 +8954,9 @@ try {
   await A.evaluate(() => HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }));
   check('Arrange all makes a station for every story', await until(A, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 3000));
   const B = await open('#s=' + code), C = await open('#s=' + code);
-  const st7 = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === HOST.list.length, null, 20000);
+  // (n: the stations the room has; once the Experiments are added below, NST: v226 and before always waited for the main
+  // set's count, which a page in the main room never reached after that, so each such wait ran out its 20 s unseen)
+  const st7 = (p, n) => until(p, n => HOST.collab.status === 'open' && HOST.collab.stations().length === (n || HOST.list.length), n || 0, 20000);
   await st7(B); await st7(C);
   const sts = p => p.evaluate(() => JSON.stringify(HOST.collab.stations()));
   const sa = await sts(A);
@@ -8861,8 +8973,10 @@ try {
   check(`Arrange all: two rows (${Math.ceil(NST / 2)} + ${Math.floor(NST / 2)}), spots 2.4 m apart, the rows 2.6 m apart, all facing away from you`, spotsOk && closest > 2.2 - 1e-6,
     arranged.map(s => `${s.story} ${s.x},${s.z} ${s.yaw}`).join('; '));
   // the Experiments set's stories (v188: proteins, the flock, the robots ...) are never placed by Arrange all: Add places
-  // them, in a third row here, for the rounds that walk to them (HEADSET_STORY, PICK_STORY)
-  const exps = await A.evaluate(keys => HOST.packages.experiments().map(m => m.key).filter(k => keys.includes(k)), Object.keys(STORIES));
+  // them, in a third row here, for the rounds that walk to them (HEADSET_STORY, PICK_STORY) and the second station followed
+  // back to back (robots): those whatever STORIES holds (--quick keeps only its last story, which had left the following
+  // a person block with no PICK_STORY station, a TypeError, and the back-to-back check following a station that was not there)
+  const exps = await A.evaluate(keys => HOST.packages.experiments().map(m => m.key).filter(k => keys.includes(k)), Object.keys(STORIES).concat([HEADSET_STORY, PICK_STORY, OTHER_STORY, MOVE_STORY, 'robots']));
   check('Arrange all leaves the Experiments set out (every station a story of the main set)', arranged.every(s => keys.includes(s.story)) && !arranged.some(s => exps.includes(s.story)), JSON.stringify({ exps }));
   await A.evaluate(ks => ks.forEach((k, i) => HOST.collab.add(k, { x: (i - (ks.length - 1) / 2) * 2.4, z: -6.4, yaw: 0 })), exps);
   NST += exps.length;
@@ -8925,7 +9039,7 @@ try {
   check('the room map: with the circles locked (Lock circles) a station cannot be dragged and Arrange all is off; unlocked again', !mapT.err &&
     mapT.locked.kept && mapT.locked.arrOff && mapT.locked.label === 'Unlock circles' && !mapT.locked.followed && mapT.locked.unlocked, JSON.stringify(mapT.locked));
   await A.evaluate(() => { HOST.collab.dialog(false); HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
-  await st7(B); await st7(C);
+  await st7(B, NST); await st7(C, NST);
 
   // ----------------------------------------- the headsets' settings --
   // labels (the scenes' small ones) and cards (the story panels, station cards and name tags), each on top, in 3D or
@@ -9019,8 +9133,12 @@ try {
       const C = HOST.collab.internals(), out = []; let p0 = C.pumpAt;
       const iv = setInterval(() => { if (C.pumpAt !== p0) { p0 = C.pumpAt; out.push([HOST.cur.peek('APP.t'), Date.now()]); if (out.length === 5) { clearInterval(iv); r(out); } } }, 1);
     }));
-    const [run, ran] = reads.map(([v, at]) => [v, from + (at - t0) / 1000]).sort((a, b) => Math.abs(a[0] - a[1]) - Math.abs(b[0] - b[1]))[0];
-    check(`${key}: a playing station runs on the relay's clock (a following page keeps up)`, Math.abs(run - ran) < 0.45, `B at ${run.toFixed(2)} s, ${ran.toFixed(2)} s since play`);
+    // (the time each read should show: the station's play key as the relay holds it, its t at its stamp at, on the relay's
+    // clock, which is this machine's; v226 and before counted from this script's own moment before asking A to play, so
+    // the time A took to publish under load came off the page's lead and the check failed on a busy machine)
+    const pv = ((await roomInfo(code)).keys['st.' + id + '.play'] || {}).v || {};
+    const [run, ran] = reads.map(([v, at]) => [v, pv.playing && Number.isFinite(pv.at) ? (+pv.t || 0) + (at - pv.at) / 1000 : from + (at - t0) / 1000]).sort((a, b) => Math.abs(a[0] - a[1]) - Math.abs(b[0] - b[1]))[0];
+    check(`${key}: a playing station runs on the relay's clock (a following page keeps up)`, Math.abs(run - ran) < 0.45, `B at ${run.toFixed(2)} s, ${ran.toFixed(2)} s by the station's clock (${JSON.stringify(pv)})`);
     await peek(A, 'APP.togglePlay()');
     const paused = await until(B, () => !HOST.cur.peek('APP.playing'), null, 5000);
     const [ca, cb] = [await clockOf(A), await clockOf(B)];
@@ -9081,8 +9199,11 @@ try {
         await C.evaluate(i => HOST.collab.follow(i), id);
         await until(C, a => HOST.cur.peek('APP.playing') && HOST.cur.peek('APP.t') > a, at, 10000);
         await sleep(1000);
-        const late = (await peek(C, `SFXQ.log.slice(-${Math.max(1, Math.min(64, (await n(C)) - c0))})`)).filter(e => e[2] === 'story' && cueOf(e) && cueOf(e)[1] < at - 0.3);
-        check(`${key}: sound effects: a page that joins mid-play plays none of the cues it missed`, (await n(C)) === c0 || !late.length, JSON.stringify({ at, late }));
+        // (the count and the cues since c0 read in one go: two reads, as before, let a cue played between them count an old
+        // one as late, or slice(-1) bring back a cue from before c0)
+        const [c1, since] = await peek(C, `(k => [SFXQ.n, k > 0 ? SFXQ.log.slice(-k) : []])(Math.min(64, SFXQ.n - ${c0}))`);
+        const late = since.filter(e => e[2] === 'story' && cueOf(e) && cueOf(e)[1] < at - 0.3);
+        check(`${key}: sound effects: a page that joins mid-play plays none of the cues it missed`, !late.length, JSON.stringify({ at, c0, c1, late }));
         await peek(A, 'APP.togglePlay()');
         for (const p of [B, C]) await until(p, () => !HOST.cur.peek('APP.playing'), null, 5000);
       }
@@ -9121,8 +9242,13 @@ try {
       await sleep(400);
       const calm = await until(B, s => HOST.cur.peek(s), E.idle, 20000) && await until(A, s => HOST.cur.peek(s), E.idle, 20000);
       const sn = T.sound ? await Promise.all([B, C].map(p => peek(p, 'typeof SFXQ !== "undefined" ? SFXQ.n : -1'))) : null;
+      // (B watches for it at each of its frames from before the send, and the check waits up to 10 s for B to have seen
+      // it: an effect that is over in a few seconds, the flock's falcon, could end between two reads of a page drawing in
+      // software, and a single read at most 5 s on was red under load)
+      await B.evaluate(s => { const W = window.__fxSeen = { on: false }; const f = () => { if (window.__fxSeen !== W || W.on) return; try { W.on = !!HOST.cur.peek(s); } catch (e) { /* story busy */ } requestAnimationFrame(f); }; requestAnimationFrame(f); }, E.seen);
       await peek(A, E.send);
-      check(`${key}: its effect plays at the others`, calm && await until(B, s => HOST.cur.peek(s), E.seen, 5000));
+      check(`${key}: its effect plays at the others`, calm && await until(B, () => window.__fxSeen.on, null, 10000));
+      await B.evaluate(() => { window.__fxSeen = null; });
       // (sound effects: the others hear it too, as it arrives: each page's own live sounds. The count and the log read in
       // one evaluate: a sound logged between two reads, the robots' nom, shifted the window off the patter)
       if (T.sound) {
@@ -9170,9 +9296,9 @@ try {
     const lastKey = Object.keys(STORIES).at(-1), [k1, k2] = ['spatial', 'robots'].filter(k => k !== lastKey).concat(['airports']).slice(0, 2);
     const [i1, i2] = [await stationOf(B, k1), await stationOf(B, k2)];
     await B.evaluate(([a, b]) => { HOST.collab.follow(a); HOST.collab.follow(b); }, [i1, i2]);
-    const sw = await until(B, ([k, id]) => HOST.curKey === k && !HOST.busy && HOST.collab.live() && HOST.collab.live().id === id, [k2, i2], 60000) && await ready(B, k2);
+    const sw = !!i1 && !!i2 && await until(B, ([k, id]) => HOST.curKey === k && !HOST.busy && HOST.collab.live() && HOST.collab.live().id === id, [k2, i2], 60000) && await ready(B, k2);
     check('a page that follows two stations back to back ends at the second (a switch while a story loads is not lost)', sw,
-      `story ${await B.evaluate(() => HOST.curKey)}, live ${await B.evaluate(() => (HOST.collab.live() || {}).story)}`);
+      `${k1} ${i1 || 'no station'}, then ${k2} ${i2 || 'no station'}: story ${await B.evaluate(() => HOST.curKey)}, live ${await B.evaluate(() => (HOST.collab.live() || {}).story)}`);
     // a story picked by hand (the Stories screen) leaves the station: no longer following, and not pulled back
     await B.evaluate(k => HOST.start(k), lastKey === 'airports' ? 'proteins' : 'airports');
     const own = lastKey === 'airports' ? 'proteins' : 'airports';
@@ -9200,7 +9326,7 @@ try {
   // at the station page A followed last
   const key0 = Object.keys(STORIES).at(-1), id0 = await stationOf(A, key0);
   const D = await open('#s=' + code);
-  await st7(D);
+  await st7(D, NST);
   await D.evaluate(i => HOST.collab.follow(i), id0);
   await ready(D, key0);
   const sA = await stateOf(A);
@@ -9209,7 +9335,7 @@ try {
   await D.context().close();
 
   // --------------------------------------------------- follow a person --
-  await personFollow(code, '');
+  await round('personFollow (main room)', () => personFollow(code, ''));
 
   // ------------------------------------------------ panels per station --
   // (key st.<id>.ui) set in a page's Shared dialog for one station, with the circles locked (never refused by it): the
@@ -9255,7 +9381,9 @@ try {
   await stopRelay();
   await sleep(400);
   await startRelay(keep);
-  const back = p => until(p, () => HOST.collab.status === 'open' && HOST.collab.stations().length === HOST.list.length, null, 25000);
+  // (every station of the room: NST, the Experiments added by hand among them; v226 and before waited for the main set's
+  // count, which never came, so this check was red ever since v188 added the Experiments here)
+  const back = p => until(p, n => HOST.collab.status === 'open' && HOST.collab.stations().length === n, NST, 25000);
   const allBack = (await Promise.all([A, ...others].map(back))).every(Boolean);
   const after = await roomInfo(code).catch(() => ({ keys: {} }));
   const kx = 'st.' + id0 + '.x';
@@ -9281,14 +9409,14 @@ try {
   // ------------------------------------------------- a pretend headset --
   const H = await open('#s=' + code);
   let hLoads = 0; H.on('load', () => hLoads++);   // (a reload of the pretend headset's page would end its session: counted for the failures' notes)
-  await st7(H);
+  await st7(H, NST);
   await ready(H, 'airports');
   const aId = await A.evaluate(() => HOST.collab.id);
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now() - 60000));
   await until(A, () => !HOST.collab.internals().pending.size, null, 3000);   // stored before the headset's writes are counted
   const xrOpts = { mode: 'immersive-ar', features: ['local-floor', 'anchors', 'shared'], local: LOCAL, floor: FLOOR, shared: SHARED, sharedId: '', head: [0, 1.6, 0, 0] };
   await H.evaluate(() => HOST.room.sharedAlign(true));   // aligning from the shared space is off unless asked for
-  await H.evaluate(installXR, xrOpts);
+  await xrInstall(H, xrOpts);
   const q2 = (await roomInfo(code)).seq, hId0 = await H.evaluate(() => HOST.collab.id);
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 400);
@@ -9304,7 +9432,7 @@ try {
   // that loaded quickly gets here sooner, so wait for it)
   await until(H, () => { window.__xr.step(); return HOST.room.src === 'adopted'; }, null, 8000);
   const fr = await H.evaluate(() => HOST.room.frame && { o: HOST.room.frame.o, x: HOST.room.frame.x, src: HOST.room.src });
-  const wantO = unapply(FLOOR, ROOM.slice(0, 3)), wantX = rot(-FLOOR[3], rot(ROOM[3], [1, 0, 0]));
+  const FH = ownPose(H, FLOOR), wantO = unapply(FH, ROOM.slice(0, 3)), wantX = rot(-FH[3], rot(ROOM[3], [1, 0, 0]));
   check('headset: aligns from the frame published for its shared space', fr && fr.src === 'adopted' && near(fr.o, [wantO[0], 0, wantO[2]], 1e-4) && near(fr.x, wantX, 1e-4),
     fr ? `${fr.src} o ${fmt(fr.o)} x ${fmt(fr.x)}, want o ${fmt(wantO)} x ${fmt(wantX)}` : 'no frame');
   // the menu is closed at the start of a session (nothing of it shows: the watch went in v103), and a notice says how to
@@ -9356,7 +9484,8 @@ try {
   // written it again since
   const frameIn = (S, P, uuid, by, g, p) => ({ uuid, o: unapply(S, [P[0], P[1], P[2]]), x: rot(-S[3], rot(P[3], [1, 0, 0])), by, g, at: Date.now() - 60000, p });
   const F8 = [FLOOR[0] + 0.3, 0, FLOOR[2] + 0.5, FLOOR[3] + 0.4], NEWS = [SHARED[0] + 1.3, 0, SHARED[2] - 0.6, SHARED[3] - 0.8], ROOM2 = [ROOM[0] + 0.5, 0, ROOM[2] - 0.4, ROOM[3] + 0.2];
-  const inFloor = (F, P) => [unapply(F, P.slice(0, 3)), rot(-F[3], rot(P[3], [1, 0, 0]))];
+  // (F as the round gives it to floorReset, where the headset has it: moved by its spot)
+  const inFloor = (F, P) => { F = ownPose(H, F); return [unapply(F, P.slice(0, 3)), rot(-F[3], rot(P[3], [1, 0, 0]))]; };
   const nap = (F, S) => H.evaluate(([F, S]) => {
     const X = window.__xr, R = HOST.room.internals(), V = (x, y, z) => new THREE.Vector3(x, y, z);
     const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
@@ -9469,7 +9598,7 @@ try {
   // walk to the headset story's station: after a second there it becomes this headset's story, placed at the station
   const S1 = await stationFor(HEADSET_STORY);
   const switched = await walk(H, S1, HEADSET_STORY, 0.4);
-  const rig = await rigOf(H), want = rigAt(S1);
+  const rig = await rigOf(H), want = rigAt(S1, ownPose(H, LOCAL));
   check('headset: a second at a station switches to its story, which stands at the station', switched && near(rig.slice(0, 3), want.slice(0, 3), 1e-4) && angle(rig[3], want[3]) < 1e-4,
     `story ${await H.evaluate(() => HOST.curKey)}, rig ${fmt(rig)}, want ${fmt(want)}`);
   const shownAt = await H.evaluate(() => { HOST.cur.peek('xrUpdate(APP.mode === "story" ? storyState(storyT(APP.t)) : XS)');
@@ -9493,12 +9622,12 @@ try {
   // stays at its station, placed there again every frame
   const relocal = L => H.evaluate(L => {
     const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
-    X.W.local = new THREE.Matrix4().compose(V(L[0], L[1], L[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), L[3]), V(1, 1, 1));
+    X.W.local = X.own(L);
     for (const fn of X.resets.local || []) fn({ transform: null });
   }, L);
   const L2 = [LOCAL[0] + 0.7, LOCAL[1], LOCAL[2] - 0.4, LOCAL[3] + 0.9];
   await relocal(L2); await frames(H, 250);
-  const rigR = await rigOf(H), wantR = rigAt(S1, L2);
+  const rigR = await rigOf(H), wantR = rigAt(S1, ownPose(H, L2));
   await relocal(LOCAL); await frames(H, 250);
   check('headset: when the headset recentres, the story stays at its station', near(rigR.slice(0, 3), wantR.slice(0, 3), 1e-4) && angle(rigR[3], wantR[3]) < 1e-4,
     `rig ${fmt(rigR)}, want ${fmt(wantR)}`);
@@ -9622,8 +9751,8 @@ try {
     drawn && !drawn.other && !drawn.none && drawn.all && drawn.kept === 'all' && !drawn.back, JSON.stringify(drawn));
   // the sound zone: the narration comes from the station's content (a panner there, the listener at your head)
   // and the <audio> element plays fainter with distance
-  const cz = [S1.x - 1.4 * Math.sin(S1.yaw), 1.4, S1.z - 1.4 * Math.cos(S1.yaw)], czLocal = unapply(LOCAL, apply(ROOM, cz));
-  const headLocal = unapply(LOCAL, headAt(S1)), dz = Math.hypot(...czLocal.map((v, i) => v - headLocal[i])), vol = Math.min(1, 1.5 / (1.5 + 2.5 * Math.max(0, dz - 1.5)));
+  const cz = [S1.x - 1.4 * Math.sin(S1.yaw), 1.4, S1.z - 1.4 * Math.cos(S1.yaw)], czLocal = unapply(ownPose(H, LOCAL), apply(ROOM, cz));
+  const headLocal = unapply(ownPose(H, LOCAL), headAt(S1)), dz = Math.hypot(...czLocal.map((v, i) => v - headLocal[i])), vol = Math.min(1, 1.5 / (1.5 + 2.5 * Math.max(0, dz - 1.5)));
   const zone = await H.evaluate(() => { const A = HOST.audio.state(), p = A.pan, L = A.ctx && A.ctx.listener;
     return { pan: p ? [p.positionX.value, p.positionY.value, p.positionZ.value] : null, ear: L ? [L.positionX.value, L.positionY.value, L.positionZ.value] : null, vol: A.el.volume, model: p && p.panningModel,
       refDistance: p && p.refDistance }; });
@@ -9742,7 +9871,7 @@ try {
   const went = await until(H, k => HOST.curKey === k || HOST.busy, PICK_STORY, 3000);
   await frames(H, 200);
   const pk = await H.evaluate(() => ({ key: HOST.curKey, mine: HOST.collab.mine(), note: (window.__collabLog.filter(e => e.ev === 'notice').slice(-1)[0] || {}).title }));
-  const rigP = await rigOf(H), wantP = rigAt(S1, LOCAL);
+  const rigP = await rigOf(H), wantP = rigAt(S1, ownPose(H, LOCAL));
   check(`headset: the trigger on another station's card runs nothing from afar (${PICK_STORY}): a notice says to walk into its circle, and the headset stays at its own`,
     hovRing && peeked && hovCard && !went && pk.key === HEADSET_STORY && pk.mine === S1.id && pk.note === 'Walk into its circle' && near(rigP.slice(0, 3), wantP.slice(0, 3), 1e-4),
     JSON.stringify({ hovRing, peeked, hovCard, went, pk, rig: rigP, want: wantP }));
@@ -9860,7 +9989,11 @@ try {
     const inv = () => X.W.local.clone().invert();
     const headNow = () => new V().setFromMatrixPosition(X.W.head).applyMatrix4(inv());
     const gaze = () => new V(0, 0, -1).transformDirection(X.W.head).transformDirection(inv());
-    const head = headNow(), lp = head.clone().add(new V(-0.2, -0.35, -0.3));
+    // (every offset from the head below is along the head's own right, up and forward (byHead): the head is turned in its
+    // local space, the pretend headsets standing off their origin since 27 November 2026, so a step along local x is not a
+    // step to its side. Written for a head facing local -z, these hands had pointed elsewhere once it was turned)
+    const hf = gaze().setY(0).normalize(), hr = new V(-hf.z, 0, hf.x), byHead = (x, y, z) => hr.clone().multiplyScalar(x).add(new V(0, y, 0)).addScaledVector(hf, -z);
+    const head = headNow(), lp = head.clone().add(byHead(-0.2, -0.35, -0.3));
     X.aim(1, new M4().compose(lp, new THREE.Quaternion(), new V(1, 1, 1)));
     await steps(4);
     localStorage.removeItem('xrMenuAt');
@@ -9868,6 +10001,9 @@ try {
     // where the open menu is: its middle's distance from the eyes, how far ahead along the gaze (level), and whether it
     // faces you
     const mid = () => S.mesh.getWorldPosition(new V());
+    // (frames until the menu has stopped moving, 4 s at most: it glides into place as it opens, and a page drawing in
+    // software may not have finished in the fixed 0.5 s this step waited before, which made the grip's check flaky)
+    const settle = async () => { const t0 = performance.now(); let p = mid(); for (;;) { await steps(2); const q = mid(); if (q.distanceTo(p) < 1e-4 || performance.now() - t0 > 4000) return; p = q; } };
     const where = () => { const m = mid(), h = headNow(), d = m.clone().sub(h), f = gaze(); f.y = 0; f.normalize(); const dl = d.clone(); dl.y = 0; dl.normalize();
       return { dist: +d.length().toFixed(3), flat: +Math.hypot(d.x, d.z).toFixed(3), ahead: +dl.dot(f).toFixed(3), faces: +new V(0, 0, 1).applyQuaternion(O.panelG.quaternion).dot(h.clone().sub(m).normalize()).toFixed(3), p: m.toArray().map(v => +v.toFixed(3)) }; };
     // the left stick's click (button 3), pressed and let go: open; again: closed; the right stick's the same. Since v125 a
@@ -9888,7 +10024,7 @@ try {
     rbtn.pressed = true; await steps(2); rbtn.pressed = false; await wait(500); await steps(2); out.rstickClosed = !HOST.collab.menu;
     right.gamepad = null;
     // the right controller held low, pointing at the floor (nothing of the menu)
-    const at = () => X.aim(0, new M4().compose(head.clone().add(new V(0.3, -0.6, 0)), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(0, -1, 0)), new V(1, 1, 1)));
+    const at = () => X.aim(0, new M4().compose(head.clone().add(byHead(0.3, -0.6, 0)), new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(0, -1, 0)), new V(1, 1, 1)));
     at(); await steps(2);
     // unused, it closes by itself (here after 0.6 s); a ray resting on it keeps it open; not while calibrating (the right
     // controller put away meanwhile: its ray, straight ahead from beside the clock, can rest on the menu)
@@ -9898,7 +10034,7 @@ try {
     await wait(1100); for (let k = 0; k < 40 && HOST.collab.menu; k++) await wait(100);   // (a slow page draws a frame a second: given time, as below)
     out.idleClosed = !HOST.collab.menu && (window.__collabLog.filter(e => e.ev === 'menu').pop() || {}).by === 'idle';
     btn.pressed = true; await steps(2); btn.pressed = false; await steps(2);
-    const c0 = HOST.cur.peek('XR.ctrls')[0], ro = headNow().add(new V(0.1, -0.2, 0));
+    const c0 = HOST.cur.peek('XR.ctrls')[0], ro = headNow().add(byHead(0.1, -0.2, 0));
     c0.src = c0.src || right; c0.g.visible = true;
     const aimMenu = () => c0.g.matrix.compose(ro, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), mid().sub(ro).normalize()), new V(1, 1, 1));
     const t0 = performance.now(); while (performance.now() - t0 < 1200) { aimMenu(); await steps(1); }
@@ -9920,19 +10056,23 @@ try {
     X.W.head = H0; HOST.collab.panelOpen(false); await steps(3);
     // the grip on it (the right controller's ray on its middle) carries it: let go 0.3 m to the side it stays there, even
     // with the head turned 60 degrees; closed and opened again it opens at the distance and height it was left at
-    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3);
+    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3); await settle();
     const aimTo = p => { const m = new M4().compose(ro, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), p.clone().sub(ro).normalize()), new V(1, 1, 1)); X.aim(0, m); };
     const m0 = mid(); aimTo(m0); await steps(3);
+    // (the grip takes what its ray rested on in the last 250 ms, shared.js hovOf: a headset's frame is 11 to 14 ms, but one
+    // frame drawn in software here can take longer than that between the ray's rest and the grip, and the grab then found
+    // nothing: flaky on a busy machine. So the ray's rest is dated now, as a headset's next frame would have it)
+    { const h = HOST.collab.internals().hov.get(0); if (h) h.at = performance.now(); }
     X.fire('squeezestart', { inputSource: X.session.inputSources[0] }); await steps(2);
     out.grab = HOST.collab.menuGrab;
-    const to = m0.clone().add(new V(-0.3, 0.1, -0.2)); aimTo(to); await steps(4);
+    const to = m0.clone().add(byHead(-0.3, 0.1, -0.2)); aimTo(to); await steps(4);
     X.fire('squeezeend', { inputSource: X.session.inputSources[0] }); await steps(2);
     out.carried = +mid().distanceTo(m0).toFixed(3); out.put = !HOST.collab.menuGrab; out.pos = HOST.collab.menuPos(); out.kept = localStorage.getItem('xrMenuAt');
     at(); await steps(2);
     const p1 = mid(); turn(60 * Math.PI / 180); await wait(1500);
     out.pinnedStill = +mid().distanceTo(p1).toFixed(4);
     X.W.head = H0; HOST.collab.panelOpen(false); await steps(3);
-    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3);
+    btn.pressed = true; await steps(2); btn.pressed = false; await wait(500); await steps(3); await settle();
     // (along the floor, against the first opening: it hangs from its top edge, so its middle's height follows the tab
     // shown, and this test's head is a few centimetres from the shell's eye; both open straight ahead)
     out.again = where(); out.againWant = +(out.float.flat + out.pos.d - out.d0).toFixed(3);
@@ -9941,14 +10081,14 @@ try {
     // hands: a left wrist turned every which way, its ray pointing up (at nothing); the right index fingertip
     const J = m => ({ world: X.W.local.clone().multiply(m) }), tip = J(new M4());
     const tipAt = v => { tip.world = X.W.local.clone().multiply(new M4().makeTranslation(v.x, v.y, v.z)); };
-    const wq = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.5, 0.7, -0.3)), wp = head.clone().add(new V(-0.15, -0.4, -0.35)), wm = new M4().compose(wp, wq, new V(1, 1, 1));
+    const wq = new THREE.Quaternion().setFromEuler(new THREE.Euler(0.5, 0.7, -0.3)), wp = head.clone().add(byHead(-0.15, -0.4, -0.35)), wm = new M4().compose(wp, wq, new V(1, 1, 1));
     HOST.collab.panelOpen(false);
     const left = { handedness: 'left', targetRayMode: 'tracked-pointer', gamepad: null, targetRaySpace: J(wm), hand: new Map([['wrist', J(wm)]]) };
     const rightH = { handedness: 'right', targetRayMode: 'tracked-pointer', gamepad: null, targetRaySpace: J(new M4()), hand: new Map([['index-finger-tip', tip]]) };
     X.session.inputSources[1] = left; X.session.inputSources[0] = rightH;
     const up = new M4().compose(lp, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), new V(0, 1, 0)), new V(1, 1, 1));
     X.aim(1, up); left.targetRaySpace = J(up);
-    tipAt(head.clone().add(new V(0.3, -0.3, -0.2)));
+    tipAt(head.clone().add(byHead(0.3, -0.3, -0.2)));
     await steps(25);
     out.handClosed = !HOST.collab.menu;
     const pinch = src => X.fire('selectstart', { inputSource: src });
@@ -9971,7 +10111,7 @@ try {
     } else out.pinchOnPanel = 'no panel';
     // open (by two pinches), the left hand's ray on the menu: two pinches there are the menu's, not a toggle
     pinch(left); await wait(120); pinch(left); await steps(3);
-    const lo = headNow().add(new V(-0.15, -0.25, -0.1)), onMenu = () => { const m = new M4().compose(lo, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), mid().sub(lo).normalize()), new V(1, 1, 1)); X.aim(1, m); left.targetRaySpace = J(m); };
+    const lo = headNow().add(byHead(-0.15, -0.25, -0.1)), onMenu = () => { const m = new M4().compose(lo, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), mid().sub(lo).normalize()), new V(1, 1, 1)); X.aim(1, m); left.targetRaySpace = J(m); };
     onMenu(); await steps(3); onMenu(); await steps(2);
     pinch(left); await wait(120); onMenu(); pinch(left); await steps(2); out.pinchOnMenu = HOST.collab.menu;
     X.aim(1, up); left.targetRaySpace = J(up); await steps(3);
@@ -9986,7 +10126,7 @@ try {
     tipAt(onExit(0.005)); await steps(2); out.poke1 = n; await steps(2); out.poke1b = n;
     tipAt(onExit(0.04)); await steps(2); tipAt(onExit(0.005)); await steps(2); out.poke2 = n;
     // a poke and a pinch on the ray at the same button at once press it once; a pinch a second later is its own
-    const cr = HOST.cur.peek('XR.ctrls')[0], ro2 = headNow().add(new V(0.1, -0.2, 0)), rd = onExit(0).sub(ro2).normalize();
+    const cr = HOST.cur.peek('XR.ctrls')[0], ro2 = headNow().add(byHead(0.1, -0.2, 0)), rd = onExit(0).sub(ro2).normalize();
     cr.src = cr.src || { targetRayMode: 'tracked-pointer', handedness: 'right', gamepad: null };
     cr.g.visible = true; cr.g.matrix.compose(ro2, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), rd), new V(1, 1, 1));
     tipAt(onExit(0.04)); await steps(3);
@@ -9995,7 +10135,7 @@ try {
     await new Promise(r => setTimeout(r, 800)); cr.wantPress = true; await steps(4); out.pinchLater = n - n3;
     cr.g.visible = false;
     if (e0) s.end = e0; else delete s.end;
-    tipAt(head.clone().add(new V(0.3, -0.3, -0.2))); await steps(2);
+    tipAt(head.clone().add(byHead(0.3, -0.3, -0.2))); await steps(2);
     HOST.collab.panelOpen(false);
     for (const k of [0, 1]) { const c = HOST.cur.peek('XR.ctrls')[k]; c.g.visible = false; c.src = null; }
     X.session.inputSources.length = 0;
@@ -10019,13 +10159,13 @@ try {
   ROOM = [2.05, 0, 1, 0.3];
   await A.evaluate(f => HOST.collab.publish([[HOST.room.frameKey('U1'), f]]), frameFor(ROOM, 'U1', aId, Date.now()));
   await frames(H, 900);
-  const fr2 = await H.evaluate(() => HOST.room.frame.o), wantO2 = unapply(FLOOR, ROOM.slice(0, 3));
+  const fr2 = await H.evaluate(() => HOST.room.frame.o), wantO2 = unapply(ownPose(H, FLOOR), ROOM.slice(0, 3));
   check('headset: re-aligns when the published frame moves more than 3 cm', near(fr2, [wantO2[0], 0, wantO2[2]], 1e-4), `${fmt(fr2)} want ${fmt(wantO2)}`);
   // walk on to another station: placed there, with that station's clock and state
   const S2 = await stationFor(OTHER_STORY);
   await H.evaluate(() => window.__xr.ctrl(0, null));
   const sw2 = await walk(H, S2, OTHER_STORY, 1);
-  const rig2 = await rigOf(H), want2 = rigAt(S2);
+  const rig2 = await rigOf(H), want2 = rigAt(S2, ownPose(H, LOCAL));
   check(`headset: walking on to ${OTHER_STORY} switches again, placed at its station`, sw2 && near(rig2.slice(0, 3), want2.slice(0, 3), 1e-4) && angle(rig2[3], want2[3]) < 1e-4,
     `story ${await H.evaluate(() => HOST.curKey)}, rig ${fmt(rig2)}, want ${fmt(want2)}`);
   const keys2 = (await roomInfo(code)).keys, x2 = keys2['st.' + S2.id + '.x'], mode2 = (keys2['st.' + S2.id + '.play'] || { v: {} }).v.mode;
@@ -10210,8 +10350,10 @@ try {
   // the headset's menu sets them for everyone in the room: Moving: facing you (the turns go, the scene faces you
   // again and the panel stands upright), then Labels round (in 3D, hidden, on top) and Cards round (on top, hidden, in
   // 3D), each followed by the pages
+  // (the menu opened again first if it closed by itself, unused: what is drawn between two presses can take longer than its
+  // idle time on a busy machine, and then the row was not found and the Cards check went red)
   const menuPress = id => H.evaluate(async id => {
-    const X = window.__xr; X.step(); X.step();
+    const X = window.__xr; if (!HOST.collab.menu) HOST.collab.panelOpen(true); X.step(); X.step();
     const r = HOST.collab.menuFind(id); if (r && r.fn) r.fn();
     for (let k = 0; k < 3; k++) { X.step(); await new Promise(res => setTimeout(res, 20)); }
     return !!(r && r.fn);
@@ -10322,7 +10464,15 @@ try {
   await A.evaluate(id => HOST.collab.setStationPanels(id, 'shown'), S2.id);
   // the stations' icons from the miniatures and the menu's Add here list (then back to S1)
   await headsetIcons(H, S1);
-  check('headset: back at its station after the icons', await walk(H, S1, HEADSET_STORY, 0));
+  // (the icons are seen from a spot away from every circle, and a story is left only by walking into another circle: so
+  // the headset is still in its story there, and walk(), which wants the story to start on walking in, said no; v226
+  // and before were red here for that. Back in its circle: its live station again, its story still on, placed there)
+  await H.evaluate(h => window.__xr.head(h), headAt(S1, 0));
+  const backS1 = await until(H, ([id, k]) => { window.__xr.step(); const L = HOST.collab.live(); return HOST.curKey === k && !!L && L.id === id && HOST.collab.internals().zone === id; }, [S1.id, HEADSET_STORY], 15000);
+  await frames(H, 200);
+  const rigB = await rigOf(H), wantB = rigAt(S1, ownPose(H, LOCAL));
+  check('headset: back at its station after the icons (its story kept meanwhile, placed at its spot again)', backS1 && near(rigB.slice(0, 3), wantB.slice(0, 3), 1e-3),
+    JSON.stringify({ backS1, rig: rigB, want: wantB, key: await H.evaluate(() => [HOST.curKey, (HOST.collab.live() || {}).id, HOST.collab.internals().zone]) }));
   // Remove on the headset panel asks first: the first press only arms it (for 3 s), the station stays
   await H.evaluate(() => HOST.collab.panelOpen(true));
   await frames(H, 150);
@@ -10342,7 +10492,7 @@ try {
   // ----------------------------------------- calibration from two marks --
   // a headset without a shared space and without saved marks: calibrate, touching mark A then mark B
   await H.evaluate(() => HOST.room.places({ reset: true }));   // (no calibration kept: v130's places, none)
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 300);
   check('calibration: a headset with no shared space and no marks asks to calibrate', await H.evaluate(() => HOST.room.state === 'calibrate'), await H.evaluate(() => HOST.room.state));
@@ -10391,7 +10541,7 @@ try {
   for (let k = 0; k < 12 && !(await keptMarks()); k++) await frames(H, 250);
   const cal = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src, saved: window.__stored(), made: window.__xr.made,
     mk: HOST.room.marks, line: HOST.room.sourceLine() }));
-  const fa = unapply(FLOOR, markA), fb = unapply(FLOOR, markB), cx = unit([fb[0] - fa[0], 0, fb[2] - fa[2]]), dAB = Math.hypot(fb[0] - fa[0], fb[2] - fa[2]);
+  const FHc = ownPose(H, FLOOR), fa = unapply(FHc, markA), fb = unapply(FHc, markB), cx = unit([fb[0] - fa[0], 0, fb[2] - fa[2]]), dAB = Math.hypot(fb[0] - fa[0], fb[2] - fa[2]);
   check('calibration: mark A, then a mark B too close is refused', stA === 'mark-b' && stClose === 'mark-b', `${stA}, ${stClose}`);
   check('calibration: two marks give the expected frame (A the origin, A to B the x axis)', cal.src === 'marks' && near(cal.frame.o, [fa[0], 0, fa[2]], 2e-3) && near(cal.frame.x, cx, 2e-3),
     `${cal.src} o ${fmt(cal.frame ? cal.frame.o : [])} x ${fmt(cal.frame ? cal.frame.x : [])}, want ${fmt(fa)} ${fmt(cx)}`);
@@ -10425,7 +10575,7 @@ try {
   // the Guardian origin moves within the session (a reset with a transform): the frame follows at once
   const F2 = [0.1, 0, -0.2, 0.2];
   const moved = await H.evaluate(F2 => { window.__xr.floorReset(F2, 0.3); return HOST.room.frame; }, F2);
-  const mo = unapply(F2, apply(FLOOR, [fa[0], 0, fa[2]])), mx = rot(-F2[3], rot(FLOOR[3], cx));
+  const F2H = ownPose(H, F2), mo = unapply(F2H, apply(FHc, [fa[0], 0, fa[2]])), mx = rot(-F2H[3], rot(FHc[3], cx));
   check('a reset of local-floor as Quest Browser sends it (old to new, the head\'s height ignored) moves the frame into the new coordinates',
     moved && near(moved.o, [mo[0], 0, mo[2]], 2e-3) && near(moved.x, mx, 2e-3), `${moved ? fmt(moved.o) + ' ' + fmt(moved.x) : 'no frame'}, want ${fmt(mo)} ${fmt(mx)}`);
   // a recentre without a word (Quest Browser fires no reset): local and local-floor both move; the two anchors
@@ -10434,9 +10584,9 @@ try {
   await H.evaluate(([F, L]) => {
     const X = window.__xr, V = (x, y, z) => new THREE.Vector3(x, y, z);
     const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
-    X.W.floor = M(F); X.W.local = M(L);
+    X.W.floor = X.own(F); X.W.local = X.own(L);
   }, [F3, L3]);
-  const fa3 = unapply(F3, markA), fb3 = unapply(F3, markB), cx3 = unit([fb3[0] - fa3[0], 0, fb3[2] - fa3[2]]);
+  const F3H = ownPose(H, F3), fa3 = unapply(F3H, markA), fb3 = unapply(F3H, markB), cx3 = unit([fb3[0] - fa3[0], 0, fb3[2] - fa3[2]]);
   // (the anchors are read every 0.5 s, at once when the origin seems to jump: a slow machine may need a few frames)
   let rc = null;
   for (let k = 0; k < 16; k++) {
@@ -10456,13 +10606,13 @@ try {
     const M = a => new THREE.Matrix4().compose(V(a[0], a[1], a[2]), new THREE.Quaternion().setFromAxisAngle(V(0, 1, 0), a[3]), V(1, 1, 1));
     const stale = new Set(HOST.room.internals().anchors || []);
     X.visibility('hidden');
-    X.floorReset(F, -0.25, [0.04, 0, 0]); X.W.local = M(L);
+    X.floorReset(F, -0.25, [0.04, 0, 0]); X.W.local = X.own(L);
     X.frame.trackedAnchors = { has: a => !stale.has(a) };
     X.visibility('visible');
     window.__collabLog.push({ ev: 'test woke' });
     return HOST.room.frame;
   }, [F4, L4]);
-  const fa4 = unapply(F4, markA), fb4 = unapply(F4, markB), cx4 = unit([fb4[0] - fa4[0], 0, fb4[2] - fa4[2]]);
+  const F4H = ownPose(H, F4), fa4 = unapply(F4H, markA), fb4 = unapply(F4H, markB), cx4 = unit([fb4[0] - fa4[0], 0, fb4[2] - fa4[2]]);
   const sinceWake = () => H.evaluate(() => { const L = window.__collabLog, i = L.map(e => e.ev).lastIndexOf('test woke'); return L.slice(i + 1).map(e => e.ev); });
   for (let k = 0; k < 40 && !(await sinceWake()).includes('anchors moved'); k++) await frames(H, 250);
   const wk = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, state: HOST.room.state }));
@@ -10484,7 +10634,7 @@ try {
     window.__hidden = ids.map(u => [u, X.handles.get(u)]);
     for (const u of ids) X.handles.delete(u);   // the browser does not find them by their handles for now
     X.visibility('hidden');
-    X.floorReset(F, -0.2, [0.03, 0, 0]); X.W.local = M(L);
+    X.floorReset(F, -0.2, [0.03, 0, 0]); X.W.local = X.own(L);
     X.frame.trackedAnchors = { has: a => !stale.has(a) };
     X.visibility('visible');
     window.__collabLog.push({ ev: 'test woke' });
@@ -10503,7 +10653,7 @@ try {
     lost5.state !== 'calibrate' && !lost5.notes.some(t => /leave AR/i.test(t)) && !(lost5.lu && lost5.lu.w === 'marks'), JSON.stringify(lost5));
   await H.evaluate(() => { for (const [u, w] of window.__hidden) window.__xr.handles.set(u, w); });
   for (let k = 0; k < 90 && !(await sinceWake()).includes('anchors moved'); k++) await frames(H, 250);
-  const far5 = unapply(Fr5, markA), fbr5 = unapply(Fr5, markB), cxr5 = unit([fbr5[0] - far5[0], 0, fbr5[2] - far5[2]]);
+  const Fr5H = ownPose(H, Fr5), far5 = unapply(Fr5H, markA), fbr5 = unapply(Fr5H, markB), cxr5 = unit([fbr5[0] - far5[0], 0, fbr5[2] - far5[2]]);
   const rtw = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, state: HOST.room.state }));
   rtw.log = await sinceWake();
   await H.evaluate(() => { delete window.__xr.frame.trackedAnchors; });
@@ -10543,7 +10693,7 @@ try {
   // next session (or a reload): the anchors at mark A and mark B bring the frame back; handles nobody knows go
   await H.evaluate(() => window.__xr.end());
   await H.evaluate(() => window.__handles.set('junk-left-over', new THREE.Matrix4()));
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
   await H.evaluate(() => window.__xr.begin());
   for (let k = 0; k < 12 && !(await H.evaluate(() => HOST.room.src)); k++) await frames(H, 250);   // a busy machine draws few frames
   const re = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src }));
@@ -10581,7 +10731,7 @@ try {
   check('calibrating again replaces the old marks\' anchors (their saved handles are deleted)', !!h1 && !!h2 && h1[0] !== h2[0] && !hs[0] && hs[1], JSON.stringify({ h1, h2, hs }));
   // Forget while the next session is still finding those anchors: the anchors that arrive afterwards are not used
   await H.evaluate(() => window.__xr.end());
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'] }));
   await H.evaluate(() => {
     const S = window.__xr.session, restore = S.restorePersistentAnchor;
     window.__releaseAnchors = [];
@@ -10604,7 +10754,7 @@ try {
   // a headset whose shared space is just its own floor while someone here published for it has not joined (one
   // Quest 3 had that every session): it takes nothing through it and says so
   await H.evaluate(() => HOST.room.sharedAlign(true));
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 3000);
   const nj = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame, line: HOST.room.sourceLine(), shared: HOST.room.sharedLine(),
@@ -10624,7 +10774,7 @@ try {
   // (the headset holds that frame before its session begins: with the one before it, a page's here, it would judge
   // itself not first in the space, as it should then; a loaded machine once began the session first)
   const held7 = await until(H, k => (HOST.collab.val(k) || {}).by === 'left-long-ago', rfKey1, 10000);
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 3000);
   const early7 = await H.evaluate(() => ({ src: HOST.room.src, state: HOST.room.state }));
@@ -10661,7 +10811,7 @@ try {
   await until(H, bid => HOST.collab.members.some(m => m.id === bid && m.kind === 'ar' && m.here), bRe, 3000);
   const preRe = await until(H, bid => { const P = HOST.collab.people().get(bid); return !!P && P.sp === 'U1' && P.al === 'adopted'; }, bRe, 3000);
   await H.evaluate(bid => Object.defineProperty(HOST.collab.people().get(bid), 'at', { get: () => performance.now(), set() {}, configurable: true }), bRe);
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 2500);
   await H.evaluate(() => { const X = window.__xr; X.W.shared = X.W.floor.clone().multiply(new THREE.Matrix4().makeTranslation(0.05, 0, 0.03)); });
@@ -10675,7 +10825,7 @@ try {
   // ...but the true first headset in a space (its space is its own floor too) stays first once the others are
   // aligned through it: Re-align, and its id flicking to a default space and back, do not make it 'not joined'
   await H.evaluate(bid => HOST.collab.people().delete(bid), bRe);
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { sharedId: 'U1', shared: FLOOR, head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 2000);
   const fst0 = await H.evaluate(() => ({ src: HOST.room.src, first: HOST.room.internals().firstHere }));
@@ -10697,7 +10847,7 @@ try {
   await B.evaluate(() => { delete HOST.collab.internals().ws.send; HOST.collab.me({}); });
   await A.evaluate(([k, f]) => HOST.collab.publish([[k, f]]), [rfKey1, frameFor(ROOM, 'U1', aId, Date.now() - 60000)]);
   await H.evaluate(() => HOST.room.sharedAlign(false));
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1' }));
+  await xrInstall(H, Object.assign({}, xrOpts, { sharedId: 'U1' }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 1500);
   const off = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame }));
@@ -10732,7 +10882,7 @@ try {
   await H.evaluate(() => HOST.room.forget());
   await frames(H, 800);
   const ad1 = await H.evaluate(() => ({ src: HOST.room.src, frame: HOST.room.frame, mk: HOST.room.marks, line: HOST.room.sourceLine() }));
-  const w3 = unapply(FLOOR, [markA[0] + 0.1, 0, markA[2]]);
+  const w3 = unapply(ownPose(H, FLOOR), [markA[0] + 0.1, 0, markA[2]]);
   check('shared space: after Forget calibration the headset takes that frame instead, marks included', ad1.src === 'adopted' && near(ad1.frame.o, [w3[0], 0, w3[2]], 2e-3) &&
     JSON.stringify(ad1.mk) === JSON.stringify(P3.m) && /through the shared space/.test(ad1.line), JSON.stringify(ad1));
   await H.evaluate(() => window.__xr.end());
@@ -10743,7 +10893,7 @@ try {
   // nothing through that space and asks to calibrate. A headset with plane detection but no planes says it has no
   // room scan (Space Setup not run, or Physical space features off), and stops once planes come
   const rsKey = 'rs.U1', rsOf = async () => ((await roomInfo(code)).keys[rsKey] || {}).v || null;
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U1', features: xrOpts.features.concat(['plane-detection']), head: [-6, 1.6, 6, 0] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { sharedId: 'U1', features: xrOpts.features.concat(['plane-detection']), head: [-6, 1.6, 6, 0] }));
   await H.evaluate(() => { window.__xr.frame.detectedPlanes = new Set(); window.__xr.begin(); });
   await frames(H, 300);
   await recal();
@@ -10780,7 +10930,7 @@ try {
   // a browser without anchors: the marks hold for the session until the origin moves (a reset, or the head
   // seeming to jump), then the headset asks to calibrate again; a mark is taken where the controller was held
   // still, not where the trigger pull moved it
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor'] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { features: ['local-floor'] }));
   await H.evaluate(() => { delete window.__xr.frame.createAnchor; window.__xr.begin(); });
   await frames(H, 300);
   await H.evaluate(p => { HOST.room.calibrate(); window.__xr.ctrl(0, p, [0, -1, 0]); }, markA);
@@ -10816,7 +10966,7 @@ try {
   const woke = await H.evaluate(() => ({ state: HOST.room.state, frame: HOST.room.frame }));
   await frames(H, 5200);
   const woke2 = await H.evaluate(() => ({ state: HOST.room.state, last: window.__collabLog.filter(e => e.ev === 'marks unanswered').slice(-1)[0] || null }));
-  const fa5 = unapply(F5, markA), fb5 = unapply(F5, markB), cx5 = unit([fb5[0] - fa5[0], 0, fb5[2] - fa5[2]]);
+  const F5H = ownPose(H, F5), fa5 = unapply(F5H, markA), fb5 = unapply(F5H, markB), cx5 = unit([fb5[0] - fa5[0], 0, fb5[2] - fa5[2]]);
   check('without anchors, off and on again: the frame follows the reset and is kept (no new calibration asked)', woke.state === 'marks' && !!woke.frame &&
     near([woke.frame.o[0], woke.frame.o[2]], [fa5[0], fa5[2]], 3e-3) && near(woke.frame.x, cx5, 3e-3) && woke2.state === 'marks' && !!woke2.last && woke2.last.reset === true,
     JSON.stringify({ woke, woke2, want: [fa5, cx5] }));
@@ -10827,7 +10977,7 @@ try {
   // for the session and the panel says a restart will ask to calibrate
   const fullStore = async stuck => {
     await H.evaluate(() => HOST.room.places({ reset: true }));   // (no calibration kept: v130's places, none; none of their anchors deleted)
-    await H.evaluate(installXR, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'], cap: 8 }));
+    await xrInstall(H, Object.assign({}, xrOpts, { features: ['local-floor', 'anchors'], cap: 8 }));
     await H.evaluate(stuck => { window.__xr.stuck = stuck; window.__xr.begin(); }, stuck);
     await frames(H, 300);
     await H.evaluate(() => { const X = window.__xr; for (let i = 0; X.handles.size < 8; i++) X.handles.set('junk-' + i, new THREE.Matrix4()); window.__collabLog.push({ ev: 'test full' }); });
@@ -10848,13 +10998,13 @@ try {
     fs2.saved === 0 && fs2.state === 'marks' && !!fs2.tidied && fs2.tidied.failed.length > 0, JSON.stringify(fs2));
 
   // ------------------------------------------ a VR headset elsewhere --
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
   await H.evaluate(() => { HOST.collab.menuIdle(400); window.__xr.begin(); });   // (closing by itself soon: but not while it asks)
   await frames(H, 300);
   const own = await H.evaluate(() => ({ frame: HOST.room.frame, src: HOST.room.src, here: HOST.collab.members.find(m => m.id === HOST.collab.id).here }));
-  const oh = unapply(FLOOR, [0.3, 1.7, -0.2]);
+  const oh = unapply(ownPose(H, FLOOR), [0.3, 1.7, -0.2]);
   check('VR elsewhere: its own floor, centred where it stands, facing its way', own.src === 'own' && !own.here && near(own.frame.o, [oh[0], 0, oh[2]], 1e-4) &&
-    near(own.frame.x, rot(0.6 - FLOOR[3], [1, 0, 0]), 1e-4), JSON.stringify(own));
+    near(own.frame.x, rot(0.6 - ownPose(H, FLOOR)[3], [1, 0, 0]), 1e-4), JSON.stringify(own));
   // in VR the shell's panel asks once per room whether you are in the room with the others; the answer is kept
   const regionIds = () => H.evaluate(() => HOST.collab.menuIds());
   const pressRegion = id => H.evaluate(id => { const r = HOST.collab.menuFind(id); if (r) r.fn(); return !!r; }, id);
@@ -10869,7 +11019,7 @@ try {
   await frames(H, 300);
   const away = await H.evaluate(c => [HOST.collab.internals().hereSet, HOST.room.src, JSON.parse(localStorage.getItem('collabHere') || '{}')[c]], code);
   await H.evaluate(() => window.__xr.end());
-  await H.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
+  await xrInstall(H, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
   await H.evaluate(() => window.__xr.begin());
   await frames(H, 300);
   const shut = await H.evaluate(() => !HOST.collab.menu);   // (asked already: the menu stays closed)
@@ -10940,7 +11090,7 @@ try {
     JSON.stringify({ fVia, fOnce, fMoved, fBack, fFin }));
   await Fp2.evaluate(() => HOST.start('airports'));
   await ready(Fp2, 'airports');
-  await Fp2.evaluate(installXR, Object.assign({}, xrOpts, { sharedId: 'U9', shared: SHARED }));
+  await xrInstall(Fp2, Object.assign({}, xrOpts, { sharedId: 'U9', shared: SHARED }));
   await Fp2.evaluate(() => { HOST.landingVR = true; window.__xr.begin(); });   // (as Enter VR on the start screen)
   await frames(Fp2, 1200);
   // (the room's frame comes through the shared space first: on a loaded machine the menu opens a few seconds in)
@@ -11007,32 +11157,35 @@ try {
   // another setting written meanwhile leaves them out of the room's key (it must not hand this device's own to everyone)
   await Lp.evaluate(() => HOST.xr.setSubsDefault(true));
   const lown = await until(Lp, () => { const v = HOST.collab.val('look'); return !!v && v.subs === true && !('sfx' in v) && !('voice' in v) && !HOST.xr.sfx() && !HOST.xr.voice() &&
-    !HOST.sfx.on() && localStorage.getItem('sfxOn') === 'off' && localStorage.getItem('narrationOn') === 'off'; }, null, 3000);
+    !HOST.sfx.on() && localStorage.getItem('sfxOn') === 'off' && localStorage.getItem('narrationOn') === 'off'; }, null, 10000);   // (10 s at most, not 3: a busy machine)
   check('a room on this device: a device that turned the sound switches off keeps them off in a room that never wrote them (another setting written leaves them out)', lown,
     JSON.stringify(await Lp.evaluate(() => [HOST.collab.val('look'), HOST.xr.sfx(), HOST.xr.voice(), HOST.sfx.on(), localStorage.getItem('sfxOn'), localStorage.getItem('narrationOn')])));
   await Lp.evaluate(() => { HOST.collab.arrange({ x: 0, z: 0, yaw: 0 }); });
-  await until(Lp, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 3000);
+  await until(Lp, () => HOST.collab.stations().length === HOST.list.length && !HOST.collab.internals().pending.size, null, 10000);
   const lsid = await stationOf(Lp, OTHER_STORY);
   await Lp.evaluate(id => { HOST.collab.move(id, { x: 0.5, z: -3, yaw: 0.2 }); HOST.collab.lock(true); }, lsid);
   check('a room on this device: Arrange all, moving a station and the lock work alone', await until(Lp, () => HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
-    !HOST.collab.internals().pending.size, null, 3000));
+    !HOST.collab.internals().pending.size, null, 10000), JSON.stringify(await Lp.evaluate(() => [HOST.collab.stations().length, HOST.list.length, HOST.collab.locked, HOST.collab.internals().pending.size])));
   // the headsets' settings in a room on this device: the room's too (with the layout locked), and kept with it
   await Lp.evaluate(() => { HOST.xr.setLabels('hidden'); HOST.xr.setCards('face'); HOST.xr.setFree(false); HOST.xr.setSubsDefault(true); HOST.sfx.set(false); HOST.xr.setVoice(false); });
   const lookL = () => { const L = HOST.collab.look(); return !!L && L.labels === 'hidden' && L.cards === 'face' && L.free === false && L.subs === true && L.sfx === false && L.voice === false; };
   const llook = await until(Lp, `(${lookL})() && !HOST.collab.internals().pending.size`, null, 3000);
-  await sleep(700);   // kept at most 0.4 s after a change
+  // (kept at most 0.4 s after a change: wait until this device's copy of the room, localStorage collabRoom.LCL, holds the
+  // settings, not a fixed 700 ms, which a page whose timers ran late on a busy machine could miss: red once on v223)
+  const lsaved = await until(Lp, () => { try { const r = JSON.parse(localStorage.getItem('collabRoom.LCL') || 'null'), L = r && r.keys && r.keys.look && r.keys.look.v;
+    return !!L && L.labels === 'hidden' && L.cards === 'face' && L.free === false && L.subs === true && L.sfx === false && L.voice === false; } catch (e) { return false; } }, null, 5000);
   await Lp.reload({ timeout: 90000 }); await lopen();
   const lk = await until(Lp, id => HOST.collab.code === 'LCL' && HOST.collab.local && HOST.collab.stations().length === HOST.list.length && HOST.collab.locked &&
     HOST.collab.station(id) && HOST.collab.station(id).z === -3 && HOST.collab.kept().some(r => r.code === 'LCL' && r.stations === HOST.list.length), lsid, 8000);
   check('a room on this device: kept across a reload (stations, places, the lock)', lk, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.stations().length, HOST.collab.locked, HOST.collab.kept()])));
   const llook2 = await until(Lp, `HOST.collab.code === 'LCL' && (${lookL})() && HOST.xr.labels() === 'hidden' && HOST.xr.cards() === 'face' && !HOST.xr.free() && HOST.xr.subs() && !HOST.sfx.on() && !HOST.xr.voice()`, null, 8000);
-  check('a room on this device: the headsets\' settings and the sound switches are the room\'s (set with the layout locked) and kept across a reload', llook && llook2,
+  check('a room on this device: the headsets\' settings and the sound switches are the room\'s (set with the layout locked) and kept across a reload', llook && lsaved && llook2,
     JSON.stringify(await Lp.evaluate(() => [HOST.collab.look(), HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free(), HOST.xr.subs(), HOST.sfx.on(), HOST.xr.voice()])));
   await Lp.evaluate(() => { HOST.collab.lock(false); HOST.xr.setLabels('face'); HOST.xr.setCards('fixed'); HOST.xr.setFree(true); HOST.xr.setSubsDefault(false); HOST.sfx.set(true); HOST.xr.setVoice(true); });
   await ready(Lp, 'airports');
   // a headset alone (no shared space): the stations stand on its floor; the panel has Re-align, not the question
   // whether it is in the room with the others; walking up to a station plays its story there
-  await Lp.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', features: ['local-floor', 'anchors'] }));
+  await xrInstall(Lp, Object.assign({}, xrOpts, { mode: 'immersive-vr', features: ['local-floor', 'anchors'] }));
   await Lp.evaluate(() => window.__xr.begin());
   await frames(Lp, 400);
   const lf = await Lp.evaluate(() => ({ src: HOST.room.src, aligned: HOST.room.aligned, o: HOST.room.frame && HOST.room.frame.o, ids: HOST.collab.menuIds() }));
@@ -11045,11 +11198,16 @@ try {
   const lfit = await Lp.evaluate(() => {
     const X = window.__xr, C = HOST.collab.internals(), S = HOST.collab.overlay().panel, keep = C.note;
     const fits = () => { const c = S.regions.find(x => x.id === 'col:7'); return !!c && c.y + c.h <= S.vis && S.vis <= S.h; };
-    HOST.collab.menuTab('circles'); X.step(); X.step();   // (its tallest tab)
+    // (open, on its tallest tab, drawn: frames until its last colour row is there, 40 at most; two frames, as before, could
+    // read a menu closed meanwhile or not drawn yet on a busy machine: red now and then, 264 px shown)
+    if (!HOST.collab.menu) HOST.collab.panelOpen(true);
+    HOST.collab.menuTab('circles'); S.sig = '';
+    for (let k = 0; k < 40 && !S.regions.some(x => x.id === 'col:7'); k++) X.step();
+    X.step();
     const plain = fits();
     C.note = 'A note three lines long: the relay could not be reached, so this room stays on this headset until one answers, and nobody else can join it yet.';
     S.sig = ''; X.step(); X.step();
-    const out = { plain, tall: fits(), vis: S.vis, h: S.h };
+    const out = { plain, tall: fits(), vis: S.vis, h: S.h, open: HOST.collab.menu, tab: HOST.collab.menuTab() };
     C.note = keep; S.sig = ''; X.step();
     return out;
   });
@@ -11061,10 +11219,12 @@ try {
   check('a room on this device: Re-align with nothing to line up with keeps the stations where they are (the menu fits, also with a long note)', lre && !lre2.again && lre2.src === 'floor' &&
     lre2.note && lre2.note.title === 'Nothing to re-align to', JSON.stringify({ lids, lfit, lre, lre2 }));
   const ROOM0 = ROOM;
-  ROOM = FLOOR;   // this headset's room is its floor
-  const lS = await Lp.evaluate(k => HOST.collab.stations().find(s => s.story === k), HEADSET_STORY);
-  const lw = await walk(Lp, lS, HEADSET_STORY, 0.2);
-  const lrig = await rigOf(Lp), lwant = rigAt(lS);
+  ROOM = ownPose(Lp, FLOOR);   // this headset's room is its floor (where it has it: its spot)
+  // (a station of this room: Arrange all made one for each story of the main set, so not HEADSET_STORY, the flock, an
+  // Experiment, which v226 and before walked to here: no station, headAt(undefined) threw and ended the whole main run)
+  const lS = await Lp.evaluate(id => HOST.collab.station(id), lsid);
+  const lw = !!lS && await walk(Lp, lS, OTHER_STORY, 0.2);
+  const lrig = await rigOf(Lp), lwant = rigAt(lS, ownPose(Lp, LOCAL));
   ROOM = ROOM0;
   check('a room on this device, in a headset: a second at a station plays its story there', lw && near(lrig.slice(0, 3), lwant.slice(0, 3), 1e-4), `rig ${fmt(lrig)}, want ${fmt(lwant)}`);
   // a relay entered later: the room goes there (made from this device's copy), and others can join it; the headset
@@ -11077,8 +11237,10 @@ try {
   check('moving to the relay, the headset keeps its placement (no question about the others)', lkeep.src === 'floor' && near(lkeep.o || [9, 9, 9], [0, 0, 0], 1e-6) && !lkeep.ask && lkeep.here === true, JSON.stringify(lkeep));
   await Lp.evaluate(() => window.__xr.end());
   const linfo = lback ? await until(Lp, () => !HOST.collab.internals().pending.size, null, 5000) && await roomInfo('LCL') : null;
-  const ist = linfo ? Object.keys(linfo.keys).filter(k => /^st\.[\w-]+$/.test(k)).length : 0;
-  check('a room on this device goes to a relay once one answers, with its stations', lback && ist === NST && linfo.keys['st.' + lsid].v.z === -3, JSON.stringify({ lback, ist }));
+  const ist = linfo ? Object.keys(linfo.keys).filter(k => /^st\.[\w-]+$/.test(k)).length : 0, lst = await Lp.evaluate(() => HOST.list.length);
+  // (its stations: Arrange all's, one for each story of the main set; not NST, the main room's, which counts the
+  // Experiments added there by hand as well)
+  check('a room on this device goes to a relay once one answers, with its stations', lback && ist === lst && linfo.keys['st.' + lsid].v.z === -3, JSON.stringify({ lback, ist, lst }));
   const Lo = await open('#s=LCL');
   check('and another device joins it there', await st7(Lo));
   await Lo.context().close();
@@ -11093,55 +11255,12 @@ try {
     JSON.stringify(await Up.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.status, window.__collabLog.filter(e => /local|close|join/.test(e.ev)).slice(-5)])));
   await uctx.close();
 
-  // ------------------------------------- the ten-headset round (a room of its own) --
-  if (shots) fs.mkdirSync(shots, { recursive: true });
-  await headsetRound(shots);
-  // --------------------------------------- circles asked first (a room of its own) --
-  await askRound(shots);
-  // ------------------------------------ your menu shown to your circle (a room of its own) --
-  await menusRound(shots);
-  // --------------------------- the narration in headsets and the welcome (a room of its own) --
-  await narrationRound();
-  // ----------------- moving with the sticks for a VR headset elsewhere in a room (a room of its own) --
-  await walkRound();
-  // ------------------------------------------- the spaceships in a shared room (a room of its own) --
-  await shipsRound();
-  // --------------------------------- others' moves drawn smoothly (a room of its own) --
-  await smoothRound();
-  // ------------------------------------------- a room by its code, from a headset's menu --
-  await codeRound();
-  // ------------------------- the All stories and Back to the lobby circles (a room of its own) --
-  await allRound();
-  // ------------------------------------------ the room setup guide and Touch the spot (a room of its own) --
-  await guideRound();
-  // ------------------------------------------ places: a calibration kept per room (rooms of their own) --
-  await placesRound();
-  await areasRound();
-  // -------------------------- rooms across updates and Update the room (a relay of its own, restarted as a deploy) --
-  await reloadRound();
-  // ------------------------------------------ the studio in a room (relays of its own, with --scenes) --
-  await studioRound(shots);
-  // ----------------------------- the studio's scenes as circles (a relay of its own, with --scenes) --
-  await scenesRound();
-  // ------------------- the relay the main site offers (HOME_RELAY, by the page's host; a browser of its own) --
-  await homeRound();
-  // ------------------------------ the studio's behaviours shared (a relay of its own, with --scenes) --
-  await behaveRound();
-  // ------------------- the PC's Vive trackers end to end (a relay of its own with --trackers and --scenes; the fake bridge) --
-  await trackersRound(shots);
-  // ------------------------------------------- camera mode (a phone filming the room; a room of its own) --
-  await cameraRound(shots);
-  // ------------------------------- the desktop preview camera (a screen for onlookers; a room of its own) --
-  await previewRound(shots);
-  // ----------------- the output page, MIDI and OSC end to end (a relay of its own with --osc-out, --osc-in, --trackers) --
-  await outputRound(shots);
-
   // ------------------------------------------------------ pictures --
   if (shots) {
     fs.mkdirSync(shots, { recursive: true });
     // another person in VR (page C), standing at the room's middle and pointing at H
     const Sf = S1;
-    await C.evaluate(installXR, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
+    await xrInstall(C, Object.assign({}, xrOpts, { mode: 'immersive-vr', head: [0.3, 1.7, -0.2, 0.6] }));
     await C.evaluate(() => { HOST.collab.me({ name: 'Grace', color: '#ff5ad9' }); window.__xr.begin(); });
     await frames(C, 300);
     // both in their own frames (made from the same spot): room coordinates agree. (Grace stands at no circle: H draws her
@@ -11205,7 +11324,7 @@ try {
     await A.screenshot({ path: path.join(shots, 'dialog-desktop.png') });
     await alive;
     const P = await open('#s=' + code, { width: 390, height: 844 });
-    await st7(P);
+    await st7(P, NST);
     await P.evaluate(() => HOST.collab.dialog(true));
     await sleep(900);
     await P.screenshot({ path: path.join(shots, 'dialog-phone.png') });
@@ -11214,10 +11333,59 @@ try {
     await P.screenshot({ path: path.join(shots, 'dialog-phone-2.png') });
     console.log('pictures in ' + shots);
   }
+  // (its pages closed: left open, as before, they went on drawing in software through every round after it, and two runs
+  // of 27 November lost the browser itself a few rounds later)
+  for (const p of [A, B, C, H]) await p.context().close().catch(() => {});
+  });   // (the main run's own part: one round, caught)
+
+  // ------------------------------------- the ten-headset round (a room of its own) --
+  if (shots) fs.mkdirSync(shots, { recursive: true });
+  await round('headsetRound', () => headsetRound(shots));
+  // --------------------------------------- circles asked first (a room of its own) --
+  await round('askRound', () => askRound(shots));
+  // ------------------------------------ your menu shown to your circle (a room of its own) --
+  await round('menusRound', () => menusRound(shots));
+  // --------------------------- the narration in headsets and the welcome (a room of its own) --
+  await round('narrationRound', () => narrationRound());
+  // ----------------- moving with the sticks for a VR headset elsewhere in a room (a room of its own) --
+  await round('walkRound', () => walkRound());
+  // ------------------------------------------- the spaceships in a shared room (a room of its own) --
+  await round('shipsRound', () => shipsRound());
+  // --------------------------------- others' moves drawn smoothly (a room of its own) --
+  await round('smoothRound', () => smoothRound());
+  // ------------------------------------------- a room by its code, from a headset's menu --
+  await round('codeRound', () => codeRound());
+  // ------------------------- the All stories and Back to the lobby circles (a room of its own) --
+  await round('allRound', () => allRound());
+  // ------------------------------------------ the room setup guide and Touch the spot (a room of its own) --
+  await round('guideRound', () => guideRound());
+  // ------------------------------------------ places: a calibration kept per room (rooms of their own) --
+  await round('placesRound', () => placesRound());
+  await round('areasRound', () => areasRound());
+  // -------------------------- rooms across updates and Update the room (a relay of its own, restarted as a deploy) --
+  await round('reloadRound', () => reloadRound());
+  // ------------------------------------------ the studio in a room (relays of its own, with --scenes) --
+  await round('studioRound', () => studioRound(shots));
+  // ----------------------------- the studio's scenes as circles (a relay of its own, with --scenes) --
+  await round('scenesRound', () => scenesRound());
+  // ------------------- the relay the main site offers (HOME_RELAY, by the page's host; a browser of its own) --
+  await round('homeRound', () => homeRound());
+  // ------------------------------ the studio's behaviours shared (a relay of its own, with --scenes) --
+  await round('behaveRound', () => behaveRound());
+  // ------------------- the PC's Vive trackers end to end (a relay of its own with --trackers and --scenes; the fake bridge) --
+  await round('trackersRound', () => trackersRound(shots));
+  // ------------------------------------------- camera mode (a phone filming the room; a room of its own) --
+  await round('cameraRound', () => cameraRound(shots));
+  // ------------------------------- the desktop preview camera (a screen for onlookers; a room of its own) --
+  await round('previewRound', () => previewRound(shots));
+  // ----------------- the output page, MIDI and OSC end to end (a relay of its own with --osc-out, --osc-in, --trackers) --
+  await round('outputRound', () => outputRound(shots));
+
   }   // (main)
-  if (!NEAR_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !CALIB_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await p2p();
-  if (!P2P && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !CALIB_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await nearby(); if (!NEAR_ONLY) await namesRound(shots); }
+  if (!NEAR_ONLY && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !CALIB_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) await round('p2p', () => p2p());
+  if (!P2P && !FOLLOW_ONLY && !CIRCLES_ONLY && !SMOOTH_ONLY && !CODE_ONLY && !ALL_ONLY && !GUIDE_ONLY && !TOKEN_ONLY && !STUDIO_ONLY && !ASK_ONLY && !SCENES_ONLY && !ARR_ONLY && !NET_ONLY && !HOME_ONLY && !MENUS_ONLY && !BEHAVE_ONLY && !STANDBY_ONLY && !NARR_ONLY && !WALK_ONLY && !SHIPS_ONLY && !CAMERA_ONLY && !PREVIEW_ONLY && !TRACKERS_ONLY && !OUTPUT_ONLY && !PLACES_ONLY && !CALIB_ONLY && !AREAS_ONLY && !RELOAD_ONLY && !TALK_ONLY && !NAMES_ONLY) { await round('nearby', () => nearby()); if (!NEAR_ONLY) await round('namesRound', () => namesRound(shots)); }
 } catch (e) {
+  // (only the relay's start, outside every round, ends up here)
   console.log('FAIL ' + (e.stack || e.message));
   fails.push('exception');
 } finally {
@@ -11225,5 +11393,10 @@ try {
   await stopRelay();
 }
 if (errors.length) { console.log('\npage errors:\n' + errors.join('\n\n')); fails.push('page errors'); }
-if (fails.length) { console.log(`\n${fails.length} failed`); process.exit(1); }
-console.log('\nall good');
+// the rounds, one line each, and the last line says how many rounds and checks failed (a thrown error counts as one)
+console.log('\nrounds:');
+for (const r of rounds) console.log(`  ${r.ok ? 'ok  ' : 'FAIL'} ${r.name} (${r.s} s)${r.threw ? ', threw' : ''}`);
+const badRounds = rounds.filter(r => !r.ok).length;
+const threwN = rounds.filter(r => r.threw).length, checksN = fails.filter(f => !/ threw$/.test(f) && f !== 'page errors' && f !== 'exception').length;
+if (fails.length) { console.log(`\n${badRounds} of ${rounds.length} rounds failed: ${checksN} checks failed, ${threwN} rounds threw${errors.length ? ', page errors' : ''}${fails.includes('exception') ? ', the relay did not start' : ''}`); process.exit(1); }
+console.log(`\nall good (${rounds.length} rounds)`);
