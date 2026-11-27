@@ -8868,10 +8868,10 @@ async function reloadRound() {
     await deploy(NEW);
     await sleep(3000);
     await H1.evaluate(() => HOST.collab.publish([['st.t2', { story: 'robots', x: 2.4, z: -2, yaw: 0 }]]));
-    // (asked: the station must be on every page before the press. KNOWN RED since 27 November 2026, an app fault reported,
-    // not fixed here (docs/agents/testing.md, known red): after the relay restarts as a deploy, the host lists only itself
-    // (members 1) while its guests still list three, and the station it adds reaches neither guest in 20 s; the reload that
-    // follows brings everyone back with it)
+    // (asked: the station must be on every page before the press. Red in four runs on a machine at a load average near 20
+    // (27 November 2026), green in a full run at 3: after the relay restarts as a deploy, the host listed only itself
+    // (members 1) while its guests still listed three, and the station it added reached neither guest in 20 s; the reload
+    // that follows brought everyone back with it. Reported as a possible app fault, docs/agents/testing.md, known red)
     const pre5 = await every([H1, G1, G2], s => s.st === 't1,t2', 20000);
     const preS = pre5 ? '' : await sAll([H1, G1, G2]);
     await press(G2);
@@ -10127,6 +10127,9 @@ try {
     // (no frame stepped between the two: on a loaded machine one step can take longer than the 0.4 s a double pinch has;
     // the pairs below waited with wait(), which steps frames, until 27 November 2026: idle() waits without one)
     const idle = ms => new Promise(r => setTimeout(r, ms));
+    // (a pinch takes what its ray rested on in the last 250 ms, as the grip does: dated now before a pinch that must land on a
+    // panel, as a headset's next frame would have it; a frame drawn in software can be longer than that)
+    const fresh = i => { const h = HOST.collab.internals().hov.get(i); if (h) h.at = performance.now(); };
     pinch(left); await idle(150); pinch(left); await steps(2); out.pinch2 = HOST.collab.menu;
     await idle(500);   // (a pause between two double pinches, as a person makes: the next pair's first within 0.4 s of the last would be heard as part of that one)
     pinch(left); await idle(120); pinch(left); await steps(2); out.pinch2Closed = !HOST.collab.menu;
@@ -10142,14 +10145,14 @@ try {
     if (pm) {
       const m = new M4().compose(lp, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), pm.clone().sub(lp).normalize()), new V(1, 1, 1));
       X.aim(1, m); left.targetRaySpace = J(m); await steps(3);
-      pinch(left); await idle(120); pinch(left); await steps(2); out.pinchOnPanel = HOST.collab.menu;
+      fresh(1); pinch(left); await idle(120); fresh(1); pinch(left); await steps(2); out.pinchOnPanel = HOST.collab.menu;
       X.aim(1, up); left.targetRaySpace = J(up); await steps(3); await wait(500);
     } else out.pinchOnPanel = 'no panel';
     // open (by two pinches), the left hand's ray on the menu: two pinches there are the menu's, not a toggle
     pinch(left); await idle(120); pinch(left); await steps(3);
     const lo = headNow().add(byHead(-0.15, -0.25, -0.1)), onMenu = () => { const m = new M4().compose(lo, new THREE.Quaternion().setFromUnitVectors(new V(0, 0, -1), mid().sub(lo).normalize()), new V(1, 1, 1)); X.aim(1, m); left.targetRaySpace = J(m); };
     onMenu(); await steps(3); onMenu(); await steps(2);
-    pinch(left); await wait(120); onMenu(); pinch(left); await steps(2); out.pinchOnMenu = HOST.collab.menu;
+    fresh(1); pinch(left); await wait(120); onMenu(); fresh(1); pinch(left); await steps(2); out.pinchOnMenu = HOST.collab.menu;
     X.aim(1, up); left.targetRaySpace = J(up); await steps(3);
     // a fingertip on Exit (under Settings): hovered 4 cm in front of it, pressed within 1.5 cm, once, again after pulling back
     HOST.collab.menuTab('settings'); await steps(3);
