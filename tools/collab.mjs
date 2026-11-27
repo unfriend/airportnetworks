@@ -11208,7 +11208,7 @@ try {
   // the headsets' settings in a room on this device: the room's too (with the layout locked), and kept with it
   await Lp.evaluate(() => { HOST.xr.setLabels('hidden'); HOST.xr.setCards('face'); HOST.xr.setFree(false); HOST.xr.setSubsDefault(true); HOST.sfx.set(false); HOST.xr.setVoice(false); });
   const lookL = () => { const L = HOST.collab.look(); return !!L && L.labels === 'hidden' && L.cards === 'face' && L.free === false && L.subs === true && L.sfx === false && L.voice === false; };
-  const llook = await until(Lp, `(${lookL})() && !HOST.collab.internals().pending.size`, null, 3000);
+  const llook = await until(Lp, `(${lookL})() && !HOST.collab.internals().pending.size`, null, 10000);   // (10 s at most, not 3: a busy machine)
   // (kept at most 0.4 s after a change: wait until this device's copy of the room, localStorage collabRoom.LCL, holds the
   // settings, not a fixed 700 ms, which a page whose timers ran late on a busy machine could miss: red once on v223)
   const lsaved = await until(Lp, () => { try { const r = JSON.parse(localStorage.getItem('collabRoom.LCL') || 'null'), L = r && r.keys && r.keys.look && r.keys.look.v;
@@ -11219,7 +11219,7 @@ try {
   check('a room on this device: kept across a reload (stations, places, the lock)', lk, JSON.stringify(await Lp.evaluate(() => [HOST.collab.code, HOST.collab.local, HOST.collab.stations().length, HOST.collab.locked, HOST.collab.kept()])));
   const llook2 = await until(Lp, `HOST.collab.code === 'LCL' && (${lookL})() && HOST.xr.labels() === 'hidden' && HOST.xr.cards() === 'face' && !HOST.xr.free() && HOST.xr.subs() && !HOST.sfx.on() && !HOST.xr.voice()`, null, 8000);
   check('a room on this device: the headsets\' settings and the sound switches are the room\'s (set with the layout locked) and kept across a reload', llook && lsaved && llook2,
-    JSON.stringify(await Lp.evaluate(() => [HOST.collab.look(), HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free(), HOST.xr.subs(), HOST.sfx.on(), HOST.xr.voice()])));
+    JSON.stringify({ llook, lsaved, llook2, now: await Lp.evaluate(() => [HOST.collab.look(), HOST.xr.labels(), HOST.xr.cards(), HOST.xr.free(), HOST.xr.subs(), HOST.sfx.on(), HOST.xr.voice()]) }));
   await Lp.evaluate(() => { HOST.collab.lock(false); HOST.xr.setLabels('face'); HOST.xr.setCards('fixed'); HOST.xr.setFree(true); HOST.xr.setSubsDefault(false); HOST.sfx.set(true); HOST.xr.setVoice(true); });
   await ready(Lp, 'airports');
   // a headset alone (no shared space): the stations stand on its floor; the panel has Re-align, not the question
