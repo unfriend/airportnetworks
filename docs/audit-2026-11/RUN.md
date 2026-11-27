@@ -7,7 +7,7 @@ Design room: parked = out of the app, sources kept (tools/design/), nothing dele
 | # | Release | What | State |
 |---|---|---|---|
 | A | v217 | park the design room | DONE pushed (5a59fe9, 04811bf) |
-| B | v218 | step 0 (perf.mjs) + step 1 quick fixes | DONE pushed (34cb589, 11466cf, ac4e514); review clean. Carry to D: iconIdle not kicked when the packages index or a package file arrives later (shared.js:3941-3953) |
+| B | v218 | step 0 (perf.mjs) + step 1 quick fixes | DONE pushed (34cb589, 11466cf, ac4e514); review clean. Carry to D: iconIdle not kicked when the packages index or a package file arrives later (shared.js:3941-3953). Its once-a-frame guard on HOST.room's update() (R.lastF) was taken back in v226: the owner's bisect put the calibration fault on it |
 | 2 | docs | CLAUDE.md + AGENTS.md slimmed | DONE pushed (66bd2ee) |
 | C | v219 | delivery + start page | PUSHED unreviewed-at-push (f79e1dd, ee25e69, f55f2b5) because tokens ran out and the machine may be reclaimed. Review came after: fix round DONE as v220 (list below; committed on dev, not pushed) |
 | C2 | v221 | shared-room re-send fix | DONE committed on dev, not pushed. The shared-room failures seen only on v220 (pass and exposome "comes back the other way", robots patter) were not the relay commit c8aad49: publish() re-sent an unacknowledged value at every poll with a new cid, so on a slow page the re-sends never stopped and a late copy started a merge war; the robots one was the test reading SFXQ.n and SFXQ.log in two evaluates. Both fixed in v221 |

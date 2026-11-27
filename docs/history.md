@@ -432,6 +432,14 @@ its state with the copy's runtime that every station needs at a story's load); `
 `xrWarm` still compiles the headset's materials on every device; the example scenes' KTX2 textures (the generators
 would need the Basis encoder in their pages; Bliss XP about 70 MB on the graphics card, 18 MB with KTX2).
 
+Calibration (v226): from v218 to v225, alone in a fresh room in AR, Calibrate, spot A then spot B made both crosses and
+their line vanish and the room stayed not lined up. The owner bisected it on the headset: v217 works, v218 does not.
+The one hunk of v218 in the alignment path was the once-a-frame guard on `HOST.room`'s `update()` (`R.lastF`: a second
+call with the same XRFrame skipped); v226 takes it out, so `update()` runs on every call again (the story's
+`HOST.anchor.frame` and the shell's tick), as in v217. The rest of v218's savings stay. No pretend headset showed the
+fault, so the fix rests on the bisect alone; `node tools/collab.mjs --calib` repeats the owner's steps headlessly and
+guards those steps only, not the fault itself.
+
 ### Loading late and holding less (v225, audit row I)
 
 The audit found stories waiting at the load for things their first chapter does not need, keeping copies they never
