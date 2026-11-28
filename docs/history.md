@@ -474,6 +474,19 @@ hands and the exposome is stuck to my head"). The cloud now reads the direction 
 globe's probe its turn likewise; it shipped as a package change after v226, with no new `VERSION`, and a smoke step
 gives every story's draw hooks an eye camera posed by its matrix alone. Untested in a headset.
 
+The headset's eyes locked by the shell (v228). The owner: "make sure this can never happen again, stories should not
+even have that much power or do they need it?" Stories need to read the drawing camera in their draw hooks (the
+exposome's veil, the pass story's light, the tissue's anchors on screen), never to move a headset's eyes. So
+`HOST.makeRenderer` now locks three.js's `ArrayCamera` and its eye cameras the first time `renderer.xr.getCamera` hands
+them out: their `updateMatrix`, `updateMatrixWorld` and `updateWorldMatrix` do nothing, so every recomposing call reads
+the pose instead of moving it (`matrixAutoUpdate = false` alone would not hold: `updateWorldMatrix` copies `matrix`
+whatever that flag says). After each session frame the shell also puts the renderer back on the headset (`xr.enabled`,
+render target), and `tools/packages/check.mjs` refuses a draw hook that calls such a method on its camera. The smoke
+block `eye lock` does the exposome's mistake on purpose under a pretend headset (VR, after a change of story, AR) and
+fails without the lock. The sources held no other such hook; the pass story's probes called `cam.getWorldQuaternion` on a
+page's camera only and now read `matrixWorld` too. Stories remain plain scripts in the page: the lock takes away this
+one quiet failure, not a story's power to break the session in other ways (`docs/agents/shell.md`).
+
 ### Loading late and holding less (v225, audit row I)
 
 The audit found stories waiting at the load for things their first chapter does not need, keeping copies they never

@@ -1,7 +1,7 @@
 // Checks a story package against the rules it keeps (tools/packages/SPEC.md, "The rules a package keeps"): story.json
 // field by field, main.js registering its own key, and the story rules of AGENTS.md that can be read off the code (sound
 // only through HOST.audio, HOST.makeRenderer, never navigating, HOST.go, never reading A or X, no eval but the engine's
-// own peek, nothing fetched from another origin), and the sizes. With --load it also serves the app with this package
+// own peek, nothing fetched from another origin, no draw hook moving the camera it is handed), and the sizes. With --load it also serves the app with this package
 // (an index of its own, so the folder may be anywhere and packages/index.json need not be current), opens it headless,
 // waits for it to load, plays a moment, opens explore mode and fails on any console error.
 // usage (from the repository root): node tools/packages/check.mjs packages/<key> [--build] [--load] [--shots <dir>] [--phone]
@@ -149,6 +149,42 @@ const RULES = [
   [/\bbuttons\s*\[\s*4\s*\]/, 'reads buttons[4] (A or X): the spaceship\'s boost'],
   [/\beval\s*\(|\bnew\s+Function\s*\(/, 'eval or new Function outside the engine\'s own peek'],
 ];
+// a draw hook (onBeforeRender, onAfterRender) never moves the camera it is handed (v228): in a headset that is one of
+// three.js's eye cameras, and a recomposing call there (getWorldDirection ... updateWorldMatrix) put that eye at the
+// space's origin (the exposome, v212 to v225). Read camera.matrixWorld instead. Only what can be read off the code: the
+// hook's own body (an arrow, a function, or a function of this file named there) and, one call deep, a function of this
+// file it hands the camera to; the shell's lock (index.html, makeRenderer) holds whatever this misses
+const MOVES = 'getWorld(?:Direction|Position|Quaternion|Scale)|lookAt|updateMatrix(?:World)?|updateWorldMatrix|applyMatrix4|applyQuaternion|rotate(?:X|Y|Z|OnAxis|OnWorldAxis)|translate(?:X|Y|Z|OnAxis)|setRotationFrom\\w+';
+function fnAt(code, i) {   // the function that starts at i: its parameters and its body, or null
+  const m = /^\s*(?:async\s+)?(?:function\b\s*\w*\s*)?\(([^()]*)\)\s*(=>)?\s*/.exec(code.slice(i, i + 400));
+  if (!m) return null;
+  const params = m[1].split(',').map(p => p.replace(/=.*$/s, '').trim());
+  let j = i + m[0].length, end;
+  if (code[j] === '{') { let d = 0; for (end = j; end < code.length; end++) { if (code[end] === '{') d++; else if (code[end] === '}' && !--d) break; } }
+  else if (m[2]) { let d = 0; for (end = j; end < code.length; end++) { const c = code[end]; if ('([{'.includes(c)) d++; else if (')]}'.includes(c)) { if (!d) break; d--; } else if (!d && (c === ';' || c === '\n')) break; } }
+  else return null;
+  return { params, body: code.slice(j, end + 1) };
+}
+function fnNamed(code, n) {   // a function of this file by its name
+  const m = new RegExp(`(?:\\bfunction\\s+${n}\\s*(?=\\()|\\b(?:const|let|var)\\s+${n}\\s*=\\s*(?=(?:async\\s+)?(?:function\\b|\\()))`).exec(code);
+  return m ? fnAt(code, m.index + m[0].length - (m[0].endsWith('(') ? 1 : 0)) : null;
+}
+function hookMoves(code) {   // [index, what] for each draw hook that moves its camera
+  const out = [];
+  for (const h of code.matchAll(/\.on(?:Before|After)Render\s*=(?!=)\s*/g)) {
+    const at = h.index + h[0].length, ref = /^([A-Za-z_$][\w$]*)\s*(?:[;,)\n]|$)/.exec(code.slice(at, at + 80));
+    const f = ref ? fnNamed(code, ref[1]) : fnAt(code, at), cam = f && f.params[2];
+    if (!cam || !/^[A-Za-z_$][\w$]*$/.test(cam)) continue;
+    const bad = new RegExp(`\\b${cam.replace('$', '\\$')}\\s*\\.\\s*(${MOVES})\\s*\\(`), hit = bad.exec(f.body);
+    if (hit) { out.push([h.index, `${cam}.${hit[1]}`]); continue; }
+    for (const c of f.body.matchAll(/(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(([^()]*)\)/g)) {   // one call deep: a function of this file given the camera
+      const k = c[2].split(',').map(a => a.trim()).indexOf(cam), g = k >= 0 && fnNamed(code, c[1]), p = g && g.params[k];
+      const hit2 = p && /^[A-Za-z_$][\w$]*$/.test(p) && new RegExp(`\\b${p.replace('$', '\\$')}\\s*\\.\\s*(${MOVES})\\s*\\(`).exec(g.body);
+      if (hit2) { out.push([h.index, `${c[1]}(): ${p}.${hit2[1]}`]); break; }
+    }
+  }
+  return out;
+}
 const PEEK = /peek:\s*src\s*=>\s*eval\(src\)/g;
 const W3 = /^https?:\/\/www\.w3\.org$/i;   // (XML namespaces, never fetched)
 for (const r of served.filter(r => /\.m?js$/i.test(r))) {
@@ -156,6 +192,7 @@ for (const r of served.filter(r => /\.m?js$/i.test(r))) {
   const { code, strs } = strip(src);
   const lines = code.replace(PEEK, m => ' '.repeat(m.length)).split('\n');
   lines.forEach((l, i) => { for (const [re, why] of RULES) if (re.test(l)) fail(`${where}:${i + 1}`, why); });
+  for (const [at, what] of hookMoves(code)) fail(`${where}:${code.slice(0, at).split('\n').length}`, `a draw hook moves the camera it is handed (${what}): in a headset that is an eye, and the scene would stick to the head; read camera.matrixWorld`);
   for (const [s, ln] of strs) {
     const m = /\b(?:https?|wss?):\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+/i.exec(s) || /^\/\/[a-z0-9-]+(?:\.[a-z0-9-]+)+/i.exec(s);
     if (m && !W3.test(m[0])) fail(`${where}:${ln}`, `an address on another origin (${m[0]}): a package loads only its own files (HOST.pkgUrl)`);

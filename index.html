@@ -905,10 +905,37 @@ const HOST = {
       // or a reload (HOST.built) goes back right after, before any other task (the shared room's pump) sees the story;
       // in a headset the shell's loading scene fades out over its first frames (HOST.loading.wrap)
       const r = this.renderer, loop = r.setAnimationLoop;
+      // (v228) and after each of a session's frames the renderer draws into the headset again: a story that draws into a
+      // texture of its own (xr.enabled off, a render target) puts both back itself, and one that forgot would leave the
+      // headset's picture frozen; put back here, with one warning (two property reads a frame)
+      let unsettled = false;
+      const settle = () => {
+        if (r.xr.enabled && r.getRenderTarget() === null) return;
+        if (!unsettled) { unsettled = true; console.warn('A frame left the renderer drawing elsewhere than the headset (xr.enabled off or a render target set): put back'); }
+        r.xr.enabled = true; r.setRenderTarget(null);
+      };
       r.setAnimationLoop = fn => {
-        loop(this.loading ? this.loading.wrap(fn) : fn);
+        const w = this.loading ? this.loading.wrap(fn) : fn;
+        loop(w && ((t, fr) => { try { return w(t, fr); } finally { if (fr) settle(); } }));
         const f = fn && this.built;
         if (f) queueMicrotask(() => { if (this.built !== f) return; this.built = null; try { f(); } catch (e) { console.warn('The place was not put back:', e); } });
+      };
+      // (v228) a headset's eyes are three.js's alone. r128's WebXRManager poses its ArrayCamera and an eye camera per view
+      // from their matrix each frame (position and quaternion never set, matrixAutoUpdate on), and a draw hook is handed
+      // one of them: any call there that recomposes it (getWorldDirection, getWorldPosition/Quaternion/Scale, lookAt,
+      // updateMatrix, updateMatrixWorld, updateWorldMatrix) put that eye at the space's origin for all drawn after it (the
+      // exposome's cloud, v212 to v225: the scene stuck to the head). So on those cameras the three recomposing methods do
+      // nothing, and every such call reads the pose three.js wrote (getCamera writes their matrixWorld itself and never
+      // calls them). Locked as getCamera first hands each one out; they live as long as the renderer, so every session,
+      // VR or AR, and every story after (xrAdopt) keeps the lock; after that it costs one compare a frame (HOST.xrEyes, for
+      // the smoke test's 'eye lock')
+      const xr = r.xr, getCam = xr.getCamera, eyes = this.xrEyes = new Set(), still = () => {};
+      const lockEye = c => { if (eyes.has(c)) return; eyes.add(c); c.updateMatrix = c.updateMatrixWorld = c.updateWorldMatrix = still; };
+      let views = -1;
+      xr.getCamera = function (cam) {
+        const a = getCam.call(this, cam);
+        if (a.cameras.length !== views) { views = a.cameras.length; lockEye(a); a.cameras.forEach(lockEye); }
+        return a;
       };
       // the WebGL context lost and restored (a GPU process started again, as a headset might after a long sleep; v131):
       // logged, and real-world occlusion told, which forgets its own GL objects (three.js makes its own again itself)

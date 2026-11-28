@@ -17414,6 +17414,92 @@ if (runs('occlusion')) {
   });
   await ctx.close();
 }
+// (v228) the shell's lock on a headset's eyes (--only 'eye lock'): under the pretend headset above, three.js r128's own
+// WebXRManager poses its ArrayCamera and two eye cameras; a draw hook put in the story's scene that calls every
+// recomposing method on the eye camera it is handed (and the scene's hook on the ArrayCamera) must leave each where three.js
+// put it, in VR, after a change of story in the same session (xrAdopt) and in AR. Without the lock (index.html,
+// makeRenderer) the eyes land at the space's origin: the exposome's bug of v212 to v225, done on purpose
+if (runs('eye lock')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const ctx = await browser.newContext({ viewport: { width: 640, height: 400 } });
+  const ep = await ctx.newPage();
+  ep.on('pageerror', e => errors.push('eye lock: ' + (e.stack || e.message)));
+  ep.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) errors.push('eye lock: ' + m.text()); });
+  await ep.addInitScript(OCCL_FAKE);
+  const ready = k => ep.waitForFunction(k => HOST.curKey === k && HOST.cur && HOST.cur.collab.scene(), k, { timeout: 30000 });
+  const start = async mode => {
+    await ep.evaluate(m => HOST.cur.peek(`xrStart("${m}")`), mode);
+    await ep.waitForFunction(() => window.__occl.session && !window.__occl.session.ended && window.__occl.session.cbs.size && HOST.session === window.__occl.session, null, { timeout: 20000 });
+    await ep.evaluate(() => window.__occl.step(4));
+  };
+  // three probes in the story's scene, drawn for each eye: the first (opaque, drawn first) notes the eye's pose as three.js
+  // left it, the second calls every recomposing method on it, the last (see-through, drawn last) compares; the scene's own
+  // hook does the same to the ArrayCamera at once. Then frames, the probes taken out, and what moved
+  const check = (what, mode) => step(`eye lock: ${what}: a draw hook calling getWorldDirection, getWorldPosition, lookAt, updateMatrixWorld ... on the eye camera leaves the eyes where three.js put them`, async () => {
+    const r = await ep.evaluate(() => {
+      const sc = HOST.cur.collab.scene(), F = window.__occl, R = { eyes: new Set(), arr: 0, bad: [], read: [] }, was = new Map();
+      const same = (a, b) => a.elements.every((v, i) => Math.abs(v - b.elements[i]) < 1e-9);
+      const v = new THREE.Vector3(), q = new THREE.Quaternion(), d = new THREE.Vector3();
+      const meddle = c => {
+        c.getWorldDirection(d); c.getWorldPosition(v); c.getWorldQuaternion(q); c.getWorldScale(v);
+        c.lookAt(1, 2, 3); c.position.set(0, 0, 0); c.updateMatrix(); c.updateMatrixWorld(true); c.updateWorldMatrix(true, true);
+        return d;
+      };
+      const name = c => (c.isArrayCamera ? 'array' : 'eye ' + c.layers.mask);
+      const tri = () => new THREE.BufferGeometry().setAttribute('position', new THREE.BufferAttribute(new Float32Array(9), 3));
+      const probe = (order, transparent, fn) => { const m = new THREE.Mesh(tri(), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: false, transparent })); m.frustumCulled = false; m.renderOrder = order; m.onBeforeRender = (rd, s, c) => fn(c); m.name = 'eye lock probe'; sc.add(m); return m; };
+      const ps = [
+        probe(-1e9, false, c => { R.eyes.add(c); was.set(c, [c.matrixWorld.clone(), c.matrixWorldInverse.clone()]); }),
+        probe(0, false, c => { const dir = meddle(c), w = was.get(c); if (w && dir.distanceTo(new THREE.Vector3(0, 0, -1).transformDirection(w[0])) > 1e-6) R.read.push(name(c)); }),
+        probe(1e9, true, c => { const w = was.get(c); if (!w || !same(c.matrixWorld, w[0]) || !same(c.matrixWorldInverse, w[1])) R.bad.push(name(c)); }),
+      ];
+      const own = Object.prototype.hasOwnProperty.call(sc, 'onBeforeRender'), hook = sc.onBeforeRender;
+      sc.onBeforeRender = function (rd, s, c, ...a) {
+        if (c.isArrayCamera) { R.arr++; const w = c.matrixWorld.clone(); meddle(c); if (!same(c.matrixWorld, w)) R.bad.push('array'); }
+        return hook.call(this, rd, s, c, ...a);
+      };
+      try { F.step(3); } finally { for (const p of ps) sc.remove(p); if (own) sc.onBeforeRender = hook; else delete sc.onBeforeRender; }
+      return { eyes: [...R.eyes].map(name).sort().join(), arr: R.arr, bad: [...new Set(R.bad)].join(), read: [...new Set(R.read)].join(), presenting: HOST.renderer.xr.isPresenting, locked: HOST.xrEyes ? HOST.xrEyes.size : 0 };
+    });
+    if (!r.presenting || r.eyes !== 'eye 3,eye 5' || r.arr < 3) errors.push(`eye lock: ${what}: the probes did not see a headset's two eyes and its ArrayCamera (${mode}): ` + JSON.stringify(r));
+    if (r.locked !== 3) errors.push(`eye lock: ${what}: the shell holds ${r.locked} of a headset's cameras, not its ArrayCamera and two eyes (HOST.xrEyes, makeRenderer)`);
+    if (r.bad) errors.push(`eye lock: ${what}: a draw hook moved the headset's ${r.bad} (the scene would stick to the head): ` + JSON.stringify(r));
+    if (r.read) errors.push(`eye lock: ${what}: getWorldDirection on the ${r.read} did not read the pose three.js wrote: ` + JSON.stringify(r));
+  });
+  await step('eye lock: a pretend headset in VR (airports)', async () => {
+    await ep.goto(base + 'index.html#airports&labels=hidden&cards=hidden');
+    await ready('airports');
+    await start('immersive-vr');
+  });
+  await check('VR', 'immersive-vr');
+  await step('eye lock: another story in the same session (proteins, xrAdopt)', async () => {
+    await ep.evaluate(() => HOST.go('proteins'));
+    await ep.evaluate(() => window.__occl.runUntil(() => HOST.curKey === 'proteins' && HOST.cur && HOST.cur.collab.scene() && HOST.session === window.__occl.session, 30000));
+    await ready('proteins');
+    await ep.evaluate(() => window.__occl.step(4));
+  });
+  await check('VR after a change of story', 'immersive-vr');
+  await step('eye lock: the session ended, then AR', async () => {
+    await ep.evaluate(() => window.__occl.session.end());
+    await ep.waitForFunction(() => !HOST.renderer.xr.isPresenting, null, { timeout: 10000 });
+    await start('immersive-ar');
+  });
+  await check('AR', 'immersive-ar');
+  // (v228) a frame that leaves the renderer drawing elsewhere than the headset (xr.enabled off, a render target set) is put
+  // back by the shell right after it (index.html, makeRenderer: settle), so the headset's picture never freezes
+  await step('eye lock: a session\'s frame that leaves xr.enabled off and a render target set is put back after it', async () => {
+    const r = await ep.evaluate(() => {
+      const R = HOST.renderer, rt = new THREE.WebGLRenderTarget(4, 4);
+      R.xr.enabled = false; R.setRenderTarget(rt);
+      window.__occl.step(1);
+      const out = [R.xr.enabled, R.getRenderTarget() === null];
+      window.__occl.step(1); rt.dispose();
+      return out;
+    });
+    if (r.join() !== 'true,true') errors.push('eye lock: after a frame left the renderer drawing elsewhere: xr.enabled, render target put back = ' + r.join());
+  });
+  await ctx.close();
+}
 // A phone's AR session (v125, --only 'phone ar'): a pretend Android phone (Chrome's user agent, touch, a pretend
 // navigator.xr offering immersive-ar that records what it is asked for; the story's own xrStart through three.js r128's
 // WebXR path, frames driven here; screen taps as Chrome makes them: a transient 'screen' input source, selectstart, a

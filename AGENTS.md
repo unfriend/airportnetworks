@@ -152,7 +152,9 @@ The detail files hold the reasons and the exact lines; these are the rules that 
 - A draw hook (`onBeforeRender`) never calls `getWorldDirection`, `getWorldQuaternion`, `getWorldPosition` or
   `updateWorldMatrix` on the camera it is given: in a headset that is three.js's eye camera, whose pose lives only
   in its matrix, and the call resets the eye to the room's origin (the exposome, v212 to v226). Read
-  `camera.matrixWorld` instead.
+  `camera.matrixWorld` instead. Since v228 the shell also locks the headset's eye cameras (`makeRenderer`: those calls
+  only read them) and puts the renderer back on the headset after each session frame; `tools/packages/check.mjs` refuses
+  a hook that calls one (`docs/agents/shell.md`, "The headset's eyes are the shell's").
 - Story code never moves `GL.rig` past `HOST.anchor`: check `HOST.anchor.held()` before re-placing and
   `HOST.anchor.locked(kind)` before letting the grip move anything. Moving with the sticks is the shell's:
   stories wait on `xrWalking()`. No story reads A or X (`buttons[4]`): it is the spaceship's boost.

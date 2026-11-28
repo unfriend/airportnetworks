@@ -124,6 +124,46 @@ repeat the above (the `sfxCue`, `sfxHold`, `sfxAct` and `sfxLive` line, the narr
 - Stories must create the renderer with `HOST.makeRenderer(...)`, never
   `new THREE.WebGLRenderer`.
 
+### The headset's eyes are the shell's (v228)
+
+- What happened: v212 to v225 the exposome's cloud called `camera.getWorldDirection` in a draw hook. three.js r128's
+  `WebXRManager` poses its `ArrayCamera` and one eye camera per view each frame from their `matrix` alone (position and
+  quaternion never set, `matrixAutoUpdate` on), and a draw hook is handed one of them, so the call recomposed that eye
+  from nothing: both eyes at the space's origin for all drawn after it (`docs/history.md`).
+- The lock (`index.html`, `HOST.makeRenderer`): `renderer.xr.getCamera` is wrapped once; the first time it hands out
+  its `ArrayCamera` and eye cameras (and whenever the number of views changes, a phone's one or a headset's two), it
+  gives each of those three objects its own `updateMatrix`, `updateMatrixWorld` and `updateWorldMatrix` that do
+  nothing. Every Object3D call that recomposes (`getWorldDirection`, `getWorldPosition`, `getWorldQuaternion`,
+  `getWorldScale`, `lookAt`, `updateMatrix*`) then reads the pose three.js wrote instead of moving it. Why this and not
+  `matrixAutoUpdate = false` alone: `updateWorldMatrix` copies `matrix` into `matrixWorld` whatever that flag says, and
+  an eye's `matrixWorld` is the camera's parent's times its `matrix`, so the flag would not hold. three.js never calls
+  those methods on these cameras itself: `getCamera` writes their `matrixWorld` and `matrixWorldInverse` directly, and
+  the render reads only those. The cameras live as long as the renderer, so the lock holds for every session, VR or
+  AR, and every story adopted into it (`xrAdopt`); after the first frame it costs one compare a frame. `HOST.xrEyes`
+  (a `Set`) holds the locked cameras, for the smoke test (`eye lock`).
+- What it does not stop: code that writes `matrixWorld` or `matrixWorldInverse` of an eye directly, or `position`,
+  `quaternion`, `matrix` (unused by the render; three.js sets `matrix` again each frame). The story's own camera
+  during a session is harmless to write: each render three.js copies the headset's pose into it before drawing; only
+  its parent would move the eyes (no story parents its camera; `GL.rig` holds the scene, not the camera), and its
+  `near`/`far` become the session's depth range (as they should).
+- Settled after each frame (`makeRenderer`'s `setAnimationLoop`, `settle`): after every frame of a session the
+  renderer draws into the headset again (`renderer.xr.enabled` back on, render target back to `null`), with one
+  console warning the first time. Stories that draw into a texture of their own (the engine's `e2_scene.js`, the
+  studio's pictures) put both back themselves; this catches one that forgot, which would freeze the headset's picture.
+- The static rule: `tools/packages/check.mjs` fails a package whose draw hook (`onBeforeRender`, `onAfterRender`: an
+  arrow, a function, a function of the file named there, and one call deep a function of the file handed the camera)
+  calls a recomposing or moving method on its camera argument (`tools/packages/SPEC.md`). It reads only the code, so a
+  camera passed further or under another name is missed; the lock holds whatever it misses.
+- What remains a story's power in a headset (stories are plain scripts in the page; nothing here is a sandbox), each
+  needed by stories today and so not taken away: the session itself (`xrStart`, `session.end()`; proposal: the shell
+  starts and ends sessions, the stories ask), `renderer.xr` settings (`setFramebufferScaleFactor` and
+  `setReferenceSpaceType` only warn while presenting and apply to the next session, which the shell sets again first),
+  the frame loop (`setAnimationLoop(null)` stops drawing; proposal: refuse `null` while presenting unless the shell
+  tears down), pixel ratio and size (three.js refuses `setSize` while presenting), renderer state such as tone mapping,
+  clear colour and clipping (each story's own), `GL.rig` past the anchor (a rule, `HOST.anchor.held()`; proposal: the
+  shell compares the rig with the anchor's pose each frame while held and puts it back), and `HOST.inputs` (the shell's
+  array; proposal: hand stories a frozen copy).
+
 ## The shell's modules on demand (`HOST.mods`, v226)
 
 - `occlusion.js`, `ships.js` and `notes.js` are no longer `<script>` tags in `index.html`. `HOST.mods.load(name)`

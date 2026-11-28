@@ -1067,6 +1067,13 @@ nine minutes and fifty seconds (`NARRATION_SYNC` provisional until the voice is 
   the camera only from its `matrixWorld`: v212 to v226 the cloud called `camera.getWorldDirection`, which on three.js
   r128's eye camera (its pose only in its matrix) put both eyes at the space's origin for all drawn after it, the
   owner's "beams way lower than the hands, the exposome stuck to my head" (smoke: `<key>: draw hooks leave a headset's eye camera where it is`).
+  The rule for every story's draw hooks (`onBeforeRender`, `onAfterRender`): read the camera you are handed only through
+  `camera.matrixWorld` (and `matrixWorldInverse`, `projectionMatrix`): `setFromMatrixPosition(camera.matrixWorld)`, `new
+  Vector3(0, 0, -1).transformDirection(camera.matrixWorld)`, `q.setFromRotationMatrix(camera.matrixWorld)`; never
+  `getWorld*`, `lookAt` or `updateMatrix*` on it. Since v228 the shell's lock makes those calls harmless on a headset's
+  eyes (`docs/agents/shell.md`, "The headset's eyes are the shell's") and `tools/packages/check.mjs` refuses them; the
+  pass story's globe and cell probes, which called `cam.getWorldQuaternion` on a page's camera only, read
+  `matrixWorld` too since v228.
 - Explore: Scene, Substances (families as swatches in the shelves' colours), Groups, Diseases, Countries, each pane
   twice (HTML and the headset's canvas, the notes under every card in both). Address: `&sub=`, `&group=`, `&dis=`
   (opens the Diseases tab and the interactome), `&country=` (the Countries tab and the globe), `&csub=`. Shared state

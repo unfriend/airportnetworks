@@ -43,7 +43,8 @@ SETS.cell = function (K) {
   const LV = new THREE.Vector3(), _q = new THREE.Quaternion(), _c = new THREE.Vector3(), _m = new THREE.Matrix4();
   function look(renderer, cam) {
     const xr = !!(renderer.xr && renderer.xr.isPresenting), rig = set.group.parent && set.group.parent.parent;
-    if (xr && rig) rig.getWorldQuaternion(_q); else cam.getWorldQuaternion(_q);
+    // (the camera's turn read from its matrixWorld: a draw hook never recomposes the camera it is handed, v228)
+    if (xr && rig) rig.getWorldQuaternion(_q); else _q.setFromRotationMatrix(cam.matrixWorld);
     LV.set(-0.55, 0.42, 1.0).normalize().applyQuaternion(_q);
     for (const mats of G.orgMats) for (const m of mats) if (m.uniforms) m.uniforms.uL.value.copy(LV);
     const U = G.U, AU = G.actorMat.uniforms;

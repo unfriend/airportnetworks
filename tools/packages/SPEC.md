@@ -182,7 +182,10 @@ The story rules of `AGENTS.md` hold for a package as for a story. The check read
 on: a missing or wrong field; `main.js` not calling `HOST.register('<key>', ...)` with its own key; `new AudioContext` or
 `webkitAudioContext` (sound is the shell's: `HOST.audio`); `new THREE.WebGLRenderer` (`HOST.makeRenderer`);
 `location.href =`, `location.assign`, `location.replace`, `history.pushState` (stories never navigate); `HOST.start(`
-(`HOST.go`); `buttons[4]` (the spaceship's boost); `eval(` or `new Function(` outside the engine's own `peek`; a fetch or
+(`HOST.go`); `buttons[4]` (the spaceship's boost); `eval(` or `new Function(` outside the engine's own `peek`; a draw
+hook (`onBeforeRender`, `onAfterRender`) calling `getWorld*`, `lookAt`, `updateMatrix*`, `applyMatrix4`, `rotate*` or
+`translate*` on the camera it is handed, in its own body or one call deep in a function of the same file (v228: in a
+headset that camera is an eye; read `camera.matrixWorld`); a fetch or
 import of anything not on the app's own origin (`http://`, `https://`, `//` addresses in code); a file over 16 MB, or the
 folder over 64 MB. It warns on a `main.js` over 4 MB and on a folder without `README.md`. With `--load` it also serves
 the app, opens the package headless (as `tools/engine/same.mjs` does), waits for it to load, plays a moment, opens explore

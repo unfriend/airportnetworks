@@ -135,7 +135,18 @@ slideshow and explored, the panes' numbers checked against the data where a stor
 task longer than `LOAD_LIMIT`, 4 s: SwiftShader compiles one shader at a time); the loading scene in VR and AR; anchored
 placement; the headset's settings; the sound-effect cues; focus mode and the top bar on phones and tablets; (after
 v226, 27 November 2026) every story's draw hooks (`onBeforeRender`) given a headset's eye camera and leaving it where
-it is.
+it is (an eye camera of the test's own, not locked: it checks the story, whatever the shell's lock).
+
+`eye lock` (v228, own page, about 30 s): the shell's lock on a headset's eyes (`docs/agents/shell.md`, "The headset's
+eyes are the shell's"). Under the occlusion block's pretend headset (`OCCL_FAKE`, two views) three.js r128's own
+`WebXRManager` poses the cameras; three probes in the story's scene, drawn for each eye, note each eye's
+`matrixWorld` and `matrixWorldInverse`, call `getWorldDirection`, `getWorldPosition`, `getWorldQuaternion`,
+`getWorldScale`, `lookAt`, `position.set`, `updateMatrix`, `updateMatrixWorld` and `updateWorldMatrix` on it, and
+compare, and the scene's own hook does the same to the `ArrayCamera`; `getWorldDirection` must also give the direction
+three.js's pose has, and `HOST.xrEyes` must hold three cameras. In VR (airports), after `HOST.go('proteins')` in the same
+session (`xrAdopt`) and in AR after that session ended. A last step leaves `xr.enabled` off and a render target set
+and expects both put back after one frame (`settle`). With the lock taken out every check fails (the eyes and the
+`ArrayCamera` moved, the direction wrong; `HOST.xrEyes` empty), and with `settle` taken out the last step fails.
 
 ### Smoke blocks
 
@@ -160,6 +171,7 @@ tablets, iPhone) and `old links`.
 | `spaceship` | own page, a few minutes | launch, steering, boost, shield and health, drones, pickups, relay time. Timing-sensitive: its steps wait past the first second (test fix at 8c59e50) |
 | `goggles` | own page, 640 x 400, about 1 min | the studio's VR goggles: taken by the grip, on at the face, nothing written; `flight.js` loaded |
 | `occlusion` | own page | real-world occlusion with a pretend AR depth layer: hidden where nearer, both eyes, smooth edges, sleep and wake, watchdog, context loss. Depth is never paused |
+| `eye lock` | own page | (v228) the shell's lock on a headset's eye cameras: a draw hook calling `getWorldDirection` ... `updateWorldMatrix` on them leaves them where three.js put them (VR, after a change of story, AR), and a frame left drawing elsewhere is put back (see the paragraph above the table) |
 | `frame rate` | own page, about 5 min | `FPS_FAKE` pretend Quest: refresh-rate ladder, foveation, the read-out and double B. Do not rename `FPS_FAKE` (perf reads it) |
 | `auto quality` | own page; run on a quiet machine | automatic quality's steps (rate, foveation, viewport scale), `#aq=off` |
 | `sharp text` | own page | the panels and the menu as WebXR quad layers on a pretend Quest (`SHARP_FAKE`) |

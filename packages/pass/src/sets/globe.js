@@ -43,7 +43,8 @@ SETS.globe = function (K) {
     G.atmMat.uniforms.uCenter.value.setFromMatrixPosition(mw);
     G.atmMat.uniforms.uRadius.value = s;
     const rig = set.group.parent && set.group.parent.parent;   // (the engine's GL.rig > GL.world > this set)
-    if (xr && rig) rig.getWorldQuaternion(_q); else cam.getWorldQuaternion(_q);
+    // (the camera's turn read from its matrixWorld: a draw hook never recomposes the camera it is handed, v228)
+    if (xr && rig) rig.getWorldQuaternion(_q); else _q.setFromRotationMatrix(cam.matrixWorld);
     LV.set(-0.55, 0.42, 1.0).normalize().applyQuaternion(_q);
     G.globeMat.uniforms.uL.value.copy(LV);
     if (xr) { G.U.uScale.value = 1; G.U.uPx.value = 0.0028 * K.U.uPx.value * set.group.scale.x; return; }
