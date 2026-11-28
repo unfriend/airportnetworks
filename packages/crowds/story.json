@@ -1,0 +1,18 @@
+{
+  "key": "crowds",
+  "api": 1,
+  "version": "0.1.0",
+  "title": "Protein crowds",
+  "kick": "Measuring",
+  "col": "#9fd8a8",
+  "desc": "Up to a million balls standing for proteins, drawn as impostors or meshes, and four ways of leaving out what you cannot see, with what each frame costs.",
+  "len": "Story 0:14",
+  "aria": "Interactive 3D test: a cube of many balls standing for proteins, drawn and culled in different ways",
+  "thing": "crowd",
+  "authors": "The app's authors",
+  "life": false,
+  "list": "experiments",
+  "minis": "minis.js",
+  "icon": "crowds.cube",
+  "needs": 188
+}

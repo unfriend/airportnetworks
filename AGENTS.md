@@ -37,6 +37,7 @@ and its authors: `docs/agents/stories.md` and `docs/data-and-permissions.md`.
 | `flock` | Flock | built | Experiments; a live simulation |
 | `robots` | Robot gang | built | Experiments; a live simulation |
 | `tutorial` | Tutorial | built | an introduction (`intro: true`), last in the list |
+| `crowds` | Protein crowds | built | Experiments; reads ppicell's `structs.js`, `balls.js`, `crowd.js` |
 | `cellstress`, `hello` | Cell stress test, the example package | built | Experiments |
 
 Besides the stories there is one page that is not a story (`STORY_EXTRA` in `stories/list.js`, on no Stories
@@ -246,7 +247,8 @@ of step).
   (pet, micro, ovary, topo), `tissue.js` (micro), `web.js` (soil), `packages/micro/src/sets/organs.js` (pet,
   micro, topo), `packages/nmd/src/sets/motor.js` and `data.js` (endo), `packages/topo/src/sets/look.js` (soil,
   cdk5), `packages/airports/main.js` and `packages/spatial/main.js` (pass), `packages/airports/main.js` and
-  `packages/ppicell/src/sets/cell.js` (exposome).
+  `packages/ppicell/src/sets/cell.js` (exposome), its `structs.js`, `balls.js` and `crowd.js` (crowds, not built by
+  `all.mjs`: `node packages/crowds/src/build.mjs`).
 - A story's data first where it has a generator (`src/data/gen_data.*`, only from the authors' files), and its
   own test after its maths, data or sets (`packages/<key>/src/test-*.mjs`).
 - Never edit `tools/studio/vendor/`. Generated data files (`packages/*/src/sets/data.js`) are never edited by

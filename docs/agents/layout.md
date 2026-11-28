@@ -301,6 +301,10 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   exposome story.
 - `packages/cellstress/` - the cell stress test (*Measuring*, on the Experiments set since v188): `story.json`, `main.js`
   (built), `README.md`, `src/` (`build.mjs`, `engine/`, `sets/`); `docs/agents/packages.md`, "The cell stress test".
+- `packages/crowds/` - *Protein crowds* (*Measuring*, on the Experiments set): `story.json`, `main.js` (built), `minis.js`
+  (built), `README.md`, `src/` (`build.mjs`, which reads ppicell's `structs.js`, `balls.js` and `crowd.js`; `engine/`;
+  `sets/cull.js`, `sets/crowds.js`; `minis.js`; `test-cull.mjs`; `sweep.mjs`; `README.md`, `SPEC.md`);
+  `docs/agents/stories.md`, "Protein crowds".
 - `packages/exposome/` - *Invisible threads*, the chemical exposome (v212, on the Experiments set): `story.json`, `main.js`
   (built), `minis.js`, `icon.png`, `audio/`, `data/` (derived numbers, `targets.bin`, `ppi.bin`, `diseases.bin`,
   `names.json`), `README.md`, and `src/` its sources (`build.mjs`, `c-cut.mjs`, `engine/`, `sets/`, the data generator

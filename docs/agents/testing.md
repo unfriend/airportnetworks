@@ -234,7 +234,7 @@ steps (its `load <key>` step always runs with its block, v179: before, it was fi
 story's steps ran on the page's default story). A match of nothing fails and prints the ids. For a builder's own steps;
 the release run is the whole test (`smoke-all.mjs`).
 
-Not in any block: `hello` and `cellstress` are Experiments that are no app story (`packages/order.json` does not name
+Not in any block: `hello`, `cellstress` and `crowds` are Experiments that are no app story (`packages/order.json` does not name
 them, so `STORY_KEYS` leaves them out): `node tools/packages/check.mjs packages/<key> --load` covers them (and their
 builds' `--check`). The notebook (`notes.js`) has no block of its own: the `sharp text` block's step *a notebook picture
 pauses the layers* is the only smoke check that reaches it; the rest is untested here.

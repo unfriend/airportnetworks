@@ -98,6 +98,9 @@ main set; #experiments opens it too. In it:
      (packages/robots/main.js)
   - Cell stress test: the cell map's model cell filled with made-up proteins,
      to read a headset's frame rate  (packages/cellstress/main.js)
+  - Protein crowds: up to a million balls standing for proteins, drawn two
+     ways and culled four ways, with what each frame costs
+     (packages/crowds/main.js)
   - Six handshakes: the example story package  (packages/hello/main.js)
   Each opens by its address too (#proteins, #flock ...). In a shared room an
   experiment can be a circle (Add places it); Arrange all leaves them out.
