@@ -452,11 +452,16 @@ function km(a, b) {
 
 // -------------------------------------------------------------- geometry --
 const arcHeight = th => 0.006 + 0.075 * Math.pow(th / Math.PI, 0.85);
-function arcPoints(u, v, segDeg, lift = 0) {
+const ROUTE_TOL = 0.0015;   // (the routes' line set: the largest gap between a drawn route and its curve, globe radii)
+// (tol: no more segments than keep the drawn line within tol globe radii of the true curve, and never more than segDeg
+// gives. A chord over a step ds of the curve is off it by at most ds^2 / 8 times the curve's largest second derivative,
+// here at most th^2 (1 + LIFT + lift + h) + 2 pi h th + pi^2 h)
+function arcPoints(u, v, segDeg, lift = 0, tol = 0) {
   const P = NET.P;
   const ax = P[3 * u], ay = P[3 * u + 1], az = P[3 * u + 2], bx = P[3 * v], by = P[3 * v + 1], bz = P[3 * v + 2];
   const th = Math.acos(clamp(ax * bx + ay * by + az * bz, -1, 1)), sn = Math.sin(th), h = arcHeight(th);
-  const n = Math.min(64, Math.floor(th / D2R / segDeg) + 4);
+  let n = Math.min(64, Math.floor(th / D2R / segDeg) + 4);
+  if (tol > 0) n = Math.min(n, Math.max(1, Math.ceil(Math.sqrt((th * th * (1 + LIFT + lift + h) + 2 * Math.PI * h * th + Math.PI * Math.PI * h) / (8 * tol)))));
   const out = new Float32Array((n + 1) * 3);
   for (let k = 0; k <= n; k++) {
     const s = k / n;
@@ -621,23 +626,43 @@ function routeMaterial(uniforms) {
   return new THREE.ShaderMaterial({
     uniforms, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending,
     vertexShader: GLSL_COMMON + `
-attribute float aT, aRv, aComm, aRnd, aWave, aXrm;
+attribute float aT, aRv, aComm, aRnd, aWave, aXrm, aTop;
+attribute vec4 aMid;
 uniform float uReveal, uAlpha, uWComm, uRndRm, uTgtRm, uXrm, uIso;
 uniform vec3 uBase;
 varying vec3 vCol; varying float vA;
+// the whole route behind the globe for this eye: aMid its middle's direction (w: half its angle, 9 for a route too
+// long to judge), aTop its peak's radius. From the camera at D globe radii every point of the route at least
+// angle(mid, camera) - w from the camera's direction and at most aTop high is hidden when that angle passes
+// acos(k / D) + acos(k / aTop): k is the globe a little shrunk, so a hidden point stands well inside the globe's edge
+// on screen (by about 0.02 radians, many pixels; the drawn sphere's facets lie within 0.0004 of radius 1). Read only
+// from the matrices three.js gives the shader for the eye it draws, so both eyes and every globe size are right
+bool behindGlobe() {
+  if (aMid.w > 3.0) return false;
+  vec3 o = (modelViewMatrix * vec4(0.0, 0.0, 0.0, 1.0)).xyz;
+  float sc = length(modelViewMatrix[0].xyz), lo = length(o), D = lo / sc, k = 0.998 - 0.02 * D;
+  if (k <= 0.0 || D <= 1.0) return false;
+  float a = acos(clamp(dot(normalize(mat3(modelViewMatrix) * aMid.xyz), -o / lo), -1.0, 1.0)) - aMid.w;
+  return a > acos(k / D) + acos(k / aTop);
+}
 void main() {
-  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
   float g = clamp((uReveal - aRv * 0.75) / 0.25, 0.0, 1.0);
-  // nothing until this route's reveal has begun (otherwise each route's first point shows as a streak)
-  float vis = step(0.0001, g) * step(aT, g + 0.0005);
   float inter = step(9.5, aComm);
-  vec3 col = mix(uBase, uPal[int(aComm + 0.5)], uWComm);
   float ca = mix(1.0, mix(1.0, 0.22, inter), uWComm);
   float r = removal(aRnd, aWave, aXrm, uRndRm, uTgtRm, uXrm);
-  col = mix(col, vec3(1.0, 0.22, 0.14), clamp(r / 0.35, 0.0, 1.0));
   float iso = uIso < -0.5 ? 1.0 : (abs(aComm - uIso) < 0.5 ? 1.0 : 0.04);
+  // (the route's own alpha, the same at each of its points: none until its reveal has begun, none when closed)
+  float ra = step(0.0001, g) * uAlpha * ca * (1.0 - smoothstep(0.45, 1.0, r)) * iso;
+  // a route that cannot show is thrown out whole, before the rasteriser: every point of it to one place outside the
+  // view (the same for all its points, so no segment is ever stretched across the view)
+  if (ra == 0.0 || behindGlobe()) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vCol = vec3(0.0); vA = 0.0; return; }
+  gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  // nothing until this route's reveal has begun (otherwise each route's first point shows as a streak)
+  float vis = step(aT, g + 0.0005);
+  vec3 col = mix(uBase, uPal[int(aComm + 0.5)], uWComm);
+  col = mix(col, vec3(1.0, 0.22, 0.14), clamp(r / 0.35, 0.0, 1.0));
   vCol = col;
-  vA = vis * uAlpha * ca * (1.0 - smoothstep(0.45, 1.0, r)) * iso;
+  vA = vis * ra;
 }`,
     fragmentShader: `
 varying vec3 vCol; varying float vA;
@@ -861,12 +886,15 @@ function buildScene(canvas) {
   GL.pillars.renderOrder = 2;
   GL.world.add(GL.pillars);
 
-  // all 18,858 routes as one line set
+  // all 18,858 routes as one line set: each with as few segments as keep it within 0.0015 globe radii of its curve
+  // (about 0.75 mm on a half-metre globe; half the segments of 2.5 degrees each), and its middle's direction, half
+  // angle and peak for the shader's test behind the globe (routeMaterial)
   let tot = 0, segs = 0;
   const arcs = new Array(E);
-  for (let e = 0; e < E; e++) { arcs[e] = arcPoints(eu[e], ev[e], 2.5); const m = arcs[e].length / 3; tot += m; segs += m - 1; }
+  for (let e = 0; e < E; e++) { arcs[e] = arcPoints(eu[e], ev[e], 2.5, 0, ROUTE_TOL); const m = arcs[e].length / 3; tot += m; segs += m - 1; }
   const rp = new Float32Array(tot * 3), aT = new Float32Array(tot), aRv = new Float32Array(tot), aC = new Float32Array(tot);
   const aR = new Float32Array(tot), aWv = new Float32Array(tot), vAt = new Int32Array(E + 1), ri = new Uint32Array(segs * 2);
+  const aMid = new Float32Array(tot * 4), aTop = new Float32Array(tot);
   const er = mulberry(3);
   let o = 0, io = 0;
   for (let e = 0; e < E; e++) {
@@ -874,7 +902,13 @@ function buildScene(canvas) {
     const c = comm[u] === comm[v] ? comm[u] : 10, rf = Math.max(rndFlag[u], rndFlag[v]);
     const wu = wave[u], wv = wave[v], wv2 = wu > 0 && wv > 0 ? Math.min(wu, wv) : Math.max(wu, wv);
     rp.set(a, o * 3); vAt[e] = o;
+    const mx = P[3 * u] + P[3 * v], my = P[3 * u + 1] + P[3 * v + 1], mz = P[3 * u + 2] + P[3 * v + 2], ml = Math.hypot(mx, my, mz);
+    const th = Math.acos(clamp(P[3 * u] * P[3 * v] + P[3 * u + 1] * P[3 * v + 1] + P[3 * u + 2] * P[3 * v + 2], -1, 1));
+    // (half its angle, a little more for the floats; a route nearly round the world is never judged; its peak: the
+    // highest point arcPoints can give, also a little more)
+    const half = ml > 0.05 ? th / 2 + 1e-3 : 9, top = (1 + LIFT + arcHeight(th)) * 1.0005;
     for (let k = 0; k < m; k++) {
+      aMid[4 * (o + k)] = ml > 0.05 ? mx / ml : 0; aMid[4 * (o + k) + 1] = ml > 0.05 ? my / ml : 0; aMid[4 * (o + k) + 2] = ml > 0.05 ? mz / ml : 1; aMid[4 * (o + k) + 3] = half; aTop[o + k] = top;
       aT[o + k] = k / (m - 1); aRv[o + k] = rv; aC[o + k] = c; aR[o + k] = rf; aWv[o + k] = wv2;
       if (k < m - 1) { ri[io++] = o + k; ri[io++] = o + k + 1; }
     }
@@ -887,6 +921,7 @@ function buildScene(canvas) {
   rg.setAttribute('aComm', new THREE.BufferAttribute(aC, 1)); rg.setAttribute('aRnd', new THREE.BufferAttribute(aR, 1));
   rg.setAttribute('aWave', new THREE.BufferAttribute(aWv, 1));
   rg.setAttribute('aXrm', new THREE.BufferAttribute(new Float32Array(tot), 1));
+  rg.setAttribute('aMid', new THREE.BufferAttribute(aMid, 4)); rg.setAttribute('aTop', new THREE.BufferAttribute(aTop, 1));
   rg.setIndex(new THREE.BufferAttribute(ri, 1));
   // (closures, setClosedAttributes) where each route's vertices start (at[e] to at[e + 1]), each airport's routes (in
   // NET.adjS's slots) and the flags last written

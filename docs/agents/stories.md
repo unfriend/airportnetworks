@@ -1,28 +1,28 @@
 # The built stories (tour, muscle, endotype, PET, microanatomy, ovary, qubits, mutation, tissue topology, soil, CDK5, pass, flock, robots, tutorial, design room)
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 33: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (3.2 KB)
-- 68: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
-- 160: The tour (`packages/lbi/main.js`) is built from sets (2.8 KB)
-- 200: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
-- 267: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
-- 289: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
-- 337: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
-- 360: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
-- 407: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.8 KB)
-- 437: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
-- 485: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
-- 549: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.3 KB)
-- 621: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (8.5 KB)
-- 701: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
-- 787: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
-- 870: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
-- 932: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
-- 982: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
-- 1031: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (7.3 KB)
-- 1100: Protein crowds (`packages/crowds/`, a test bed on the Experiments set) (4.3 KB)
-- 1143: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1194: From CLAUDE.md (6.4 KB)
+- 33: Stories moved into packages (v185 robots; v186 qubits, mutation, flock, tutorial, endo, pet, ovary, soil; v187 micro, topo, nmd, lbi, pass) (4.4 KB)
+- 80: Shared engine parts (`tools/engine/`, step 1 of the packages plan, 19 November 2026) (9.4 KB)
+- 172: The tour (`packages/lbi/main.js`) is built from sets (2.8 KB)
+- 212: The muscle story (`packages/nmd/main.js`) is built the same way (5.2 KB)
+- 279: The endotype story (`packages/endo/`, a story package since v186) is built the same way (1.9 KB)
+- 301: The PET story (`packages/pet/`, a story package since v186) is built the same way (4.9 KB)
+- 349: The microanatomy story (`packages/micro/main.js`) is built the same way (2.1 KB)
+- 372: The aging ovary story (`packages/ovary/`, a story package since v186) is built the same way (4.6 KB)
+- 419: The qubits story (`packages/qubits/`, a story package since v186) is built the same way (2.8 KB)
+- 449: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
+- 497: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
+- 561: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.3 KB)
+- 633: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (8.5 KB)
+- 713: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
+- 799: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
+- 882: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
+- 944: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
+- 994: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
+- 1043: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (7.3 KB)
+- 1112: Protein crowds (`packages/crowds/`, a test bed on the Experiments set) (4.3 KB)
+- 1155: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1206: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and
@@ -50,6 +50,18 @@ The three hand-written stories (airports, proteins, spatial) were wrapped in v18
 `stories/<key>.js` (the narration literal through `HOST.pkgUrl` and the comments naming it the only changes), with no
 build; edit it, then `node tools/packages/scan.mjs` (and rebuild pass after airports or spatial). Only spatial has a
 `src/` (v225): `src/layout.mjs`, which stores its cell's layout (below).
+
+Airports' routes (28 November 2026, the owner's Quest run: about 3 ms more a frame from 'edges' on): the 18,858 routes
+(one `LineSegments`) take as few segments as keep each within `ROUTE_TOL` (0.0015 globe radii) of its curve
+(`arcPoints`' `tol`, a bound from the curve's second derivative; at most what 2.5 degrees gave): 98,157 segments, not
+186,027; the highlight tubes keep theirs, and `aT`, `GL.close` and the closures follow each route's own vertex count.
+The route shader throws a whole route out (every vertex to one point outside the view) when its own alpha is 0 (not yet
+revealed, closed, `uAlpha` 0) or when the whole route is behind the globe for the eye it draws: `aMid` (its middle's
+direction, half its angle) and `aTop` (its peak's radius) against the camera from `modelViewMatrix`, with the globe
+shrunk to `0.998 - 0.02 D` so a hidden route lies well inside the globe's edge on screen. `primeRoutes`, a load step
+after `warm`, draws the routes once into a 1-pixel target (xr off, put back at once) so their buffers reach the card
+in the load, not at the first frame of 'edges'. The pass story takes all of it with the globe (its build); the
+exposome does not take the routes.
 `proteins.html` and `spatial.html` still redirect to `#proteins` and `#spatial`.
 
 The cell map's layout is stored (v225): `packages/spatial/main.js`'s `solveLayout()` (the old `LAYOUT` code, unchanged;
