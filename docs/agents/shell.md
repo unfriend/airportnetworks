@@ -37,15 +37,15 @@
   - 1499: Run logs (*Record a run*) (1.4 KB)
   - 1515: Reading notes in a headset (v148) (2.4 KB)
 - 1541: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.3 KB)
-- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (9.5 KB)
-- 1762: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1806: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1871: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1915: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 2002: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 2068: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 2166: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 2257: From CLAUDE.md (6.1 KB)
+- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (9.7 KB)
+- 1763: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1807: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1872: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1916: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 2003: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 2069: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 2167: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 2258: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -1690,7 +1690,8 @@ how the shell does it.
   (the page refuses the plan, the relay refuses `from: 'auto'`). The listing shows the code's length and hash, never
   the text; no log line holds it. The cloud: `node tools/bench/bench.mjs script <file.js> [--args json] [--open story]
   [--need page] [--limit s]` (exit 2 when the relay has no scripts). A script that blocks the page's thread hangs the
-  page: only awaits are bounded.
+  page: only awaits are bounded. One that outlives its step (timed out) keeps no hold: the step ends its rays and its
+  recorder segment (`raysEnd(RY)`, `segOwn`), and its `api` (a view of the job, `J.tok`) throws `the step ended`.
 - **On and off.** Developer mode only: the Debug tab's *Bench mode: on/off* (under *Performance run*), the Experiments
   set's card *Headset bench* (developer mode), or `#dev=on&bench=on` (`benchxr=ar|vr`, `benchplan=<name>|none`). Kept for
   twelve hours (`benchOn`), so a reload keeps it. Off: the same row and card, the bar's *Switch off* (`#benchOff`),

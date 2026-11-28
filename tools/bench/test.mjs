@@ -294,11 +294,13 @@ try {
     j = r.code === 1 ? jobOf(r) : {};
     ok(r.code === 1 && /^the script does not compile: /.test(j.result && j.result.steps[0].err), 'a script that does not compile fails its step saying so (' + (j.result ? j.result.steps[0].err : r.err.slice(-200)) + ')');
     const t0 = Date.now();
-    r = bench(['script', scriptFile('test-slow.js', 'await api.wait(30000);\nreturn { late: true };'), '--limit', '2', '--need', 'page', '--json'], so);
+    r = bench(['script', scriptFile('test-slow.js', 'try { await api.wait(4000); } catch (e) { window.__benchLate = e.message; return null; }\nwindow.__benchLate = \'went on\';\nreturn { late: true };'), '--limit', '2', '--need', 'page', '--json'], so);
     j = r.code === 1 ? jobOf(r) : {};
     ok(r.code === 1 && j.state === 'failed' && /^timed out after 2 s$/.test(j.result.steps[0].err) && Date.now() - t0 < 25000, 'a script over its own limit fails softly: timed out after 2 s (' + (j.result ? j.result.steps[0].err : r.err.slice(-200)) + ')');
     r = bench(['script', scriptFile('test-after.js', 'return { after: true };'), '--need', 'page', '--json'], so);
     ok(r.code === 0 && jobOf(r).result.steps[0].out.after === true, 'the page takes the next script job after the slow one');
+    const late = await SP.p.waitForFunction(() => window.__benchLate, null, { timeout: 8000 }).then(h => h.jsonValue()).catch(() => '');
+    ok(late === 'the step ended', 'a script past its step\'s limit gets no more api: its next wait throws the step ended (' + late + ')');
     // a plan whose script step names a file beside it
     fs.writeFileSync(path.join(SHOTS, 'test-script-plan.json'), JSON.stringify({ v: 1, label: 'script plan', need: 'page', steps: [{ cmd: 'report' }, { cmd: 'script', file: 'test-after.js' }] }));
     r = bench(['run', path.join(SHOTS, 'test-script-plan.json')], so);

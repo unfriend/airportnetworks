@@ -338,10 +338,15 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
         try {
           if (J.cmd === 'reload' && i !== J.of - 1) throw new Error('reload is a job\'s last step only');
           if (J.cmd === 'reload') { r.t1 = Date.now(); out.steps.push(r); J.reload = true; break; }
+          J.tok = {};
           r.out = cap(await race(step(s, J, rec), limitOf(s), J));
         } catch (e) {
           if (e instanceof Stop) { r.ok = false; r.err = e.message; out.steps.push(r); throw e; }
           r.ok = false; r.err = String(e && e.message || e).slice(0, 300);
+        } finally {
+          // (a probe or script that timed out may still be running: its api stops with the step, and its rays or
+          // segment end here, not in the next step)
+          J.tok = null; raysEnd(); segEnd(rec, 'the step ended');
         }
         r.t1 = Date.now();
         out.steps.push(r);
@@ -353,6 +358,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       clearInterval(beat); clearInterval(roomWatch);
       raysEnd();
       if (rec) { try { rec.close('the job ended'); } catch (e) { /* none open */ } rec.errors(false); }
+      segOwn = null;
       B.picWant = null;
       if (giveBack() && !out.why) out.put = 'borrowed settings put back';
       out.t1 = Date.now();
@@ -452,12 +458,19 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   }
 
   // ---- measuring: perfrun.js's recorder (SPEC 6), and what the log lacks: lines, points, textures, geometries, programs
+  // the recorder's segment this page opened last: a step closes only its own (one left by a probe that timed out is
+  // not the next step's to lose)
+  let segOwn = null;
+  const segOpen = (rec, key) => (segOwn = rec.open('bench', HOST.curKey || '', key));
+  const segClose = (rec, S, why) => { if (!S || segOwn !== S) return null; segOwn = null; return rec.close(why); };
+  const segEnd = (rec, why) => { if (rec && segOwn) segClose(rec, segOwn, why); };
   async function measure(rec, sec, name, J) {
     if (!rec) throw new Error('the performance run\'s recorder did not load');
-    const S = rec.open('bench', HOST.curKey || '', name);
+    const S = segOpen(rec, name);
     const lim = sec * 3000 + 30000, t0 = now();
-    try { await until(() => S.clk >= sec * 1000 || (now() - t0 > lim && (S.why = 'watchdog: frames stopped coming')), lim + 5000, '', J); } catch (e) { rec.close(); throw e; }
-    return extras(rec.close());
+    try { await until(() => S.clk >= sec * 1000 || (now() - t0 > lim && (S.why = 'watchdog: frames stopped coming')), lim + 5000, '', J); } catch (e) { segClose(rec, S); throw e; }
+    if (segOwn !== S) throw new Stop('the step ended');
+    return extras(segClose(rec, S));
   }
   function extras(g) {
     if (!g) return g;
@@ -503,14 +516,15 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     const hand = s.hand === 0 ? 0 : 1, sec = +s.sec || 10;
     const RY = B.rays = { hand, sec, fn: pathFn(s), press: (s.press || []).slice().sort((a, b) => a.at - b.at), pi: 0, t0: 0, H: null, frames: 0, hovers: 0, hoverOk: true, pressed: 0, src: null, real: null, g: null, done: null, err: '' };
     const fin = new Promise(r => { RY.done = r; });
-    let seg = null;
-    if (s.measure && rec) seg = rec.open('bench', HOST.curKey || '', 'rays');
+    let seg = null, S = null;
+    if (s.measure && rec) S = segOpen(rec, 'rays');
     try {
       await race(fin, sec * 3000 + 30000, J);
     } finally {
-      raysEnd();
-      if (seg && rec) seg = extras(rec.close());
+      raysEnd(RY);
+      if (S) seg = extras(segClose(rec, S));
     }
+    if (J.stop) throw new Stop(J.stop);
     if (RY.err) throw new Error(RY.err);
     const o = { frames: RY.frames, hovers: RY.hoverOk ? RY.hovers : null, pressed: RY.pressed, hand };
     if (seg) o.seg = seg;
@@ -551,9 +565,9 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   }
   // the step's end (also on a throw, a cancel, a switch-off or the session's end): the pretend source disconnected, the real
   // one at that index connected again
-  function raysEnd() {
+  function raysEnd(own) {
     const RY = B.rays;
-    if (!RY) return;
+    if (!RY || (own && own !== RY)) return;
     B.rays = null;
     try {
       if (RY.g && RY.src) {
@@ -644,12 +658,16 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     const fn = what === 'probe' ? await loadProbe(name) : await scriptFn(code), lines = [];
     const copy = () => JSON.parse(JSON.stringify(args === undefined ? null : args));
     const rec = HOST.perfRun && HOST.perfRun.rec;
+    // (the api's view of the job: stopped with the job, and also once this step is over, as when the step timed out and
+    // the script still runs; a call then throws instead of starting rays or a measure under the next step)
+    const tok = J.tok, V = Object.create(J, { stop: { get: () => J.stop || (J.tok !== tok || B.job !== J ? 'the step ended' : '') } });
+    const go = f => async (...a) => { if (V.stop) throw new Stop(V.stop); return f(...a); };
     const api = Object.freeze({
       args: copy(), story: () => HOST.curKey || '', app: () => { const w = where(); return { mode: w.mode, t: w.t, playing: w.playing, chapter: w.chapter }; },
-      peek: expr => HOST.cur.peek(expr), frames: n => { const n0 = B.frameN; return until(() => B.frameN >= n0 + Math.max(1, +n || 1), 60000, 'no frames came', J); },
-      wait: ms => sleep(Math.max(0, Math.min(600000, +ms || 0))), until: (f, ms) => until(f, Math.min(600000, +ms || 10000), 'the probe\'s wait timed out', J),
-      measure: sec => measure(rec, Math.min(600, Math.max(1, +sec || 1)), 'probe', J),
-      rays: o => rays(Object.assign({ sec: 10, preset: 'sweep' }, o && typeof o === 'object' ? { hand: o.hand === 0 ? 0 : 1, sec: Math.min(600, Math.max(0.5, +o.sec || 10)), preset: ['sweep', 'circle', 'still'].includes(o.preset) ? o.preset : 'sweep', measure: !!o.measure } : {}), J, rec),
+      peek: expr => HOST.cur.peek(expr), frames: go(n => { const n0 = B.frameN; return until(() => B.frameN >= n0 + Math.max(1, +n || 1), 60000, 'no frames came', V); }),
+      wait: go(async ms => { await sleep(Math.max(0, Math.min(600000, +ms || 0))); if (V.stop) throw new Stop(V.stop); }), until: go((f, ms) => until(f, Math.min(600000, +ms || 10000), 'the probe\'s wait timed out', V)),
+      measure: go(sec => measure(rec, Math.min(600, Math.max(1, +sec || 1)), 'probe', V)),
+      rays: go(o => rays(Object.assign({ sec: 10, preset: 'sweep' }, o && typeof o === 'object' ? { hand: o.hand === 0 ? 0 : 1, sec: Math.min(600, Math.max(0.5, +o.sec || 10)), preset: ['sweep', 'circle', 'still'].includes(o.preset) ? o.preset : 'sweep', measure: !!o.measure } : {}), V, rec)),
       renderer: () => { const I = HOST.renderer && HOST.renderer.info; return I ? { info: { render: Object.assign({}, I.render), memory: Object.assign({}, I.memory), programs: I.programs ? I.programs.length : 0 } } : null; },
       session: () => xrNow(),
       log: t => { if (lines.length < 50) lines.push(String(t).slice(0, 300)); },

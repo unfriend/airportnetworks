@@ -541,8 +541,11 @@ function `(api, args)` that returns JSON. It runs through the probe's own path (
 else as `{ value }`, `log` lines added, at most 64 KB as every step) and the same error handling (`the script threw:
 <message>`; a cancel or switch-off still stops the job). It is compiled with the `AsyncFunction` constructor as the
 step starts (`the script does not compile: <message>`). Its time is the job's limit, or `limit` when given (`timed out
-after <n> s`: the step fails, the page goes on with the next job). Only waits through `api` or other awaits are bounded:
-a script that blocks the page's thread (an endless loop) hangs the page until the headset reloads it, as a probe would.
+after <n> s`: the step fails, and the job goes on as after any failed step). A script or probe past its step's end may
+still run, but nothing of it reaches the next step or job: from then on each `api` wait or measure (`frames`, `wait`,
+`until`, `measure`, `rays`) throws `the step ended`, and its pretend rays and its recorder segment end with the step.
+Only waits through `api` or other awaits are bounded: a script that blocks the page's thread (an endless loop) hangs
+the page until the headset reloads it, as a probe would.
 
 **Three switches.**
 
