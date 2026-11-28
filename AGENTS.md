@@ -72,8 +72,9 @@ The files an agent needs before it knows where to look; every file and folder is
 - `tools/packages/` - the package contract (`SPEC.md`), `scan.mjs`, `check.mjs`, `publish.mjs`, `template/`.
 - `tools/docs/` - `toc.mjs` (the detail files' tables of contents) and `kept.mjs` (proves a restructured doc lost
   no sentence).
-- `tools/` - the tests (`smoke.mjs`, `collab.mjs`, `audio.mjs`, `live.mjs`, `update.mjs`, `perf.mjs`),
-  `release.mjs`, the voice, notes, trackers and output tools.
+- `tools/` - the tests (`smoke.mjs`, `smoke-all.mjs` block by block, `collab.mjs`, `audio.mjs`, `live.mjs`,
+  `update.mjs`, `perf.mjs`; `lib/serve.mjs` is their free-port server), `release.mjs`, the voice, notes, trackers
+  and output tools.
 - `docs/` - handover pages for people, `history.md` (why rules are as they are) and `docs/agents/`.
   `docs/narration.md` is a generated print-out for people: for one story's words Grep `#<key>` in it.
 - `fonts/` - the app's font, B612; no page loads anything from Google.
@@ -323,7 +324,8 @@ and `node tools/release.mjs --check`; a red result there is not chased. Running 
 results costs tokens, and most were the tests' own or the machine's. A builder may run its own block or round
 once (`--only`).
 
-- Serve the folder (`python3 -m http.server 8123`), then `node tools/smoke.mjs http://127.0.0.1:8123/`.
+- Serve the folder (for example `python3 -m http.server 8123`), then `node tools/smoke.mjs http://127.0.0.1:8123/`;
+  `smoke-all.mjs`, `audio.mjs`, `live.mjs` and `update.mjs` serve it themselves on a free port.
   Playwright with Chromium is needed; WebGL runs in software headlessly, so frame rates are low. A 404 for a
   missing narration MP3 is expected; any other console error fails it.
 - Every test page sets `collabAutoAll`, `collabAutoWelcome` and `tutorialHold` to `off`, `collabAskDefault` to
