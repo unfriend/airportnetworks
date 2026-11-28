@@ -606,7 +606,9 @@ ceiling and one on its side would see the story on its side.
   switch and the stored place but holds nothing (`held()` false, `frame()` and `saved()` null, Place again does
   nothing). At the job's end the fixed view is let go, the anchor answers `saved()` again (`pause('saved')`) while the
   story is recentred in front of the real head, as a session starts, and then holds again (`pause(false)`). Nothing is
-  stored or dropped. A new session or the session's end lets the fixed view go by itself.
+  stored or dropped. A new session or the session's end lets the fixed view go by itself. A step left running after a
+  cancel, a switch-off or its time limit never places the view or lends the anchor once its job is stopped or ending,
+  and lets go a view the shell placed meanwhile.
 - **`asis`** places nothing and never recentres: the story stays where the headset left it, as before v233. Every
   segment measured so is flagged by `show`.
 - **What is recorded.** `open`, `explore` and `seek` outs, every segment (`measure`, measured `rays`), every picture,

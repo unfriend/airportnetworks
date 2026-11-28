@@ -367,6 +367,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       segOwn = null;
       B.picWant = null;
       out.view = J.vw.n ? viewOut(J.vw) : null;
+      J.over = true;   // (a step that ran past its stop or time limit places no fixed view after this: viewPlace)
       await viewEnd(J).catch(() => {});
       if (giveBack() && !out.why) out.put = 'borrowed settings put back';
       out.t1 = Date.now();
@@ -641,15 +642,24 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   }
   // placed (open, explore, seek; and the job's first measuring step): the shell's fixed view from the head's real pose now,
   // the anchor lent, the story recentred in it; 'asis' only reads the numbers. A page (no session): nothing
+  // (a step the job left behind, stopped or timed out and still running, never moves the room or lends the anchor once
+  // the job has ended or is ending: viewEnd lets go only once)
+  const viewGone = J => !!(J.stop || J.over || B.job !== J);
   async function viewPlace(J, again) {
     const V = J.vw;
     if (!V) return null;
+    if (viewGone(J)) throw new Stop(J.stop || 'the job has ended');
     if (!HOST.session || !HOST.renderer) { V.why = 'no headset session'; return null; }
     if (V.mode === 'fixed') {
       if (!HOST.xr || !HOST.xr.benchView) { V.why = 'this shell has no fixed view'; V.applied = false; }
       else {
         if (!V.lent && HOST.anchor && HOST.anchor.pause) { HOST.anchor.pause(true); V.lent = true; }
         const a = await HOST.xr.benchView(true);
+        if (viewGone(J)) {
+          // (the job stopped or ended while the shell placed it: let go again; the anchor was lent before, so viewEnd gives it back)
+          if (a && a.real) await HOST.xr.benchView(false);
+          throw new Stop(J.stop || 'the job has ended');
+        }
         if (a && a.real) { V.applied = true; V.real = a.real; V.why = ''; }
         else { V.applied = false; V.why = 'the fixed view failed: ' + String((a && a.err) || 'no answer').slice(0, 80); }
       }
