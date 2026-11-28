@@ -18541,6 +18541,17 @@ if (runs('perf run')) {
       await xp.click('#picker .card[data-story="handson-card"]');
       await xp.waitForFunction(() => HOST.perfRun.state().card && HOST.perfRun.state().card.title === 'Hands-on test', null, { timeout: 10000 }).catch(() => bad.push('the hands-on card\'s press: no start card'));
       await xp.evaluate(() => HOST.perfRun.press('close'));
+      // in a shared room (HOST.collab.joined faked for the moment, put back after) a press refuses: nothing starts and no
+      // start card waits, only the refusal's own card (Close)
+      for (const key of TWO) {
+        await xp.evaluate(() => { const d = Object.getOwnPropertyDescriptor(HOST.collab, 'joined'); window.__prJoined = d; Object.defineProperty(HOST.collab, 'joined', { get: () => true, configurable: true }); });
+        await xp.click('#picker .card[data-story="' + key + '"]');
+        await xp.waitForFunction(() => HOST.perfRun.state().card, null, { timeout: 10000 }).catch(() => {});
+        const r = await xp.evaluate(() => { const s = HOST.perfRun.state(); Object.defineProperty(HOST.collab, 'joined', window.__prJoined); return { on: s.on, want: s.want, card: s.card, cur: HOST.curKey }; });
+        if (r.on || r.want || !r.card || J(r.card.buttons) !== J(['close']) || r.cur) bad.push('the ' + key + ' press in a shared room: ' + J(r));
+        await xp.evaluate(() => HOST.perfRun.press('close'));
+      }
+      if (await xp.evaluate(() => HOST.collab.joined)) bad.push('HOST.collab.joined not put back');
       if (await xp.evaluate(() => HOST.stories().map(m => m.key).join()) !== st0 || (await xp.evaluate(() => HOST.stories().some(m => /-card$/.test(m.key))))) bad.push('HOST.stories() changed');
       await xp.evaluate(() => HOST.dev.set(false));
       if ((await page()).some(k => TWO.includes(k))) bad.push('still there after developer mode went off: ' + J(await page()));
