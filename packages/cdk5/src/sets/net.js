@@ -358,10 +358,10 @@ void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }`);
     let x = ax + dx * e - dz * bow, y = ay + dy * e, z = az + dz * e + dx * bow;
     if (cur.land) {   // the peel (see the shader)
       const ad = ax * FRONT[0] + ay * FRONT[1] + az * FRONT[2], lx = ax - FRONT[0] * ad, ly = ay - FRONT[1] * ad, lz = az - FRONT[2] * ad;
-      const t0 = clamp((ad / (Math.hypot(ax, ay, az) || 1e-4) + 0.1) / 1.0, 0, 1), fw = t0 * t0 * (3 - 2 * t0), k = 0.5 * s * fw / Math.max(Math.hypot(lx, ly, lz), 1e-4);
+      const t0 = clamp((ad / (Math.sqrt(ax * ax + ay * ay + az * az) || 1e-4) + 0.1) / 1.0, 0, 1), fw = t0 * t0 * (3 - 2 * t0), k = 0.5 * s * fw / Math.max(Math.sqrt(lx * lx + ly * ly + lz * lz), 1e-4);
       x += lx * k; y += ly * k; z += lz * k;
     }
-    const r = Math.min(Math.hypot(x, y, z) / 1.3, 1);
+    const r = Math.min(Math.sqrt(x * x + y * y + z * z) / 1.3, 1);   // (sqrt, not hypot: the pick runs this for every protein)
     const sf = ST[i] * 9.73;
     let g = clamp((cur.grow - 0.25 * r - 0.2 * (sf - Math.floor(sf))) / 0.55, 0, 1); g = g * g * (3 - 2 * g);
     out[0] = x * g; out[1] = y * g; out[2] = z * g; _e = e; _g = g;
@@ -467,7 +467,6 @@ void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }`);
     rings.add(_p, _ringAx, Rr, Rr * 0.07, col, al * _g * coreOf(i));
   }
   function update(S, t) {
-    PK.now++;   // (the pick's cache is a frame's)
     const s = clamp(S.net_scene, 0, NP), a = Math.min(NP - 1, Math.floor(s));
     cur.s = s; cur.f = s - a; cur.land = a === NP - 1 ? 1 : 0;
     if (a !== cur.a) setPair(a);
@@ -702,7 +701,8 @@ void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }`);
   const _inv = new THREE.Matrix4(), _ray = new THREE.Ray();
   // a ray in world coordinates (a THREE.Raycaster, a THREE.Ray, or { origin, direction } as vectors or arrays) to the
   // protein nearest it within a small angle that is shown (grown in, not veiled, not handed to the core); -1 none
-  const PK = { frame: -1, now: 0, p: new Float32Array(3 * n), g: new Float32Array(n) };
+  // (the cache is keyed on what placeAt reads: the pair, the move, the landscape and the growth; at rest it is filled once)
+  const PK = { a: -2, f: -1, land: -1, grow: -1, p: new Float32Array(3 * n), g: new Float32Array(n), e: new Float32Array(n) };
   function pick(rc) {
     if (!rc || set.uA.value < 0.3 || !set.group.visible) return -1;
     const r = rc.ray || rc, o = r.origin, d = r.direction;
@@ -713,15 +713,18 @@ void main() { if (vA < 0.003) discard; gl_FragColor = vec4(vC, vA); }`);
     _ray.applyMatrix4(_inv.copy(set.group.matrixWorld).invert());
     const ox = _ray.origin.x, oy = _ray.origin.y, oz = _ray.origin.z, dx = _ray.direction.x, dy = _ray.direction.y, dz = _ray.direction.z;
     let best = -1, bs = 1;
-    // (every protein's place and growth once a frame, however many rays ask: a headset points two every frame)
-    if (PK.frame !== PK.now) { PK.frame = PK.now; for (let i = 0; i < n; i++) { placeAt(i, _q); PK.p[3 * i] = _q[0]; PK.p[3 * i + 1] = _q[1]; PK.p[3 * i + 2] = _q[2]; PK.g[i] = _g; } }
+    // (every protein's place, progress and growth only when what placeAt reads has changed, however many rays ask)
+    if (PK.a !== cur.a || PK.f !== cur.f || PK.land !== cur.land || PK.grow !== cur.grow) {
+      PK.a = cur.a; PK.f = cur.f; PK.land = cur.land; PK.grow = cur.grow;
+      for (let i = 0; i < n; i++) { placeAt(i, _q); PK.p[3 * i] = _q[0]; PK.p[3 * i + 1] = _q[1]; PK.p[3 * i + 2] = _q[2]; PK.g[i] = _g; PK.e[i] = _e; }
+    }
     for (let i = 0; i < n; i++) {
       _q[0] = PK.p[3 * i]; _q[1] = PK.p[3 * i + 1]; _q[2] = PK.p[3 * i + 2];
       const x = _q[0] - ox, y = _q[1] - oy, z = _q[2] - oz, along = x * dx + y * dy + z * dz;
       if (along <= 0.02) continue;
       const off = Math.sqrt(Math.max(0, x * x + y * y + z * z - along * along)), tol = 0.006 + 0.012 * along;
       if (off > tol) continue;
-      if (PK.g[i] < 0.5 || cur.core * cenNow(i) > 0.5 || veilAt(_q) > 0.5) continue;
+      if (PK.g[i] < 0.5 || cur.core * (CNA[i] + (CNB[i] - CNA[i]) * PK.e[i]) > 0.5 || veilAt(_q) > 0.5) continue;   // (point i's own progress)
       const s = off / tol + along * 0.02;
       if (s < bs) { bs = s; best = i; }
     }

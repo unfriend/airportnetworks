@@ -13,16 +13,16 @@
 - 437: The mutation machine (`packages/mutation/`, a story package since v186) is built the same way (4.9 KB)
 - 485: The shape of tissue (`packages/topo/main.js`) is built the same way (6.3 KB)
 - 549: The soil story (`packages/soil/`, a story package since v186) is built the same way (7.3 KB)
-- 621: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (7.9 KB)
-- 695: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
-- 781: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
-- 864: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
-- 926: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
-- 976: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
-- 1025: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (6.3 KB)
-- 1085: Protein crowds (`packages/crowds/`, a test bed on the Experiments set) (4.3 KB)
-- 1128: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1179: From CLAUDE.md (6.4 KB)
+- 621: The CDK5 story (`packages/cdk5/`, a story package since v189) is built the same way (8.5 KB)
+- 701: The pass story (`packages/pass/main.js`) is built the same way (9.3 KB)
+- 787: The flock (`packages/flock/`, a story package since v186) is built the same way (5.9 KB)
+- 870: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
+- 932: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
+- 982: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
+- 1031: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (6.8 KB)
+- 1096: Protein crowds (`packages/crowds/`, a test bed on the Experiments set) (4.3 KB)
+- 1139: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1190: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and
@@ -679,6 +679,12 @@ lists them). `packages/cdk5/src/SPEC.md` is the builder's brief (its rework; the
 - Explore: Scenes (the nine, with switches per scene, Stand inside), Proteins (search, partners, terms, pathways),
   Diseases (88 terms, CDK5's own first) and About. Shared state `{ v, tab, scene, ctl, prot, term, path }` (never the
   search text, the camera or standing inside). Links: `src/README.md`; the smoke test's `cdk5` step checks five of them.
+- Picking's cost (28 November 2026, the owner's Quest run: 18 ms of script a frame in explore, about 45 fps): `net`'s
+  `pick` keeps every protein's place, growth and progress in a cache refilled only when what `placeAt` reads changes
+  (`cur.a`, `cur.f`, `cur.land`, `cur.grow`), not every frame (`PK.now++` in `update` refilled all 16,376 places for
+  every controller ray in a headset), and `placeAt` uses `Math.sqrt`, not `Math.hypot`. The core test reads each
+  protein's own progress (it read the last placed protein's). Same picks, measured: headless pretend headset with
+  moving controllers, `pickWith` 8.6 to 0.3 ms a frame; a scene's glide still refills every frame.
 - Rules kept from the v189 brief (the rest of it is in `docs/history/specs/cdk5-superseded.md`; the rework overrides it where
   they differ): every number the story shows is read from `CDATA` at load, never typed (the list is there under "The data").
   The layouts' places mean "similar processes" or "similar diseases" only roughly (UMAP): distances on them are not
@@ -1079,6 +1085,11 @@ nine minutes and fifty seconds (`NARRATION_SYNC` provisional until the voice is 
   twice (HTML and the headset's canvas, the notes under every card in both). Address: `&sub=`, `&group=`, `&dis=`
   (opens the Diseases tab and the interactome), `&country=` (the Countries tab and the globe), `&csub=`. Shared state
   `{ v: 1, tab, scene, ctl, b: { sub, comm }, c: { dis, country, sub } }`; no effects; `FORMAT` unchanged by adding it.
+- Frame costs (28 November 2026, the owner's Quest run): the cloud's `pick` caches every substance's place without the
+  slow drift wobble, refilled only when `cur.shelf`, `net`, `come`, `turn` or `split` change (it was keyed on the time,
+  which in explore is the clock, so all 9,764 places were refilled every frame: 7.6 to 0.16 ms a frame headless); a
+  place within the tolerance widened by the wobble's bound (`WOB`, 1.3 x sqrt(3) x 0.03 x drift) is placed exactly and
+  tested as before, so the pick is the same point (checked over seeded rays).
 - Wording: "disturbs" or "touches" a gene, "close in the map", "more common where", never "causes"; no brand names;
   countries by their rates only; no health advice. British spelling.
 

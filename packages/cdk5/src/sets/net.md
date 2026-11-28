@@ -107,7 +107,10 @@ cue, picking, labels, links with per-vertex colour), rebuilt round `CDATA`. Shar
 - `api()` (one object, the same every call):
   - `pick(rc)`: rc a `THREE.Raycaster`, a `THREE.Ray` or `{ origin, direction }` (vectors or arrays), **in world
     coordinates**; the protein nearest the ray within about 0.7° that is shown (grown in, not veiled, not handed to
-    the core), preferring nearer ones; -1 none. Brute force over 16,376 places: about 4 ms in headless Chromium.
+    the core), preferring nearer ones; -1 none. Brute force over 16,376 places kept in a cache that is refilled only when
+    what `placeAt` reads changes (the pair `cur.a`, the move `cur.f`, the landscape `cur.land`, the growth `cur.grow`;
+    until 28 November 2026 it was refilled every frame, 7 to 13 ms a frame headless in a pretend headset's explore, 0.3 ms now),
+    with each place's own progress for the core test (before, the last placed protein's).
   - `pos(i, out)`: protein i's place now in the set's frame (into `out`, else a new array).
   - `eye(x, y, z)`: the camera's or the head's place in the set's frame.
   - `scene()`: the eased scene now (0..5).

@@ -221,9 +221,11 @@ void main() {
   const cur = { shelf: 0, net: 1, turn: 0, come: 1, drift: 0, split: 0, t: 0 };
   const stg = (u, d) => smooth(clamp((u - 0.35 * d) / 0.65, 0, 1));
   const fract = x => x - Math.floor(x);
-  function placeAt(i, out) {
-    const ph = AI[4 * i + 1], d = AI[4 * i], t = cur.t, dw = 0.03 * cur.drift, come = stg(cur.come, d);
-    const w0 = Math.sin(t * 0.13 + ph) * dw, w1 = Math.sin(t * 0.1 + ph * 1.7) * dw, w2 = Math.cos(t * 0.11 + ph * 2.3) * dw;
+  // (still: without the slow drift wobble, for the pick's cache; the wobble (w0, w1, w2), each at most dw, moves the
+  // place linearly, by at most 1.3 * |w|: WOB below)
+  function placeAt(i, out, still) {
+    const ph = AI[4 * i + 1], d = AI[4 * i], t = cur.t, dw = still ? 0 : 0.03 * cur.drift, come = stg(cur.come, d);
+    const w0 = dw && Math.sin(t * 0.13 + ph) * dw, w1 = dw && Math.sin(t * 0.1 + ph * 1.7) * dw, w2 = dw && Math.cos(t * 0.11 + ph * 2.3) * dw;
     const f = 1 + 5 * (1 - come), c = Math.cos(cur.turn), s = Math.sin(cur.turn);
     const ax = DR[3 * i] * f + w0, ay = DR[3 * i + 1] * f + w1, az = DR[3 * i + 2] * f + w2;
     const bx = c * SH[3 * i] + s * SH[3 * i + 2], by = SH[3 * i + 1], bz = -s * SH[3 * i] + c * SH[3 * i + 2];
@@ -343,18 +345,30 @@ void main() {
   const valid = i => i >= 0 && i < n;
 
   // ---------------------------------------------------------------- picking (explore): the point nearest a ray
-  const PK = { at: -1, p: new Float32Array(3 * n) };
+  // (every point's place without the wobble, refilled only when what placeAt reads besides the time changes: in explore
+  // the time is the clock, so a cache keyed on it was refilled every frame. A point within the tolerance widened by the
+  // wobble's bound is placed exactly and tested as before, so the pick is the same point as with every place exact.)
+  const PK = { shelf: NaN, net: NaN, come: NaN, turn: NaN, split: NaN, p: new Float32Array(3 * n) };
+  const WOB = 1.3 * Math.sqrt(3) * 0.03, _f = new Float32Array(3);
   const _inv = new THREE.Matrix4(), _ray = new THREE.Ray(), _q = [0, 0, 0];
   function pick(rc) {
     if (!rc || set.uA.value < 0.3 || !set.group.visible) return -1;
     const ry = rc.ray || rc;
     set.group.updateMatrixWorld();
     _ray.copy(ry).applyMatrix4(_inv.copy(set.group.matrixWorld).invert());
-    if (PK.at !== cur.t) { PK.at = cur.t; for (let i = 0; i < n; i++) { placeAt(i, _q); PK.p[3 * i] = _q[0]; PK.p[3 * i + 1] = _q[1]; PK.p[3 * i + 2] = _q[2]; } }
-    const o = _ray.origin, d = _ray.direction.normalize();
+    if (PK.shelf !== cur.shelf || PK.net !== cur.net || PK.come !== cur.come || PK.turn !== cur.turn || PK.split !== cur.split) {
+      PK.shelf = cur.shelf; PK.net = cur.net; PK.come = cur.come; PK.turn = cur.turn; PK.split = cur.split;
+      for (let i = 0; i < n; i++) { placeAt(i, _q, true); PK.p[3 * i] = _q[0]; PK.p[3 * i + 1] = _q[1]; PK.p[3 * i + 2] = _q[2]; }
+    }
+    const o = _ray.origin, d = _ray.direction.normalize(), M = WOB * cur.drift + 1e-5;
     let best = -1, bs = 1;
     for (let i = 0; i < n; i++) {
-      const x = PK.p[3 * i] - o.x, y = PK.p[3 * i + 1] - o.y, z = PK.p[3 * i + 2] - o.z, al = x * d.x + y * d.y + z * d.z;
+      let x = PK.p[3 * i] - o.x, y = PK.p[3 * i + 1] - o.y, z = PK.p[3 * i + 2] - o.z, al = x * d.x + y * d.y + z * d.z;
+      if (al + M <= 0.03 || Math.sqrt(Math.max(0, x * x + y * y + z * z - al * al)) - M > 0.004 + 0.011 * (al + M)) continue;
+      if (M > 1e-5) {   // (a candidate: its exact place, as a float as the cache keeps it)
+        placeAt(i, _q); _f[0] = _q[0]; _f[1] = _q[1]; _f[2] = _q[2];
+        x = _f[0] - o.x; y = _f[1] - o.y; z = _f[2] - o.z; al = x * d.x + y * d.y + z * d.z;
+      }
       if (al <= 0.03) continue;
       const off = Math.sqrt(Math.max(0, x * x + y * y + z * z - al * al)), tol = 0.004 + 0.011 * al;
       if (off > tol) continue;
