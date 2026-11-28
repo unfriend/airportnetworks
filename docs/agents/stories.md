@@ -19,9 +19,9 @@
 - 863: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
 - 925: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
 - 975: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
-- 1024: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (5.6 KB)
-- 1077: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1128: From CLAUDE.md (6.4 KB)
+- 1024: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (6.3 KB)
+- 1084: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1135: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and

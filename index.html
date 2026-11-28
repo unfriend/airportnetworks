@@ -331,6 +331,7 @@ body.picking #panel, body.picking #bar { visibility: hidden; }
 /* a story package's picture (its icon.png, or a plain tile in its colour); a hidden one (developer mode) dashed */
 #picker .card .pk { float: right; width: 44px; height: 44px; margin: -4px -4px 8px 12px; border-radius: 8px; object-fit: cover; }
 #picker .card i.pk { display: block; opacity: 0.8; }
+#picker .card i.pk.svg { opacity: 1; } #picker .card i.pk.svg svg { display: block; width: 100%; height: 100%; }
 #picker .card.hid { border-style: dashed; }
 #picker .card.menu { background: rgba(70, 217, 255, 0.07); }
 #picker .card.menu[data-story="experiments"] b::after { content: ' \2192'; color: #7f91a8; }
@@ -799,7 +800,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
       </div>
       <pre aria-live="off"></pre>
     </div>
-    <div class="devrow"><button class="rep dev" type="button" id="btnDev" aria-pressed="false" title="For testers: what is new in this release and what to test, as the app opens and as each headset session starts">Developer mode: off</button><button class="rep dev" type="button" id="btnNews" title="What is new in this release, and what to test">What is new</button><button class="rep dev" type="button" id="btnPerf" hidden title="Developer mode: plays every story and scene by itself and measures each frame, or a short hands-on test">Performance run</button></div>
+    <div class="devrow"><button class="rep dev" type="button" id="btnDev" aria-pressed="false" title="For testers: what is new in this release and what to test, as the app opens and as each headset session starts">Developer mode: off</button><button class="rep dev" type="button" id="btnNews" title="What is new in this release, and what to test">What is new</button></div>
   </div>
 </div>
 <div id="shared" hidden role="dialog" aria-modal="true" aria-labelledby="shTitle">
@@ -3817,6 +3818,27 @@ HOST.menu = (function () {
     { key: 'tracker-guide', menu: 'link', open: 'studio', tail: '&scenes=examples&scene=tracker-guide&visit', kick: 'Trackers', title: 'Tracker guide', col: '#3ee0c8',
       desc: 'Ways to wear trackers, from eleven on the whole body to a headset alone, each on a robot that moves as a performer would. Walk round the stands.', len: 'A studio scene, about 15 m to walk' },
   ];
+  // (v230; the owner, 28 November 2026: "can you add these as a story card under experiments when dev mode is on?") Two
+  // cards on the Experiments set while developer mode is on, after the links and before the card back: the performance
+  // run's two parts (perfrun.js, HOST.perfRun). No stories and no pages: a press starts the part as #perfrun or #handson
+  // does (its card asks Enter VR, Enter AR or this page; in a headset session it begins at once; in a shared room it
+  // refuses), and like the links they are never in HOST.stories(), Arrange all, a room's Add or the packages. The length
+  // is perfrun.js's own estimate (minutes()), known once the file has come: it is asked for as the cards first show, and
+  // the cards are made again when it is here. Each draws its own small picture (svg, the page's card; the arch draws none)
+  const prLen = part => { const P = HOST.perfRun, m = P && P.minutes ? Math.round(+P.minutes(part)) : 0; return m > 0 ? 'About ' + m + (m === 1 ? ' minute' : ' minutes') + (part === 'hands' ? ', with you' : ', by itself') : 'Developer mode'; };
+  const TOOLS = [
+    { key: 'perfrun-card', menu: 'link', run: 'run', kick: 'Developer mode', title: 'Performance run', col: '#9dff6a',
+      desc: 'Plays every story and some studio scenes by itself, chapter by chapter, and measures every frame.', get len() { return prLen('run'); },
+      svg: '<svg viewBox="0 0 44 44" aria-hidden="true"><rect x="1" y="1" width="42" height="42" rx="8" fill="#10223a" stroke="#9dff6a" stroke-opacity=".45"/><path d="M9 30A13 13 0 0 1 35 30" fill="none" stroke="#3c5072" stroke-width="4" stroke-linecap="round"/><path d="M9 30A13 13 0 0 1 28.5 18.74" fill="none" stroke="#9dff6a" stroke-width="4" stroke-linecap="round"/><path d="M22 30L29.5 21.5" stroke="#e7eef8" stroke-width="2.4" stroke-linecap="round"/><circle cx="22" cy="30" r="3" fill="#e7eef8"/><path d="M9 37.5h26" stroke="#9dff6a" stroke-width="1.6" stroke-dasharray="2.2 2.2" stroke-opacity=".7"/></svg>' },
+    { key: 'handson-card', menu: 'link', run: 'hands', kick: 'Developer mode', title: 'Hands-on test', col: '#ff9ec4',
+      desc: 'One card at a time asks you to do what only a person can: the panel, the menu, the grip, the sticks, walking about.', get len() { return prLen('hands'); },
+      svg: '<svg viewBox="0 0 44 44" aria-hidden="true"><rect x="1" y="1" width="42" height="42" rx="8" fill="#10223a" stroke="#ff9ec4" stroke-opacity=".45"/><rect x="14" y="19" width="8" height="18" rx="4" fill="#4a5874" transform="rotate(-14 18 28)"/><circle cx="17" cy="14.5" r="7.5" fill="none" stroke="#9db4ff" stroke-width="3"/><circle cx="17" cy="14.5" r="2.4" fill="#e7eef8"/><path d="M26 29l4 4 8-9" fill="none" stroke="#ff9ec4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+  ];
+  const tools = () => {
+    if (!(HOST.dev && HOST.dev.on())) return [];
+    if (!HOST.perfRun && !M.prAsked && HOST.mods) { M.prAsked = true; HOST.mods.load('perfRun').then(P => { if (P) { HOST.listRev++; if (HOST.cards) HOST.cards(); } }); }   // (its length)
+    return TOOLS;
+  };
   const exps = () => (HOST.packages ? HOST.packages.experiments() : []);
   const which = key => (key === EXP.key || key === 'experiments' ? 'experiments' : 'main');
   const api = {
@@ -3824,11 +3846,12 @@ HOST.menu = (function () {
     // a card of the menu itself (not a story)
     is: key => key === EXP.key || key === BACK.key,
     // a card that opens a page at an address (LINKS), or undefined
-    link: key => LINKS.find(l => l.key === key),
+    link: key => LINKS.find(l => l.key === key) || TOOLS.find(l => l.key === key),
     // open a link card's page: its address first (the page reads it as it starts), then the page; the page already on
     // show is started again, so it reads the new address. In a shared room the page is started as any story there
     go(key) {
-      const l = api.link(key), meta = l && HOST.meta(l.open);
+      const l = api.link(key), meta = l && l.open && HOST.meta(l.open);
+      if (l && l.run) { HOST.mods.load('perfRun').then(P => { if (P && P.start) P.start({ part: l.run }); }); return true; }   // (developer mode's: the performance run)
       if (!meta || HOST.busy) return false;
       M.link = l.open;   // (its page is on this set of cards: the Stories screen opens on it again, follow)
       if (HOST.collab && HOST.collab.joined) { HOST.start(l.open); return true; }
@@ -3839,7 +3862,7 @@ HOST.menu = (function () {
     // the set a story's card is in
     of: key => (exps().some(m => m.key === key) || key === M.link ? 'experiments' : 'main'),
     // the cards of the set on show: stories, then the card to the other set (none to an empty Experiments set)
-    cards: () => (M.at === 'experiments' ? exps().concat(LINKS.filter(l => HOST.meta(l.open)), [BACK]) : HOST.list.concat(exps().length ? [EXP] : [])),
+    cards: () => (M.at === 'experiments' ? exps().concat(LINKS.filter(l => HOST.meta(l.open)), tools(), [BACK]) : HOST.list.concat(exps().length ? [EXP] : [])),
     title: () => (M.at === 'experiments' ? 'Experiments' : 'Network stories'),
     // show the other set (a card's key or 'main' / 'experiments'): both Stories screens change at once
     open(key) {
@@ -4522,16 +4545,14 @@ HOST.dev = (function () {
   function sync() {
     const b = el('btnDev');
     if (b) { b.textContent = D.on ? 'Developer mode: on' : 'Developer mode: off'; b.setAttribute('aria-pressed', D.on ? 'true' : 'false'); }
-    const pf = el('btnPerf'); if (pf) pf.hidden = !D.on;   // (the performance run: developer mode's, perfrun.js)
   }
-  function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); if (HOST.cards) HOST.cards(); if (D.on && HOST.mods) HOST.mods.load('notes'); }   // (the hidden story packages' cards)
+  function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); HOST.listRev++; if (HOST.cards) HOST.cards(); if (D.on && HOST.mods) HOST.mods.load('notes'); }   // (the hidden story packages' cards; v230: the Experiments set's performance run cards, every card arch built again, HOST.listRev)
   el('devGot').addEventListener('click', () => { gotIt(); D.later = true; card(false); });
   el('devLater').addEventListener('click', () => { D.later = true; card(false); });
   el('devOlder').addEventListener('click', () => step(1));
   el('devNewer').addEventListener('click', () => step(-1));
   el('btnDev').addEventListener('click', () => set(!D.on));
   el('btnNews').addEventListener('click', () => card(true, 'hand'));
-  el('btnPerf').addEventListener('click', () => HOST.mods.load('perfRun').then(P => { if (P && P.offer) P.offer(); }));
   sync();
   return {
     on: () => D.on, set, load, seen, gotIt, short, card, boot,
@@ -5090,7 +5111,7 @@ HOST.cards = function () {
   const card = s => (s.pkg && !s.app ? `<button class="card pkg${s.key === this.curKey ? ' here' : ''}${s.list === 'hidden' ? ' hid' : ''}${s.refused ? ' old' : ''}" type="button" data-story="${esc(s.key)}">
     ${pic(s)}<span class="k" style="color:${esc(s.col)}">${esc(s.kick)}</span><b>${esc(s.title)}</b><span class="d">${esc(s.desc)}</span><em>${esc(s.list === 'hidden' ? (s.len ? s.len + ' · ' : '') + 'hidden package' : s.len)}</em></button>`
     : `<button class="card${s.key === this.curKey ? ' here' : ''}${s.menu ? ' menu' : ''}" type="button" data-story="${s.key}">
-    <span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`);
+    ${s.svg ? `<i class="pk svg">${s.svg}</i>` : ''}<span class="k" style="color:${s.col}">${s.kick}</span><b>${s.title}</b><span class="d">${s.desc}</span><em>${s.len}</em></button>`);
   // (the set on show, HOST.menu: its last card opens the other; developer mode's hidden packages on the main one)
   const exp = this.menu.at === 'experiments', cards = this.menu.cards(), dev = !exp && this.dev && this.dev.on() ? this.packages.hidden() : [];
   box.innerHTML = (dev.length && cards.length && cards[cards.length - 1].menu ? cards.slice(0, -1).concat(dev, cards.slice(-1)) : cards.concat(dev)).map(card).join('');

@@ -18398,7 +18398,8 @@ if (runs('controllers after standby')) {
   });
   await ctx.close();
 }
-// The performance run (v228, perfrun.js, HOST.perfRun; docs/agents/shell.md "The performance run"): a much shortened run.
+// The performance run (v228, perfrun.js, HOST.perfRun; docs/agents/shell.md "The performance run"): a much shortened run;
+// v230: developer mode's two cards on the Experiments set (a third page, page and pretend headset). The run itself:
 // On a page (#perfrun&prgo=page): two stories and one that fails to load (HOST.load refused for it), one chapter each, a
 // second or two a segment, one example scene (the test scene, tiny); the result's shape, the failing story recorded and
 // passed over, the settings put back (automatic quality pinned off for the run, xrAuto as it was after), and a reload in
@@ -18503,6 +18504,75 @@ if (runs('perf run')) {
     } catch (e) { bad.push(String(e && e.stack || e)); }
     await ctx.close();
     errors.push(...bad.map(b => 'perf run (headset): ' + b));
+  });
+  // (v230) developer mode's two cards on the Experiments set: absent with it off, after the links and before the card
+  // back with it on (the page's and the pretend headset's arch alike), their length perfrun.js's, a press opening the
+  // start card (on the page) or starting the part (in the session); HOST.stories() never changes
+  await step('perf run: developer mode\'s cards on the Experiments set (page and pretend headset): absent when off, a press opens the start card, HOST.stories() unchanged', async () => {
+    const bad = [], ctx = await browser.newContext({ viewport: { width: 640, height: 400 } }), xp = await ctx.newPage();
+    await xp.addInitScript(FPS_FAKE);
+    await xp.addInitScript(() => { try { localStorage.setItem('devMode', 'off'); } catch (e) { /* storage blocked */ } });
+    xp.on('pageerror', e => bad.push('page error: ' + (e.stack || e.message)));
+    xp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) bad.push('console: ' + m.text()); });
+    const frames = (fn, ms) => xp.evaluate(([fn, ms]) => window.__fp.runUntil(fn ? new Function('return (' + fn + ')')() : null, ms), [fn ? String(fn) : '', ms]);
+    const TWO = ['perfrun-card', 'handson-card'];
+    try {
+      await xp.goto(base + 'index.html#experiments');
+      await xp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.dev && HOST.picking && HOST.menu.at === 'experiments' && document.querySelector('#picker .card[data-story="stories"]'), null, { timeout: 60000 });
+      const page = () => xp.evaluate(() => [...document.querySelectorAll('#picker .card')].map(c => c.dataset.story));
+      const st0 = await xp.evaluate(() => HOST.stories().map(m => m.key).join());
+      const off = await page();
+      if (off.some(k => TWO.includes(k)) || (await xp.evaluate(() => HOST.menu.cards().map(c => c.key))).some(k => TWO.includes(k))) bad.push('with developer mode off: ' + J(off));
+      const rev = await xp.evaluate(() => { const r = HOST.listRev; HOST.dev.set(true); return r; });
+      await xp.waitForFunction(() => !!HOST.perfRun && /^About \d+ minutes?, by itself$/.test(document.querySelector('#picker .card[data-story="perfrun-card"] em').textContent), null, { timeout: 30000 }).catch(() => bad.push('no length from perfrun.js on the card'));
+      const on = await page(), at = on.indexOf('perfrun-card');
+      if (J(on.slice(-3)) !== J(TWO.concat('stories')) || on[at - 1] !== 'tracker-guide') bad.push('with developer mode on, the cards: ' + J(on));
+      const pic = await xp.evaluate(() => [...document.querySelectorAll('#picker .card[data-story$="-card"] i.pk.svg svg')].length);
+      if (pic < 2) bad.push('their pictures: ' + pic);
+      if (!(await xp.evaluate(r => HOST.listRev > r, rev))) bad.push('HOST.listRev did not move on as developer mode was switched');
+      const hands = await xp.evaluate(() => [HOST.perfRun.minutes('hands'), document.querySelector('#picker .card[data-story="handson-card"] em').textContent]);
+      if (!(hands[0] > 0) || hands[1] !== 'About ' + hands[0] + (hands[0] === 1 ? ' minute' : ' minutes') + ', with you') bad.push('the hands-on length: ' + J(hands));
+      // a press on the page: the run-through's start card (Enter VR or this page), nothing started; Not now closes it
+      await xp.click('#picker .card[data-story="perfrun-card"]');
+      await xp.waitForFunction(() => HOST.perfRun.state().card && !document.getElementById('perfCard').hidden, null, { timeout: 10000 }).catch(() => {});
+      const c1 = await xp.evaluate(() => ({ s: HOST.perfRun.state(), dom: document.getElementById('perfCard').textContent, cur: HOST.curKey }));
+      if (!c1.s.card || c1.s.card.title !== 'Performance run' || !c1.s.card.buttons.includes('page') || !c1.s.card.buttons.includes('close') || c1.s.on || !c1.s.want || c1.cur) bad.push('the page\'s press: ' + J({ card: c1.s.card, on: c1.s.on, want: c1.s.want, cur: c1.cur }));
+      await xp.evaluate(() => HOST.perfRun.press('close'));
+      await xp.click('#picker .card[data-story="handson-card"]');
+      await xp.waitForFunction(() => HOST.perfRun.state().card && HOST.perfRun.state().card.title === 'Hands-on test', null, { timeout: 10000 }).catch(() => bad.push('the hands-on card\'s press: no start card'));
+      await xp.evaluate(() => HOST.perfRun.press('close'));
+      if (await xp.evaluate(() => HOST.stories().map(m => m.key).join()) !== st0 || (await xp.evaluate(() => HOST.stories().some(m => /-card$/.test(m.key))))) bad.push('HOST.stories() changed');
+      await xp.evaluate(() => HOST.dev.set(false));
+      if ((await page()).some(k => TWO.includes(k))) bad.push('still there after developer mode went off: ' + J(await page()));
+      // the pretend headset: a story's arch on the Experiments set, the cards added and gone as developer mode is switched
+      await xp.goto(base + 'index.html#airports');
+      await xp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      await xp.evaluate(() => HOST.cur.peek('xrStart("immersive-vr")'));
+      await xp.waitForFunction(() => window.__fp.session && window.__fp.session.cbs.size && HOST.session === window.__fp.session, null, { timeout: 20000 });
+      await frames(null, 300);
+      const arch = async () => { await xp.evaluate(() => { HOST.menu.open('experiments'); HOST.cur.peek('(XR.stories = true, XR.inStory = true, 1)'); }); await frames(null, 900); return xp.evaluate(() => ({ cards: HOST.menu.cards().map(c => c.key), n: HOST.cur.peek('XR.land.length - 1'), rev: HOST.cur.peek('XR.landRev') === HOST.listRev })); };
+      const a0 = await arch();
+      if (a0.cards.some(k => TWO.includes(k)) || a0.n !== a0.cards.length || !a0.rev) bad.push('the arch with developer mode off: ' + J(a0));
+      await xp.evaluate(() => HOST.dev.set(true));
+      const a1 = await arch();
+      if (J(a1.cards.slice(-3)) !== J(TWO.concat('stories')) || a1.n !== a1.cards.length || !a1.rev) bad.push('the arch with developer mode on: ' + J(a1));
+      // pressed on the arch (the card's region, as the ray presses it): in a session the run-through begins at once (with
+      // airports, the story on show, first: no story loads before the stop)
+      const k = a1.cards.indexOf('perfrun-card') + 1;
+      const pressed = await xp.evaluate(k => HOST.cur.peek('(() => { const P = XR.land[' + k + ']; const r = P && P.regions.find(x => x.id === "card"); if (!r) return false; r.fn(); return true; })()'), k);
+      await frames(null, 300);
+      await xp.waitForFunction(() => HOST.perfRun.state().on && HOST.perfRun.state().part === 'run', null, { timeout: 15000 }).catch(() => {});
+      const s2 = await xp.evaluate(() => HOST.perfRun.state());
+      if (!pressed || !s2.on || s2.part !== 'run') bad.push('the arch\'s press: ' + J({ pressed, on: s2.on, part: s2.part, want: s2.want }));
+      await xp.evaluate(() => HOST.perfRun.stop('test'));
+      await xp.waitForFunction(() => !HOST.perfRun.state().on, null, { timeout: 30000 }).catch(() => {});
+      await xp.evaluate(() => HOST.dev.set(false));
+      const a2 = await arch();
+      if (a2.cards.some(k => TWO.includes(k)) || a2.n !== a2.cards.length) bad.push('the arch after developer mode went off: ' + J(a2));
+      await xp.evaluate(() => window.__fp.session.end());
+    } catch (e) { bad.push(String(e && e.stack || e)); }
+    await ctx.close();
+    errors.push(...bad.map(b => 'perf run (cards): ' + b));
   });
 }
 // Developer mode (v125, HOST.dev in index.html; NEWS in shared.js): this device's own, off by default. While on, what is

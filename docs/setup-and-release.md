@@ -199,7 +199,7 @@ shared spaces, and whether sound comes out. Report those as untested. What two Q
 
 The performance run (v228) measures every frame while the app plays itself on a headset. It has two parts. The
 run-through plays every story (its load, each chapter for 20 s, explore mode a tab at a time) and the studio's example
-scenes, about 75 minutes, with nobody touching anything. The hands-on test is about five minutes of things only a person
+scenes, about 75 minutes, with nobody touching anything. The hands-on test is about four or five minutes of things only a person
 can do, one card at a time. The details are in docs/agents/shell.md, "The performance run".
 
 **On the headset.**
@@ -207,13 +207,15 @@ can do, one card at a time. The details are in docs/agents/shell.md, "The perfor
 1. Charge it and turn developer mode on (the Stories screen's foot, or open the app with `#dev=on`), so the results also
    go to the relay. In a shared room it refuses: leave the room first.
 2. Either open `https://stories.lab.lbi-netmed.com/#perfrun` in Quest Browser and press **Enter VR** (or **Enter AR**) on
-   the card; or, already in VR, open the menu, go to the **Debug** tab and press **Performance run**. Put the headset on
+   the card; or, with developer mode on, open the Stories screen's **Experiments** cards and press **Performance run**
+   (the next card is **Hands-on test**; on a page each opens the same card, in VR each starts at once); or, already in
+   VR, open the menu, go to the **Debug** tab and press **Performance run**. Put the headset on
    and leave it: narration and effects stay quiet, a small line low on the right says where it is (*Performance run · 5
    of 25 · Airports · chapter 3 of 10*).
 3. To stop: the Debug tab's **Stop the run**, or take the headset out of VR. If the page reloads or the headset view
    ends, a card offers **Enter VR** to go on where it stopped.
 4. At the end a card shows the totals and the five worst moments. **Hands-on test** starts part 2; it is also on the
-   Debug tab, or `#handson` in the address. Each card says what to do; press **Done** when you have, or **Skip**.
+   Debug tab, on the Experiments cards (developer mode), or `#handson` in the address. Each card says what to do; press **Done** when you have, or **Skip**.
 
 Options in the address (after `#perfrun`): `&prch=10` (10 s a chapter: about 45 minutes), `&prfull` (every chapter
 whole), `&prstories=airports,lbi` (only these), `&praq=off` (automatic quality off for the run, so two runs compare),

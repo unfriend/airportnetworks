@@ -1,48 +1,50 @@
 # The shell
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 52: The font, the story list and the cards (6.0 KB)
-- 107: Starting a story: listeners and the renderer (1.2 KB)
-- 127: The shell's modules on demand (`HOST.mods`, v226) (4.9 KB)
-- 176: Controllers after standby (`HOST.inputsGuard`) (4.8 KB)
-- 221: Loading, and taking over a headset session (2.0 KB)
-- 243: The start screen and the address (4.8 KB)
-- 291: Repeat and the slideshow (3.6 KB)
-- 329: Placement in the headset (3.2 KB)
-- 361: Labels, cards, free moving and subtitles (3.9 KB)
-- 398: The frame rate and the refresh rate (4.6 KB)
-- 440: Automatic quality (4.0 KB)
-- 478: Sharp text: the modes (4.0 KB)
-- 518: Sharp text: the session, each frame, the menu and the panel (5.8 KB)
-- 572: Sharp text: when things go wrong, and what was tried (2.6 KB)
-- 598: Two more settings: real-world occlusion, and your menu shown to your circle (5.7 KB)
-- 653: Moving with the sticks (5.3 KB)
-- 703: Moving with the sticks: in a room, and the studio's two modes (4.9 KB)
-- 750: My body, and what labels, cards, free moving and subtitles do in each mode (5.5 KB)
-- 825: Focus mode (3.4 KB)
-- 857: Phones and tablets (`HOST.handheld`) (6.1 KB)
-- 916: Panels per story (1.4 KB)
-- 937: Developer mode (`HOST.dev`) (4.5 KB)
-- 980: Sound belongs to the shell (`HOST.audio`) (7.1 KB)
-- 1061: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
-- 1106: The two sound switches and the narration switch (4.4 KB)
-- 1159: What plays when, and the background (2.3 KB)
-- 1192: The sound board (`tools/sfx.html`) (2.3 KB)
-- 1225: Sounds inside the stories (phase 2) (4.5 KB)
-- 1267: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
-- 1315: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
-- 1378: Real-world occlusion: bias, what it hides, tests (3.1 KB)
-- 1409: The developer notebook (`HOST.notes`, `notes.js`) (6.2 KB)
-  - 1441: Run logs (*Record a run*) (1.0 KB)
-  - 1453: Reading notes in a headset (v148) (2.4 KB)
-- 1479: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1523: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1588: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1632: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 1719: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 1785: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 1883: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 1974: From CLAUDE.md (6.1 KB)
+- 54: The font, the story list and the cards (7.6 KB)
+- 123: Starting a story: listeners and the renderer (5.5 KB)
+  - 143: The headset's eyes are the shell's (v228) (4.2 KB)
+- 184: The shell's modules on demand (`HOST.mods`, v226) (4.9 KB)
+- 233: Controllers after standby (`HOST.inputsGuard`) (4.8 KB)
+- 278: Loading, and taking over a headset session (2.0 KB)
+- 300: The start screen and the address (4.8 KB)
+- 348: Repeat and the slideshow (3.6 KB)
+- 386: Placement in the headset (3.2 KB)
+- 418: Labels, cards, free moving and subtitles (3.9 KB)
+- 455: The frame rate and the refresh rate (4.6 KB)
+- 497: Automatic quality (4.0 KB)
+- 535: Sharp text: the modes (4.0 KB)
+- 575: Sharp text: the session, each frame, the menu and the panel (5.8 KB)
+- 629: Sharp text: when things go wrong, and what was tried (2.6 KB)
+- 655: Two more settings: real-world occlusion, and your menu shown to your circle (5.7 KB)
+- 710: Moving with the sticks (5.3 KB)
+- 760: Moving with the sticks: in a room, and the studio's two modes (4.9 KB)
+- 807: My body, and what labels, cards, free moving and subtitles do in each mode (5.5 KB)
+- 882: Focus mode (3.4 KB)
+- 914: Phones and tablets (`HOST.handheld`) (6.1 KB)
+- 973: Panels per story (1.4 KB)
+- 994: Developer mode (`HOST.dev`) (4.5 KB)
+- 1037: Sound belongs to the shell (`HOST.audio`) (7.1 KB)
+- 1118: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
+- 1163: The two sound switches and the narration switch (4.4 KB)
+- 1216: What plays when, and the background (2.3 KB)
+- 1249: The sound board (`tools/sfx.html`) (2.3 KB)
+- 1282: Sounds inside the stories (phase 2) (4.5 KB)
+- 1324: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
+- 1372: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
+- 1435: Real-world occlusion: bias, what it hides, tests (3.1 KB)
+- 1466: The developer notebook (`HOST.notes`, `notes.js`) (6.4 KB)
+  - 1498: Run logs (*Record a run*) (1.2 KB)
+  - 1512: Reading notes in a headset (v148) (2.4 KB)
+- 1538: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (12.3 KB)
+- 1651: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1695: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1760: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1804: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 1891: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 1957: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 2055: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 2146: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -99,7 +101,21 @@ repeat the above (the `sfxCue`, `sfxHold`, `sfxAct` and `sfxLive` line, the narr
   then, after the menu has followed the story, so the page reads its words: the studio's `HP0`), or starts the page on
   show again with it (`HOST.run`); the set stays the Experiments one (`M.link`, `follow`). In a shared room it starts the
   page as any story there, without the address (the scene there is the room's). An older shell has no link cards. A story the list does not have (a shared
-  room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`. An entry with `intro: true` (v173, the
+  room's station from a newer copy) gets a stand-in, `HOST.unknown(key)`.
+- Developer mode's cards (v230, `TOOLS` in `HOST.menu`; the owner, 28 November 2026: "can you add these as a story card
+  under experiments when dev mode is on?"): *Performance run* (`perfrun-card`) and *Hands-on test* (`handson-card`), on
+  the Experiments set after the link cards and before the card back, only while developer mode is on (`HOST.dev.set`
+  moves `HOST.listRev` on, so the page's cards and every story's arch are made again as it is switched, no reload). Like
+  the links they are `menu: 'link'` (the arch's button says *Open*; no story code changed) and no story: never in
+  `HOST.stories()`, `HOST.list`, Arrange all, Repeat all, the slideshow, a room's Add or picks, the packages or the
+  performance run's own plan. `HOST.menu.link(key)` finds them too; `HOST.menu.go(key)` loads `perfrun.js` and calls
+  `HOST.perfRun.start({ part })` (`run` or `hands`), as `#perfrun` and `#handson` and the Debug tab's rows do: on a page
+  the start card (*Enter VR*, *Enter AR*, *Run on this page*), in a headset session at once, in a shared room refused.
+  Their length line (*About 75 minutes, by itself*, *About 4 minutes, with you*) is the run's own estimate,
+  `HOST.perfRun.minutes(part)`; `perfrun.js` is asked for as the cards first show, and the cards are made again when it
+  has come (until then they say *Developer mode*). Each has a small picture drawn as an SVG of its own (`svg`: a gauge,
+  and a controller with a tick), shown in the page card's picture slot (`i.pk.svg`); the arch's cards draw no picture for
+  any card, so neither do these. They replace the Stories screen's foot button `#btnPerf` (gone in v230). An entry with `intro: true` (v173, the
   tutorial: an introduction, not one of the stories) is passed by in three places in `index.html`: `HOST.count()`
   counts only the entries without it, the default start (no `#key`) builds the first entry without it behind the
   Stories screen, and Repeat all skips it (from the tutorial itself it goes on to the first story).
@@ -1528,8 +1544,8 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
 
 - **The file.** `perfrun.js`, loaded on demand by `HOST.mods` (name `perfRun`; in `SHELL`, `APP_FILES`, the shell's
   fingerprint, `MODS_FP` and `--watch`'s shell files): by `#perfrun` or `#handson` in the address, a run kept from before a
-  reload (`localStorage` `perfRun`), developer mode's *Performance run* button (`#btnPerf`, the Stories screen's foot
-  beside *What is new*) and the Debug tab's rows (*Performance run* or *Stop the run*, and *Hands-on test*; developer
+  reload (`localStorage` `perfRun`), developer mode's two cards on the Experiments set (v230, *Performance run* and
+  *Hands-on test*: "The font, the story list and the cards"; they replaced the foot button `#btnPerf`) and the Debug tab's rows (*Performance run* or *Stop the run*, and *Hands-on test*; developer
   mode, under *Record a run*; pressed, the menu closes so it is not measured). `index.html` keeps only hooks: the frame
   hook (`HOST.loading.wrap`, beside the notebook's: `HOST.perfRun.frame(t)`), `HOST.perf` measuring while it runs, and
   four holds while `HOST.perfRun.on()`: `HOST.audio`'s `muted()` (narration and effects quiet, never stored),
@@ -1556,7 +1572,7 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
   each wait has a watchdog (a story 90 s to load; a segment three times its length and 30 s). A story or scene that fails
   to load, throws or stops having frames is a segment with `why`, and the run goes on. All stories: about 75 minutes
   (21 stories of about 8 chapters and five scenes; the start card gives its estimate); `prch=10` about 45.
-- **Part 2, the hands-on test** (`part: 'hands'`, about five minutes). In one heavy story (`story`, by default `ppicell`,
+- **Part 2, the hands-on test** (`part: 'hands'`, about five minutes; its cards say the estimate, `aboutHands()`: four). In one heavy story (`story`, by default `ppicell`,
   *Back into the cell*: the largest story file, 2.1 MB, 13,460 proteins and real structures at its close-ups; where this
   device has not got it, the story on show or the first), its load first, then one card at a time, each a segment ended
   by *Done*, *Skip* (`why: 'skipped'`) or after 45 s: `panel` (the story panel's tabs, in explore mode), `menu` (with
@@ -1566,7 +1582,8 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
 - **Starting.** `HOST.perfRun.start({ part, where, ...options })`: in a headset session it begins at once; with `where:
   'page'` on the page; otherwise its card asks *Enter VR*, *Enter AR* (the story's own buttons, or the start page's
   `HOST.bare`, clicked within the press) or *Run on this page*, and it begins as the session does. `offer()` is the page's
-  card with both parts. The address: `#perfrun` (`#perfrun=page` or `&prgo=page`: on the page at once), `#handson`;
+  card with both parts (no longer called by the shell since v230). `minutes(part)` is each part's estimate (the start
+  cards' and the Experiments cards'). The address: `#perfrun` (`#perfrun=page` or `&prgo=page`: on the page at once), `#handson`;
   options `prstories=a,b` (keys), `prch` (seconds a chapter), `prfull` (each chapter whole), `prchapters` (the first n),
   `prex` (seconds a tab), `prtabs`, `prload`, `prsettle`, `prscene` (seconds a scene), `prscenes` (`default`, `examples`,
   `all`: the examples and three of the relay's, `none`, or names: `bliss-xp,relay:<name>`), `prexamples` (another

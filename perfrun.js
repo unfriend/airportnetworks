@@ -320,6 +320,11 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     const O = opts(o), n = O.stories ? O.stories.length : G(() => HOST.stories().filter(m => m.key !== 'hello').length, 20);
     return guess(Array.from({ length: n }, () => ({ kind: 'story' })).concat(O.scenes === 'none' ? [] : Array.from({ length: 5 }, () => ({ kind: 'scene' }))), O);
   }
+  // the hands-on test's the same way: its story's load, then its steps (v230: the Experiments set's card says it too)
+  function aboutHands(o) {
+    const O = opts(o);
+    return guess([{ kind: 'story', only: 'load' }].concat(HANDS.filter(h => !O.hands || O.hands.includes(h.id)).map(() => ({ kind: 'hand' }))), O);
+  }
 
   // ------------------------------------------------------------------ the items --
   // a story's Stories screen (in a headset) out of the way: the story itself shows
@@ -747,12 +752,13 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   function startCard(part, o) {
     const vr = XRS.vr, ar = XRS.ar;
     card(part === 'hands' ? 'Hands-on test' : 'Performance run', [
-      part === 'hands' ? 'About five minutes in ' + title(opts(o).story) + ': one card at a time tells you what to do, each with Done and Skip.' : 'It plays every story and some studio scenes by itself, chapter by chapter, and measures every frame. About ' + about(o) + ' minutes.',
+      part === 'hands' ? 'About ' + mins(aboutHands(o)) + ' in ' + title(opts(o).story) + ': one card at a time tells you what to do, each with Done and Skip.' : 'It plays every story and some studio scenes by itself, chapter by chapter, and measures every frame. About ' + about(o) + ' minutes.',
       vr ? 'Enter VR or AR: it starts as the headset view begins and then runs alone. Narration and effects are quiet while it runs.' : 'This browser has no VR: it runs on this page.',
-      sendLine(part === 'hands' ? 5 : about(o)),
+      sendLine(part === 'hands' ? aboutHands(o) : about(o)),
     ], [vr && { id: 'vr', label: 'Enter VR', primary: true }, ar && { id: 'ar', label: 'Enter AR' }, { id: 'page', label: 'Run on this page', primary: !vr }, { id: 'close', label: 'Not now' }].filter(Boolean));
   }
   // where the results go: the relay only with developer mode on (the notebook's run log, which ends after two hours)
+  const mins = m => m + (m === 1 ? ' minute' : ' minutes');
   function sendLine(min) {
     if (!(HOST.dev && HOST.dev.on())) return 'The results stay on this device. To send them to the relay as well, turn developer mode on first.';
     return 'The results stay on this device and go to the relay as a run log.' + (min > 110 ? ' A run log ends after two hours: what comes later stays on this device only.' : '');
@@ -766,7 +772,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   }
   function offerCard() {
     const vr = XRS.vr, ar = XRS.ar;
-    card('Performance run', ['Two parts. The run-through plays every story and some studio scenes by itself and measures every frame (about ' + about({}) + ' minutes). The hands-on test is about five minutes of things only a person can do.',
+    card('Performance run', ['Two parts. The run-through plays every story and some studio scenes by itself and measures every frame (about ' + about({}) + ' minutes). The hands-on test is about ' + mins(aboutHands({})) + ' of things only a person can do.',
       vr ? 'Enter VR or AR to run the run-through in the headset, or run it on this page.' : 'This browser has no VR: it runs on this page.', sendLine(about({}))],
     [vr && { id: 'vr', label: 'Enter VR', primary: true }, ar && { id: 'ar', label: 'Enter AR' }, { id: 'page', label: 'Run on this page', primary: !vr }, { id: 'hands', label: 'Hands-on test' }, { id: 'close', label: 'Not now' }].filter(Boolean));
   }
@@ -813,6 +819,8 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
 
   return {
     start, offer, stop, boot, frame, view, press,
+    // about how long each part takes, in minutes (the Experiments set's cards in developer mode: HOST.menu, v230)
+    minutes: part => (part === 'hands' ? aboutHands({}) : about({})),
     // the shell's holds while a run is on: sound quiet (HOST.audio's mute, never stored), no slideshow stops, no Repeat, no
     // live update or reload (index.html)
     on: () => R.on, hush: () => R.on, hold: () => R.on,

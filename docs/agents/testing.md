@@ -4,16 +4,16 @@
 - 24: When the suites run (1.5 KB)
 - 40: Which suite after which change (2.3 KB)
 - 68: Listing the tests and the docs' tools (3.0 KB)
-- 104: The smoke test (`tools/smoke.mjs`) (14.0 KB)
-  - 140: Smoke blocks (8.1 KB)
-  - 210: `--only <words>` and `--block <id>` (1.7 KB)
-  - 229: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-- 239: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
-- 306: Other tools (5.0 KB)
-- 331: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 340: Known red results on this machine (8.2 KB)
-- 375: Traps for a test writer (4.7 KB)
-- 423: Useful URL hashes and the console (4.8 KB)
+- 104: The smoke test (`tools/smoke.mjs`) (16.9 KB)
+  - 151: Smoke blocks (9.8 KB)
+  - 223: `--only <words>` and `--block <id>` (1.7 KB)
+  - 242: Playwright, SwiftShader and what only a headset shows (0.5 KB)
+- 252: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
+- 319: Other tools (5.3 KB)
+- 345: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 354: Known red results on this machine (8.2 KB)
+- 389: Traps for a test writer (4.7 KB)
+- 437: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -175,7 +175,7 @@ tablets, iPhone) and `old links`.
 | `frame rate` | own page, about 5 min | `FPS_FAKE` pretend Quest: refresh-rate ladder, foveation, the read-out and double B. Do not rename `FPS_FAKE` (perf reads it) |
 | `auto quality` | own page; run on a quiet machine | automatic quality's steps (rate, foveation, viewport scale), `#aq=off` |
 | `sharp text` | own page | the panels and the menu as WebXR quad layers on a pretend Quest (`SHARP_FAKE`) |
-| `perf run` | two own pages, 640 x 400, about 3 min | the performance run (`perfrun.js`) much shortened: on a page three stories (proteins refused by a stubbed `HOST.load`), one chapter, a second or two a segment, the test example `tiny`; the result's shape, the failure passed over, automatic quality pinned off and put back, a reload in the middle picked up (flock recorded as cut by it); then in a pretend Quest (`FPS_FAKE`) the run in the session (its read-out, its results card's regions) and the hands-on part (one step done, one skipped, the AR step passed over in VR). `notes.js` stays unloaded until `tools/release.mjs` stamps its fingerprint, so the run log's part is checked by hand (`docs/agents/shell.md`, "The performance run") |
+| `perf run` | three own pages, 640 x 400, about 4 min | the performance run (`perfrun.js`) much shortened: on a page three stories (proteins refused by a stubbed `HOST.load`), one chapter, a second or two a segment, the test example `tiny`; the result's shape, the failure passed over, automatic quality pinned off and put back, a reload in the middle picked up (flock recorded as cut by it); then in a pretend Quest (`FPS_FAKE`) the run in the session (its read-out, its results card's regions) and the hands-on part (one step done, one skipped, the AR step passed over in VR); v230: developer mode's two cards on the Experiments set (`perfrun-card`, `handson-card`; a third page): absent with it off, after the Tracker guide and before the card back with it on, their pictures, their lengths from `HOST.perfRun.minutes()`, `HOST.listRev` moving on as it is switched, a page press opening the start card (nothing started), `HOST.stories()` unchanged, and in a pretend Quest the arch's cards added and gone as it is switched, the card's region pressed starting the run-through at once. Like the rest of the block, the cards' lengths need `perfrun.js` to match `MODS_FP` (a released checkout, or a scratch copy stamped by `tools/release.mjs`). `notes.js` stays unloaded until `tools/release.mjs` stamps its fingerprint, so the run log's part is checked by hand (`docs/agents/shell.md`, "The performance run") |
 | `developer mode` | own page, a few minutes | the version card, What is new, Got it/Later, the release step. Its two *Older and Newer* steps need v142 to be served |
 | `update the room` | own page in a room on this device, 1-2 min | the Shared dialog's Reload this device, armed by a first press; the order reaches the other tabs |
 | `phone ar` | two own pages, 1-2 min | a pretend Android phone's AR through `dom-overlay`, the round button, screen taps as Chrome makes them |
