@@ -5,7 +5,9 @@
 // only through tools/bench/bench.mjs, as the cloud would: status, a report, two stories opened, explore mode measured
 // with pretend moving rays (the pick's cost a frame), a setting borrowed and put back (after a reload in the middle of a
 // job too), the left eye's picture, a probe, a short plan, a cancel; then the refusals: no password, a shared room, the
-// main site (its host mapped to this machine), a relay without --bench. console.error must stay clean. Needs Playwright
+// main site (its host mapped to this machine), a relay without --bench; then script jobs (SPEC 14) on a second relay with
+// --bench-scripts: refused without the flag, a script's JSON, its throw, its limit, a plan's script file, the page's own
+// refusal when the relay says scripts are off, a log without the code. console.error must stay clean. Needs Playwright
 // (PLAYWRIGHT_MODULE, CHROMIUM_PATH as tools/smoke.mjs). Exits 1 on a failure. Pictures (640 wide) go to --shots.
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -44,10 +46,20 @@ function bench(args, o = {}) {
     env: { ...process.env, NOTES_RELAY: o.relay || BASE, NOTES_TOKEN: o.token === undefined ? PASS : o.token } });
   return { code: r.status, out: r.stdout || '', err: r.stderr || '' };
 }
+// (the same, not blocking this process: while a Playwright route of ours must answer the page)
+function benchAsync(args, o = {}) {
+  return new Promise(res => {
+    const p = spawn(process.execPath, [path.join(HERE, 'bench.mjs'), ...args], { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NOTES_RELAY: o.relay || BASE, NOTES_TOKEN: o.token === undefined ? PASS : o.token } });
+    let out = '', err = '';
+    p.stdout.on('data', d => { out += d; }); p.stderr.on('data', d => { err += d; });
+    const t = setTimeout(() => p.kill(), (o.timeout || 300) * 1000);
+    p.on('exit', code => { clearTimeout(t); res({ code, out, err }); });
+  });
+}
 const jobOf = r => JSON.parse(r.out);
 
 const PASS = 'benchpass' + crypto.randomBytes(6).toString('hex');
-const NOTES = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-notes-'));
+const NOTES = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-notes-')), notesDirs = [];
 const R = await relay(['--bench', '--token', PASS, '--notes', NOTES]);
 const BASE = `http://127.0.0.1:${R.port}`;
 console.log('relay with --bench on ' + BASE);
@@ -117,6 +129,9 @@ try {
   r = bench(['send', 'measure', 'sec=2', '--need', 'page', '--json']);
   j = r.code === 0 ? jobOf(r) : {};
   const m0 = j.result && j.result.steps[0].out;
+  const scriptFile = (name, code) => { const f = path.join(SHOTS, name); fs.writeFileSync(f, code); return f; };
+  const sOff = bench(['script', scriptFile('test-off.js', 'return { x: 1 };'), '--need', 'page']);
+  ok(sOff.code === 2 && /runs no scripts.*--bench-scripts/.test(sOff.err), 'bench.mjs script on a relay without --bench-scripts: exit 2, said plainly (' + sOff.code + ' ' + sOff.err.trim().slice(0, 120) + ')');
   ok(r.code === 0 && m0 && m0.kind === 'bench' && m0.n > 0 && m0.calls > 0 && m0.tex > 0 && m0.geo > 0 && m0.prog > 0 && 'lines' in m0 && 'pts' in m0 && Array.isArray(m0.errlist), 'measure on a page: a perfrun segment with lines, pts, tex, geo, prog and errlist (' + JSON.stringify(m0 || r.err.slice(-200)).slice(0, 400) + ')');
 
   // a job that needs a session waits; the page says Enter AR; a trusted press enters
@@ -255,6 +270,51 @@ try {
   ok(ms && ms.phase === 'held' && ms.why === 'main site', 'on the main site\'s host bench mode is held (' + JSON.stringify(ms && { phase: ms.phase, why: ms.why }) + ')');
   ok(!/bench \S+ listening/.test(R.out.split('\n').filter(l => l.includes(ms ? ms.hs : '-')).join('\n')), 'the main site\'s page never asked the relay');
   await MS.ctx.close();
+  // ------------------------------------------------------------ script jobs (SPEC 14): a relay with --bench-scripts
+  {
+    const NOTES2 = fs.mkdtempSync(path.join(os.tmpdir(), 'bench-notes-'));
+    notesDirs.push(NOTES2);
+    const RS = await relay(['--bench', '--bench-scripts', '--token', PASS, '--notes', NOTES2]);
+    const SB = `http://127.0.0.1:${RS.port}`, so = { relay: SB };
+    const SP = await page(`${SB}/index.html#dev=on&bench=on&benchplan=none`, { tag: 'scripts', viewport: { width: 640, height: 400 }, xr: false });
+    await waitPhase(SP.p, 'enter');
+    r = bench(['status'], so);
+    ok(/Script jobs: on/.test(r.out), 'status says script jobs are on');
+    r = bench(['script', scriptFile('test-ok.js', 'await api.frames(2);\napi.log("QLOGQ");\nreturn { story: api.story(), session: api.session(), n: args.n * 2, mode: api.app().mode };\n'), '--args', '{"n":21}', '--open', 'airports', '--need', 'page', '--json'], { ...so, timeout: 200 });
+    j = r.code === 0 ? jobOf(r) : {};
+    const so1 = j.result && j.result.steps[1] && j.result.steps[1].out;
+    ok(r.code === 0 && j.steps.length === 2 && j.steps[1].cmd === 'script' && so1 && so1.n === 42 && so1.story === 'airports' && so1.session === '' && Array.isArray(so1.log) && so1.log[0] === 'QLOGQ', 'a script with --open and --args runs on the page with the probe\'s api and returns its JSON (' + JSON.stringify(so1 || r.err.slice(-200)) + ')');
+    const okId = j.id;
+    r = bench(['show', okId], so);
+    ok(r.code === 0 && /\| 2 \| script \| yes/.test(r.out) && r.out.includes('"n":42') && /Script code: step 2: \d+ B, sha256 [0-9a-f]{12}/.test(r.out), 'bench.mjs show prints the script step\'s out and its code\'s length and hash');
+    r = bench(['script', scriptFile('test-throw.js', 'throw new Error("QBOOMQ");'), '--need', 'page', '--json'], so);
+    j = r.code === 1 ? jobOf(r) : {};
+    ok(r.code === 1 && j.state === 'failed' && j.result.steps[0].err === 'the script threw: QBOOMQ', 'a throwing script fails its step with the message (' + (j.result ? j.result.steps[0].err : r.err.slice(-200)) + ')');
+    r = bench(['script', scriptFile('test-syntax.js', 'return {'), '--need', 'page', '--json'], so);
+    j = r.code === 1 ? jobOf(r) : {};
+    ok(r.code === 1 && /^the script does not compile: /.test(j.result && j.result.steps[0].err), 'a script that does not compile fails its step saying so (' + (j.result ? j.result.steps[0].err : r.err.slice(-200)) + ')');
+    const t0 = Date.now();
+    r = bench(['script', scriptFile('test-slow.js', 'await api.wait(30000);\nreturn { late: true };'), '--limit', '2', '--need', 'page', '--json'], so);
+    j = r.code === 1 ? jobOf(r) : {};
+    ok(r.code === 1 && j.state === 'failed' && /^timed out after 2 s$/.test(j.result.steps[0].err) && Date.now() - t0 < 25000, 'a script over its own limit fails softly: timed out after 2 s (' + (j.result ? j.result.steps[0].err : r.err.slice(-200)) + ')');
+    r = bench(['script', scriptFile('test-after.js', 'return { after: true };'), '--need', 'page', '--json'], so);
+    ok(r.code === 0 && jobOf(r).result.steps[0].out.after === true, 'the page takes the next script job after the slow one');
+    // a plan whose script step names a file beside it
+    fs.writeFileSync(path.join(SHOTS, 'test-script-plan.json'), JSON.stringify({ v: 1, label: 'script plan', need: 'page', steps: [{ cmd: 'report' }, { cmd: 'script', file: 'test-after.js' }] }));
+    r = bench(['run', path.join(SHOTS, 'test-script-plan.json')], so);
+    ok(r.code === 0 && /\| 2 \| script \| yes/.test(r.out) && r.out.includes('"after":true'), 'a plan with a script step naming a file: run, done');
+    r = bench(['jobs'], so);
+    ok(r.code === 0 && /step 1: \d+ B [0-9a-f]{12}/.test(r.out) && !r.out.includes('new Error("QBOOMQ")') && !r.out.includes('args.n'), 'bench.mjs jobs names a script by length and hash, not its text');
+    // the page's own check: the relay it took the job from must say scripts are on (its ping answered as an older relay's)
+    await SP.p.route('**/api/ping', async route => { const res = await route.fetch(); const b = await res.json(); b.benchScripts = false; await route.fulfill({ response: res, json: b }); });
+    r = await benchAsync(['script', scriptFile('test-refused.js', 'return { ran: true };'), '--need', 'page', '--json'], so);
+    j = r.code === 1 ? jobOf(r) : {};
+    ok(r.code === 1 && /scripts are off at this relay/.test(j.result && j.result.steps[0].err) && !j.result.steps[0].out, 'the page refuses a script when the relay\'s ping says scripts are off (' + (j.result ? j.result.steps[0].err : r.err.slice(-200)) + ')');
+    await SP.p.unroute('**/api/ping');
+    ok(!/QBOOMQ|QLOGQ|api\.wait|args\.n/.test(RS.out) && !RS.out.includes(PASS) && /bench job \S+ queued \d+ steps/.test(RS.out), 'the scripts relay\'s log holds no code and no password');
+    await SP.ctx.close();
+  }
+
   // a page with bench mode waiting for the headset view, as a person sees it
   const PG = await page(`${BASE}/index.html#airports&dev=on&bench=on&benchplan=none`, { tag: 'small', viewport: { width: 640, height: 400 } });
   await waitPhase(PG.p, 'enter');
@@ -273,7 +333,7 @@ try {
 } finally {
   await browser.close().catch(() => {});
   for (const p of procs) if (p.exitCode === null) p.kill();
-  fs.rmSync(NOTES, { recursive: true, force: true });
+  for (const d of [NOTES, ...notesDirs]) fs.rmSync(d, { recursive: true, force: true });
 }
 console.log(`\n${passed} checks passed, ${failed} failed (${el()})`);
 process.exit(failed ? 1 : 0);

@@ -6,7 +6,8 @@
     "It opens stories, jumps to chapters, measures frames, sweeps pretend controller rays over explore mode, and sends a picture of what the left eye sees.",
     "A test may change a headset setting for a while; your own value comes back after it, even after a reload.",
     "A line in the headset and a bar on the page say bench mode is on and how to switch it off. It switches itself off after twelve hours.",
-    "Never in a shared room and never on the main site. Only the test place's relay takes tests, with its password."
+    "Never in a shared room and never on the main site. Only the test place's relay takes tests, with its password.",
+    "To try a new test quickly, the test place's relay can be switched to also send a test's own code, not yet saved in the app. It is off unless switched on, and always needs the password."
   ],
   "test": [
     "On the test place, Quest 3: developer mode on, menu, Debug, Bench mode on, Enter AR, then set the headset down. The line under your gaze should say bench mode is on.",

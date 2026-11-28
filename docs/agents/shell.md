@@ -37,15 +37,15 @@
   - 1499: Run logs (*Record a run*) (1.4 KB)
   - 1515: Reading notes in a headset (v148) (2.4 KB)
 - 1541: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.3 KB)
-- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (8.4 KB)
-- 1751: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1795: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1860: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1904: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 1991: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 2057: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 2155: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 2246: From CLAUDE.md (6.1 KB)
+- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (9.5 KB)
+- 1762: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1806: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1871: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1915: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 2002: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 2068: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 2166: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 2257: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -1678,8 +1678,19 @@ how the shell does it.
   relay's `APP_FILES`, `SHELL_FILES` and the release's shell fingerprint). In bench mode the page asks the relay (started
   with `--bench`, behind its password) for jobs by long poll (`GET /api/bench/next`, the password as a Bearer header from
   `relayTokens`, through `HOST.collab.relayFind`), runs each job's steps from a fixed list of commands, and posts the
-  result. Only committed code runs: a `probe` step loads `bench/probes/<name>.js` from this origin; a job never carries
-  script text and nothing turns a job's field into code (an explore tab id is checked against the panel's own list first).
+  result. Committed code runs: a `probe` step loads `bench/probes/<name>.js` from this origin, and nothing turns a job's
+  field into code (an explore tab id is checked against the panel's own list first), with one exception: a `script` step
+  (below).
+- **Script jobs** (`tools/bench/SPEC.md` 14, the owner: "can also be uncommitted code if that makes things faster"): a
+  `script` step carries `code`, the body of an async function `(api, args)`, run through the probe's own path
+  (`runProbe`: the same `api`, out, 64 KB cap and errors, `the script threw: ...`; compiled by the `AsyncFunction`
+  constructor; its own `limit` seconds or the job's). Only on a relay started with `--bench-scripts` (needs `--bench` and
+  always the password; without it a script job is 403); the page runs one only while bench mode is on and not held, after
+  a fresh `/api/ping` of the relay it took the job from says `benchScripts: true`; the automatic plan never holds one
+  (the page refuses the plan, the relay refuses `from: 'auto'`). The listing shows the code's length and hash, never
+  the text; no log line holds it. The cloud: `node tools/bench/bench.mjs script <file.js> [--args json] [--open story]
+  [--need page] [--limit s]` (exit 2 when the relay has no scripts). A script that blocks the page's thread hangs the
+  page: only awaits are bounded.
 - **On and off.** Developer mode only: the Debug tab's *Bench mode: on/off* (under *Performance run*), the Experiments
   set's card *Headset bench* (developer mode), or `#dev=on&bench=on` (`benchxr=ar|vr`, `benchplan=<name>|none`). Kept for
   twelve hours (`benchOn`), so a reload keeps it. Off: the same row and card, the bar's *Switch off* (`#benchOff`),
@@ -1746,7 +1757,7 @@ how the shell does it.
   `node tools/bench/test.mjs` (`docs/agents/testing.md`).
 - Untested on a headset: all of it (the long poll through the test place's proxy for hours, Quest Browser freezing a page
   it thinks hidden, the eye picture's read-back on the Quest, the pretend rays beside real controllers, the line's
-  comfort and placement, entering AR again after a new shell without adb).
+  comfort and placement, entering AR again after a new shell without adb, a script job compiled by Quest Browser).
 
 ## Spaceships (`HOST.ships`, `ships.js`)
 

@@ -1824,7 +1824,7 @@ async function benchSteps() {
     if (buf) for (let i = 0; i < buf.length; i += 65536) r.write(buf.subarray(i, i + 65536));
     r.end();
   });
-  const HS1 = 'abcd1234', HS2 = 'wxyz9876', SECRETSTEP = 'QSTEPQ';
+  const HS1 = 'abcd1234', HS2 = 'wxyz9876', SECRETSTEP = 'QSTEPQ', SECRETCODE = 'QCODEQ';
   try {
     await step('bench: refused at start without a password off loopback, and with --no-notes', async () => {
       const a = spawnSync(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '0.0.0.0', '--bench'], { encoding: 'utf8', timeout: 10000, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '' } });
@@ -1833,6 +1833,10 @@ async function benchSteps() {
       ok(b.status === 1 && /cannot go with --no-notes/.test(b.stdout), '--bench with --no-notes: refused');
       const c = spawnSync(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', '--bench', '--proxy', '1'], { encoding: 'utf8', timeout: 10000, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '' } });
       ok(c.status === 1 && /behind a reverse proxy/.test(c.stdout), 'no password, loopback behind --proxy: refused (' + c.status + ')');
+      const d = spawnSync(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', '--bench-scripts', '--token', PASS], { encoding: 'utf8', timeout: 10000, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '' } });
+      ok(d.status === 1 && /--bench-scripts is a part of the headset bench: give --bench/.test(d.stdout), '--bench-scripts without --bench: refused (' + d.status + ')');
+      const e = spawnSync(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', '--bench', '--bench-scripts'], { encoding: 'utf8', timeout: 10000, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '' } });
+      ok(e.status === 1 && /--bench-scripts needs the relay's password .*on a loopback address too/.test(e.stdout), '--bench-scripts without a password, on loopback: refused (' + e.status + ')');
     });
     await step('bench: with no password (loopback only) a page of another origin is refused', async () => {
       const RO = await start(['--static', REPO, '--bench'], { COLLAB_TOKEN: '' });
@@ -1863,7 +1867,10 @@ async function benchSteps() {
       ok((await rq(B, 'GET', '/api/bench', undefined, {})).status === 401 && (await rq(B, 'POST', '/api/bench/jobs', { steps: [{ cmd: 'report' }] }, {})).status === 401, 'without the password: 401');
       ok((await rq(B, 'GET', '/api/ping')).json().bench === true, 'ping says bench: true');
       const s = (await rq(B, 'GET', '/api/bench')).json();
-      ok(Array.isArray(s.headsets) && !s.headsets.length && s.queued === 0 && s.running === 0, 'GET /api/bench: no headsets, nothing queued');
+      ok(Array.isArray(s.headsets) && !s.headsets.length && s.queued === 0 && s.running === 0 && s.scripts === false, 'GET /api/bench: no headsets, nothing queued, scripts false');
+      ok((await rq(B, 'GET', '/api/ping')).json().benchScripts === false, 'ping says benchScripts: false without --bench-scripts');
+      const sx = await rq(B, 'POST', '/api/bench/jobs', { need: 'page', steps: [{ cmd: 'script', code: 'return { x: "' + SECRETCODE + '" };' }] });
+      ok(sx.status === 403 && /runs no scripts.*--bench-scripts/.test(sx.json().error), 'a script step without --bench-scripts: 403 with a plain reason (' + sx.status + ' ' + sx.text.slice(0, 120) + ')');
     });
     let jXr, jHs2, jPage;
     await step('bench: jobs posted and checked; next hands each only to a fitting session and headset', async () => {
@@ -1997,6 +2004,37 @@ async function benchSteps() {
       ok(r.status === 429 && ids.length >= 45, 'the 51st queued: 429 (' + ids.length + ' taken)');
       for (const id of ids) await rq(B, 'POST', `/api/bench/jobs/${id}/delete`, {});
     });
+    // script jobs (SPEC 14): a relay with --bench-scripts (and its password), its own notes' folder
+    await step('bench: --bench-scripts: script jobs taken, checked, listed by length and hash, never logged', async () => {
+      const TS = fs.mkdtempSync(path.join(T, 'scripts-'));
+      const RS = await start(['--static', REPO, '--bench', '--bench-scripts', '--token', PASS, '--notes', TS]);
+      const S = RS.port;
+      ok((await rq(S, 'GET', '/api/ping')).json().benchScripts === true && (await rq(S, 'GET', '/api/bench')).json().scripts === true, 'ping and GET /api/bench say scripts are on');
+      ok((await rq(S, 'POST', '/api/bench/jobs', { need: 'page', steps: [{ cmd: 'script', code: 'return 1;' }] }, {})).status === 401, 'without the password: 401');
+      const code = 'return { secret: "' + SECRETCODE + '", n: args.n };';
+      const p = await rq(S, 'POST', '/api/bench/jobs', { need: 'page', steps: [{ cmd: 'script', code, args: { n: 2 }, limit: 5 }] });
+      ok(p.status === 201, 'a script job: 201');
+      const id = p.json().id;
+      const L = (await rq(S, 'GET', '/api/bench/jobs')).json().jobs, row = L.find(x => x.id === id);
+      ok(row && row.scripts && row.scripts[0].i === 0 && row.scripts[0].bytes === Buffer.byteLength(code) && /^[0-9a-f]{12}$/.test(row.scripts[0].sha) && !JSON.stringify(L).includes(SECRETCODE), 'the listing: the code\'s length and a short hash, never the text (' + JSON.stringify(row && row.scripts) + ')');
+      ok((await rq(S, 'GET', '/api/bench/jobs/' + id)).json().steps[0].code === code, 'GET /api/bench/jobs/<id> gives the text');
+      const n = await rq(S, 'GET', `/api/bench/next?hs=${HS1}&xr=&wait=1`);
+      ok(n.status === 200 && n.json().job.steps[0].code === code, 'the page is handed the code');
+      await rq(S, 'POST', `/api/bench/jobs/${id}/result`, { hs: HS1, ok: true, steps: [{ i: 0, cmd: 'script', ok: true, out: { n: 2 } }] });
+      const bad = async (b, re, what) => { const r = await rq(S, 'POST', '/api/bench/jobs', b); ok(r.status === 400 && re.test(r.json().error), what + ' (' + r.status + ' ' + r.text.slice(0, 100) + ')'); };
+      await bad({ steps: [{ cmd: 'script' }] }, /steps\[0\]\.code/, 'no code: 400');
+      await bad({ steps: [{ cmd: 'script', code: '  ' }] }, /steps\[0\]\.code/, 'empty code: 400');
+      await bad({ steps: [{ cmd: 'script', code: 'return 1;', limit: 0 }] }, /steps\[0\]\.limit/, 'a limit of 0: 400');
+      await bad({ steps: [{ cmd: 'script', code: 'return 1;', args: { s: 'x'.repeat(9000) } }] }, /steps\[0\]\.args/, 'args over 8 KB: 400');
+      await bad({ steps: [{ cmd: 'script', code: 'return 1;', name: 'x' }] }, /steps\[0\]\.name: not a field of script/, 'a probe\'s field on a script: 400');
+      await bad({ from: 'auto', steps: [{ cmd: 'report' }, { cmd: 'script', code: 'return 1;' }] }, /automatic plan never holds a script step/, 'an automatic plan with a script step: 400');
+      ok((await rq(S, 'POST', '/api/bench/jobs', { to: 'adb', steps: [{ cmd: 'script', code: 'return 1;' }] })).status === 400, 'a script step for the adb helper: 400');
+      const big = await rq(S, 'POST', '/api/bench/jobs', { steps: [{ cmd: 'script', code: '// ' + 'x'.repeat(66000) }] });
+      ok(big.status === 413, 'code past the 64 KB job limit: 413 (' + big.status + ')');
+      ok(!RS.out.includes(SECRETCODE) && !RS.out.includes(PASS) && /bench job \S+ queued 1 steps/.test(RS.out) && /script jobs on \(--bench-scripts\)/.test(RS.out), 'its log says the job, never its code or the password');
+      RS.kill();
+      await new Promise(r => RS.once('exit', r));
+    });
     // a restart: the jobs kept in the notes' folder (.bench/), a running job's result still taken
     const run = (await rq(B, 'POST', '/api/bench/jobs', { need: 'any', steps: [{ cmd: 'report' }] })).json().id;
     await rq(B, 'GET', `/api/bench/next?hs=${HS1}&xr=&wait=1`);
@@ -2020,7 +2058,7 @@ async function benchSteps() {
     await step('bench: the log says ids, states and counts, never a step, a result, a report or the password', async () => {
       const all = logText + RC.out;
       ok(/bench job \S+ queued 2 steps/.test(all) && /bench job \S+ taken by abcd1234/.test(all) && /bench job \S+ failed \d+/.test(all) && /bench abcd1234 listening/.test(all), 'the lines it may say are there');
-      ok(!all.includes(SECRETSTEP) && !all.includes(PASS) && !/networks-v232|"cmd"|cdk5/.test(all), 'no step field, result, report or password');
+      ok(!all.includes(SECRETSTEP) && !all.includes(SECRETCODE) && !all.includes(PASS) && !/networks-v232|"cmd"|cdk5/.test(all), 'no step field, script code, result, report or password');
     });
     RC.kill();
   } finally { fs.rmSync(T, { recursive: true, force: true }); }

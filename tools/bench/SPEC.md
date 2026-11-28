@@ -12,11 +12,13 @@ after both have started is agreed in the main conversation first.
 
 ## 1. Decisions, with reasons
 
-1. **Only committed code runs on the headset.** A job is JSON: a list of steps from a fixed list of commands (section
-   5). A `probe` step names a script file in the repository (`bench/probes/<name>.js`), loaded from the page's own
-   origin; a job never carries script text, and a probe never turns a job's arguments into code (no `eval`, `Function`,
+1. **Only committed code runs on the headset** (but for script jobs, below). A job is JSON: a list of steps from a fixed
+   list of commands (section 5). A `probe` step names a script file in the repository (`bench/probes/<name>.js`), loaded
+   from the page's own origin; no other step carries script text, and a probe never turns a job's arguments into code (no `eval`, `Function`,
    `HOST.cur.peek` of an argument). Why: the relay's password is shared by every device of the owner's; with it alone
-   nobody should be able to run code of their own on a headset in the owner's home.
+   nobody should be able to run code of their own on a headset in the owner's home. **The one exception** (the owner,
+   28 November 2026: "can also be uncommitted code if that makes things faster"): a `script` step carries its own code,
+   and runs only on a relay started with a second switch, `--bench-scripts` (section 14).
 2. **The test relay only.** The relay's bench is off unless started with `--bench`, needs the relay's password (section
    4.1), and a page takes jobs only while bench mode is on at that device in developer mode. Never on the main site:
    the main site's relay never gets `--bench`, and the page refuses bench mode on the host `stories.lbi-netmed.com`
@@ -129,7 +131,7 @@ that is not the relay's own (or an `--origin`) is refused 403, so no web page of
 through the API's `Access-Control-Allow-Origin: *`. Kept beside the notes
 (the notebook must be on: `--bench` with `--no-notes` is refused): `<notes>/.bench/` in a folder, `.notes/.bench/` in
 R2, with the stores of `relay/notes.mjs`'s style (`benchFolderStore`, `benchR2Store` in `relay/bench.mjs`, parsing and
-limits there, routes in `server.mjs` as `benchApi`). `/api/ping` adds `bench: true`. Without `--bench` every
+limits there, routes in `server.mjs` as `benchApi`). `/api/ping` adds `bench: true` and `benchScripts: true|false`. Without `--bench` every
 `/api/bench` path answers 404 `{ error: 'this relay has no bench' }`. Everything is behind the password (the API's
 `authOk`, as every endpoint but `/api/health`); CORS as the rest of the API.
 
@@ -138,13 +140,13 @@ limits there, routes in `server.mjs` as `benchApi`). `/api/ping` adds `bench: tr
 
 | Method, path | Who | Body or query | Answer |
 | --- | --- | --- | --- |
-| `GET /api/bench` | cloud, helper | | `{ now, headsets: [{ hs, seen, ago, phase, why, xr, job, adb: { seen, ago } \| null, report }], queued, running }` (a headset is listed for 10 minutes after it was last seen) |
+| `GET /api/bench` | cloud, helper | | `{ now, headsets: [{ hs, seen, ago, phase, why, xr, job, adb: { seen, ago } \| null, report }], queued, running, scripts }` (a headset is listed for 10 minutes after it was last seen; `scripts`: `--bench-scripts` is on) |
 | `POST /api/bench/hello` | page | `{ hs, report }` (report at most 32 KB) | `{ ok, now }`; sent at start, on every phase change, after each job and every 60 s |
 | `GET /api/bench/next?hs=&xr=vr\|ar\|&wait=20` | page | `xr` empty: no session | 200 `{ job }` (state now `running`, `hs` set) or 204 after `wait` seconds (at most 25) with nothing; a job is handed only when its `need` is met and its `hs` (if any) matches |
 | `GET /api/bench/next?role=adb&hs=&wait=20` | adb helper | `hs` the page's id, or `adb` (or none) before the helper has read it | 200 `{ job }` of `to: 'adb'` (as `adb`: only jobs with no `hs`), or 204; also marks the helper seen |
-| `POST /api/bench/jobs` | cloud, page (auto plan) | a job (section 5), at most 64 KB | 201 `{ id }`; 400 `{ error }` naming the first bad field; 507 when 1000 jobs are kept and none has ended; 429 when 50 are queued |
-| `GET /api/bench/jobs?state=&limit=50` | cloud | | `{ jobs: [summary] }`, newest first |
-| `GET /api/bench/jobs/<id>` | cloud, helper | | the whole record (section 5.4) |
+| `POST /api/bench/jobs` | cloud, page (auto plan) | a job (section 5), at most 64 KB (a script step's code counted) | 201 `{ id }`; 400 `{ error }` naming the first bad field (also a script step in a job `from: 'auto'`); 403 a script step without `--bench-scripts`; 507 when 1000 jobs are kept and none has ended; 429 when 50 are queued |
+| `GET /api/bench/jobs?state=&limit=50` | cloud | | `{ jobs: [summary] }`, newest first (a script step's code only as `scripts: [{ i, bytes, sha }]`) |
+| `GET /api/bench/jobs/<id>` | cloud, helper | | the whole record (section 5.4), a script step's code with it |
 | `POST /api/bench/jobs/<id>/progress` | page, helper | `{ hs, step, of, note }` | `{ ok, cancel }`: `cancel: true` when the job was cancelled; also the job's heartbeat |
 | `POST /api/bench/jobs/<id>/result` | page, helper | `{ hs, ok, why, t0, t1, steps, report }` at most 1 MB | `{ ok }`; 409 when the job is not `running` for that `hs` |
 | `POST /api/bench/jobs/<id>/pic?n=1` | page | `image/jpeg`, at most 1 MB, n 1 to 20 | `{ ok, n }` |
@@ -169,7 +171,7 @@ is still taken after a restart. The queue is the stored jobs in `queued`, oldest
 last report) and the helper's last ask live in memory only.
 
 **4.4 What a log line may say.** `bench job <id> queued <n> steps`, `bench job <id> taken by <hs>`, `bench job <id>
-<state> <ms>`, `bench job <id> deleted (old)`, `bench <hs> listening` (once on the first ask after ten minutes away). Never a step's fields, a result, a
+<state> <ms>`, `bench job <id> deleted (old)`, `bench <hs> listening` (once on the first ask after ten minutes away). Never a step's fields (a script's code among them), a result, a
 report, a picture's size beyond bytes, a URL with its query, or the password; the `scrub` of URLs as now.
 
 ## 5. Jobs and results
@@ -203,6 +205,7 @@ characters. At most 200 steps. Unknown fields: 400.
 | `rays` | `hand` 0 or 1 (default 1), `preset` (`sweep`, `circle`, `still`) or `path`, `sec`, `press` (list of `{ at, down }`), `measure` (bool) | pretend controller rays (section 7) | `{ frames, hovers, pressed }` and, measured, the segment |
 | `pic` | `w` (320 to 1280, default 960), `q` (0.5 to 0.92, default 0.8) | the left eye's picture (section 1.7), posted as `pic?n=` | `{ n, w, h, bytes }` or `err` |
 | `probe` | `name` (`^[a-z][a-z0-9-]{0,31}$`), `args` (JSON, at most 8 KB) | runs `bench/probes/<name>.js` (section 10) | what the probe returns, at most 64 KB |
+| `script` | `code` (text: the body of an async function `(api, args)`), `args` (JSON, at most 8 KB), `limit` (seconds, 1 to 3600, optional) | runs the code as a probe runs (section 14); only on a relay with `--bench-scripts` | what the code returns, at most 64 KB |
 | `wait` | `sec` (0 to 600), or `until` `quiet` (`!HOST.busy`, 60 s at most) | waits | `{ waited }` |
 | `reload` | | `HOST.live.reload('bench')`: ends the session; last step only | none (the result is posted before) |
 
@@ -228,7 +231,8 @@ why, at, ended, hs, steps, ok }`. The `result` posted by the page:
 
 `t0`, `t1` are the headset's `Date.now()` (ms): the adb helper reads logcat on the same clock. A step that fails ends
 the job (`ok: false`, `why` its error) unless it has `soft: true`. Errors are plain sentences: `needs a headset session`,
-`no such story: <key>`, `no such probe`, `the probe threw: <message>`, `no picture: <why>`, `timed out after <n> s`,
+`no such story: <key>`, `no such probe`, `the probe threw: <message>`, `the script threw: <message>`, `the script does
+not compile: <message>`, `scripts are off at this relay (it was not started with --bench-scripts)`, `no picture: <why>`, `timed out after <n> s`,
 `cancelled`, `the performance run is on`, `a shared room was joined`.
 
 **5.5 The report**: `{ release (HOST.shell's, networks-vN), served (version.json's), shell: { n, id }, packages: { <key>:
@@ -324,8 +328,14 @@ Node 22, no packages; `NOTES_RELAY` (default the test place) and `NOTES_TOKEN` a
 - `send <cmd> [key=value ...] [--need xr] [--with occl=off,auto=false] [--hs id] [--wait 300] [--no-wait]`: one step
   as a job; values parsed as JSON where they parse, else strings. Waits for the result (polling the record every 2 s)
   and prints it.
-- `run <plan name|file.json> [--wait s]`: a plan (a name reads `bench/plans/<name>.json` from the checkout).
-- `jobs [--state s]`, `show <id> [--md out.md] [--json]`: a job's steps as a table (cmd, ok, seconds, the main figures);
+- `run <plan name|file.json> [--wait s]`: a plan (a name reads `bench/plans/<name>.json` from the checkout). A script
+  step in a plan may say `"file": "<path>"` (beside the plan, or absolute) instead of `code`: the tool reads it in.
+- `script <file.js> [--args '<json>'] [--open <story>] [--need xr|page|any] [--limit s]`: one job, an `open` step
+  first when `--open` says, then the file as a `script` step (section 14); waits and prints as `run` does. `--limit` is
+  the script step's own; the job's limit is at least 300 s and leaves room for it. Exit 2 with *This relay runs no
+  scripts* when the relay was not started with `--bench-scripts` (asked before sending, and on a 403).
+- `jobs [--state s]` (a script step as its code's length and hash), `show <id> [--md out.md] [--json]`: a job's steps
+  as a table (cmd, ok, seconds, the main figures; a script's out as a probe's, its code's length and hash above);
   `measure` and measured `rays` steps as perfrun's segment table plus `lines`, `pts`, `tex`, `geo`, `prog`; the
   helper's `vrapi` summary when there is one; errors.
 - `pic <id> [n] [--out dir]`, `devshot <id> [n] [--out dir]`: saves the images (default the system's temporary
@@ -336,7 +346,8 @@ Node 22, no packages; `NOTES_RELAY` (default the test place) and `NOTES_TOKEN` a
 - `send <cmd> ... --to adb`: one step for the adb helper (`devshot n=1`, `enter`, `open`, `vrapi from= to= job=`);
   exit 3 with *The adb helper is not listening* when the helper has not asked in the last minute.
 
-Exits: 0 done, 1 a job failed or a usage error, 2 the relay refused (401, 404 *this relay has no bench*), 3 no
+Exits: 0 done, 1 a job failed or a usage error, 2 the relay refused (401, 404 *this relay has no bench*, a script on a
+relay without `--bench-scripts`), 3 no
 headset listening (checked before sending, and again when a wait times out with the job still queued).
 
 ## 9. The adb helper (`tools/bench/adb/`, builder TWO)
@@ -447,7 +458,11 @@ keeping jobs, and no step field, result or password in the log. `tools/bench/tes
 bar and the phases (`held` in a room, on the main site's host by an init-script stand-in), a page job (`report`,
 `open`, `seek`, `explore`, `measure` with `lines`, `tex`, `prog`, `probe`, `set` and its put-back also after a reload
 mid-job), and a pretend session (the smoke test's way) for `rays` (hovers counted, the real source connected again
-after) and `pic`. The smoke test gains a block `bench` (`--only bench`): the module loads, the seam is idle.
+after) and `pic`. Script jobs (section 14): `relay/test.mjs --bench` checks the two start refusals, the 403, the
+fields, the listing's length and hash, an automatic plan refused and a log without the code; `tools/bench/test.mjs`
+checks exit 2 without the flag and, on a second relay with it, a script's JSON (with `--open`, `--args`, `api.log`), a
+throw, a compile error, a script over its own limit and a job after it, a plan's script `file`, the page's refusal when
+the relay's ping says scripts are off (the ping answered by Playwright), and a log without the code. The smoke test gains a block `bench` (`--only bench`): the module loads, the seam is idle.
 
 ## 12. Open risks (all untested until the owner tries them on the Quest 3)
 
@@ -514,3 +529,40 @@ text left open.
 - **The test's pretend headset** steps its session on the page's clock (`F.time = performance.now() - 1000 / 72` before
   each step): FPS_FAKE's own clock starts at 0, and a segment fed both clocks measured nonsense. A real session's frame
   times are the page's clock.
+
+## 14. Script jobs (`--bench-scripts`, v232)
+
+The owner, 28 November 2026, of trying a probe on the headset: "can also be uncommitted code if that makes things
+faster". So the cloud can send a probe's body as text and try it at once, without committing and deploying it first.
+
+**The step.** `{ cmd: 'script', code: '<text>', args: {...}, limit?: seconds }`. The code is the body of an async
+function `(api, args)` that returns JSON. It runs through the probe's own path (`runProbe` in `bench.js`): the same
+`api` object (section 10, and 13's `rays`, `session`), the same `args` copy, the same out (an object as it is, anything
+else as `{ value }`, `log` lines added, at most 64 KB as every step) and the same error handling (`the script threw:
+<message>`; a cancel or switch-off still stops the job). It is compiled with the `AsyncFunction` constructor as the
+step starts (`the script does not compile: <message>`). Its time is the job's limit, or `limit` when given (`timed out
+after <n> s`: the step fails, the page goes on with the next job). Only waits through `api` or other awaits are bounded:
+a script that blocks the page's thread (an endless loop) hangs the page until the headset reloads it, as a probe would.
+
+**Three switches.**
+
+1. The relay: `--bench-scripts`, which needs `--bench` (else it refuses to start: *--bench-scripts is a part of the
+   headset bench: give --bench with it*) and always the relay's password, on a loopback address too (*--bench-scripts
+   needs the relay's password ...*). Without it a job holding a script step answers 403 *this relay runs no scripts: a
+   script step needs a relay started with --bench-scripts*. `/api/ping` says `benchScripts: true|false` (with
+   `bench: true`), `GET /api/bench` says `scripts`. A job `from: 'auto'` holding a script step is refused 400.
+2. The page: `bench.js` runs a script step only while bench mode is on and not held (never in a shared room, never on
+   the main site, never with developer mode off), and only after asking the relay it took the job from (`/api/ping`,
+   fresh for every script step) and hearing `benchScripts: true`; else the step fails *scripts are off at this relay*.
+3. The automatic plan: a plan in `bench/plans/` that a headset posts by itself after an update never runs a script
+   step: the page refuses the whole plan (its report's `auto.err` says so) and the relay refuses one from `auto`.
+
+**What the relay keeps and says.** The code is part of the job's record (in the 64 KB job limit), handed to the page by
+`next` and given by `GET /api/bench/jobs/<id>` (behind the password, as everything). The listing gives each script step
+as `{ i, bytes, sha }` (sha256, the first 12 hex digits), never the text; `bench.mjs show` and `jobs` print the same.
+No log line holds the code (4.4).
+
+**The trade-off.** With `--bench-scripts`, anyone holding the relay's password can run anything on a page in bench mode,
+in the owner's home, with the page's own reach (its origin's storage and the relay's password kept there; not the
+passthrough camera, which no page can read). That is why it is a second switch, always behind the password, and never on the main
+site's relay; turn it on for the test place only while trying probes, and commit a probe once it works.

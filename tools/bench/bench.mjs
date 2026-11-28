@@ -3,16 +3,19 @@
 // or a plan file) and wait for its result, list and read results, fetch pictures, cancel, delete. Node 22, no packages.
 // NOTES_RELAY (default the test place) and NOTES_TOKEN (the relay's password; never printed, written or put in an
 // address), as tools/notes/notes.mjs takes them.
-// Exits: 0 done, 1 a job failed or a usage error, 2 the relay refused (401, or 404: this relay has no bench), 3 no headset
+// Exits: 0 done, 1 a job failed or a usage error, 2 the relay refused (401; 404: this relay has no bench; a script job on a
+// relay without --bench-scripts), 3 no headset
 // is listening (checked before sending, and again when a wait ends with the job still queued).
 import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 const RELAY = (process.env.NOTES_RELAY || 'https://stories.lab.lbi-netmed.com').replace(/\/+$/, '');
 const TOKEN = process.env.NOTES_TOKEN || '';
 const HERE = dirname(fileURLToPath(import.meta.url)), ROOT = resolve(HERE, '..', '..');
+const NOSCRIPTS = 'This relay runs no scripts: a script step needs a relay started with --bench-scripts (relay/README.md; never the main site\'s relay).';
 const NOBODY = 'No headset is listening: put bench mode on at the headset (developer mode, Debug tab).';
 const die = (m, code = 1) => { console.error(m); process.exit(code); };
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -45,7 +48,7 @@ function statusMd(s) {
   const rows = s.headsets.map(h => { const R = h.report || {}; return [h.hs, ago(h.ago), h.phase, h.why, h.xr || 'page', R.story, R.mode, R.release, R.battery, h.job, h.adb ? ago(h.adb.ago) : '-']; });
   L.push(rows.length ? table(['headset', 'seen', 'phase', 'why', 'session', 'story', 'mode', 'release', 'battery', 'job', 'adb helper'], rows) : 'No headset seen in the last ten minutes.');
   if (s.adb && s.adb.length) L.push('', 'The adb helper: ' + s.adb.map(a => (a.hs === 'adb' ? 'not yet beside a page' : 'beside ' + a.hs) + ', ' + ago(a.ago) + ' ago').join('; ') + '.');
-  L.push('', `Jobs: ${s.queued} queued, ${s.running} running.`);
+  L.push('', `Jobs: ${s.queued} queued, ${s.running} running. Script jobs: ${s.scripts ? 'on (--bench-scripts)' : 'off'}.`);
   return L.join('\n');
 }
 // a headset that asked within the last minute (the one named, or any)
@@ -69,7 +72,7 @@ function figures(s) {
     case 'measure': return `${o.n} frames, mean ${o.mean} ms, p95 ${o.p95} ms, ${cell(o.miss)} missed`;
     case 'rays': return `${o.frames} frames, ${cell(o.hovers)} hovering, ${o.pressed || 0} presses` + (o.seg ? `; mean ${o.seg.mean} ms, js ${o.seg.js} ms` : '');
     case 'pic': return `picture ${o.n}: ${o.w} x ${o.h}, ${Math.round((o.bytes || 0) / 1024)} KB`;
-    case 'probe': return JSON.stringify(o).slice(0, 160);
+    case 'probe': case 'script': return JSON.stringify(o).slice(0, 160);
     case 'wait': return `${o.waited} s`;
     default: return s.out ? JSON.stringify(s.out).slice(0, 120) : '';
   }
@@ -79,6 +82,8 @@ function showMd(r) {
   const R = (r.result && r.result.report) || {};
   L.push(`- State: **${r.state}**${r.why ? ' (' + r.why + ')' : ''}; ${r.steps.length} steps; asked ${new Date(r.at).toISOString().slice(0, 19).replace('T', ' ')} UTC` + (r.taken ? `, taken ${secs(r.at, r.taken)} s later by ${r.hs}` : '') + (r.ended ? `, ended after ${secs(r.taken || r.at, r.ended)} s` : '') + (r.asked ? `; why: ${r.asked}` : ''));
   if (R.release) L.push(`- ${[R.device, R.model, R.browser].filter(Boolean).join(', ')}; release ${R.release} (served ${cell(R.served)}); ${R.xr ? R.xr.toUpperCase() : 'a page'} at ${cell(R.hz)} Hz${R.eyeW ? `, eye ${R.eyeW} x ${R.eyeH}` : ''}; battery ${cell(R.battery)} %`);
+  const sc = r.steps.map((s, i) => (s && s.cmd === 'script' ? `step ${i + 1}: ${Buffer.byteLength(String(s.code || ''))} B, sha256 ${createHash('sha256').update(String(s.code || '')).digest('hex').slice(0, 12)}` : '')).filter(Boolean);
+  if (sc.length) L.push(`- Script code: ${sc.join('; ')} (the text: show --json)`);
   if (R.settings) L.push(`- Settings: ${Object.entries(R.settings).map(([k, v]) => k + ' ' + cell(v)).join(', ')}`);
   if (r.progress && r.state === 'running') L.push(`- Now: step ${r.progress.step + 1} of ${r.progress.of} (${r.progress.note})`);
   const steps = (r.result && r.result.steps) || [];
@@ -136,9 +141,23 @@ async function postJob(job, o) {
   const s = await heads();
   if (job.to === 'adb') { if (!helping(s).length) die(NOHELPER, 3); }
   else if (!listening(s, o.hs).length) die(NOBODY + (o.hs ? ` (none with the id ${o.hs})` : ''), 3);
+  if (hasScript(job) && !s.scripts) die(NOSCRIPTS, 2);
   const a = await call('/api/bench/jobs', job, { soft: true });
+  if (a.status === 403 && hasScript(job)) die(NOSCRIPTS + (a.j && a.j.error ? ' (' + a.j.error + ')' : ''), 2);
   if (a.status !== 201) die('The job was refused: ' + ((a.j && a.j.error) || a.status));
   return a.j.id;
+}
+const hasScript = job => (job.steps || []).some(x => x && x.cmd === 'script');
+// a plan's script step may name a file ("file": beside the plan, or absolute): read into its code here
+function scriptSteps(steps, dir) {
+  for (const st of steps || []) {
+    if (!st || st.cmd !== 'script' || st.file === undefined) continue;
+    const f = resolve(dir, String(st.file));
+    if (!existsSync(f)) die('No such script file: ' + f);
+    if (st.code !== undefined) die('A script step has a file or code, not both: ' + st.file);
+    st.code = readFileSync(f, 'utf8');
+    delete st.file;
+  }
 }
 const parseVal = v => { try { return JSON.parse(v); } catch (e) { return v; } };
 function finish(r, o) {
@@ -149,7 +168,7 @@ function finish(r, o) {
 
 // ---- the command line
 const argv = process.argv.slice(2), cmd = argv[0];
-const flags = new Set(['--no-wait', '--json']), withVal = new Set(['--need', '--with', '--hs', '--wait', '--md', '--out', '--state', '--label', '--limit', '--to']);
+const flags = new Set(['--no-wait', '--json']), withVal = new Set(['--need', '--with', '--hs', '--wait', '--md', '--out', '--state', '--label', '--limit', '--to', '--args', '--open']);
 const O = {}, pos = [];
 for (let i = 1; i < argv.length; i++) {
   const a = argv[i];
@@ -167,7 +186,12 @@ const USAGE = `Usage: node tools/bench/bench.mjs <command>
                                             probe name=picks args={"sec":10}, wait sec=5)
   send <cmd> [key=value ...] --to adb       one step for the adb helper (devshot n=1, enter, open,
                                             vrapi from=<ms> to=<ms> job=<id>: the headset's statistics onto that job)
-  run <plan name|file.json> [--hs id] [--wait s] [--no-wait] [--md out.md]   a plan (bench/plans/<name>.json)
+  script <file.js> [--args '<json>'] [--open story] [--need xr|page|any] [--limit s] [--hs id] [--wait s] [--no-wait] [--md out.md] [--json]
+                                            the file's code run on the page as a probe is (the body of an async function
+                                            (api, args) returning JSON; only on a relay with --bench-scripts, else exit 2);
+                                            --open opens a story first; --limit: the script's own seconds
+  run <plan name|file.json> [--hs id] [--wait s] [--no-wait] [--md out.md]   a plan (bench/plans/<name>.json; a script
+                                            step may name a "file" beside the plan instead of its code)
   jobs [--state queued,running,...]        the jobs, newest first
   show <id> [--md out.md] [--json]          a job's steps and figures
   pic <id> [n] [--out dir]                  its pictures, saved (default: the system's temporary folder)
@@ -195,6 +219,25 @@ if (cmd === 'status') {
   console.error('Job ' + id + ' queued.');
   if (O['no-wait']) { console.log(id); process.exit(0); }
   process.exit(finish(await waitFor(id, WAIT, O.hs), O));
+} else if (cmd === 'script' && pos[0]) {
+  if (!existsSync(pos[0])) die('No such script file: ' + pos[0]);
+  const step = { cmd: 'script', code: readFileSync(pos[0], 'utf8') };
+  if (O.args !== undefined) { try { step.args = JSON.parse(O.args); } catch (e) { die('--args is not JSON: ' + e.message); } }
+  const lim = O.limit !== undefined ? +O.limit : 0;
+  if (O.limit !== undefined && !(lim >= 1 && lim <= 3600)) die('Usage: --limit 1 to 3600 seconds');
+  if (lim) step.limit = lim;
+  const steps = [];
+  if (O.open) steps.push({ cmd: 'open', story: O.open });
+  steps.push(step);
+  // (the job's own limit leaves room for the open and the script's own limit)
+  const job = { v: 1, label: ('script ' + pos[0].split(/[\\/]/).pop()).slice(0, 80), steps, limit: Math.min(3600, Math.max(300, lim + (O.open ? 150 : 30))) };
+  if (O.need) job.need = O.need;
+  if (O.hs) job.hs = O.hs;
+  if (O.label) job.label = O.label;
+  const id = await postJob(job, O);
+  console.error('Job ' + id + ' queued.');
+  if (O['no-wait']) { console.log(id); process.exit(0); }
+  process.exit(finish(await waitFor(id, Math.max(WAIT, lim + 60), O.hs), O));
 } else if (cmd === 'run' && pos[0]) {
   const f = existsSync(pos[0]) ? pos[0] : join(ROOT, 'bench', 'plans', pos[0].replace(/\.json$/, '') + '.json');
   if (!existsSync(f)) die('No such plan: ' + pos[0] + ' (bench/plans/ has the shipped ones)');
@@ -202,6 +245,8 @@ if (cmd === 'status') {
   try { plan = JSON.parse(readFileSync(f, 'utf8')); } catch (e) { die(f + ' is not JSON: ' + e.message); }
   const page = plan.page;
   delete plan.page;
+  scriptSteps(plan.steps, dirname(resolve(f)));
+  scriptSteps(page, dirname(resolve(f)));
   if (O.hs) plan.hs = O.hs;
   const ids = [];
   if (Array.isArray(page) && page.length) ids.push(await postJob(Object.assign({}, plan, { label: (plan.label || 'plan').slice(0, 68) + ' (page part)', need: 'page', steps: page }), O));
@@ -213,7 +258,7 @@ if (cmd === 'status') {
   process.exit(code);
 } else if (cmd === 'jobs') {
   const j = await call('/api/bench/jobs' + (O.state ? '?state=' + encodeURIComponent(O.state) : '') + (O.state ? '&' : '?') + 'limit=100');
-  console.log(j.jobs.length ? table(['id', 'label', 'state', 'why', 'steps', 'headset', 'ok', 'from'], j.jobs.map(r => [r.id, r.label, r.state, r.why, r.steps, r.hs, r.ok, r.from])) : 'No jobs.');
+  console.log(j.jobs.length ? table(['id', 'label', 'state', 'why', 'steps', 'headset', 'ok', 'from', 'scripts'], j.jobs.map(r => [r.id, r.label, r.state, r.why, r.steps, r.hs, r.ok, r.from, (r.scripts || []).map(x => `step ${x.i + 1}: ${x.bytes} B ${x.sha}`).join(', ')])) : 'No jobs.');
 } else if (cmd === 'show' && pos[0]) {
   process.exit(finish(await call('/api/bench/jobs/' + encodeURIComponent(pos[0])), O) && 0);
 } else if ((cmd === 'pic' || cmd === 'devshot') && pos[0]) {

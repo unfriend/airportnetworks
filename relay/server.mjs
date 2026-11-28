@@ -70,6 +70,9 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   notes: '', 'no-notes': false,
   // --bench: the headset bench's jobs (tools/bench/SPEC.md: a headset in bench mode takes tests from the cloud); off unless given
   bench: false,
+  // --bench-scripts: the bench also takes script jobs (a step's own code, tools/bench/SPEC.md 14); needs --bench and,
+  // always, the relay's password
+  'bench-scripts': false,
   // --nets <dir>: the cell story's shared networks kept in <dir> (else in .nets/ of the scenes' folder, or under .nets/ in
   // R2); --no-nets: none (relay/nets.mjs; relay/README.md, "Shared networks")
   nets: '', 'no-nets': false,
@@ -138,6 +141,9 @@ const HELP = `usage: node relay/server.mjs [options]
   --bench          the headset bench (tools/bench/SPEC.md): jobs the cloud posts for a headset in bench mode, and their
                    results, at /api/bench; kept beside the notes (.notes/.bench/), in memory when the relay keeps no notes.
                    Needs the relay's password unless it listens on a loopback address only. Never on the main site's relay
+  --bench-scripts  the bench also takes script jobs: a step carrying its own code, run on a page in bench mode (tools/bench/
+                   SPEC.md 14). Needs --bench and always the relay's password, loopback or not: anyone holding the password
+                   can run anything on a page in bench mode. Never on the main site's relay
   --nets <dir>     the cell story's shared networks (protein pairs a page shared, POST /api/nets, listed at GET /api/nets):
                    kept in <dir>. Without it they are kept in .nets/ inside the --scenes folder (or under .nets/ in the R2
                    bucket) whenever the relay keeps scenes
@@ -319,6 +325,8 @@ if (NOTES_WANT && !NOTES_ON) console.log('--public without a password keeps no n
 const LOOPBACK_HOST = /^(127\.\d+\.\d+\.\d+|::1|localhost)$/i.test(String(OPT.host).trim());
 if (OPT.bench && OPT['no-notes']) { console.log('--bench keeps its jobs beside the notes: it cannot go with --no-notes'); process.exit(1); }
 if (OPT.bench && !TOKEN && OPT.proxy) { console.log('--bench needs the relay\'s password (COLLAB_TOKEN or --token) behind a reverse proxy (--proxy): a loopback address behind one is open to anyone the proxy lets in'); process.exit(1); }
+if (OPT['bench-scripts'] && !OPT.bench) { console.log('--bench-scripts is a part of the headset bench: give --bench with it'); process.exit(1); }
+if (OPT['bench-scripts'] && !TOKEN) { console.log('--bench-scripts needs the relay\'s password (COLLAB_TOKEN or --token), on a loopback address too: a script job runs any code on a page in bench mode'); process.exit(1); }
 if (OPT.bench && !TOKEN && !LOOPBACK_HOST) { console.log('--bench needs the relay\'s password (COLLAB_TOKEN or --token): a job drives a headset in someone\'s home. Without one it runs only on a loopback address (--host 127.0.0.1)'); process.exit(1); }
 // shared networks (relay/nets.mjs; the cell story's own networks, shared on purpose by a page): as the notes, wherever the
 // relay keeps scenes or with --nets <dir>; never on a public server without a password (anyone could write into it)
@@ -1185,7 +1193,7 @@ function api(req, res, url) {
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
   // (versions: a room moves on to a newer version of the app, takeOver; reload: POST /api/rooms/<code>/reload, v136)
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(BENCH ? { bench: true } : {}), ...(NETS_ON ? { nets: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true, talk: true });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(BENCH ? { bench: true, benchScripts: BENCH_SCRIPTS } : {}), ...(NETS_ON ? { nets: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true, talk: true });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -3028,6 +3036,7 @@ async function logsApi(req, res, url) {
 // asks for its own jobs and attaches its frame statistics and device screenshots. Kept beside the notes (.notes/.bench/),
 // in memory when the relay keeps none. A headset (its id, phase and last report) and the helper's last ask live in memory
 // only. Log lines say ids, states, counts of steps and ms; never a step's fields, a result, a report or the password
+const BENCH_SCRIPTS = !!(OPT.bench && OPT['bench-scripts']);
 const BENCH = !OPT.bench ? null : benchJobs(!NOTES ? benchMemoryStore() : NOTES_DIR ? benchFolderStore(path.join(NOTES_DIR, BENCH_DIR)) : R2C ? benchR2Store(RX, R2C.prefix + '.notes/' + BENCH_DIR + '/') : benchFolderStore(path.join(SCENES, '.notes', BENCH_DIR)));
 const BH = { heads: new Map(), adb: new Map(), waiters: new Set(), polls: 0, timer: null };
 const benchWake = () => { for (const w of [...BH.waiters]) w(); };
@@ -3104,7 +3113,7 @@ async function benchApi(req, res, url) {
         heads.push({ hs: h.hs, seen: h.seen, ago: Math.round((now - h.seen) / 1000), phase: h.phase, why: h.why, xr: h.xr, job: h.job, adb: a ? { seen: a, ago: Math.round((now - a) / 1000) } : null, report: h.report });
       }
       const helper = [...BH.adb.entries()].filter(([, t]) => now - t <= 600000).map(([hs, t]) => ({ hs, seen: t, ago: Math.round((now - t) / 1000) }));
-      return json(res, 200, { now, headsets: heads.sort((a, b) => b.seen - a.seen), adb: helper, queued: all.filter(r => r.state === 'queued').length, running: all.filter(r => r.state === 'running').length }, noStore);
+      return json(res, 200, { now, headsets: heads.sort((a, b) => b.seen - a.seen), adb: helper, queued: all.filter(r => r.state === 'queued').length, running: all.filter(r => r.state === 'running').length, scripts: BENCH_SCRIPTS }, noStore);
     }
     if (what === 'hello') {
       if (id) return no(404, 'no such endpoint');
@@ -3169,6 +3178,8 @@ async function benchApi(req, res, url) {
       if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'GET, POST' });
       const b = await benchJson(req, res, MAX_JOB, 'a job');
       if (b === undefined) return;
+      // (a script step: only with --bench-scripts; never in an automatic plan, which parseJob refuses)
+      if (!BENCH_SCRIPTS && b && Array.isArray(b.steps) && b.steps.some(s => s && s.cmd === 'script')) return json(res, 403, { error: 'this relay runs no scripts: a script step needs a relay started with --bench-scripts' });
       const r = parseJob(b);
       if (r.error) return json(res, 400, { error: r.error });
       // (room made by deleting the oldest ended jobs; 507 only when every kept job is still queued or running)
@@ -3646,7 +3657,7 @@ server.listen(OPT.port, OPT.host, () => {
       (FFMPEG ? `long sounds made mono MP3 by ffmpeg (${FFMPEG})` : 'no ffmpeg found, so long sounds are kept as they are (install ffmpeg, or --ffmpeg <path>)') : ''))).then(() => (R2C && R2UP.ok ? r2Checks() : null))
     .catch(err => log('scenes: ' + err.message));
   if (NETS) console.log(`Shared networks (POST /api/nets, the cell story's Network tab) kept ${NETS_DIR ? 'in ' + NETS_DIR : R2C ? 'in the R2 bucket, under ' + R2C.prefix + '.nets/' : 'in ' + path.join(SCENES, '.nets')}`);
-  if (BENCH) console.log(`The headset bench (/api/bench, tools/bench/SPEC.md): jobs kept ${BENCH.where === 'memory' ? 'in memory only (no notes here: give --notes <dir> to keep them across a restart)' : 'in ' + BENCH.where}`);
+  if (BENCH) console.log(`The headset bench (/api/bench, tools/bench/SPEC.md): jobs kept ${BENCH.where === 'memory' ? 'in memory only (no notes here: give --notes <dir> to keep them across a restart)' : 'in ' + BENCH.where}${BENCH_SCRIPTS ? '; script jobs on (--bench-scripts): anyone with the password can run code on a page in bench mode' : ''}`);
   if (NOTES) console.log(`Developer notes (POST /api/notes, the page at /notes/) kept ${NOTES_DIR ? 'in ' + NOTES_DIR : R2C ? 'in the R2 bucket, under ' + R2C.prefix + '.notes/' : 'in ' + path.join(SCENES, '.notes')}`);
   // a public server: what it allows, said once (never the log token)
   if (ORIGIN_RULE) console.log(`Only pages from ${[...ORIGINS].join(', ')} and the relay's own may open a socket or read the API` +

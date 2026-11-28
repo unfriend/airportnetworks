@@ -4,9 +4,11 @@
 // covered". Bench mode is this device's own, developer mode only, never in a shared room and never on the main site: it
 // asks the relay (started with --bench) for jobs by long poll (GET /api/bench/next, the relay's password as a Bearer
 // header), runs each job's steps from a fixed list of commands (report, open, seek, play, pause, explore, set, measure,
-// rays, pic, probe, wait, reload), and posts the result back. Only committed code runs: a probe is a file of
-// bench/probes/ loaded by name from this origin; a job never carries script text, and nothing here turns a job's field
-// into code. The headset settings a job sets are borrowed (benchBorrow) and put back as it ends, after a crash or a reload
+// rays, pic, probe, script, wait, reload), and posts the result back. A probe is a file of bench/probes/ loaded by name
+// from this origin. The one exception to committed code (the owner, 28 November 2026: "can also be uncommitted code if
+// that makes things faster") is a script step (SPEC 14): its code run as a probe is, only when the relay it came from
+// says it was started with --bench-scripts (which always needs the password), never on the main site, only while bench
+// mode is on, and never from the automatic plan. Nothing else here turns a job's field into code. The headset settings a job sets are borrowed (benchBorrow) and put back as it ends, after a crash or a reload
 // too. Segments are measured by perfrun.js's recorder (HOST.perfRun.rec); the eye picture is read back as the notebook
 // reads it (notes.js grab); pretend controller rays go through the groups three.js owns, from index.html's one seam
 // (makeRenderer's frame wrapper: pre before the story's frame, post after it). Nothing here is a room's, a story's state
@@ -32,7 +34,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   // run after an update; phase, why: what the bar and the line say; job: the job running; press: #benchEnter's presses;
   // misses, cuts: asks that went unanswered, long polls cut short; waiting: jobs queued that need a session
   const B = { on: false, until: 0, hs: '', want: 'ar', plan: 'dev', phase: 'off', why: '', job: null, press: { n: 0, trusted: false, at: 0, err: '' },
-    misses: 0, cuts: 0, waiting: 0, auto: null, loop: 0, ac: null, relay: null, pingAt: 0, helloAt: 0, helloSig: '', idleSince: 0, sig: 0, errs: 0, frameN: 0, picWant: null, rays: null, probes: {}, loading: '', back: '', fell: null };
+    misses: 0, cuts: 0, waiting: 0, auto: null, scripts: false, loop: 0, ac: null, relay: null, pingAt: 0, helloAt: 0, helloSig: '', idleSince: 0, sig: 0, errs: 0, frameN: 0, picWant: null, rays: null, probes: {}, loading: '', back: '', fell: null };
   const T = { ask: 20, idle: 20000, hello: 60000, lostMs: 30000 };   // (tests shorten them: test())
   const bump = () => { B.sig++; paint(); };
   // this device's id: eight letters and digits, made once
@@ -158,7 +160,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     try { a = await call('/api/ping', { ms: 8000 }); } catch (e) { return 'no relay'; }
     if (a.status === 401) return 'the relay wants its password';
     if (!a.j || !a.j.bench) return 'the relay has no bench';
-    B.pingOk = true;
+    B.pingOk = true; B.scripts = !!a.j.benchScripts;
     return '';
   }
 
@@ -251,6 +253,8 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     let plan = null;
     try { const r = await fetch('bench/plans/' + B.plan + '.json?t=' + Date.now(), { cache: 'no-store' }); if (r.ok) plan = await r.json(); } catch (e) { /* no plan file */ }
     if (!plan || !Array.isArray(plan.steps)) return false;
+    // (never a script step in the plan a headset posts by itself: SPEC 14; the relay refuses one from 'auto' too)
+    if ([...plan.steps, ...(Array.isArray(plan.page) ? plan.page : [])].some(x => x && x.cmd === 'script')) { B.auto = { at: Date.now(), status: 0, err: 'the plan ' + B.plan + ' holds a script step: refused' }; B.idleSince = now(); return false; }
     const why = 'update: ' + (was.shell !== s.shell ? 'shell ' + G(() => HOST.shell.n, '') : 'the packages changed');
     const base = Object.assign({}, plan, { from: 'auto', why, hs: B.hs });
     delete base.page;
@@ -359,7 +363,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     }
     if (J.reload && B.on) setTimeout(() => G(() => HOST.live.reload('bench')), 300);
   }
-  const limitOf = s => ({ open: (s.scene ? 75 : 90) * 1000 + 30000, measure: (+s.sec || 1) * 3000 + 30000, rays: (+s.sec || 10) * 3000 + 30000, wait: s.until ? 65000 : (+s.sec || 0) * 1000 + 5000, pic: 15000, report: 20000 })[s.cmd] || 3600000;
+  const limitOf = s => (s.cmd === 'script' && +s.limit > 0 ? Math.min(3600, +s.limit) * 1000 : 0) || ({ open: (s.scene ? 75 : 90) * 1000 + 30000, measure: (+s.sec || 1) * 3000 + 30000, rays: (+s.sec || 10) * 3000 + 30000, wait: s.until ? 65000 : (+s.sec || 0) * 1000 + 5000, pic: 15000, report: 20000 })[s.cmd] || 3600000;
 
   // ------------------------------------------------------------------ the commands (SPEC 5.2) --
   async function step(s, J, rec) {
@@ -405,6 +409,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       case 'rays': return rays(s, J, rec);
       case 'pic': return pic(s, J);
       case 'probe': return runProbe(s.name, s.args, J);
+      case 'script': return runProbe('', s.args, J, s.code);
       case 'wait':
         if (s.until === 'quiet') { const t0 = now(); await until(() => !HOST.busy, 60000, 'the app stayed busy', J); return { waited: r2((now() - t0) / 1000) }; }
         await sleep((+s.sec || 0) * 1000);
@@ -618,9 +623,25 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       HOST.quietly(() => document.head.appendChild(sc));
     });
   }
-  async function runProbe(name, args, J) {
-    if (!KEYRE.test(String(name))) throw new Error('no such probe');
-    const fn = await loadProbe(name), lines = [];
+  // a script step's code (SPEC 14): compiled as the body of an async function (api, args), only when this page may run it;
+  // asked of the relay afresh, as the job came from it
+  const AsyncFn = Object.getPrototypeOf(async function () {}).constructor;
+  async function scriptFn(code) {
+    if (!B.on) throw new Error('bench mode is off');
+    const h = heldWhy();
+    if (h) throw new Error('no scripts here: ' + h);
+    if (typeof code !== 'string' || !code.trim() || code.length > 65536) throw new Error('the script is empty or over 64 KB');
+    let a = null;
+    try { a = await call('/api/ping', { ms: 8000 }); } catch (e) { a = null; }
+    B.scripts = !!(a && a.j && a.j.bench && a.j.benchScripts);
+    if (!B.scripts) throw new Error('scripts are off at this relay (it was not started with --bench-scripts)');
+    try { return new AsyncFn('api', 'args', code); } catch (e) { throw new Error('the script does not compile: ' + String(e && e.message || e).slice(0, 200)); }
+  }
+  // a probe by name, or (code given) a script step's code: the same api, limits and error handling for both
+  async function runProbe(name, args, J, code) {
+    const what = code === undefined ? 'probe' : 'script';
+    if (what === 'probe' && !KEYRE.test(String(name))) throw new Error('no such probe');
+    const fn = what === 'probe' ? await loadProbe(name) : await scriptFn(code), lines = [];
     const copy = () => JSON.parse(JSON.stringify(args === undefined ? null : args));
     const rec = HOST.perfRun && HOST.perfRun.rec;
     const api = Object.freeze({
@@ -634,7 +655,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       log: t => { if (lines.length < 50) lines.push(String(t).slice(0, 300)); },
     });
     let v;
-    try { v = await fn(api, copy()); } catch (e) { if (e instanceof Stop) throw e; throw new Error('the probe threw: ' + String(e && e.message || e).slice(0, 200)); }
+    try { v = await fn(api, copy()); } catch (e) { if (e instanceof Stop) throw e; throw new Error('the ' + what + ' threw: ' + String(e && e.message || e).slice(0, 200)); }
     const o = v && typeof v === 'object' && !Array.isArray(v) ? Object.assign({}, v) : { value: v === undefined ? null : v };
     if (lines.length) o.log = lines;
     return o;

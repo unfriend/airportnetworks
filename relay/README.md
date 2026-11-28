@@ -212,6 +212,16 @@ screenshot 4 MB (5 a job); in memory at most 32 headsets and 32 helpers (ten min
 The log says only `bench job <id> queued <n> steps`, `taken by <hs>`, `<state> <ms>`, `deleted (old)` and `bench <hs> listening`: never a
 step, a result, a report or the password. Its tests: `node relay/test.mjs --bench`, `node tools/bench/test.mjs`.
 
+**`--bench-scripts`** (v232, `tools/bench/SPEC.md` 14) also lets a job carry its own code (a `script` step: a probe not
+yet committed, sent by `node tools/bench/bench.mjs script <file.js>`), run on a page in bench mode. The trade-off in plain
+words: with this flag, anyone holding the relay's password can run anything on a page in bench mode, on a headset in
+someone's home, with what that page can reach (the relay's password kept in it among them). So it needs `--bench` and
+always the password, on a loopback address too (the relay refuses to start otherwise); never put it on the main site's
+relay, and on the test place add it to `RELAY_ARGS` only while trying probes. Without it a job with a script step is
+refused 403. `/api/ping` says `benchScripts: true|false`, `GET /api/bench` says `scripts`. The listing gives a script's
+length and a short hash, never its text (`GET /api/bench/jobs/<id>` gives the text); no log line holds the code, and the
+code counts in the 64 KB job limit.
+
 ## Where the rest is
 
 This file is for running a relay. The rest of what used to be here, word for word, is in `relay/docs/`:

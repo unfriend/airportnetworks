@@ -24,6 +24,7 @@ const KEYRE = /^[a-z][a-z0-9-]{0,31}$/, NAMERE = /^[\w .-]{1,80}$/;
 const PAGE_CMDS = {
   report: [], open: ['story', 'scene', 'src'], seek: ['chapter', 't', 'play'], play: [], pause: [], explore: ['tab'], set: ['name', 'value'],
   measure: ['sec', 'name'], rays: ['hand', 'preset', 'path', 'sec', 'press', 'measure'], pic: ['w', 'q'], probe: ['name', 'args'], wait: ['sec', 'until'], reload: [],
+  script: ['code', 'args', 'limit'],   // (SPEC 14: only on a relay with --bench-scripts, which server.mjs checks before this)
 };
 const ADB_CMDS = { devshot: ['n'], enter: [], open: [], vrapi: ['from', 'to', 'job'] };
 const JOB_FIELDS = new Set(['v', 'label', 'to', 'need', 'hs', 'with', 'sound', 'limit', 'ttl', 'adb', 'from', 'why', 'steps']);
@@ -91,6 +92,11 @@ function stepError(s, i, to) {
       if (typeof s.name !== 'string' || !KEYRE.test(s.name)) return `${at}.name: a probe's name (a-z, 0-9, -)`;
       if (has('args') && JSON.stringify(s.args).length > 8192) return `${at}.args: at most 8 KB`;
       break;
+    case 'script':
+      if (typeof s.code !== 'string' || !s.code.trim()) return `${at}.code: the body of an async function (api, args), as text`;
+      if (has('args') && JSON.stringify(s.args).length > 8192) return `${at}.args: at most 8 KB`;
+      if (has('limit') && !num(s.limit, 1, 3600)) return `${at}.limit: 1 to 3600 seconds`;
+      break;
     case 'wait':
       if (has('sec') === has('until')) return `${at}: sec or until`;
       if (has('sec') && !num(s.sec, 0, 600)) return `${at}.sec: 0 to 600`;
@@ -129,6 +135,7 @@ export function parseJob(b) {
   if (b.why !== undefined && (typeof b.why !== 'string' || b.why.length > 120)) return { error: 'why: a string of at most 120 characters' };
   if (!Array.isArray(b.steps) || !b.steps.length || b.steps.length > MAX_STEPS) return { error: `steps: a list of 1 to ${MAX_STEPS} steps` };
   for (const [i, s] of b.steps.entries()) { const e = stepError(s, i, to); if (e) return { error: e }; }
+  if (b.from === 'auto' && b.steps.some(s => s.cmd === 'script')) return { error: 'steps: an automatic plan never holds a script step' };
   const light = b.steps.every(s => s.cmd === 'report' || s.cmd === 'wait');
   const job = {
     v: 1, label: b.label || b.steps.map(s => s.cmd).slice(0, 4).join(', '), to, need: b.need || (to === 'adb' || light ? 'any' : 'xr'), hs: b.hs || '',
@@ -161,8 +168,13 @@ export function parseAdb(b) {
   return { adb: { vrapi: b.vrapi || null, notes: typeof b.notes === 'string' ? b.notes.slice(0, 2000) : '', at: Date.now() } };
 }
 
-// a job's row in the listing
-export const summary = r => ({ id: r.id, label: r.label, state: r.state, why: r.why || '', at: r.at, ended: r.ended || 0, hs: r.hs || '', steps: r.steps.length, ok: r.result ? !!r.result.ok : null, from: r.from, to: r.to, need: r.need });
+// a script step's code as the listing and the tool name it: its length and a short hash (sha256, 12 hex), never the text
+export const codeTag = code => ({ bytes: Buffer.byteLength(String(code)), sha: crypto.createHash('sha256').update(String(code)).digest('hex').slice(0, 12) });
+// a job's row in the listing (a script step's code only as its length and hash: GET /api/bench/jobs/<id> gives the text)
+export const summary = r => {
+  const sc = (r.steps || []).map((s, i) => (s && s.cmd === 'script' ? { i, ...codeTag(s.code) } : null)).filter(Boolean);
+  return { id: r.id, label: r.label, state: r.state, why: r.why || '', at: r.at, ended: r.ended || 0, hs: r.hs || '', steps: r.steps.length, ok: r.result ? !!r.result.ok : null, from: r.from, to: r.to, need: r.need, ...(sc.length ? { scripts: sc } : {}) };
+};
 // the bytes a job keeps: its pictures, device screenshots, result and helper's lines (rb and ab: their JSON's length,
 // stamped as they are posted)
 export const bytesOf = r => [...(r.pics || []), ...(r.devshots || [])].reduce((a, e) => a + (e.bytes || 0), 0) + (r.rb || 0) + (r.ab || 0);

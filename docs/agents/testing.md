@@ -4,17 +4,17 @@
 - 25: When the suites run (1.5 KB)
 - 41: Which suite after which change (2.3 KB)
 - 69: Listing the tests and the docs' tools (3.0 KB)
-- 105: The smoke test (`tools/smoke.mjs`) (19.3 KB)
+- 105: The smoke test (`tools/smoke.mjs`) (19.5 KB)
   - 152: Smoke blocks (9.8 KB)
   - 224: `--only <words>` and `--block <id>` (1.7 KB)
   - 243: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-  - 253: The headset bench: testing on the real Quest from the cloud (v232) (2.4 KB)
-- 278: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
-- 345: Other tools (5.6 KB)
-- 372: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 381: Known red results on this machine (8.2 KB)
-- 416: Traps for a test writer (4.7 KB)
-- 464: Useful URL hashes and the console (4.8 KB)
+  - 253: The headset bench: testing on the real Quest from the cloud (v232) (2.6 KB)
+- 280: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
+- 347: Other tools (5.6 KB)
+- 374: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 383: Known red results on this machine (8.2 KB)
+- 418: Traps for a test writer (4.7 KB)
+- 466: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -255,7 +255,8 @@ report results.
 When a change can only be judged on the owner's Quest 3 (a frame rate, a picking cost, a picture of what an eye draws,
 a setting's effect in a real session) and the owner has left a headset in bench mode (`docs/agents/shell.md`, "The
 headset bench"; `tools/bench/SPEC.md`), the cloud runs it there itself: `node tools/bench/bench.mjs status`, then
-`send <cmd> ...` or `run <plan>` (`quick` a few minutes, `dev` about 15, `picking`), `show`, `pic`. It needs the test
+`send <cmd> ...` or `run <plan>` (`quick` a few minutes, `dev` about 15, `picking`), `show`, `pic`; a probe not yet
+committed with `script <file.js>` (only where the relay runs `--bench-scripts`; exit 2 otherwise: commit it as a probe). It needs the test
 place's relay (started with `--bench`) and its password (`NOTES_TOKEN`); exit 3 means no headset listens: say so and
 report the change as untested on a device. Use it after a push to `dev` has deployed (the headset runs what the test
 place serves; a new shell needs a person, or the adb helper, to enter AR again), one job at a time, and post its
@@ -269,7 +270,8 @@ result: say which headset (`hs`), release and settings it ran with. Jobs read an
 
 `node tools/bench/test.mjs [--shots dir]` (about 6 min) is the bench's own test in headless Chromium: its own relay
 (`--bench`, a random password, a free port), the smoke test's pretend AR headset (`XR_SEAT`, `FPS_FAKE` read out of
-`tools/smoke.mjs`, its frames on the page's clock), and only `tools/bench/bench.mjs` to drive it; `node relay/test.mjs
+`tools/smoke.mjs`, its frames on the page's clock), and only `tools/bench/bench.mjs` to drive it (script jobs on a second
+relay with `--bench-scripts`, on a page without a session); `node relay/test.mjs
 --bench` is the relay's part (seconds). Run both after touching `bench.js`, `relay/bench.mjs`, the bench's routes or
 `tools/bench/bench.mjs`. `node tools/bench/adb/test.mjs [--tmp dir]` (about 2 min) is the adb helper's, against a
 stand-in adb, a stand-in relay and a local Chromium (a headset clock five minutes ahead, a pinch-zoomed page among its
