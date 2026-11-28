@@ -11,7 +11,8 @@
 //   looking about, AR occlusion on and off, the Stories screen, a studio example), each with Done and Skip.
 // Each segment (a load, a chapter, a tab, a scene, a step) is measured from the story's frames (HOST.loading.wrap calls
 // frame()), and kept as a result on this device (localStorage perfRunLast), sent to the relay as events of the developer
-// notebook's run log when developer mode is on (notes.js runEvent: 'perfrun', 'seg', 'perfend'), and offered as JSON on a
+// notebook's run log when developer mode is on (notes.js runEvent: 'perfrun', 'seg', 'perfend'; v231 the errors and
+// warnings caught, 'err', 'errn', 'errcap'), and offered as JSON on a
 // page. node tools/notes/notes.mjs perfrun <id|file> [<id|file>] turns one or two into Markdown. Progress is kept in
 // localStorage (perfRun) so a reload picks the run up. Nothing here is a room's, a story's state or a stored setting: the
 // settings it changes (automatic quality pinned off on request, occlusion in the hands-on AR steps, the studio's last
@@ -57,7 +58,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   // raw settings to put back; seg: the segment being measured; card: what the card shows; hud: the read-out's line
   const R = { on: false, part: '', want: null, id: '', opts: null, plan: [], i: 0, cur: -1, segs: [], info: null, saved: null, at: 0, xr: '', t0: 0,
     seg: null, lastT: 0, firstFor: '', firstAt: 0, card: null, cardN: 0, hud: '', hudOff: false, sig: 0, done: null, handsAns: '', paused: '', resumeP: null, resumeFn: null,
-    errN: 0, errs: [], qlog: [], q: undefined, lost: 0, logOwn: false, rel: '', batt0: null, quietUntil: 0, stopWhy: '', cardFn: null, hz: 0, hzHow: '', ending: false, endP: null, stopW: [], set0: 0 };
+    errN: 0, errs: [], emap: [], ecut: 0, ecap: false, qlog: [], q: undefined, lost: 0, logOwn: false, rel: '', batt0: null, quietUntil: 0, stopWhy: '', cardFn: null, hz: 0, hzHow: '', ending: false, endP: null, stopW: [], set0: 0 };
   const T = { tick: 200 };   // (tests)
   let lastSum = null;   // (line(): the last result's line)
   const bump = () => { R.sig++; paint(); };
@@ -101,7 +102,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   // ------------------------------------------------------------------ progress, kept across a reload --
   function save() {
     if (!R.on && !R.paused) return;
-    const s = { v: V, id: R.id, part: R.part, opts: R.opts, plan: R.plan, i: R.i, cur: R.cur, segs: R.segs, info: R.info, saved: R.saved, at: R.at, xr: R.xr, errs: R.errs.slice(-30), errN: R.errN, qlog: R.qlog.slice(-60), batt0: R.batt0, logOwn: R.logOwn, rel: shellRel(), hz: R.hz, hzHow: R.hzHow };
+    const s = { v: V, id: R.id, part: R.part, opts: R.opts, plan: R.plan, i: R.i, cur: R.cur, segs: R.segs, info: R.info, saved: R.saved, at: R.at, xr: R.xr, errs: R.errs.slice(-30), errN: R.errN, emap: R.emap, ecut: R.ecut, ecap: R.ecap, qlog: R.qlog.slice(-60), batt0: R.batt0, logOwn: R.logOwn, rel: shellRel(), hz: R.hz, hzHow: R.hzHow };
     let j = JSON.stringify(s);
     if (j.length > 1500000) { s.qlog = []; s.errs = s.errs.slice(-5); j = JSON.stringify(s); }
     put(KEY, j);
@@ -134,13 +135,46 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   function pin() { if (R.opts && R.opts.aq === 'off' && HOST.xr.setAuto && HOST.xr.auto()) HOST.xr.setAuto(false); }
 
   // ------------------------------------------------------------------ errors and the WebGL context, caught while running --
-  const CON = { error: console.error, warn: console.warn };
+  // (v231) Each distinct message goes into the run log as it first comes ('err': i its number, at the seconds into the run,
+  // seg the segment or '' between segments, lvl 'error' or 'warn', story, msg); the same message again is only counted, and
+  // the counts go as 'errn' { i, n } as the run ends. At most ERRMAX distinct messages are sent a run ('errcap' once when the
+  // cap is hit; the rest are counted, perfend errcut). R.emap: the distinct messages, kept with the run's progress and in the
+  // result (errlist). A message never holds an address's query or hash (where a room's code, a password or a name would
+  // sit), a Bearer token or a relay password this device keeps (tools/notes/SPEC.md, "Run logs")
+  const CON = { error: console.error, warn: console.warn }, ERRMAX = 60, ERRLEN = 180;
+  const relayToks = () => G(() => { const o = JSON.parse(get('relayTokens') || '{}'); return Object.values(o && typeof o === 'object' ? o : {}).filter(t => typeof t === 'string' && t.length >= 3); }, []);
+  function cleanMsg(s) {
+    s = String(s)
+      .replace(/\b([a-z][a-z0-9+.-]*:\/\/[^\s?#'"`<>()[\]{}]*)[?#][^\s'"`<>()[\]{}]*/gi, '$1')   // (an address: its query and hash go)
+      .replace(/(^|[\s'"`(=:])([^\s'"`()]*\/)?[?#](?=[\w%.-]+=)[^\s'"`<>()]*/g, '$1$2')   // (a query or hash on its own: ?s=XYZ, #s=XYZ&visit)
+      .replace(/\b(Bearer|token|password|pw)(\s*[:=]?\s*)[^\s'"`,;)]+/gi, '$1$2…');
+    for (const t of relayToks()) s = s.split(t).join('…');
+    s = s.replace(/\s+/g, ' ').trim();
+    return s.length > ERRLEN ? s.slice(0, ERRLEN - 1) + '…' : s;
+  }
+  const segLabel = () => (R.seg ? (R.seg.kind + ' ' + R.seg.story + ' ' + R.seg.key).trim() : '');
   function caught(kind, a) {
     if (!R.on) return;
-    const msg = (kind + ': ' + [].map.call(a, x => (x && x.stack ? String(x.message || x) : typeof x === 'object' ? G(() => JSON.stringify(x), String(x)) : String(x))).join(' ')).slice(0, 200);
+    const raw = [].map.call(a, x => (x && x.stack ? String(x.message || x) : typeof x === 'object' ? G(() => JSON.stringify(x), String(x)) : String(x))).join(' ');
+    const msg = G(() => cleanMsg(raw), 'a message that could not be read'), at = Math.round((Date.now() - R.at) / 1000), seg = segLabel(), lvl = kind === 'error' ? 'error' : 'warn';
     R.errN++; if (R.seg) R.seg.errs++;
-    if (R.errs.length < 100) R.errs.push({ at: Math.round((Date.now() - R.at) / 1000), seg: R.seg ? R.seg.kind + ' ' + R.seg.story + ' ' + R.seg.key : '', msg });
+    if (R.errs.length < 100) R.errs.push({ at, seg, msg: kind + ': ' + msg });
+    const k = lvl + ' ' + msg, e = R.emap.find(x => x.k === k);
+    if (e) { e.n++; return; }
+    if (R.emap.length >= ERRMAX) {
+      R.ecut++;
+      if (!R.ecap) { R.ecap = true; runEvent('errcap', { at, max: ERRMAX }); }
+      return;
+    }
+    const x = { k, i: R.emap.length + 1, n: 1, at, seg, lvl, story: HOST.curKey || '', msg };
+    R.emap.push(x);
+    x.sent = errSend(x);
   }
+  const errSend = x => runEvent('err', { i: x.i, at: x.at, seg: x.seg, lvl: x.lvl, story: x.story, msg: x.msg });
+  const errList = () => R.emap.map(x => ({ i: x.i, n: x.n, at: x.at, seg: x.seg, lvl: x.lvl, story: x.story, msg: x.msg }));
+  const errKept = list => (Array.isArray(list) ? list.filter(x => x && typeof x.msg === 'string').slice(0, ERRMAX).map(x => Object.assign({ k: (x.lvl || 'error') + ' ' + x.msg }, x)) : []);
+  // the repeats' counts, sent once as the run ends
+  function errCounts() { for (const x of R.emap) if (x.n > 1) runEvent('errn', { i: x.i, n: x.n }); }
   console.error = function (...a) { caught('error', a); return CON.error.apply(console, a); };
   console.warn = function (...a) { caught('warning', a); return CON.warn.apply(console, a); };
   document.addEventListener('visibilitychange', () => { R.lastT = 0; });   // (frame(): the interval across a hidden page is not counted)
@@ -215,7 +249,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     }
     return o;
   }
-  function runEvent(ev, o) { try { if (HOST.notes && HOST.notes.runEvent) HOST.notes.runEvent(ev, o); } catch (e) { /* no run log */ } }
+  function runEvent(ev, o) { try { return !!(HOST.notes && HOST.notes.runEvent && HOST.notes.runEvent(ev, o)); } catch (e) { return false; /* no run log */ } }
   // the frame hook (index.html HOST.loading.wrap, after the story's frame): never throws. Every interval counts, a stall
   // of a second or more too (long); only the first after a hidden view (the page hidden, the headset's view not visible:
   // taken off, its system menu) is dropped (R.lastT cleared: here, by the quarter-second timer and on visibilitychange)
@@ -506,7 +540,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     R.xr = xrNow();
     hudPage(true);
     if (resume) {
-      Object.assign(R, { id: resume.id, opts: resume.opts, plan: resume.plan, i: resume.i, segs: resume.segs, info: resume.info, saved: resume.saved, at: resume.at, errs: resume.errs || [], errN: resume.errN || 0, qlog: resume.qlog || [], batt0: resume.batt0, logOwn: false, hz: resume.hz || 0, hzHow: resume.hzHow || '' });
+      Object.assign(R, { id: resume.id, opts: resume.opts, plan: resume.plan, i: resume.i, segs: resume.segs, info: resume.info, saved: resume.saved, at: resume.at, errs: resume.errs || [], errN: resume.errN || 0, emap: errKept(resume.emap), ecut: resume.ecut || 0, ecap: !!resume.ecap, qlog: resume.qlog || [], batt0: resume.batt0, logOwn: false, hz: resume.hz || 0, hzHow: resume.hzHow || '' });
       // (the item that was going when the page went: recorded as failed, so a story that crashes the page is passed over)
       if (resume.cur === resume.i && R.i < R.plan.length) {
         const it = R.plan[R.i];
@@ -515,7 +549,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
       }
       R.xr = xrNow();
     } else {
-      R.opts = opts(o); R.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); R.at = Date.now(); R.i = 0; R.segs = []; R.errs = []; R.errN = 0; R.qlog = [];
+      R.opts = opts(o); R.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6); R.at = Date.now(); R.i = 0; R.segs = []; R.errs = []; R.errN = 0; R.emap = []; R.ecut = 0; R.ecap = false; R.qlog = [];
       R.saved = snapshot();
       R.plan = await plan(R.opts);
       R.batt0 = await battery();
@@ -531,6 +565,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (HOST.dev && HOST.dev.on() && !HOST.notes && HOST.mods) await Promise.race([HOST.mods.load('notes').catch(() => null), sleep(5000)]);
     if (HOST.dev && HOST.dev.on() && HOST.notes && HOST.notes.run && !HOST.notes.running()) R.logOwn = !!HOST.notes.run(true);
     runEvent('perfrun', flatInfo(R.info));
+    for (const x of R.emap) if (resume || !x.sent) x.sent = errSend(x);   // (caught before the run log ran, or a reload's new run log: the messages so far)
     save();
     card(null);
     notice(part === 'hands' ? 'Hands-on test' : 'Performance run', part === 'hands' ? 'One step at a time: Done or Skip on each card.' : 'It runs by itself. Stop it from the menu\'s Debug tab.', 4000);
@@ -549,7 +584,8 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     hud('');
     R.endP = battery().then(b => {
       const res = result(b);
-      runEvent('perfend', { segs: res.totals.segs, failed: res.totals.failed, dur: res.dur, stopped: res.stopped, batt0: res.batt0, batt1: res.batt1, frames: res.totals.frames, missed: res.totals.missed, errs: res.totals.errs });
+      errCounts();
+      runEvent('perfend', { segs: res.totals.segs, failed: res.totals.failed, dur: res.dur, stopped: res.stopped, batt0: res.batt0, batt1: res.batt1, frames: res.totals.frames, missed: res.totals.missed, errs: res.totals.errs, errd: res.totals.errd, errcut: res.totals.errcut });
       const on = G(() => HOST.notes.running(), false);
       res.log = on ? G(() => HOST.notes.runState().id, '') || '' : '';
       if (!res.log) res.notSent = !(HOST.dev && HOST.dev.on()) ? 'developer mode is off' : 'no run log was recording';
@@ -578,10 +614,10 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     return {
       v: V, kind: 'perfrun', part: R.part, id: R.id, at: R.at, end: Date.now(), dur: Math.round((Date.now() - R.at) / 1000), release: (R.info && R.info.release) || shellRel() || R.rel || '', served: R.rel || '',
       info: R.info, stopped: R.stopWhy || '', batt0: R.batt0, batt1: b1,
-      totals: { segs: segs.length, failed: bad.length, frames, mean: frames ? r2(sum / frames) : null, p95: p95s.length ? p95s[Math.floor(p95s.length / 2)] : null, missed, missPct: frames ? r1(100 * missed / (frames + missed)) : null, worst: r2(worst), stall: r1(stall), errs: R.errN, qch, lost: R.lost, long: segs.reduce((a, g) => a + (g.long || 0), 0), settled: Math.max(0, (HOST.xrSettled || 0) - (R.set0 || 0)) },
+      totals: { segs: segs.length, failed: bad.length, frames, mean: frames ? r2(sum / frames) : null, p95: p95s.length ? p95s[Math.floor(p95s.length / 2)] : null, missed, missPct: frames ? r1(100 * missed / (frames + missed)) : null, worst: r2(worst), stall: r1(stall), errs: R.errN, errd: R.emap.length, errcut: R.ecut, qch, lost: R.lost, long: segs.reduce((a, g) => a + (g.long || 0), 0), settled: Math.max(0, (HOST.xrSettled || 0) - (R.set0 || 0)) },
       worst: worst5.map(g => ({ kind: g.kind, story: g.story, key: g.key, mean: g.mean, p95: g.p95, miss: g.miss, n: g.n })),
       failed: bad.map(g => ({ kind: g.kind, story: g.story, key: g.key, why: g.why })),
-      segs, errors: R.errs.slice(), quality: R.qlog.slice(),
+      segs, errors: R.errs.slice(), errlist: errList(), quality: R.qlog.slice(),
     };
   }
   function stop(why) {
@@ -589,7 +625,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (!R.on) {
       // (a run kept from before a reload, not going on: put its settings back and keep what it measured)
       const s = R.ending ? null : loadSaved();
-      if (s) { R.saved = s.saved; Object.assign(R, { id: s.id, part: s.part, opts: s.opts, plan: s.plan, segs: s.segs, info: s.info, at: s.at, errs: s.errs || [], errN: s.errN || 0, qlog: s.qlog || [], batt0: s.batt0, i: s.i }); R.stopWhy = why || 'stopped'; R.on = true; finish(); return true; }
+      if (s) { R.saved = s.saved; Object.assign(R, { id: s.id, part: s.part, opts: s.opts, plan: s.plan, segs: s.segs, info: s.info, at: s.at, errs: s.errs || [], errN: s.errN || 0, emap: errKept(s.emap), ecut: s.ecut || 0, ecap: !!s.ecap, qlog: s.qlog || [], batt0: s.batt0, i: s.i }); R.stopWhy = why || 'stopped'; R.on = true; finish(); return true; }
       return false;
     }
     R.stopWhy = why || 'stopped';
@@ -645,7 +681,9 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     const X = res.totals, L = [];
     L.push(`${X.segs} segments, ${X.failed} failed, in ${mmss(res.dur)}.` + (res.stopped ? ' Stopped: ' + res.stopped + '.' : ''));
     L.push(`Frames ${X.frames}: mean ${X.mean} ms, median p95 ${X.p95} ms, worst ${X.worst} ms; ${X.missed} refreshes missed (${X.missPct} % of them), longest stall ${X.stall} ms` + (X.long ? `; ${X.long} pauses of a second or more` : '') + '.' + (res.info && res.info.hzHow && res.info.hzHow !== 'session' ? ` (Display rate ${res.info.hz || '?'} Hz, ${res.info.hzHow}.)` : ''));
-    if (X.errs || X.qch || X.lost) L.push(`${X.errs} errors or warnings, ${X.qch} quality changes` + (X.lost ? `, the WebGL context lost ${X.lost} times` : '') + '.');
+    if (X.errs || X.qch || X.lost) L.push(`${X.errs} errors or warnings` + (X.errd ? ` (${X.errd} different)` : '') + `, ${X.qch} quality changes` + (X.lost ? `, the WebGL context lost ${X.lost} times` : '') + '.');
+    const often = (res.errlist || []).slice().sort((a, b) => b.n - a.n || a.at - b.at).slice(0, 2);
+    if (often.length) L.push('Most often: ' + often.map(x => x.msg.slice(0, 90) + ' (' + x.n + (x.n > 1 ? ' times' : ' time') + ')').join('; ') + '.');
     if (res.worst.length) { L.push('The five worst:'); for (const g of res.worst) L.push(`${title(g.story)} ${g.kind === 'chapter' ? 'ch ' + g.key : g.key}: ${g.mean} ms, p95 ${g.p95}, ${g.miss} missed`); }
     if (res.failed.length) L.push('Failed: ' + res.failed.slice(0, 4).map(g => title(g.story) + ' ' + g.key + ' (' + g.why + ')').join('; ') + (res.failed.length > 4 ? '; ...' : '') + '.');
     L.push('Kept on this device' + (res.log ? ', and in run log ' + res.log + ' on the relay' : '. Not sent to the relay: ' + (res.notSent || 'developer mode is off')) + '.');

@@ -238,7 +238,17 @@ of lower-case letters and digits, at most 22 fields as the relay takes them, fal
 run's `perfrun` (once: `id, part, release, device, model, browser, xr, hz, hzHow, hzList, eyeW, eyeH, fbScale, fov,
 items, batt0, fps, auto, sharp, occl, bodies, opts`), `seg` (each segment: `kind, story, key, why, dur, n, mean, p95, p99,
 max, miss, stall, long, hz, calls, tri, js, heap, q, qch, errs, load`; v229: `p50` and `build` only in the JSON result) and `perfend` (`segs, failed, dur, stopped, batt0,
-batt1, frames, missed, errs`); docs/agents/shell.md, "The performance run".
+batt1, frames, missed, errs`; v231 also `errd`, `errcut`); docs/agents/shell.md, "The performance run".
+
+**Errors and warnings** (v231, the performance run's only; a plain *Record a run* catches none): `err` `{ i, at, seg, lvl,
+story, msg }` as each distinct message is first caught (`i` its number in the run from 1; `at` seconds into the run; `seg`
+the segment, `kind story key`, or '' between segments; `lvl` `'error'` or `'warn'`; `story` `HOST.curKey`; `msg` the
+message), `errn` `{ i, n }` as the run ends for each message caught more than once (its count; one is not sent), and
+`errcap` `{ at, max }` once when the run has sent `max` (60) distinct messages: later new ones are only counted (`perfend`
+`errcut`). What a message may hold: an error's message, never its stack; no address's query or hash (cut off, as is a
+query or hash on its own: a room's code `#s=`, a `?token=`), nothing after `Bearer`, `token`, `password` or `pw`, no relay
+password this device keeps (each one in `relayTokens` replaced by `…`), at most 180 characters. A shared room's names
+and typed text do not come up: a run never runs in a room.
 
 **Sending.** `POST /api/logs` as the run begins, then the rows so far as a part every 30 s, as the page is hidden (best
 effort: `fetch` `keepalive` when under 60 KB) and on stop (`end: true`). The relay and its password as the notes' (`relayFind`,
@@ -292,6 +302,11 @@ notes (when, device, stories, length, *Download JSON*, *Delete* with a second pr
   kind, story and key, and a key that comes twice by its turn; a segment cut short by the headset view ending is left out
   of the match) with the p95's difference, and first a warning for each thing that makes the two not comparable (release,
   VR, AR or page, the display's rate, automatic quality, the run's options); the note says when a row's rates differ.
+  v231: after the failures, *Errors and warnings*, a table of each distinct message (its number, count, first time in
+  the run, segment or *between segments*, story, level, message) from the log's `err` and `errn` events or the result's
+  `errlist` (an older result: its `errors`, the first 100 caught, grouped); a run before v231 says how many were counted
+  and that their messages were not recorded. `perf <id|log.json>` prints the same section (as text) for a log with a
+  performance run in it, and leaves `err`, `errn` and `errcap` out of its events.
 
 `tools/notes/transcribe.py <audio> [--model small]` prints `{ text, lang, segments: [{ start, end, text }] }`; PEP 723
 block naming `faster-whisper`, so `uv run` fetches it, or `python3 -I` with it installed; ffmpeg reads the audio.

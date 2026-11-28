@@ -98,6 +98,48 @@ async function pullLog(id, out) {
   return { dir, audio: '', d: g, log: true };
 }
 const pad = (v, n, left) => { v = String(v == null ? '' : v); return left ? v.padEnd(n) : v.padStart(n); };
+// (v231) the performance run's errors and warnings in a run log: 'err' { i, at, seg, lvl, story, msg } as each distinct
+// message first came, 'errn' { i, n } its count as the run ended (when more than one), 'errcap' { at, max } once when the
+// run stopped sending new ones. { list, cap, recorded }: recorded false for a run before them (perfend has no errd)
+const ERR_EVS = ['err', 'errn', 'errcap'];
+function errsOfLog(evs) {
+  const by = new Map();
+  for (const e of evs) if (e.ev === 'err' && !by.has(e.i)) by.set(e.i, { i: e.i, n: 1, at: e.at, seg: e.seg || '', lvl: e.lvl || 'error', story: e.story || '', msg: String(e.msg || '') });
+  for (const e of evs) if (e.ev === 'errn' && by.has(e.i)) by.get(e.i).n = e.n;
+  const end = evs.find(e => e.ev === 'perfend') || {}, cap = evs.find(e => e.ev === 'errcap');
+  return { list: [...by.values()].sort((a, b) => a.i - b.i), cap: cap ? cap.max : 0, cut: end.errcut || 0, recorded: by.size > 0 || end.errd !== undefined, total: end.errs };
+}
+// a page's result: errlist (v231), else its errors (the first 100 caught, each with its message) grouped
+function errsOfResult(r) {
+  if (Array.isArray(r.errlist)) return { list: r.errlist, cap: 0, cut: (r.totals || {}).errcut || 0, recorded: true, total: (r.totals || {}).errs };
+  const by = new Map();
+  for (const e of r.errors || []) {
+    const m = /^(error|warning): ([^]*)$/.exec(String(e.msg || '')) || [null, 'error', String(e.msg || '')], k = m[1] + ' ' + m[2];
+    if (by.has(k)) by.get(k).n++; else by.set(k, { i: by.size + 1, n: 1, at: e.at, seg: e.seg || '', lvl: m[1] === 'warning' ? 'warn' : 'error', story: '', msg: m[2] });
+  }
+  return { list: [...by.values()], cap: 0, cut: 0, recorded: !!(r.errors && r.errors.length) || !(r.totals && r.totals.errs), total: (r.totals || {}).errs, first100: !!(r.errors && r.errors.length) };
+}
+// the section: each distinct message, its count, first time (m:ss into the run), segment (or between segments), level
+function errLines(E, md) {
+  const L = [], esc = t => String(t).replace(/\|/g, '\\|').replace(/[\r\n]+/g, ' ');
+  const sum = E.list.reduce((a, x) => a + (x.n || 0), 0);
+  if (!E.recorded) { if (E.total) L.push((md ? '## Errors and warnings\n\n' : 'Errors and warnings: ') + E.total + ' counted; their messages were not recorded (a run before v231).'); return L; }
+  if (!E.list.length) return L;
+  L.push(md ? '## Errors and warnings' : 'Errors and warnings' + ':', '');
+  if (md) L.push('| # | count | first at | segment | story | level | message |', '|---:|---:|---:|---|---|---|---|');
+  else L.push(pad('#', 3) + pad('count', 7) + pad('at', 7) + '  ' + pad('segment', 30, true) + pad('level', 6, true) + 'message');
+  for (const x of E.list) {
+    const seg = x.seg || 'between segments';
+    if (md) L.push('| ' + [x.i, x.n, mmss(x.at), esc(seg), esc(x.story || '-'), x.lvl, esc(x.msg)].join(' | ') + ' |');
+    else L.push(pad(x.i, 3) + pad(x.n, 7) + pad(mmss(x.at), 7) + '  ' + pad(seg.slice(0, 29), 30, true) + pad(x.lvl, 6, true) + x.msg);
+  }
+  const notes = [];
+  if (E.first100) notes.push('from the first 100 caught that the result keeps');
+  if (E.cap) notes.push(`the run sent at most ${E.cap} different messages; ${E.cut || 'more'} later ones were only counted`);
+  if (E.total != null && !E.first100 && sum < E.total) notes.push(`${E.total} caught in all`);
+  if (notes.length) L.push('', '(' + notes.join('; ') + '.)');
+  return L;
+}
 function perf(g) {
   const c = g.cols || [], ix = Object.fromEntries(c.map((k, i) => [k, i])), rows = (g.rows || []).filter(Array.isArray), evs = (g.rows || []).filter(r => !Array.isArray(r));
   const v = (r, k) => (ix[k] === undefined ? null : r[ix[k]]);
@@ -133,7 +175,9 @@ function perf(g) {
   for (const r of rows.slice().sort((a, b) => (+v(b, 'p95') || 0) - (+v(a, 'p95') || 0) || (+v(b, 'max') || 0) - (+v(a, 'max') || 0)).slice(0, 10))
     L.push(pad(rel(v(r, 'w')), 6) + '  ' + pad(String(v(r, 'story') || '-').slice(0, 13) + (v(r, 'mode') === 'explore' ? '*' : ''), 14, true) + pad(v(r, 't') == null ? '-' : (+v(r, 't')).toFixed(1), 8) + pad(v(r, 'ch') == null ? '-' : v(r, 'ch'), 4) +
       pad(v(r, 'avg'), 7) + pad(v(r, 'p95'), 7) + pad(v(r, 'max'), 8) + pad(v(r, 'over') + '/' + v(r, 'n'), 9) + pad(v(r, 'js') == null ? '-' : v(r, 'js'), 6) + pad(v(r, 'tri') == null ? '-' : v(r, 'tri'), 9) + pad(v(r, 'calls') == null ? '-' : v(r, 'calls'), 6) + '  ' + (v(r, 'q') || '-') + '  ' + (v(r, 'sets') || ''));
-  const shown = evs.filter(e => e.ev !== 'gap' || e.ms > 2000);
+  const E = errsOfLog(evs);
+  if (evs.some(e => e.ev === 'perfrun')) { const el = errLines(E, false); if (el.length) L.push('', ...el); }
+  const shown = evs.filter(e => (e.ev !== 'gap' || e.ms > 2000) && !ERR_EVS.includes(e.ev));
   if (shown.length) {
     L.push('', 'Events' + (shown.length > 40 ? ' (the first 40 of ' + shown.length + ')' : '') + ':');
     for (const e of shown.slice(0, 40)) { const o = Object.assign({}, e); delete o.w; delete o.ev; L.push(pad(rel(e.w), 6) + '  ' + e.ev + (Object.keys(o).length ? ' ' + JSON.stringify(o) : '')); }
@@ -150,13 +194,13 @@ async function perfRunOf(src) {
   let g;
   if (existsSync(src)) { try { g = JSON.parse(readFileSync(src, 'utf8')); } catch (e) { die(src + ': not JSON'); } }
   else g = await getLog(src);
-  if (g && g.kind === 'perfrun' && Array.isArray(g.segs)) return Object.assign({ name: g.id || src }, g);
+  if (g && g.kind === 'perfrun' && Array.isArray(g.segs)) return Object.assign({ name: g.id || src }, g, { errsOf: errsOfResult(g) });
   const evs = (g.rows || []).filter(r => r && !Array.isArray(r)), I = evs.find(e => e.ev === 'perfrun');
   if (!I) die(src + ': no performance run in it (a run log without perfrun events)');
   const segs = evs.filter(e => e.ev === 'seg').map(e => { const o = Object.assign({}, e); delete o.ev; return o; }), end = evs.find(e => e.ev === 'perfend') || {};
   const c = g.context || {};
   return { name: g.id || src, kind: 'perfrun', part: I.part, id: I.id, at: g.at, release: I.release || c.release, dur: end.dur, stopped: end.stopped, batt0: I.batt0, batt1: end.batt1,
-    info: Object.assign({}, I, { settings: { fps: I.fps, auto: I.auto, sharp: I.sharp, occl: I.occl, bodies: I.bodies } }), segs, log: g.id };
+    info: Object.assign({}, I, { settings: { fps: I.fps, auto: I.auto, sharp: I.sharp, occl: I.occl, bodies: I.bodies } }), segs, log: g.id, errsOf: errsOfLog(evs) };
 }
 const CUT = 'the headset view ended', NOTFAIL = ['skipped', 'only in AR', 'stopped', CUT];
 const segName = g => (g.story || '-') + ' ' + (g.kind === 'chapter' ? 'ch ' + g.key : g.kind === 'load' ? 'load' + (g.story === 'studio' ? ' ' + g.key : '') : g.kind === 'explore' ? 'explore ' + g.key : g.kind === 'hand' ? 'step ' + g.key : g.key);
@@ -178,6 +222,7 @@ function perfRunMd(r) {
   const worst = ok.slice().sort((a, b) => (b.miss || 0) / b.n - (a.miss || 0) / a.n || (b.p95 || 0) - (a.p95 || 0)).slice(0, 5);
   if (worst.length) L.push('', 'The five worst (by refreshes missed, then p95): ' + worst.map(g => `${segName(g)} (${missPct(g)} %, p95 ${g.p95} ms)`).join('; ') + '.');
   if (bad.length) L.push('', 'Failed: ' + bad.map(g => `${segName(g)}: ${g.why}`).join('; ') + '.');
+  if (r.errsOf) { const el = errLines(r.errsOf, true); if (el.length) L.push('', ...el); }
   L.push('', '(ms between frames. missed: refreshes of the display with no new frame; miss %: of all refreshes. stall: the longest run of late frames, over 1.5 periods. calls, tris: the story\'s frame, both eyes. q: automatic quality\'s level, r = the refresh rate stepped down.)');
   return L.join('\n') + '\n';
 }
@@ -224,7 +269,9 @@ if (cmd === 'list') {
   const to = opt('--md', '');
   if (to) { writeFileSync(to, md); console.log(to); } else process.stdout.write(md);
 } else if (cmd === 'perf' && target) {
-  process.stdout.write(perf(await getLog(target)));
+  let g;
+  if (existsSync(target)) { try { g = JSON.parse(readFileSync(target, 'utf8')); } catch (e) { die(target + ': not JSON'); } } else g = await getLog(target);
+  process.stdout.write(perf(g));
 } else if (cmd === 'pull' && target) {
   for (const id of await ids(target)) { const r = await pull(id, out); console.log(join(r.dir, r.log ? 'perf.txt' : 'note.md')); }
 } else if (cmd === 'transcribe' && target) {
@@ -248,5 +295,5 @@ if (cmd === 'list') {
   await call('/api/notes/' + encodeURIComponent(target), { status: 'done' });
   console.log(target + ' marked done');
 } else {
-  die('Usage: node tools/notes/notes.mjs list [--all] | pull <id|new> [--out dir] | transcribe <id|new> [--model small] | done <id> | perf <run id> | perfrun <run id|result.json> [<run id|result.json>] [--md out.md]\nEnvironment: NOTES_RELAY, NOTES_TOKEN');
+  die('Usage: node tools/notes/notes.mjs list [--all] | pull <id|new> [--out dir] | transcribe <id|new> [--model small] | done <id> | perf <run id|log.json> | perfrun <run id|result.json> [<run id|result.json>] [--md out.md]\nEnvironment: NOTES_RELAY, NOTES_TOKEN');
 }

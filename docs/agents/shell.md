@@ -33,18 +33,18 @@
 - 1324: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
 - 1372: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
 - 1435: Real-world occlusion: bias, what it hides, tests (3.1 KB)
-- 1466: The developer notebook (`HOST.notes`, `notes.js`) (6.4 KB)
-  - 1498: Run logs (*Record a run*) (1.2 KB)
-  - 1512: Reading notes in a headset (v148) (2.4 KB)
-- 1538: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (12.3 KB)
-- 1651: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1695: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1760: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1804: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 1891: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 1957: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 2055: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 2146: From CLAUDE.md (6.1 KB)
+- 1466: The developer notebook (`HOST.notes`, `notes.js`) (6.6 KB)
+  - 1498: Run logs (*Record a run*) (1.4 KB)
+  - 1514: Reading notes in a headset (v148) (2.4 KB)
+- 1540: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.2 KB)
+- 1669: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1713: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1778: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1822: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 1909: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 1975: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 2073: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 2164: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -1507,7 +1507,9 @@ Spoken notes recorded in AR or VR (B or Y held), transcribed, with screenshots; 
 - The contract, the format and the endpoints: `tools/notes/SPEC.md`, "Run logs"; `node tools/notes/notes.mjs perf <id>`
   reads one. Tests: `node relay/test.mjs --logs`. Untested on a headset: all of it.
 - `HOST.notes.runEvent(ev, o)` (v228) adds an event of another part of the shell to a run being recorded (the performance
-  run's `perfrun`, `seg` and `perfend`: "The performance run" below); false when no run is on.
+  run's `perfrun`, `seg`, `perfend` and, v231, its errors' `err`, `errn`, `errcap`: "The performance run" below); false
+  when no run is on. A plain *Record a run* (no performance run) records no errors: the console's catching is
+  `perfrun.js`'s, loaded only for a run.
 
 ### Reading notes in a headset (v148)
 
@@ -1604,8 +1606,8 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
   `unknown`, `option`, `measured` or `assumed`; never from a segment's own frames); `long` the intervals of a second or more; `stall` the longest run of frames over 1.5 periods; `calls`,
   `tri`, `js` the story's frame from `HOST.perf.last()` (both eyes); `heap` MB (`performance.memory`); `q` automatic
   quality's level at the end (`q0` at the start when different), `qch` its changes (each in the result's `quality`, with
-  why); `errs` console errors and warnings, page errors and rejections caught (the first 100 messages in `errors`); a lost
-  WebGL context gives `why`. Once a run (`info`): the release, shell, device, model, browser, user agent, VR, AR or page,
+  why); `errs` console errors and warnings, page errors and rejections caught (the first 100 messages in `errors`; each
+  distinct one in `errlist`, v231: "Errors and warnings" below); a lost WebGL context gives `why`. Once a run (`info`): the release, shell, device, model, browser, user agent, VR, AR or page,
   the refresh rate and the rates offered, the eye's size (the layer's framebuffer), framebuffer scale, foveation, the
   screen, the settings (frame-rate read-out, refresh rate, automatic quality and its rate step, sharp text, moving with
   the sticks, resolution, foveation, my body, occlusion, bodies) and the options; the battery at start and end
@@ -1623,6 +1625,22 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
   among the log's rows a second. `node tools/notes/notes.mjs perfrun <run id|log.json|result.json> [<second>] [--md
   out.md]` prints a Markdown table, or two compared segment by segment (two runs, two headsets). A skipped step, a step
   only for AR and a stop are not failures.
+- **Errors and warnings** (v231; the owner's run on v230 counted 21 errors and none could be read). `console.error`,
+  `console.warn`, the window's `error` and `unhandledrejection` and a lost WebGL context, caught while a run is on (the
+  module's own wrappers and listeners, installed once as it loads under `HOST.quietly`, idle while no run is on): each
+  distinct message (by level and text) goes into the run log as it first comes, `err` `{ i, at, seg, lvl, story, msg }`
+  (`i` its number in the run, `at` seconds into the run, `seg` the segment, `kind story key`, or '' between segments,
+  `lvl` `error` or `warn`, `story` `HOST.curKey`); the same message again is only counted, and each count over one goes as
+  `errn` `{ i, n }` as the run ends, before `perfend` (which adds `errd`, the distinct messages, and `errcut`). At most 60
+  distinct messages are sent a run (`ERRMAX`): the cap hit sends `errcap` `{ at, max }` once, and later new messages are
+  only counted (`errcut`). A message (`cleanMsg`) loses an address's query and hash, a query or hash on its own (`?s=`,
+  `#s=...`), whatever follows `Bearer`, `token`, `password` or `pw`, and every relay password this device keeps
+  (`relayTokens`); it is cut to 180 characters (a stack is never kept, only an error's message). Caught before the run
+  log runs (the plan, the rate's probe) they go once it does; a reload's run sends the messages so far again into its new
+  log. The result's `errlist` `[{ i, n, at, seg, lvl, story, msg }]` and `totals.errd`, `errcut`; the results card says
+  how many were different and the two most frequent. `notes.mjs perf` and `perfrun` print a section, *Errors and
+  warnings* (each message, its count, first time, segment and level; in the Markdown a table); a log from before v231
+  says its errors were counted but not recorded.
 - **Progress and a reload.** `localStorage` `perfRun` holds the plan, the next item, the item going (`cur`), the
   segments, the facts and the settings to put back, written at each item and segment. On the next load (`index.html`
   loads the file when the key is there): the item that was going is recorded as failed (*the page reloaded during it*, so

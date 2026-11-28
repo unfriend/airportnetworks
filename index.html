@@ -894,7 +894,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 230, id: '8f8d6b8cab506dc8', format: 'networks-61' },
+  shell: { n: 231, id: 'f8e57a1822d035ac', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -3125,7 +3125,7 @@ HOST.flightLoad = function () {
 HOST.quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
 HOST.mods = (function () {
   const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js', perfRun: 'perfrun.js' }, M = {}, AGAIN = 30000;   // (perfRun: the performance run, v228, from developer mode or #perfrun)
-  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"31c7f1ffd8283ac5","perfRun":"48ca5880587327eb"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
+  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"31c7f1ffd8283ac5","perfRun":"4c6b5df3313f1dfd"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
   function linked(name) {
     const m = HOST[name];
     try {
