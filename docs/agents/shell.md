@@ -1449,6 +1449,8 @@ Spoken notes recorded in AR or VR (B or Y held), transcribed, with screenshots; 
   `/api/logs` every 30 s, on hidden and on stop. Its listeners are the shell's (`quiet`); nothing in `collab.state()`.
 - The contract, the format and the endpoints: `tools/notes/SPEC.md`, "Run logs"; `node tools/notes/notes.mjs perf <id>`
   reads one. Tests: `node relay/test.mjs --logs`. Untested on a headset: all of it.
+- `HOST.notes.runEvent(ev, o)` (v228) adds an event of another part of the shell to a run being recorded (the performance
+  run's `perfrun`, `seg` and `perfend`: "The performance run" below); false when no run is on.
 
 ### Reading notes in a headset (v148)
 
@@ -1475,6 +1477,103 @@ Spoken notes recorded in AR or VR (B or Y held), transcribed, with screenshots; 
   revokes the object URL and closes the pictures (`notesClose`, `notesRelease`).
 - Nothing of it in a room's keys or `collab.state()`. Tests: `HOST.collab.notesView()`, `HOST.collab.notesOpen()`.
   Untested on a headset: all of it (the stick, playing inside a session, the pictures' look in the menu).
+
+## The performance run (`HOST.perfRun`, `perfrun.js`, v228)
+
+The owner, 28 November 2026: "A performance test run for running directly on the headsets, plays all stories and some
+studio scenes in order ... and records metrics, great if it can run fully autonomous but maybe two parts, one interactive
+on the headset, one that just runs through all the stories and a studio scene on the headsets?" How to use it, for the
+owner: `docs/setup-and-release.md`, "Measuring a headset".
+
+- **The file.** `perfrun.js`, loaded on demand by `HOST.mods` (name `perfRun`; in `SHELL`, `APP_FILES`, the shell's
+  fingerprint, `MODS_FP` and `--watch`'s shell files): by `#perfrun` or `#handson` in the address, a run kept from before a
+  reload (`localStorage` `perfRun`), developer mode's *Performance run* button (`#btnPerf`, the Stories screen's foot
+  beside *What is new*) and the Debug tab's rows (*Performance run* or *Stop the run*, and *Hands-on test*; developer
+  mode, under *Record a run*; pressed, the menu closes so it is not measured). `index.html` keeps only hooks: the frame
+  hook (`HOST.loading.wrap`, beside the notebook's: `HOST.perfRun.frame(t)`), `HOST.perf` measuring while it runs, and
+  four holds while `HOST.perfRun.on()`: `HOST.audio`'s `muted()` (narration and effects quiet, never stored),
+  `HOST.slides.on` (no slideshow stops), `HOST.ended` (no Repeat: a story's end opens explore mode), `HOST.live`'s
+  `quiet()` and `HOST.reloadIfUpdated` (no swap or reload). Its listeners and timers are the shell's (`HOST.quietly`).
+  Stories change in nothing: it uses their `APP` (`seek`, `enterStory`, `enterExplore`, `playing`), `CH`, `showTab` and
+  the explore panel's `[data-tab]` buttons, `LOAD.ms`, and `XR.stories` (closed so the story shows; opened for the
+  hands-on Stories screen).
+- **Part 1, the run-through** (`part: 'run'`). The plan: every story of `HOST.stories()` (both sets of cards, the Stories
+  screen's order; not `hello`, the template's example), then studio scenes: by default every example
+  (`examples/index.json`) and the first of the relay's scenes (`HOST.collab.relayFind()`, `/api/scenes` with the
+  password), if any. Per story: its load (`HOST.start`, the call Repeat all makes; the time to its first frame and its
+  `LOAD.ms` steps, then the first 3 s of frames as the segment `load`; a story already on show has load `null`), each
+  chapter seeked to (`na`, then 1 s not measured) and played 20 s or to its end (`full`: the whole chapter), then explore
+  mode, each of its first four tabs 5 s (`showTab`; a story without tabs: 10 s as it opens). Per scene: the studio opened
+  at it (`#studio&scenes=<examples>&scene=<name>`, or, in the studio, as its Scene pane's Open does: `OPT`, `openScene`,
+  `findSource`), loaded when its listing is `ok` and no model has been loading for 1 s (at most 75 s), then 3 s as `load`
+  and 20 s as `scene`. A segment's time is its frames' time (intervals under 1 s), so a hidden headset does not count;
+  each wait has a watchdog (a story 90 s to load; a segment three times its length and 30 s). A story or scene that fails
+  to load, throws or stops having frames is a segment with `why`, and the run goes on. All stories: about 75 minutes
+  (21 stories of about 8 chapters and five scenes; the start card gives its estimate); `prch=10` about 45.
+- **Part 2, the hands-on test** (`part: 'hands'`, about five minutes). In one heavy story (`story`, by default `ppicell`,
+  *Back into the cell*: the largest story file, 2.1 MB, 13,460 proteins and real structures at its close-ups; where this
+  device has not got it, the story on show or the first), its load first, then one card at a time, each a segment ended
+  by *Done*, *Skip* (`why: 'skipped'`) or after 45 s: `panel` (the story panel's tabs, in explore mode), `menu` (with
+  *Open the menu*), `grip`, `sticks`, `walk`, `occlon` and `occloff` (AR only: real-world occlusion set to `both`, then
+  `off`; in VR or on a page `why: 'only in AR'`), `arch` (the Stories screen open), `studio` (an example scene,
+  `bliss-xp`). Started on its own or from the run-through's results card.
+- **Starting.** `HOST.perfRun.start({ part, where, ...options })`: in a headset session it begins at once; with `where:
+  'page'` on the page; otherwise its card asks *Enter VR*, *Enter AR* (the story's own buttons, or the start page's
+  `HOST.bare`, clicked within the press) or *Run on this page*, and it begins as the session does. `offer()` is the page's
+  card with both parts. The address: `#perfrun` (`#perfrun=page` or `&prgo=page`: on the page at once), `#handson`;
+  options `prstories=a,b` (keys), `prch` (seconds a chapter), `prfull` (each chapter whole), `prchapters` (the first n),
+  `prex` (seconds a tab), `prtabs`, `prload`, `prsettle`, `prscene` (seconds a scene), `prscenes` (`default`, `examples`,
+  `all`: the examples and three of the relay's, `none`, or names: `bliss-xp,relay:<name>`), `prexamples` (another
+  folder: the tests'), `praq=off` (automatic quality pinned off, for comparable numbers), `prhud=off`, `prstory`,
+  `prhands=a,b`, `prhand`, `prhandscene`. Refused in a shared room (*The performance run does not run in a shared room.
+  Leave the room first.*; Repeat all does not leave a room either: a station ends in explore mode); a room joined during
+  a run stops it.
+- **Settings.** Automatic quality is left as it is and recorded, unless `praq=off`. Before the run the raw values of
+  `xrAuto`, `xrOccl` and every `studioLast.*` key (the studio stores the last scene opened) are kept in the run's state;
+  at the end, on a stop, and when a run kept across a reload is stopped, they are written back and the settings in memory
+  set again. Sound is held by the mute hook, never stored.
+- **Measured per segment** (`{ kind, story, key, why, dur, n, mean, p50, p95, p99, max, miss, stall, hz, calls, tri, js,
+  heap, q, q0, qch, errs, load, build, w, item }`): `kind` `load`, `chapter` (key `<n> <chapter key>`), `explore` (the
+  tab), `scene`, `hand`; frame intervals in ms from the frame callback's time (the XR frame's in a session); `miss` the
+  display's refreshes with no new frame (each interval's `round(dt / period) - 1`; the period from the session's rate,
+  `HOST.xr.hzState()`, or on a page found from the frames); `stall` the longest run of frames over 1.5 periods; `calls`,
+  `tri`, `js` the story's frame from `HOST.perf.last()` (both eyes); `heap` MB (`performance.memory`); `q` automatic
+  quality's level at the end (`q0` at the start when different), `qch` its changes (each in the result's `quality`, with
+  why); `errs` console errors and warnings, page errors and rejections caught (the first 100 messages in `errors`); a lost
+  WebGL context gives `why`. Once a run (`info`): the release, shell, device, model, browser, user agent, VR, AR or page,
+  the refresh rate and the rates offered, the eye's size (the layer's framebuffer), framebuffer scale, foveation, the
+  screen, the settings (frame-rate read-out, refresh rate, automatic quality and its rate step, sharp text, moving with
+  the sticks, resolution, foveation, my body, occlusion, bodies) and the options; the battery at start and end
+  (`navigator.getBattery`, `'87+'` while charging).
+- **The result** (`{ v: 1, kind: 'perfrun', part, id, at, end, dur, release, info, stopped, batt0, batt1, totals: { segs,
+  failed, frames, mean, p95 (the median of the segments' p95), missed, missPct (of all refreshes), worst, stall, errs,
+  qch, lost }, worst (five, by refreshes missed a frame, then p95), failed, segs, errors, quality, log }`): kept on the
+  device (`localStorage` `perfRunLast`), shown on a card (the totals, the five worst, the failures; *Download JSON* on a
+  page, *Hands-on test* after a run-through), and, with developer mode on, sent to the relay as the developer notebook's
+  run log (a run started for it when none is recording, stopped at the end; `log` its id): the events `perfrun` (the
+  facts, once), `seg` (each segment, at most 22 fields: `tools/notes/SPEC.md`, "Run logs") and `perfend` (the totals),
+  among the log's rows a second. `node tools/notes/notes.mjs perfrun <run id|log.json|result.json> [<second>] [--md
+  out.md]` prints a Markdown table, or two compared segment by segment (two runs, two headsets). A skipped step, a step
+  only for AR and a stop are not failures.
+- **Progress and a reload.** `localStorage` `perfRun` holds the plan, the next item, the item going (`cur`), the
+  segments, the facts and the settings to put back, written at each item and segment. On the next load (`index.html`
+  loads the file when the key is there): the item that was going is recorded as failed (*the page reloaded during it*, so
+  a story that crashes the page is passed over); a page run goes on by itself after 1.5 s; a headset run shows a card
+  (*Enter VR*, *Go on on this page*, *Stop and show results*). A headset session that ends mid-run pauses it (the item
+  going runs again) with the same card; a kept run older than six hours is closed with its results.
+- **What shows.** Its card is one model (`view().card { title, lines, buttons, n }`) drawn twice: on a page `#perfCard`,
+  in a headset a sheet of `shared.js` (`drawPerf`, `OV.perf`, 760 x 760 px shown to its content's height, 0.5 m wide,
+  0.85 m in front as each new card opens, turned to you, pressed by the ray or the finger as the circles' question is,
+  kind `perf`). The read-out (`view().hud`, *Performance run · 5 of 25 · Airports · chapter 3 of 10 · last 11.2 ms, 0
+  missed*) is a line of `OV.perfHud` (800 x 72 px, 0.36 m, 26 degrees under the gaze and 14 to the right) in a headset
+  and `#perfHud` (with *Stop*) on a page; its text changes only as a segment begins, so while a segment is measured it
+  costs one draw call of two triangles and no upload (counted in the numbers). `prhud=off` leaves it out; it hides while
+  a card shows. The page's *Stop*, the menu's *Stop the run* and a card's *Stop* end a run.
+- Hooks for tests: `state()` (`{ on, part, want, paused, id, i, of, segs, hud, card, xr, line }`), `plan()`, `opts()`,
+  `result()`, `press(id)`, `hands()`, `test({ tick })`. Smoke: `--only 'perf run'`.
+- Untested on a headset: all of it (a run inside a real session from start to end, the session handed from story to
+  story for an hour, the studio scenes there, the battery, the read-out's and the cards' comfort and placement, the
+  hands-on steps, a pause and a resume after the headset is taken off, the numbers themselves).
 
 ## Spaceships (`HOST.ships`, `ships.js`)
 

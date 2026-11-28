@@ -233,7 +233,12 @@ row: 15 minutes is about 100 KB. A second without frames has no row.
 Events are objects among the rows, `{ w, ev, ... }`: `start` `{ story, mode, xr }`, `story` `{ story, from }`, `mode` `{ mode,
 story }`, `chapter` `{ story, ch, key, t }` (also the first chapter of each story), `quality` `{ from, to, why }`, `xr`
 `{ xr, hz }` (a session began or ended), `hidden` / `shown` (`visibilitychange`; `pagehide` as `hidden` `{ pagehide: true }`),
-`gap` `{ ms }`, `stop` `{ why }`.
+`gap` `{ ms }`, `stop` `{ why }`. Other parts of the shell add their own through `HOST.notes.runEvent(ev, o)` (v228; a name
+of lower-case letters and digits, at most 22 fields as the relay takes them, false when no run is on): the performance
+run's `perfrun` (once: `id, part, release, device, model, browser, xr, hz, hzList, eyeW, eyeH, fbScale, fov, items,
+batt0, fps, auto, sharp, occl, bodies, opts`), `seg` (each segment: `kind, story, key, why, dur, n, mean, p50, p95, p99,
+max, miss, stall, calls, tri, js, heap, q, qch, errs, load, build`) and `perfend` (`segs, failed, dur, stopped, batt0,
+batt1, frames, missed, errs`); docs/agents/shell.md, "The performance run".
 
 **Sending.** `POST /api/logs` as the run begins, then the rows so far as a part every 30 s, as the page is hidden (best
 effort: `fetch` `keepalive` when under 60 KB) and on stop (`end: true`). The relay and its password as the notes' (`relayFind`,
@@ -280,6 +285,11 @@ notes (when, device, stories, length, *Download JSON*, *Delete* with a second pr
   mode, and VR or AR) the seconds, the mean, the 95th percentile of the seconds' p95, the worst frame, the % of frames over
   budget, the script ms, the most triangles and draw calls, the rates and quality levels; then the 10 worst seconds (by
   p95) with their time in the run, story time, chapter, counts and sets; then the events.
+- `perfrun <a> [<b>] [--md <file>]` (v228): the performance run's result as Markdown, each of `a` and `b` a run log's id
+  (its `perfrun`, `seg` and `perfend` events), a pulled `log.json` or a page's *Download JSON* file: the run's facts, a
+  row a segment (s, frames, mean, p50, p95, p99, worst, missed refreshes and their %, stall, calls, triangles, script ms,
+  heap, quality, errors, why), the totals, the five worst and the failures; with two, a row a segment of both (matched by
+  kind, story and key) with the p95's difference.
 
 `tools/notes/transcribe.py <audio> [--model small]` prints `{ text, lang, segments: [{ start, end, text }] }`; PEP 723
 block naming `faster-whisper`, so `uv run` fetches it, or `python3 -I` with it installed; ffmpeg reads the audio.

@@ -60,7 +60,7 @@ The files an agent needs before it knows where to look; every file and folder is
 - `shared.js` - the shared-room client (`HOST.collab`, `HOST.room`) and the headset menu.
 - `sw.js` - the service worker (`VERSION`, `SHELL`); `version.json` and `whatsnew/` are written by
   `tools/release.mjs`, `whatsnew.json` by hand at every release.
-- `sfx.js` - the shell's sound effects; `occlusion.js`, `ships.js`, `notes.js` - the shell's modules, loaded on
+- `sfx.js` - the shell's sound effects; `occlusion.js`, `ships.js`, `notes.js`, `perfrun.js` - the shell's modules, loaded on
   demand by `HOST.mods` (`index.html`) and run only when they match `MODS_FP`, which `tools/release.mjs` stamps:
   after editing one, run `node tools/release.mjs`; `bodies.js`, `ik.js`, `flight.js`, `output.js` - loaded on
   demand.
@@ -88,7 +88,7 @@ then one section's line range, or Grep for the topic. After editing one, run `no
 | File | Covers | Read it before |
 | --- | --- | --- |
 | `docs/agents/layout.md` | every file and folder in full | adding, moving or looking for a file |
-| `docs/agents/shell.md` | how the shell and stories fit together: loading, the Stories screen, placement and anchors, the headset settings, focus mode, phones, developer mode, sound and sound effects, occlusion, the notebook, spaceships, live updates, inside a story (`LOAD`, `CH`, `NARRATION_SYNC`) | touching `index.html`, `sfx.js`, `occlusion.js`, `notes.js`, `ships.js`, `sw.js`, sound, headset settings or a story's frame, load or panel code |
+| `docs/agents/shell.md` | how the shell and stories fit together: loading, the Stories screen, placement and anchors, the headset settings, focus mode, phones, developer mode, sound and sound effects, occlusion, the notebook, the performance run, spaceships, live updates, inside a story (`LOAD`, `CH`, `NARRATION_SYNC`) | touching `index.html`, `sfx.js`, `occlusion.js`, `notes.js`, `perfrun.js`, `ships.js`, `sw.js`, sound, headset settings or a story's frame, load or panel code |
 | `docs/agents/shared-rooms.md` | shared rooms: the room's keys and `FORMAT`, circles, relay, peer to peer and on-device rooms, alignment, camera mode, the output page, the headset menu and its tabs, people's bodies, talk, the relay, the hooks every story keeps, the PC's trackers | touching `shared.js`, `relay/`, a story's `collab` hooks or `state()`, `tools/trackers/` |
 | `docs/agents/studio.md` | the studio: scenes, models and the converter, items and their features, editing, saving, examples, trackers | touching `tools/studio/`, `examples/` or the relay's scenes |
 | `docs/agents/packages.md` | story packages: the folder, `story.json`, the index, the shell's loading, the service worker's cache, publishing | touching `packages/`, `tools/packages/`, or the shell's loading of a package |
@@ -120,6 +120,9 @@ file gets at most a line per feature, and only when an agent needs it before it 
 - A change to one package's files alone needs no new `VERSION`: its fingerprint in `packages/index.json`
   reaches devices. A story's author publishes with `node tools/packages/publish.mjs <key> "<what changed>"`
   (`docs/working-on-a-story.md`).
+- The performance run (`perfrun.js`, `HOST.perfRun`, v228): every story and the studio's examples played and
+  measured by themselves in a headset or on a page, and a short hands-on test (developer mode, `#perfrun`,
+  `#handson`); read with `node tools/notes/notes.mjs perfrun` (`docs/agents/shell.md`).
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`. The main site is
   GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); `dev` is the test place on the owner's Coolify
   (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as the main site's relay. Work goes to

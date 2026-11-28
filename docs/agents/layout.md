@@ -104,6 +104,11 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   relay ("The developer notebook" below). `notes/` - its notes page (served as an app folder, never cached by the
   service worker). `tools/notes/` - its contract (`SPEC.md`), `notes.mjs` (list, pull, transcribe, done) and
   `transcribe.py` (faster-whisper).
+- `perfrun.js` - the performance run (`HOST.perfRun`, v228): the run-through (every story's load, chapters and explore
+  mode, then studio scenes, measured frame by frame) and the hands-on test, on a headset or a page; loaded on demand
+  (`HOST.mods`: `#perfrun`, `#handson`, a run kept from before a reload, developer mode's *Performance run*). Its card and
+  read-out in a headset are drawn by `shared.js` (`drawPerf`); its results go to the notebook's run log and are read by
+  `node tools/notes/notes.mjs perfrun` ("The performance run" in shell.md).
 - `ships.js` - the spaceships (`HOST.ships`, v132), the shell's own mini-game in headsets, loaded on demand since v226
   (`HOST.mods`: with occlusion, or when someone's ship is first heard) and linked in to `shared.js` as it comes
   (`HOST.shellLink`; see "Spaceships" below).
@@ -219,7 +224,7 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   `tools/sfx-cues.mjs` - the stories' sound cues checked without listening (see "Sound effects");
   `tools/update.mjs` - update test for the service worker; `tools/live.mjs` -
   hot reload and live updates test; `tools/release.mjs` - writes `version.json`
-  (a release step), stamps `index.html`'s `MODS_FP` (the fingerprints of `occlusion.js`, `ships.js` and `notes.js`; it refuses to run without the stamp, `--check` fails while it is stale; "The shell's modules on demand" in shell.md), and `sw.js`'s story files (`SHELL`: the studio, from `stories/list.js`; the design room's until v217) and narrations (`AUDIO`:
+  (a release step), stamps `index.html`'s `MODS_FP` (the fingerprints of `occlusion.js`, `ships.js`, `notes.js` and `perfrun.js`; it refuses to run without the stamp, `--check` fails while it is stale; "The shell's modules on demand" in shell.md), and `sw.js`'s story files (`SHELL`: the studio, from `stories/list.js`; the design room's until v217) and narrations (`AUDIO`:
   empty since v187, there is no `audio/` folder; each story's narration is in its package); `tools/collab.mjs` -
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the
