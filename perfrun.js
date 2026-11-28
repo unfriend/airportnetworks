@@ -146,7 +146,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   function cleanMsg(s) {
     s = String(s)
       .replace(/\b([a-z][a-z0-9+.-]*:\/\/[^\s?#'"`<>()[\]{}]*)[?#][^\s'"`<>()[\]{}]*/gi, '$1')   // (an address: its query and hash go)
-      .replace(/(^|[\s'"`(=:])([^\s'"`()]*\/)?[?#](?=[\w%.-]+=)[^\s'"`<>()]*/g, '$1$2')   // (a query or hash on its own: ?s=XYZ, #s=XYZ&visit)
+      .replace(/(^|[\s'"`(=:])([^\s'"`()?#]*)[?#](?=[\w%.-]+=)[^\s'"`<>()]*/g, '$1$2')   // (any other word's query or hash: /rooms/A?name=B, host/x#s=XYZ, ?s=XYZ)
       .replace(/\b(Bearer|token|password|pw)(\s*[:=]?\s*)[^\s'"`,;)]+/gi, '$1$2…');
     for (const t of relayToks()) s = s.split(t).join('…');
     s = s.replace(/\s+/g, ' ').trim();

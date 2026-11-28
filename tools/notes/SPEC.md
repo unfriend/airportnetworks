@@ -245,10 +245,12 @@ story, msg }` as each distinct message is first caught (`i` its number in the ru
 the segment, `kind story key`, or '' between segments; `lvl` `'error'` or `'warn'`; `story` `HOST.curKey`; `msg` the
 message), `errn` `{ i, n }` as the run ends for each message caught more than once (its count; one is not sent), and
 `errcap` `{ at, max }` once when the run has sent `max` (60) distinct messages: later new ones are only counted (`perfend`
-`errcut`). What a message may hold: an error's message, never its stack; no address's query or hash (cut off, as is a
-query or hash on its own: a room's code `#s=`, a `?token=`), nothing after `Bearer`, `token`, `password` or `pw`, no relay
-password this device keeps (each one in `relayTokens` replaced by `…`), at most 180 characters. A shared room's names
-and typed text do not come up: a run never runs in a room.
+`errcut`). What a message may hold: an error's message, never its stack; no query or hash on any word (cut off where a
+`?` or `#` is followed by `name=`: an address with or without a scheme, a path such as `/rooms/A?name=B`, a room's code
+`#s=` on its own, a `?token=`), nothing after `Bearer`, `token`, `password` or `pw`, no relay password this device keeps
+(each one in `relayTokens` replaced by `…`), at most 180 characters. Not filtered, and no pattern could be: a room's code
+or a name in a path or in plain prose (`wss://host/room/ABCD1234 closed`, `room ABCD, name Anna`). A shared room's names
+and typed text should not come up all the same: a run never runs in a room.
 
 **Sending.** `POST /api/logs` as the run begins, then the rows so far as a part every 30 s, as the page is hidden (best
 effort: `fetch` `keepalive` when under 60 KB) and on stop (`end: true`). The relay and its password as the notes' (`relayFind`,

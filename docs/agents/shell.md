@@ -36,15 +36,15 @@
 - 1466: The developer notebook (`HOST.notes`, `notes.js`) (6.6 KB)
   - 1498: Run logs (*Record a run*) (1.4 KB)
   - 1514: Reading notes in a headset (v148) (2.4 KB)
-- 1540: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.2 KB)
-- 1669: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1713: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1778: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1822: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 1909: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 1975: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 2073: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 2164: From CLAUDE.md (6.1 KB)
+- 1540: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.3 KB)
+- 1670: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1714: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1779: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1823: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 1910: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 1976: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 2074: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 2165: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -1633,8 +1633,9 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
   `lvl` `error` or `warn`, `story` `HOST.curKey`); the same message again is only counted, and each count over one goes as
   `errn` `{ i, n }` as the run ends, before `perfend` (which adds `errd`, the distinct messages, and `errcut`). At most 60
   distinct messages are sent a run (`ERRMAX`): the cap hit sends `errcap` `{ at, max }` once, and later new messages are
-  only counted (`errcut`). A message (`cleanMsg`) loses an address's query and hash, a query or hash on its own (`?s=`,
-  `#s=...`), whatever follows `Bearer`, `token`, `password` or `pw`, and every relay password this device keeps
+  only counted (`errcut`). A message (`cleanMsg`) loses the query and hash of any word (`?k=` or `#k=` and what follows:
+  an address with or without a scheme, `/rooms/A?name=B`, `#s=...` on its own; a room's code or a name in a path or in
+  plain prose is not caught, and cannot be), whatever follows `Bearer`, `token`, `password` or `pw`, and every relay password this device keeps
   (`relayTokens`); it is cut to 180 characters (a stack is never kept, only an error's message). Caught before the run
   log runs (the plan, the rate's probe) they go once it does; a reload's run sends the messages so far again into its new
   log. The result's `errlist` `[{ i, n, at, seg, lvl, story, msg }]` and `totals.errd`, `errcut`; the results card says
