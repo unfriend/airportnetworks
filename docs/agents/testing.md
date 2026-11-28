@@ -4,14 +4,14 @@
 - 24: When the suites run (1.5 KB)
 - 40: Which suite after which change (2.3 KB)
 - 68: Listing the tests and the docs' tools (3.0 KB)
-- 104: The smoke test (`tools/smoke.mjs`) (13.6 KB)
+- 104: The smoke test (`tools/smoke.mjs`) (14.0 KB)
   - 140: Smoke blocks (8.1 KB)
   - 210: `--only <words>` and `--block <id>` (1.7 KB)
   - 229: Playwright, SwiftShader and what only a headset shows (0.5 KB)
 - 239: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
-- 306: Other tools (4.7 KB)
+- 306: Other tools (5.0 KB)
 - 331: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 340: Known red results on this machine (7.6 KB)
+- 340: Known red results on this machine (7.7 KB)
 - 374: Traps for a test writer (4.7 KB)
 - 422: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
@@ -116,7 +116,7 @@ runs every block as `node tools/smoke.mjs <url> --block <id>`, `-j 2` at a time 
 cores brings timing failures) against one server (its own on a free port, `tools/lib/serve.mjs`, unless a url is given),
 each under its own timeout (900 s, a few long blocks more: `LONG` in the file), and prints one table (block, ok, FAILED or
 TIMEOUT, seconds, steps); each block's output in `--logs <dir>` with `results.json`. `--shard i/n` takes every n-th block
-(for several sessions), `--blocks a,b` some, `--from <id>` the rest of a run. A block that failed is run again alone
+(for several sessions), `--blocks a,b` some, `--from <id>` the rest of a run. `--timeout <s>` sets the default time-out (900); `--skip-missing` is passed on to each block. A block past its time is stopped with SIGTERM (Playwright then normally closes its browser) and SIGKILL 15 s later, which reaches only the node process: after a TIMEOUT, look for stray chrome/chromium processes before trusting later blocks' timings; stopping them is the person's step (no `kill` by an agent). A block that failed is run again alone
 (`--block <id>`) before it is called real.
 
 **The pretend headsets' seats** (the owner, 27 November 2026, after a headset fault the tests could not see: "put the
@@ -309,13 +309,13 @@ One row a tool; each is a Node script run from the repository's root.
 
 | Tool | Run after | What it checks; traps |
 | --- | --- | --- |
-| `node tools/audio.mjs [url]` (`--list`, `--list --checks`, `--help`) | sound | 42 steps, about 20 min; no url: it serves the folder itself on a free port. A strict autoplay rule (a locked `AudioContext`, a tap), the start page with nothing behind its cards (v219: a step opens a story by a card's click or a link, `#airports`), narration and sound-effect switches, the headset menu's rows (its pretend headset at smoke's first seat, off the origin), the stories' cues, the voice limit. How sound really sounds only by ear |
+| `node tools/audio.mjs [url]` (`--list`, `--list --checks`, `--help`) | sound | 43 steps, about 20 min; no url: it serves the folder itself on a free port. A strict autoplay rule (a locked `AudioContext`, a tap), the start page with nothing behind its cards (v219: a step opens a story by a card's click or a link, `#airports`; v227: the start page shows Sound off before a tap, Sound pressed there is kept for the story picked next, and with sound stored on it says Play sound), narration and sound-effect switches, the headset menu's rows (its pretend headset at smoke's first seat, off the origin), the stories' cues, the voice limit. How sound really sounds only by ear |
 | `node tools/sfx-cues.mjs <url> <key\|all>` | cues | below |
 | `node tools/smoke-all.mjs [url]` | the release run | the smoke test block by block, two at a time, one table (above, "The whole run by block"); a block that exits 0 with no step run and none skipped is EMPTY, not ok. `smoke.mjs --block` or `--only` with nothing after them prints the ids and exits 1 (it ran the whole test before) |
 | `node tools/live.mjs [--port n] [--relay-port n]` | `HOST.live`, `HOST.swap`, `HOST.load`, `release.mjs`, the relay's `--watch` | a few minutes; a story added, changed and swapped live in a temporary copy of the app. Two free ports unless named (row K: two runs no longer collide on 8126 and 8127). The "within about 2 s" step allows 3 s and can still miss on a loaded machine. A story's `APP` is called only once it is built (`built()` first): before row K the step after *a shell file touched* could reach airports' `setClosedAttributes` on a reloading page (*TypeError reading 'aXrm'*), the test's, not the app's |
 | `node tools/update.mjs <old> [new] [--port n]` | `sw.js`, file loading | an old checkout installed, this one served like GitHub Pages, both on one free port (the worker's origin; 8125 before row K): page and stories new on the first visit, the next and offline. It waits up to a minute for the packages' cache (about 17 MB) |
 | `tools/lib/serve.mjs` | (the tests' kit) | Node built-ins only: `serve(dir, { port, pages })` (GitHub Pages' caching with `pages`, a plain no-cache server with a folder's listing without), `freePort()`, `portArg()`; `smoke-all.mjs`, `live.mjs` and `update.mjs` use it |
-| `node tools/room-test.mjs [--port n]` | `room-test/` | about 1 min; its own relay on a free port (8131 before row K); a pretend headset with a real depth texture array |
+| `node tools/room-test.mjs [--port n]` | `room-test/` | about 1 min; its own relay on a free port (8131 before row K); a pretend headset with a real depth texture array; it still stands at the origin (no seat, not moved off it as smoke's and collab's were), so it cannot catch an origin-only fault |
 | `node tools/output/test-page.mjs` | `output.js` | the output page's MIDI, OSC and clock |
 | `node tools/perf.mjs` | (measuring, not a test) | exits 0 always; script ms and counts, never GPU time; reads `FPS_FAKE` and `OCCL_FAKE` out of `tools/smoke.mjs`: do not rename them; run groups of scenes (about 90 in a run exceeds a background limit); `--from` compares two runs |
 | `packages/<key>/src/shot.mjs`, `sweep.mjs`, `test-*.mjs` | a story's maths, data or sets | a set harness first (cheap), then the story at a few seconds, then the smoke test; plain Node data tests of a second or two. Each story's own list: its `README.md` |
@@ -348,7 +348,7 @@ written down in the repository: the first person to chase one writes it here and
 | smoke, `anchored placement: no word while the saved place is being looked for` | no longer (row K, 27 November 2026) | the test's: its `N.wait` of 60 ms ran out during the first frames of a story just started under `--only`, so the status said *not found* before it was read. Now 2 s, and frames until *not found* (up to 10 s) instead of one sleep of 100 ms: it proves the status says *Finding* while the place is looked for and *not found* once the wait has passed |
 | collab `--walk` (`walkRound`): the `headAt` crash | fixed (row K, 27 November 2026) | the test's: the room-on-this-device block walked to the flock's station, and Arrange all never places Experiments, so `headAt(undefined)` threw. It walks to a station the room has |
 | collab main run, pretend-headset part: *headset: unused, the menu closes by itself; a ray resting on it keeps it open ...* (`idleHeld`) | flaky under load, row K's `--quick` | the test's: the ray counts as use only in a frame that finds its rest under 250 ms old (`shared.js` `hovOf`), and with `menuIdle(600)` one or two long software frames closed the menu. Since the review round the hold is 3.2 s against an idle time of 1.5 s; not yet run green at load |
-| collab main run: *a room on this device: Re-align ... the menu fits* | intermittent (red in two `--quick` runs of three) | the Circles tab drawn with only its header and tabs (vis 264 px, panel shown); cause not found. The check's detail now prints the rows drawn and whether the panel shows |
+| collab main run: *a room on this device: Re-align with nothing to line up with keeps the stations where they are (the menu fits, also with a long note)* | intermittent (red in two `--quick` runs of three) | the Circles tab drawn with only its header and tabs (vis 264 px, panel shown); cause not found. The check's detail now prints the rows drawn and whether the panel shows |
 | collab `--token`: *the right one is accepted ... the field goes* | no longer (27 November 2026; red on v225 too) | the test's: the dialog redraws through `changed()` 60 ms after the password is accepted, about 45 ms after the room opens, and the field was read once at once (measured: open at 40 ms, field gone at 85 ms, read at 100-130 ms; a busy machine read it first). Now waited for, 5 s: it proves the field goes |
 | collab main run, pretend-headset part: *with tracked hands two quick pinches ... open and close the menu* | red once in the review round's `--quick` at a load average near 10 (`pinch2Closed` false, so every later pinch read the menu still open); green in the next run at 5 | timing under load: a pair must land within 0.4 s, on timers the loaded page runs late |
 | collab `--places`: the budget and one-anchor checks | red once (q10: `fit10` null, the *places fitted* log never came), green in four other runs | cause unknown |
@@ -380,7 +380,7 @@ Found only by being bitten (the whole account is in `docs/history/testing.md`).
   every other pretend headset has Sharp text off by default, as a desktop browser does).
 - **The pretend headsets stand off the origin: never assume the head at 0, 0, 0.** Since 27 November 2026 every pretend
   headset stands at its seat (`XR_SEATS`, about 1.8 m out in x and z, 1.6 m up, turned by a yaw that is no multiple of 90
-  degrees; "The smoke test" above), and its controllers move with its head. A check places what it looks at, aims a ray,
+  degrees; "The smoke test" above; the exception is `tools/room-test.mjs`, still at the origin), and its controllers move with its head. A check places what it looks at, aims a ray,
   or reads a place in the head's view through `window.__xrSeat` (`p`, `q`, `m`: from the head's frame to where the headset
   has it; the inverse of `m(identity, H)` back), never at a fixed spot in front of the origin facing -z. What it caught on
   its first day: checks that aimed at the menu from the origin (`controllers after standby`, `phone ar`), a test plane

@@ -214,12 +214,12 @@ Every file and folder of the repository with what it holds. AGENTS.md keeps a on
   (the review of the packages migration): notes, not read by any tool.
 - `tools/perf.mjs` (v145) - measures what each scene costs per frame in a pretend headset (`node tools/perf.mjs [url] [--only
   words] [--json f] [--md f] [--frames N] [--list]`, `--from a.json,b.json --md r.md` merges runs); see "Testing".
-- `tools/smoke.mjs` - headless smoke test; `tools/audio.mjs` - narration and sound effects test (the three big tests
+- `tools/smoke.mjs` - headless smoke test (`--block <id>` runs one block, `--blocks` lists the ids); `tools/smoke-all.mjs` - the smoke test block by block, two at a time, one table (`-j`, `--shard i/n`, `--blocks`, `--from`, `--timeout`, `--logs`, `--list`; a block that runs no step is EMPTY); `tools/lib/serve.mjs` - the tests' kit (`serve`, `freePort`, `portArg`; Node built-ins only), used by smoke-all, live, update and audio; `tools/audio.mjs` - narration and sound effects test (the three big tests
   print what they hold with `--list` and exit: "Listing the tests and the docs' tools" in Testing);
   `tools/sfx-cues.mjs` - the stories' sound cues checked without listening (see "Sound effects");
   `tools/update.mjs` - update test for the service worker; `tools/live.mjs` -
   hot reload and live updates test; `tools/release.mjs` - writes `version.json`
-  (a release step), and `sw.js`'s story files (`SHELL`: the studio, from `stories/list.js`; the design room's until v217) and narrations (`AUDIO`:
+  (a release step), stamps `index.html`'s `MODS_FP` (the fingerprints of `occlusion.js`, `ships.js` and `notes.js`; it refuses to run without the stamp, `--check` fails while it is stale; "The shell's modules on demand" in shell.md), and `sw.js`'s story files (`SHELL`: the studio, from `stories/list.js`; the design room's until v217) and narrations (`AUDIO`:
   empty since v187, there is no `audio/` folder; each story's narration is in its package); `tools/collab.mjs` -
   shared rooms test (see Testing); `tools/narration.mjs` - writes
   `docs/narration.md` from the running stories; `tools/pace.mjs` - writes the

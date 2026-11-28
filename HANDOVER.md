@@ -158,12 +158,7 @@ sound)
 *Known bugs and noisy tests* (none blocks a release; each is a few hours or less; last recorded in v191 and v178 and not
 re-run since)
 
-13. Tests: the smoke step `studio sequences` is red (the page that started a sequence and a page given its state differ by
-    one frame of the 0.4 s fade just after a show at 1.5 s; cause not found); `flock: anchored placement` ("no word while
-    the saved place is being looked for") has been red since before v187, also for the robot gang, on unchanged code, run
-    alone, the airports pass (the test's or the shared engine's, unknown); `smoke.mjs --only studio` stops at the main studio
-    block's ninth step with "Cannot read properties of null (reading 'target')" in `carry` (a pretend headset's grip let go
-    before the step uses it); the full `node tools/collab.mjs` run has not reached its end on the cloud machine (smooth,
+13. Tests: the known red results and their causes are kept in `docs/agents/testing.md`, "Known red results on this machine"; row K (27 November 2026) fixed the anchored-placement and studio-sequences reds as the tests' own, and `smoke.mjs --only studio` as one run times out (use `--block studio`). Still open: the full `node tools/collab.mjs` run has not reached its end on the cloud machine (smooth,
     walk, welcome and the relay-clock checks fail only in long runs under software drawing; `--all`, `--ask` and `--design`
     pass alone); `tools/output/test-page.mjs` says "cannot be checked here" for live sound's pace (to be tried on a real
     output page); the robots do not dock in the smoke test about one run in eight (a robot still driving after 20 s, or
@@ -502,15 +497,15 @@ one review round); building the tour with the strongest model throughout took ab
 
 [docs/agents/layout.md](docs/agents/layout.md) (summed up under "Layout" in [AGENTS.md](AGENTS.md)) lists every file and folder. In short:
 
-- The shell: `index.html`, `shared.js` (shared rooms, the menu, the trackers), `sfx.js`, `occlusion.js`, `sw.js`.
+- The shell: `index.html`, `shared.js` (shared rooms, the menu, the trackers), `sfx.js`, `sw.js`, and three modules loaded on demand, `occlusion.js`, `ships.js` and `notes.js` (`docs/agents/shell.md`, "The shell's modules on demand").
 - `packages/`: one folder a story (v187: all of them), `packages/<key>/main.js` built from `packages/<key>/src/` (airports,
   proteins and spatial hand-written), its narration `packages/<key>/audio/narration.mp3`; `packages/order.json` (by hand) their order.
-- `stories/`: the studio (`studio.js`, built from `tools/studio/`) and `list.js` (by hand; it lists only the studio). The design room (`design.js`, from `tools/design/`) is parked since v217: out of the app, its sources kept.
+- `stories/`: the studio (`studio.js` and its two parts `studio-convert.js` and `studio-edit.js`, built from `tools/studio/`) and `list.js` (by hand; it lists only the studio). The design room (`design.js`, from `tools/design/`) is parked since v217: out of the app, its sources kept.
 - `tools/`: the shared engine (`tools/engine/`), `tools/packages/` (the packages' contract, scan and checks); `tools/studio/` (the studio, its test scenes), `tools/trackers/`
   (the bridge and the fake), `tools/voice/` (the narrations), `tools/lowpoly/` (the miniatures' kits and build; each story's miniatures are in its package since v190); the test scripts.
 - `relay/`: the server (rooms, scenes, R2, trackers), its tests and Dockerfile.
 - `docs/` (`docs/history/` the records), `room-test/` and `p2p/` (test pages).
-- Generated, never edited by hand: the built `stories/studio.js` and `packages/<key>/main.js`, `lowpoly.js` and `packages/<key>/minis.js`, `version.json`, `docs/narration.md`.
+- Generated, never edited by hand: the built `stories/studio.js`, `stories/studio-convert.js`, `stories/studio-edit.js` and `packages/<key>/main.js`, `lowpoly.js` and `packages/<key>/minis.js`, `version.json`, `docs/narration.md`.
   Written by hand at every release: `whatsnew.json`.
 - Outside the repository on purpose: the authors' data files, the voice models, the owner's own studio scenes (in R2,
   or `tools/studio/test/local/`, which git ignores) and the relay's logs.

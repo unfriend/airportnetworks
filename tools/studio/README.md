@@ -1,6 +1,6 @@
 # The studio: your own scenes
 
-`stories/studio.js` (built from this folder: `node tools/studio/build.mjs`, `--check`) is a page of the app that is not a
+`stories/studio.js` (built from this folder: `node tools/studio/build.mjs`, `--check`; the build writes three files, with `stories/studio-convert.js` and `stories/studio-edit.js`, comments and blank lines stripped with the licence lines kept, and `--check` compares all three; `--raw <dir>` also writes them with their comments to `<dir>`; `docs/agents/studio.md`, "Built without comments, in three files") is a page of the app that is not a
 story, like the design room: `#studio`. A **scene** is a folder of files (models, their textures, sounds) and its
 `layout.json`, where everything placed stands: objects, see-through trigger cubes that show and hide them (or change
 their pictures) as you walk in and out, and sounds placed in the room. The contract is `SPEC.md`.

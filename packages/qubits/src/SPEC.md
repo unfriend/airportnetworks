@@ -117,7 +117,7 @@ Pauli strings are indices `k = (x << L) | z` (bit q of x: an X on qubit q; of z:
   with θ = −2 c t.
 - **Everything at once**: `analyze(netKey, { L, cut: 'found' | 'random' })` (cached) -> `{ net, cut, L, N, code, sizes,
   purity, raw, Ac, c, order, errors, fits: { tfim, odd }, cubeShare, cutShare, trotter: { tfim, odd } }`.
-- Also `layout(net, { dim, iters, seed, init })` (force-directed, seeded), `pairs(n)`, `soDim(m)`, `CELL_COLORS`, `rng`,
+- Also `layout(net, { dim, iters, seed, init })` (force-directed, seeded; it uses a layout stored by the build (`QLAY_STORED`) only while its key, `layoutKey(net, o)`, matches, else works it out live), `pairs(n)`, `soDim(m)`, `CELL_COLORS`, `rng`,
   `pop`.
 
 What the story's network gives (for the text, but compute it, never copy these): 320 genes in 8 cells of 40; cube

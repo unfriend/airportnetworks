@@ -153,18 +153,18 @@ There is no unit-test suite and no CI (no automatic test runs on GitHub): you ru
 moves (a push to `dev` gets only the cheap checks: `node --check` on the changed files, the build check and the
 release file check; section 4). The browser
 tests use headless Chromium, which draws in software here and is slow, so run them one at a time. In the table,
-"server" means the folder served on port 8123, as in section 2. The times are for a machine with 4 CPUs. When each test runs (what a change adds to the release run) is "Testing" in `AGENTS.md`.
+"server" means the folder served on any port (`python3 -m http.server 8123` is one way, as in section 2; audio, live, update, room-test and smoke-all start their own server on a free port when given no url, `tools/lib/serve.mjs`; `--port` fixes one). The times are for a machine with 4 CPUs. When each test runs (what a change adds to the release run) is "Testing" in `AGENTS.md`.
 
 | Test | Command | Needs | Time | A failure usually means |
 | --- | --- | --- | --- | --- |
 | Build check | `node tools/engine/all.mjs --check && node tools/studio/build.mjs --check` | Node | a few seconds | a built story no longer matches its sources: run its `build.mjs` and commit both |
-| Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | about 20 min | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored. `--only <words>` (v124) runs only the steps whose names start with them, such as `--only studio` or `--only trackers`: for a builder's own steps; the release run is the whole test, with no `--only` |
-| Sound | `node tools/audio.mjs http://127.0.0.1:8123/` | server, Playwright, `packages/airports/audio/narration.mp3` | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
-| Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, port 8125 free (it serves both versions itself) | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
-| Live updates | `node tools/live.mjs` | Playwright, ports 8126 and 8127 free (it copies the app to a temporary folder, serves it like Pages and through a relay with `--watch --build`) | a few minutes | a story added live without its card, a swap that loses the place or happens mid-chapter, a shell change not asked about, a reload that loses the place, `version.json` cached, or the watch channel silent |
+| Smoke | `node tools/smoke.mjs http://127.0.0.1:8123/` | server, Playwright | about 1.5 h as one process; `node tools/smoke-all.mjs [url]` runs it block by block, two at a time, in one table (the release run) | a page or console error in a story (they are printed at the end). A 404 for a missing narration MP3 is expected and ignored. `--only <words>` (v124) runs only the steps whose names start with them, such as `--only studio` or `--only trackers`: for a builder's own steps; the release run is the whole test, with no `--only` |
+| Sound | `node tools/audio.mjs [url]` | Playwright (no url: it serves the folder itself), `packages/airports/audio/narration.mp3` | a few minutes | the narration no longer starts after a tap or a story change, or the `<audio>` fallback no longer takes over |
+| Update | `git worktree add /tmp/old origin/main`, then `node tools/update.mjs /tmp/old .`, then `git worktree remove /tmp/old` | Playwright, a free port (it serves both versions itself) | under 1 min | `VERSION` was not bumped, a new file is missing from `SHELL`, or the page and its stories came from different versions. If it says the two versions look the same, the old checkout is not older |
+| Live updates | `node tools/live.mjs` | Playwright, free ports (it copies the app to a temporary folder, serves it like Pages and through a relay with `--watch --build`) | a few minutes | a story added live without its card, a swap that loses the place or happens mid-chapter, a shell change not asked about, a reload that loses the place, `version.json` cached, or the watch channel silent |
 | Release file | `node tools/release.mjs --check` | Node | under 1 s | `version.json` or `index.html`'s stamp is not current: run `node tools/release.mjs` and commit both; or `whatsnew.json` names another release: rewrite it (step 5c) |
 | Relay | `node relay/test.mjs` | Node 22 | seconds (the studio's scenes and uploads about 15 s more) | the protocol changed, the relay does not serve a file that `sw.js` caches (`APP_FILES` and `APP_DIRS` in `relay/server.mjs`), or the studio's scenes, saving, watch, uploads, `ffmpeg` or `/upload` no longer answer as `relay/README.md` says |
-| Room and depth test | `node tools/room-test.mjs` | Playwright, port 8131 free (it starts its own relay) | about a minute | the pretend headset's depth no longer hides the test things where it should (three.js r128's external texture, the per-eye pass), or the report misses a field |
+| Room and depth test | `node tools/room-test.mjs` | Playwright (its own relay on a free port) | about a minute | the pretend headset's depth no longer hides the test things where it should (three.js r128's external texture, the per-eye pass), or the report misses a field |
 | Introduction server | `node tools/peer.mjs` | Playwright (it starts its own relay) | seconds | two pages of the test page no longer link through the relay's introduction server |
 | Shared rooms | `node tools/collab.mjs` (`--quick` runs only the last story in the per-story part; `--p2p` only the peer-to-peer part, about 2 min; `--near` only rooms on this network, `--follow` only following a person, `--circles` only the ten-headset round's circles and locks, `--token` only the relay's password (not in the main run), `--studio` only the studio in a room, its saving, uploads and password, about 3 min; `--shots <dir>` saves pictures) | Playwright (it starts its own relay; the peer-to-peer part uses its `/peerjs`, never the internet) | about 15 to 18 min | a story's hooks no longer match its pointer code, a `state()` that changes when it is applied, `FORMAT` not bumped, a timing check (see below), or a peer-to-peer room that no longer hosts, links or takes over |
 | Studio listings | `node tools/studio/scan.mjs tools/studio/test/scenes --check` | Node | under 1 s | the test scene's `index.json` or `files.json` is not what the relay would answer: run it without `--check` (or `make.mjs`) and commit them |
@@ -214,7 +214,7 @@ is GitHub Pages' custom domain for `main`.
    takes its globe and cell from `packages/airports/main.js` and `packages/spatial/main.js`: rebuild it after changing
    either). So are the miniatures (the design room, `stories/design.js` from `tools/design/`, is parked since v217: built only by hand) (since v190 each
    story's `packages/<key>/minis.js` from its `src/minis.js` and `src/props.json`, and the shell's own `lowpoly.js` from
-   `tools/lowpoly/shell.js`, all by `node tools/lowpoly/build.mjs`), and the studio (`stories/studio.js` from `tools/studio/`, with three.js
+   `tools/lowpoly/shell.js`, all by `node tools/lowpoly/build.mjs`), and the studio (`stories/studio.js`, `stories/studio-convert.js` and `stories/studio-edit.js` from `tools/studio/`; commit all three, with three.js
    r128's own add-ons from `tools/studio/vendor/`, never edited). `packages/airports/main.js`, `packages/proteins/main.js` and `packages/spatial/main.js` are edited by hand.
    Search them rather than reading them whole, because they are large.
 3. **Rebuild.** If the data changed, run the data generator first (see the story's README), then rebuild the
@@ -236,7 +236,10 @@ is GitHub Pages' custom domain for `main`.
    update.
 5b. **Write the release file:** `node tools/release.mjs`, after the `VERSION` bump. It writes `version.json` (the
    release, the format, the shell's fingerprint and per story its file's fingerprint and the oldest shell it needs)
-   and stamps the shell's release into `index.html` (`HOST.shell`); commit both. Running pages read it about once a
+   and stamps the shell's release into `index.html` (`HOST.shell`) and the fingerprints of `occlusion.js`, `ships.js` and
+   `notes.js` into its `MODS_FP`, so a page runs one of those files only if it is the release's own (after editing any of
+   the three, run it again; it refuses to run if `index.html` has no `MODS_FP` stamp, and `--check` fails while the stamp
+   is stale; `docs/agents/shell.md`, "The shell's modules on demand"); commit both. Running pages read it about once a
    minute and take the release: new and changed stories by themselves (a changed story on show at a quiet moment),
    a new shell or format after asking (Reload now or Later). It refuses a changed shell without a new `VERSION`. A
    story that only works with the new shell gets it as its `needs` by itself; give a story an older `needs` in

@@ -155,6 +155,8 @@ Moved out of AGENTS.md (docs/agents/shared-rooms.md); the facts and the owner's 
 
 ### FORMAT bumps (networks-10 to networks-61)
 
+networks-61 has stood since v215; v216 to v227 changed no room key and no story's `state()` (v227's `claim()` fix changed only when a peer-to-peer host builds its hub, not what is sent).
+
 (FORMAT networks-10; networks-11 when the eighth story came, networks-12 the ninth, networks-13 the tenth, networks-14 the eleventh, networks-15 the twelfth, networks-16 the thirteenth, networks-17 when the PET story's `state()` lost its one-scan fields, networks-18 when its liver scene came back, networks-19 when the ovary story's charts went, networks-20 when the pass story's school got a shared place at a station, networks-21 when the fourteenth story came, networks-22 when the scene's and the panel's turn joined a station's place, networks-23 when the fifteenth story came, networks-24 when subtitles joined `look`, networks-25 when `near` and `rid`
 came with rooms on this network, and `st.<id>.ui` with panels per story in the same round, and its `lock` when the
 layout lock became two locks after the ten-headset test, networks-26 when moves by hand gained `ts` and `h` and the
