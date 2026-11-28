@@ -900,7 +900,13 @@ void main() {
   const lnMat = mat(COLOUR + `
 uniform float uLinks, uAlive;
 varying float vPh, vPr, vPa;
+// the most any fragment of any thread can get now (the fragment shader's a: lit ends, the alive pulse, the pair's
+// thread), from the uniforms alone, so both ends of a thread agree; under the discard there, no thread is rasterised
+float linkTop() {
+  return uA * (uLinks * 0.024 * mix(0.4, 1.0, uNet) * (1.0 + 5.0 * uDim) * (1.0 + 0.25 * uDim) * (1.0 + 1.35 * uAlive) + 0.85 * uPair);
+}
 void main() {
+  if (linkTop() < 0.0029) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); vA = 0.0; vPa = 0.0; vPr = 0.0; vPh = 0.0; vC = vec3(0.0); return; }
   vec3 p = place(position);
   float br, lit, pk;
   vec3 col = colour(br, lit, pk);
@@ -1111,6 +1117,9 @@ void main() {
       U.uCol.value = clamp(s.cloud_col, 0, 1); U.uMono.value = clamp(s.cloud_mono, 0, 1); U.uSmall.value = clamp(s.cloud_small, 0, 1) * (Math.round(s.cloud_level) === 0 ? 1 : 0);
       U.uDim.value = clamp(s.cloud_dim, 0, 1); U.uPair.value = clamp(s.cloud_pair, 0, 1); U.uHideClot.value = clamp(s.cloud_hideClot, 0, 1);
       U.uLinks.value = clamp(s.cloud_links, 0, 1); U.uAlive.value = clamp(s.cloud_alive, 0, 1);
+      // the threads are not drawn while none can show (the shader's linkTop, a little under its cull): 45,000 long
+      // chords at alpha 0 in the drift cloud cost a headset most of its frame (from the params only, so seeking works)
+      links.visible = set.uA.value * (U.uLinks.value * 0.024 * (0.4 + 0.6 * U.uNet.value) * (1 + 5 * U.uDim.value) * (1 + 0.25 * U.uDim.value) * (1 + 1.35 * U.uAlive.value) + 0.85 * U.uPair.value) >= 0.0028;
       // keep clear: in a headset nothing nearer than 0.35 m to the head; on a screen a little room round the camera
       const xr = !!(GL.renderer && GL.renderer.xr && GL.renderer.xr.isPresenting);
       U.uNearM.value = xr ? 0.35 : 0; U.uNearU.value = xr ? 0.001 : 0.09;

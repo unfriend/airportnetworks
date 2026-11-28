@@ -19,10 +19,10 @@
 - 870: The robot gang (`packages/robots/`, a story package since v185) is built the same way (4.6 KB)
 - 932: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
 - 982: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
-- 1031: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (6.8 KB)
-- 1096: Protein crowds (`packages/crowds/`, a test bed on the Experiments set) (4.3 KB)
-- 1139: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1190: From CLAUDE.md (6.4 KB)
+- 1031: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (7.3 KB)
+- 1100: Protein crowds (`packages/crowds/`, a test bed on the Experiments set) (4.3 KB)
+- 1143: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1194: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and
@@ -1089,7 +1089,11 @@ nine minutes and fifty seconds (`NARRATION_SYNC` provisional until the voice is 
   slow drift wobble, refilled only when `cur.shelf`, `net`, `come`, `turn` or `split` change (it was keyed on the time,
   which in explore is the clock, so all 9,764 places were refilled every frame: 7.6 to 0.16 ms a frame headless); a
   place within the tolerance widened by the wobble's bound (`WOB`, 1.3 x sqrt(3) x 0.03 x drift) is placed exactly and
-  tested as before, so the pick is the same point (checked over seeded rays).
+  tested as before, so the pick is the same point (checked over seeded rays). The threads (45,000 chords at alpha 0 in
+  chapter 1's drift cloud, most of a Quest frame) are not drawn while none can show: `links.visible` from the params
+  only (`linkTop`: the most a thread's fragment can reach from `uA`, `uLinks`, `uNet`, `uDim`, `uAlive` and the pair's
+  `uPair`, under the fragment shader's 0.003 discard), and the thread shader throws every thread out by the same
+  uniforms-only bound (never by a per-point alpha: a thread with one end out would be stretched across the view).
 - Wording: "disturbs" or "touches" a gene, "close in the map", "more common where", never "causes"; no brand names;
   countries by their rates only; no health advice. British spelling.
 
