@@ -6,7 +6,7 @@ version, and undo one. Start with [HANDOVER.md](../HANDOVER.md). [AGENTS.md](../
 *checked 22 October 2026* were read from GitHub or the live site on that day.
 
 <!-- state (tools/release.mjs) -->
-The current release is `networks-v227` (shell 227), the room format `networks-61`, released 27 November 2026. (Written by `node tools/release.mjs`, checked by its `--check`.)
+The current release is `networks-v228` (shell 228), the room format `networks-61`, released 28 November 2026. (Written by `node tools/release.mjs`, checked by its `--check`.)
 <!-- /state -->
 
 ## 1. Setting up a machine

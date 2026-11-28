@@ -1,22 +1,21 @@
 {
-  "version": "networks-v227",
-  "date": "2026-11-27",
+  "version": "networks-v228",
+  "date": "2026-11-28",
   "new": [
-    "The Sound button is on the start page again: since v219 it stayed hidden until a story was picked. It shows whether the sound is on or off on this device, and a press there is kept: the story you then pick plays with sound, or stays silent.",
-    "A room without a relay (peer to peer) no longer splits when the host's link to the introduction server drops for a moment: before, the host's changes then reached none of its guests. Now the room goes on as it was.",
-    "The exposome story (Invisible threads) in a headset: the scene no longer follows your head and the beams leave your hands (a fix sent after v226)."
+    "A story can no longer move a headset's eyes. The fault of the exposome story (v212 to v225: the scene stuck to your head, the beams below your hands) came from one line in a story; the shell now keeps the eye cameras to itself, whatever a story does.",
+    "If a story leaves the picture drawing somewhere else after a frame, the shell puts it back on the headset and says so once in the console.",
+    "The package check refuses a story whose drawing code tries to move its camera. The pass story had the same line (harmless, on a page only): it is fixed."
   ],
   "test": [
-    "Open the start page on a fresh device: the Sound button is there before any story. Press it, then pick a story: it plays with sound.",
-    "In a room without a relay: turn the host's wifi off and on for a few seconds, then change something on the host: the guests should see the change.",
-    "The exposome story (Invisible threads) in VR and in AR: the scene stays put and the beams leave your hands.",
-    "Switch on occlusion, the spaceships and the notebook: each still appears (they load on demand since v226)."
+    "Any two stories in VR and one in AR: everything looks as before, in stereo, the beams leaving your hands.",
+    "The exposome story (Invisible threads) in VR and in AR: the scene stays put.",
+    "Sharp text, occlusion and the spaceships in a headset: each still looks right.",
+    "The pass story on a page: the globe and the cell are lit as before."
   ],
   "untested": [
-    "Everything in a headset since v220 except calibration, which the owner tried on v226: it works again.",
-    "The exposome fix is untested in a headset.",
-    "v226's parts loaded on demand (occlusion, spaceships, notebook) are untested in a headset.",
-    "The peer-to-peer fix was tried only with pretend devices on one machine.",
+    "The lock on the eye cameras was tried only with a pretend headset: that it changes nothing in the picture on a Quest is untested.",
+    "Stories that draw into a picture first (the studio's small views) are untested in a headset since this change.",
+    "Everything in a headset since v220 except calibration, which the owner tried on v226.",
     "Every synthetic voice is unheard."
   ]
 }

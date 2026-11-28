@@ -60,7 +60,7 @@ in [docs/data-and-permissions.md](docs/data-and-permissions.md).
 ## Where things stand
 
 <!-- state (tools/release.mjs) -->
-The current release is `networks-v227` (shell 227), the room format `networks-61`, released 27 November 2026. (Written by `node tools/release.mjs`, checked by its `--check`.)
+The current release is `networks-v228` (shell 228), the room format `networks-61`, released 28 November 2026. (Written by `node tools/release.mjs`, checked by its `--check`.)
 <!-- /state -->
 
 **The state is read, not typed here.** The current release is `version.json` (its `version`, `shell` and `date`; `sed -n 3p
