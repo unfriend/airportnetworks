@@ -37,15 +37,15 @@
   - 1499: Run logs (*Record a run*) (1.4 KB)
   - 1515: Reading notes in a headset (v148) (2.4 KB)
 - 1541: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.3 KB)
-- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (8.0 KB)
-- 1748: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1792: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1857: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1901: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 1988: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 2054: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 2152: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 2243: From CLAUDE.md (6.1 KB)
+- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (8.4 KB)
+- 1751: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1795: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1860: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1904: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 1991: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 2057: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 2155: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 2246: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -1698,7 +1698,8 @@ how the shell does it.
   helper: `{ on, phase, why, hs, xr, want, job, press, rel, url }`.
 - **Refusals.** Never on the host `stories.lbi-netmed.com` (`DENY`, whatever its relay says); held in a shared room, and
   a room joined during a job fails it (`a shared room was joined`); the room is never told anything, no room key, no
-  `FORMAT` change, nothing in `state()`. A job refuses while the performance run is on, and the bench does not ask then.
+  `FORMAT` change, nothing in `state()`. A job refuses while the performance run is on, and the bench does not ask then;
+  the performance run's `start()` refuses while a job runs (`HOST.bench.hold()`).
 - **Holds while a job runs** (`hold()`, beside the performance run's in `index.html`): no slideshow stop, no Repeat
   (`HOST.ended`), no live swap or reload (`HOST.live` `quiet()` and `held()`, `HOST.reloadIfUpdated`), `HOST.perf`'s
   `meas()` on, sound quiet through `HOST.audio`'s `muted()` (`hush()`) unless the job says `sound: true`. As a job
@@ -1731,7 +1732,9 @@ how the shell does it.
   for a person; jobs that need no session (`need: 'page'` or `'any'`) run meanwhile. With the adb helper the button is
   pressed for it. After an update (`HOST.live.sig()`, new: the shell's id and a fingerprint of the packages' fingerprints)
   and 20 s idle with nothing waiting, the bench posts `bench/plans/<benchPlan>.json` (default `dev`; its `page` part
-  first, as a job of its own), `from: 'auto'`; the first boot only notes the signature.
+  first, as a job of its own), `from: 'auto'`; the first boot only notes the signature. What the relay answered (a full
+  store's 507 among them) is the next report's `auto`. The relay deletes ended jobs after 14 days and the oldest ended
+  when 1000 jobs or 1 GB are reached; `node tools/bench/bench.mjs delete` by hand.
 - **Probes** (`bench/probes/`): `picks` (explore picking's cost a frame under pretend sweeping rays: the story's
   `pickWith` timed by fixed expressions and put back), `scene` (what the story draws, by set: meshes, instances, lines and
   their vertices, points and their count, materials, geometries; the renderer's counts), `loads` (the story's load steps
@@ -1739,7 +1742,7 @@ how the shell does it.
   `{ args, story, app, peek, frames, wait, until, measure, rays, renderer, session, log }` (`rays` and `session` added to
   the spec's list). Plans (`bench/plans/`): `quick` (airports and cdk5, a few minutes), `dev` (every story, a chapter,
   explore with rays, a picture, the studio's `bliss-xp`; about 15 minutes), `picking` (cdk5 and the exposome).
-- Hooks for tests: `state()`, `line()`, `sig()`, `settings()`, `test({ ask, idle, hello, lostMs })`. The test:
+- Hooks for tests: `state()` (with `now`, the headset's clock, for the adb helper), `line()`, `sig()`, `settings()`, `test({ ask, idle, hello, lostMs })`. The test:
   `node tools/bench/test.mjs` (`docs/agents/testing.md`).
 - Untested on a headset: all of it (the long poll through the test place's proxy for hours, Quest Browser freezing a page
   it thinks hidden, the eye picture's read-back on the Quest, the pretend rays beside real controllers, the line's

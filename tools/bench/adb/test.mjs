@@ -12,7 +12,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { parseLine, splitFields, summarise, vrapiFor, parseDevices, parseSockets } from './adb.mjs';
+import { parseLine, splitFields, summarise, vrapiFor, parseDevices, parseSockets, pressPoint } from './adb.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HELPER = path.join(HERE, 'adb.mjs');
@@ -23,6 +23,9 @@ fs.mkdirSync(TMP, { recursive: true });
 const RUN = fs.mkdtempSync(path.join(TMP, 'run-'));
 const TOKEN = 'pw-' + crypto.randomBytes(12).toString('hex');
 const HS = 'k3v9q2ma';
+// the headset's clock five minutes ahead of the computer's in the watch round (page 'sk' and the shim's logcat): the
+// helper must compare a job's seconds only with the headset's clock
+const HSKEW = 5 * 60 * 1000;
 
 let pass = 0, failed = 0;
 const ok = (c, name, info) => { if (c) { pass++; console.log('  ok   ' + name); } else { failed++; console.log('  FAIL ' + name + (info ? '\n       ' + String(info).slice(0, 1500).replace(/\n/g, '\n       ') : '')); } };
@@ -43,14 +46,14 @@ const PAGE = `<!doctype html><meta charset="utf-8"><meta name="viewport" content
 <body style="margin:0;background:#123">
 <button id="benchEnter" style="position:fixed;left:140px;top:160px;width:220px;height:90px">Enter AR</button>
 <script>
-const mode = location.pathname.split('/')[1];
+const mode = location.pathname.split('/')[1], skew = mode === 'sk' ? ${HSKEW} : 0;
 const press = { n: 0, trusted: false, at: 0, err: '' };
 let xr = '';
 window.HOST = { bench: { state: () => ({ on: true, phase: mode === 'pw' ? 'held' : xr ? 'idle' : 'enter', why: mode === 'pw' ? 'the relay wants its password' : '',
-  hs: '${HS}', xr, want: 'ar', job: null, press: Object.assign({}, press), rel: 'networks-v232', url: location.href }) } };
+  hs: '${HS}', xr, want: 'ar', job: null, press: Object.assign({}, press), rel: 'networks-v232', url: location.href, now: Date.now() + skew }) } };
 document.querySelector('#benchEnter').addEventListener('click', (e) => {
   press.n++; press.trusted = e.isTrusted; press.at = Date.now(); press.err = '';
-  if (mode === 'ok') { if (e.isTrusted) xr = 'ar'; else press.err = 'not a user gesture'; }
+  if (mode === 'ok' || mode === 'sk') { if (e.isTrusted) xr = 'ar'; else press.err = 'not a user gesture'; }
   else if (mode === 'err') (navigator.xr ? navigator.xr.requestSession('immersive-ar') : Promise.reject(new Error('WebXR is not available here')))
     .then(() => { xr = 'ar'; }, (er) => { press.err = String(er && er.message || er); });
   else if (mode === 'dialog') setTimeout(() => alert('Allow this site to use AR?'), 0);
@@ -69,7 +72,7 @@ const relay = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   const send = (code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(obj === undefined ? '' : JSON.stringify(obj)); };
   if (!u.pathname.startsWith('/api/')) {
-    if (/^\/(ok|ask|err|dialog|pw)\/$/.test(u.pathname)) { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(PAGE); return; }
+    if (/^\/(ok|sk|ask|err|dialog|pw)\/$/.test(u.pathname)) { res.writeHead(200, { 'Content-Type': 'text/html' }); res.end(PAGE); return; }
     res.writeHead(404); res.end(); return;
   }
   reqs.push(req.method + ' ' + req.url + ' ' + JSON.stringify(Object.keys(req.headers)));
@@ -79,7 +82,9 @@ const relay = http.createServer(async (req, res) => {
   const p = u.pathname;
   if (p === '/api/bench' && req.method === 'GET') return send(200, { now: Date.now(), headsets: [{ hs: HS, seen: Date.now(), ago: 1 }], queued: [...jobs.values()].filter((j) => j.state === 'queued').length, running: 0 });
   if (p === '/api/bench/next') {
-    const adb = u.searchParams.get('role') === 'adb';
+    const adb = u.searchParams.get('role') === 'adb', hs = u.searchParams.get('hs') || '';
+    // (as the real relay: an eight-character id, or 'adb' for a helper that has not read the page's yet)
+    if (!/^[a-z0-9]{8}$/.test(hs) && !(adb && hs === 'adb')) return send(400, { error: 'hs: the headset\'s id' });
     const end = Date.now() + Math.min(+u.searchParams.get('wait') || 0, 1) * 1000;
     for (;;) {
       const j = [...jobs.values()].find((x) => x.state === 'queued' && (x.to === 'adb') === adb);
@@ -162,6 +167,9 @@ try {
     ok(v.vrapi && v.vrapi.n === 2 && v.vrapi.per.length === 1 && v.vrapi.per[0].n === 1 && /1 unreadable/.test(v.notes) && v.vrapi.cols.length === v.vrapi.rows[0].length, "the job's seconds and one entry a step", JSON.stringify(v));
     ok(vrapiFor(rows, [], 1, 2, []).vrapi === null, 'no lines in the window: vrapi null and a note');
     ok(parseDevices('List of devices attached\nABC\tunauthorized usb:1 transport_id:2\n').map((d) => d.state).join() === 'unauthorized', 'adb devices -l is read');
+    const pp = pressPoint({ left: 140, top: 160, width: 220, height: 90, vw: 800, vh: 600, scale: 2, ox: 100, oy: 100, w: 400, h: 300 });
+    ok(pp.x === 250 && pp.y === 205 && pp.alt.x === 300 && pp.alt.y === 210 && /zoomed in 200 %/.test(pp.zoom), 'a pinch-zoomed page: the press at the layout\'s place, the visual viewport\'s as the other try', JSON.stringify(pp));
+    ok(/out of view/.test(pressPoint({ left: 140, top: 700, width: 220, height: 90, vw: 800, vh: 600, scale: 1, ox: 0, oy: 0, w: 800, h: 600 }).why || ''), 'a button below the window: out of view, no press');
     ok(parseSockets('0: 1 @webview_devtools_remote_12\n0: 1 @chrome_devtools_remote\n0: 1 /dev/x').join() === 'chrome_devtools_remote,webview_devtools_remote_12', "the browser's DevTools socket comes first");
   }
 
@@ -222,14 +230,17 @@ try {
   {
     await page.goto('about:blank');
     const before = adbLog().length;
-    const w = helper(['watch', '--site', site('ok'), '--press-gap', '2'], {}, 120000);
+    // (an adb job queued before the helper has seen any page: taken at its first ask, as 'adb')
+    const early = await api('/api/bench/jobs', { v: 1, label: 'early', to: 'adb', steps: [{ cmd: 'devshot', n: 1 }] });
+    const w = helper(['watch', '--site', site('sk'), '--press-gap', '2'], { SHIM_SKEW_MS: String(HSKEW) }, 120000);
+    ok(await until(() => jobs.get(early.id).state === 'done', 15000) && !reqs.some((x) => /\/next\?[^ ]*hs=(&| )/.test(x)), 'an adb job before any page is known: taken within seconds, never asked with an empty id', w.out + '\n' + reqs.filter((x) => /next/.test(x)).slice(0, 3).join('\n'));
     const entered = (k) => until(async () => (w.out.match(/the page is in AR/g) || []).length >= k, 25000);
     ok(await entered(1), 'watch: opens the address and presses Enter', w.out);
     await page.reload();
     ok(await entered(2) && (await pressOf()).trusted === true, 're-entry after a reload: pressed again, trusted', w.out);
 
-    // a page job, as the page posts it: taken, a result with its seconds
-    const now = Date.now();
+    // a page job, as the page posts it: taken, a result with its seconds (on the headset's clock)
+    const now = Date.now() + HSKEW;
     const pj = await api('/api/bench/jobs', { v: 1, label: 'stand-in page job', to: 'page', need: 'any', steps: [{ cmd: 'measure', sec: 2 }, { cmd: 'wait', sec: 1 }] });
     const taken = await api('/api/bench/next?hs=' + HS + '&xr=ar&wait=1');
     ok(taken && taken.job && taken.job.id === pj.id, 'the page job is taken by the stand-in page');
@@ -239,7 +250,8 @@ try {
     await api('/api/bench/next?hs=' + HS + '&xr=ar&wait=1');
     await api('/api/bench/jobs/' + skip.id + '/result', { hs: HS, ok: true, why: '', t0: now - 4000, t1: now - 1000, steps: [] });
     // the helper's own job
-    const aj = await api('/api/bench/jobs', { v: 1, label: 'devshot', to: 'adb', steps: [{ cmd: 'devshot', n: 2 }, { cmd: 'vrapi', from: now - 4000, to: now }, { cmd: 'nonsense', soft: true }] });
+    const target = await api('/api/bench/jobs', { v: 1, label: 'statistics asked for later', need: 'vr', steps: [{ cmd: 'report' }] });
+    const aj = await api('/api/bench/jobs', { v: 1, label: 'devshot', to: 'adb', steps: [{ cmd: 'devshot', n: 2 }, { cmd: 'vrapi', from: now - 4000, to: now }, { cmd: 'nonsense', soft: true }, { cmd: 'vrapi', from: now - 4000, to: now, job: target.id }] });
 
     ok(await until(() => jobs.get(pj.id).adb, 20000), 'frame statistics attached to the page job', w.out);
     const A = jobs.get(pj.id).adb || {};
@@ -250,6 +262,8 @@ try {
     const ds = (J.devshots || [])[0];
     ok(J.state === 'done' && ds && ds.png && ds.n === 2 && J.result.steps[0].out.how === 'screencap', 'devshot: the capture service refused, the screencap posted as a PNG', JSON.stringify(J.result));
     ok(J.result.steps[1].ok && J.adb && J.adb.vrapi && J.result.steps[2].ok === false && /not a helper command/.test(J.result.steps[2].err), 'vrapi step posted; an unknown command fails softly', JSON.stringify(J.result.steps));
+    const T = jobs.get(target.id), s3 = J.result.steps[3] || {};
+    ok(s3.ok && s3.out.onto === target.id && T.adb && T.adb.vrapi && T.adb.vrapi.n >= 3 && s3.out.all && s3.out.all.fps > 50, 'vrapi with job: the statistics go onto that job, the summary into the step', JSON.stringify(s3));
     await sleep(6000);
     ok(jobs.get(skip.id).adb === false, 'a job with adb: false gets no statistics');
 
@@ -259,6 +273,30 @@ try {
     const iOn = log.findIndex((l) => /prox_close/.test(l)), iOff = log.findIndex((l) => /automation_disable/.test(l));
     ok(r.code === 130 && iOn >= 0 && iOff > iOn && /The headset may sleep again/.test(r.out), 'Ctrl+C: the awake setting is put back', 'code ' + r.code + '\n' + log.join('\n'));
     ok(log.some((l) => /forward --remove tcp:\d+/.test(l)), 'Ctrl+C: the port forward is removed');
+  }
+
+  console.log('A page at twice the pixels, and pinch-zoomed');
+  {
+    await page.goto('about:blank');
+    const ctx2 = await browser.newContext({ viewport: { width: 800, height: 600 }, deviceScaleFactor: 2 });
+    const p2 = await ctx2.newPage();
+    const pressOf2 = () => p2.evaluate(() => window.HOST.bench.state().press).catch(() => null);
+    await p2.goto(site('ok') + '#dev=on&bench=on&benchxr=ar');
+    let r = await helper(['enter', '--site', site('ok')]).done;
+    ok(r.code === 0 && (await pressOf2()).trusted === true, 'device pixel ratio 2: the press lands, trusted', r.out);
+    const cdp = await ctx2.newCDPSession(p2);
+    await p2.reload();
+    await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 1.5 });
+    await sleep(300);
+    r = await helper(['enter', '--site', site('ok')]).done;
+    const z = await pressOf2();
+    ok(r.code === 0 && z.n === 1 && z.trusted === true, 'pinch-zoomed 150 % with the button in view: the press lands', r.out + '\n' + JSON.stringify(z) + ' ' + JSON.stringify(await p2.evaluate(() => [visualViewport.scale, visualViewport.offsetLeft, visualViewport.offsetTop])));
+    await p2.reload();
+    await cdp.send('Emulation.setPageScaleFactor', { pageScaleFactor: 4 });
+    await sleep(300);
+    r = await helper(['enter', '--site', site('ok')]).done;
+    ok(r.code === 4 && /out of view \(the page is zoomed in 400 %/.test(r.out) && (await pressOf2()).n === 0, 'zoomed in so far the button is out of view: said, no press', r.out);
+    await ctx2.close();
   }
 
   console.log('The password');

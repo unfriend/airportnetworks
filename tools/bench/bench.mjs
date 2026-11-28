@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // The headset bench's tool for the cloud (tools/bench/SPEC.md, section 8): see which headsets listen, send a job (one step,
-// or a plan file) and wait for its result, list and read results, fetch pictures, cancel. Node 22, no packages.
+// or a plan file) and wait for its result, list and read results, fetch pictures, cancel, delete. Node 22, no packages.
 // NOTES_RELAY (default the test place) and NOTES_TOKEN (the relay's password; never printed, written or put in an
 // address), as tools/notes/notes.mjs takes them.
 // Exits: 0 done, 1 a job failed or a usage error, 2 the relay refused (401, or 404: this relay has no bench), 3 no headset
@@ -44,12 +44,15 @@ function statusMd(s) {
   const L = [];
   const rows = s.headsets.map(h => { const R = h.report || {}; return [h.hs, ago(h.ago), h.phase, h.why, h.xr || 'page', R.story, R.mode, R.release, R.battery, h.job, h.adb ? ago(h.adb.ago) : '-']; });
   L.push(rows.length ? table(['headset', 'seen', 'phase', 'why', 'session', 'story', 'mode', 'release', 'battery', 'job', 'adb helper'], rows) : 'No headset seen in the last ten minutes.');
-  if (s.adb && s.adb.length) L.push('', 'The adb helper: ' + s.adb.map(a => a.hs + ' ' + ago(a.ago) + ' ago').join(', ') + '.');
+  if (s.adb && s.adb.length) L.push('', 'The adb helper: ' + s.adb.map(a => (a.hs === 'adb' ? 'not yet beside a page' : 'beside ' + a.hs) + ', ' + ago(a.ago) + ' ago').join('; ') + '.');
   L.push('', `Jobs: ${s.queued} queued, ${s.running} running.`);
   return L.join('\n');
 }
 // a headset that asked within the last minute (the one named, or any)
 const listening = (s, hs) => s.headsets.filter(h => h.ago <= 60 && (!hs || h.hs === hs));
+// the adb helper asked within the last minute (it asks every 20 s while it watches)
+const helping = (s, hs) => (s.adb || []).filter(a => a.ago <= 60 && (!hs || a.hs === hs));
+const NOHELPER = 'The adb helper is not listening: on the owner\'s computer, node tools/bench/adb/adb.mjs --watch (tools/bench/adb/README.md).';
 
 // ---- a job's record as Markdown
 const SEGCOLS = ['step', 'story', 's', 'frames', 'mean', 'p50', 'p95', 'p99', 'worst', 'missed', 'stall', 'calls', 'tris k', 'js', 'lines', 'pts', 'tex', 'geo', 'prog', 'heap', 'q', 'errs'];
@@ -122,7 +125,8 @@ async function waitFor(id, sec, hs) {
     const p = r.progress ? `step ${r.progress.step + 1} of ${r.progress.of} (${r.progress.note})` : r.state;
     if (p !== last) { console.error(`  ${id}: ${p}`); last = p; }
     if (Date.now() - t0 > sec * 1000) {
-      if (r.state === 'queued' && !listening(await heads(), hs).length) die(NOBODY + ` (job ${id} is still queued)`, 3);
+      if (r.state === 'queued' && r.to === 'adb' && !helping(await heads()).length) die(NOHELPER + ` (job ${id} is still queued)`, 3);
+      if (r.state === 'queued' && r.to !== 'adb' && !listening(await heads(), hs).length) die(NOBODY + ` (job ${id} is still queued)`, 3);
       die(`Job ${id} is still ${r.state} after ${sec} s: node tools/bench/bench.mjs show ${id}`, 1);
     }
     await sleep(2000);
@@ -130,7 +134,8 @@ async function waitFor(id, sec, hs) {
 }
 async function postJob(job, o) {
   const s = await heads();
-  if (!listening(s, o.hs).length) die(NOBODY + (o.hs ? ` (none with the id ${o.hs})` : ''), 3);
+  if (job.to === 'adb') { if (!helping(s).length) die(NOHELPER, 3); }
+  else if (!listening(s, o.hs).length) die(NOBODY + (o.hs ? ` (none with the id ${o.hs})` : ''), 3);
   const a = await call('/api/bench/jobs', job, { soft: true });
   if (a.status !== 201) die('The job was refused: ' + ((a.j && a.j.error) || a.status));
   return a.j.id;
@@ -144,7 +149,7 @@ function finish(r, o) {
 
 // ---- the command line
 const argv = process.argv.slice(2), cmd = argv[0];
-const flags = new Set(['--no-wait', '--json']), withVal = new Set(['--need', '--with', '--hs', '--wait', '--md', '--out', '--state', '--label', '--limit']);
+const flags = new Set(['--no-wait', '--json']), withVal = new Set(['--need', '--with', '--hs', '--wait', '--md', '--out', '--state', '--label', '--limit', '--to']);
 const O = {}, pos = [];
 for (let i = 1; i < argv.length; i++) {
   const a = argv[i];
@@ -160,12 +165,16 @@ const USAGE = `Usage: node tools/bench/bench.mjs <command>
                                             one step as a job (report, open story=cdk5, seek chapter=1 play=true, explore tab=0,
                                             set name=occl value=off, measure sec=10, rays preset=sweep sec=10 measure=true, pic,
                                             probe name=picks args={"sec":10}, wait sec=5)
+  send <cmd> [key=value ...] --to adb       one step for the adb helper (devshot n=1, enter, open,
+                                            vrapi from=<ms> to=<ms> job=<id>: the headset's statistics onto that job)
   run <plan name|file.json> [--hs id] [--wait s] [--no-wait] [--md out.md]   a plan (bench/plans/<name>.json)
   jobs [--state queued,running,...]        the jobs, newest first
   show <id> [--md out.md] [--json]          a job's steps and figures
   pic <id> [n] [--out dir]                  its pictures, saved (default: the system's temporary folder)
   devshot <id> [n] [--out dir]              the adb helper's device screenshots
   cancel <id>
+  delete <id> [<id> ...] | delete --state done,failed,cancelled,expired   jobs and their pictures, gone for good (the relay
+                                            also deletes ended jobs after a fortnight, and the oldest ended when it is full)
 NOTES_RELAY (now ${RELAY}) and NOTES_TOKEN (the relay's password) as tools/notes/notes.mjs.`;
 
 if (cmd === 'status') {
@@ -176,6 +185,7 @@ if (cmd === 'status') {
   const step = { cmd: pos[0] };
   for (const kv of pos.slice(1)) { const i = kv.indexOf('='); if (i < 1) die('Usage: key=value, not ' + kv); step[kv.slice(0, i)] = parseVal(kv.slice(i + 1)); }
   const job = { v: 1, steps: [step] };
+  if (O.to) { if (O.to !== 'adb' && O.to !== 'page') die('Usage: --to adb (or page)'); job.to = O.to; }
   if (O.need) job.need = O.need;
   if (O.hs) job.hs = O.hs;
   if (O.label) job.label = O.label;
@@ -221,4 +231,13 @@ if (cmd === 'status') {
 } else if (cmd === 'cancel' && pos[0]) {
   const a = await call('/api/bench/jobs/' + encodeURIComponent(pos[0]) + '/cancel', {});
   console.log(`Job ${pos[0]}: ${a.state}${a.cancel ? ' (cancelled as the headset next asks)' : ''}`);
+} else if (cmd === 'delete' && (pos.length || O.state)) {
+  let ids = pos;
+  if (O.state) {
+    const want = O.state.split(',').filter(Boolean);
+    if (want.some(x => !ENDED.includes(x) && x !== 'ended')) die('delete --state takes only ended states: ' + ENDED.join(', ') + ' (cancel a queued or running job first)');
+    ids = (await call('/api/bench/jobs?state=' + encodeURIComponent(want.join(',')) + '&limit=1000')).jobs.map(r => r.id);
+  }
+  for (const id of ids) { await call('/api/bench/jobs/' + encodeURIComponent(id) + '/delete', {}); console.log(`Job ${id}: deleted`); }
+  if (!ids.length) console.log('No jobs to delete.');
 } else die(USAGE);

@@ -1831,6 +1831,26 @@ async function benchSteps() {
       ok(a.status === 1 && /--bench needs the relay's password/.test(a.stdout), 'no password, not on loopback: refused (' + a.status + ')');
       const b = spawnSync(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', '--bench', '--no-notes'], { encoding: 'utf8', timeout: 10000, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '' } });
       ok(b.status === 1 && /cannot go with --no-notes/.test(b.stdout), '--bench with --no-notes: refused');
+      const c = spawnSync(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', '--bench', '--proxy', '1'], { encoding: 'utf8', timeout: 10000, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '' } });
+      ok(c.status === 1 && /behind a reverse proxy/.test(c.stdout), 'no password, loopback behind --proxy: refused (' + c.status + ')');
+    });
+    await step('bench: with no password (loopback only) a page of another origin is refused', async () => {
+      const RO = await start(['--static', REPO, '--bench'], { COLLAB_TOKEN: '' });
+      const o = await rq(RO.port, 'GET', '/api/bench', undefined, { Origin: 'https://elsewhere.example' });
+      const p = await rq(RO.port, 'POST', '/api/bench/jobs', '{"steps":[{"cmd":"report"}]}', { Origin: 'https://elsewhere.example', 'Content-Type': 'text/plain' });
+      ok(o.status === 403 && p.status === 403 && !o.headers['access-control-allow-origin']?.includes('elsewhere'), 'another origin: 403 for a read and a text/plain post (' + o.status + ', ' + p.status + ')');
+      ok((await rq(RO.port, 'GET', '/api/bench', undefined, { Origin: 'http://127.0.0.1:' + RO.port })).status === 200 && (await rq(RO.port, 'GET', '/api/bench', undefined, {})).status === 200, 'its own page and a client with no Origin: 200');
+      RO.kill();
+    });
+    await step('bench: the store\'s pruning chooses the oldest ended jobs, never a queued or running one', async () => {
+      const B = await import('./bench.mjs'), now = Date.now(), day = 86400000;
+      const L = [{ id: 'a', state: 'done', at: now - 20 * day, ended: now - 20 * day }, { id: 'b', state: 'queued', at: now - 30 * day }, { id: 'c', state: 'failed', at: now - day, ended: now - day, pics: [{ n: 1, bytes: B.MAX_BYTES - 10 }] }, { id: 'd', state: 'running', at: now - 40 * day }, { id: 'e', state: 'cancelled', at: now, ended: now }];
+      ok(B.prune(L, now).ids.join() === 'a', 'past a fortnight: the old ended job only (' + B.prune(L, now).ids + ')');
+      ok(B.prune(L, now, 0, 100).ids.join() === 'a,c', 'past the bytes: the oldest ended next');
+      ok(B.prune(L, now, 0, 100, 'c').ids.join() === 'a,e', 'a picture\'s own job is kept');
+      const full = Array.from({ length: B.MAX_JOBS }, (_, i) => ({ id: 'j' + String(i).padStart(4, '0'), state: i % 2 ? 'done' : 'running', at: now - i, ended: now - i }));
+      const r = B.prune(full, now, 1);
+      ok(r.ids.length === 1 && r.ids[0] === 'j0999' && r.n === B.MAX_JOBS - 1, 'a full store: the oldest ended makes room for one');
     });
     await step('bench: 404 without --bench; ping says bench only with it', async () => {
       const r = await rq(port, 'GET', '/api/bench', undefined, {});
@@ -1882,7 +1902,7 @@ async function benchSteps() {
       const w = await waiting;
       ok(w.status === 200 && w.json().job.id === jLate && Date.now() - t1 < 3000, 'a long poll is answered as a job comes');
       await rq(B, 'POST', `/api/bench/jobs/${jLate}/result`, { hs: HS1, ok: true, steps: [] });
-      ok((await rq(B, 'GET', '/api/bench/next?hs=BAD&wait=0')).status === 400, 'next with a bad id: 400');
+      ok((await rq(B, 'GET', '/api/bench/next?hs=BAD&wait=0')).status === 400 && (await rq(B, 'GET', '/api/bench/next?hs=adb&wait=0')).status === 400, 'next with a bad id: 400 (adb only for the helper)');
     });
     await step('bench: hello, progress, result, pictures, the adb helper\'s lines and screenshots', async () => {
       const h = await rq(B, 'POST', '/api/bench/hello', { hs: HS1, report: { phase: 'busy', xr: 'ar', release: 'networks-v232', story: 'cdk5' } });
@@ -1925,6 +1945,15 @@ async function benchSteps() {
       ok(gd.status === 200 && gd.headers['content-type'] === 'image/png' && gd.buf.equals(png), 'the device screenshot read back');
       const st = (await rq(B, 'GET', '/api/bench')).json();
       ok(st.adb.some(a => a.hs === HS1) && st.headsets.find(x => x.hs === HS1).adb, 'the helper is seen beside its headset');
+      // the helper before it has seen a page: no hs (or hs=adb), and the jobs for no headset in particular
+      const jO = (await rq(B, 'POST', '/api/bench/jobs', { to: 'adb', steps: [{ cmd: 'open' }] })).json().id;
+      const nb = await rq(B, 'GET', '/api/bench/next?role=adb&wait=1');
+      ok(nb.status === 200 && nb.json().job.id === jO && nb.json().job.hs === 'adb', 'the helper with no headset id yet takes an open (' + nb.status + ')');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jO}/result`, { hs: 'adb', ok: true, steps: [] })).status === 200, 'and answers it as adb');
+      ok((await rq(B, 'GET', '/api/bench/next?role=adb&hs=adb&wait=0')).status === 204 && (await rq(B, 'GET', '/api/bench')).json().adb.some(a => a.hs === 'adb'), 'hs=adb: asked, nothing left, seen');
+      const jV = await rq(B, 'POST', '/api/bench/jobs', { to: 'adb', steps: [{ cmd: 'vrapi', from: 1, to: 2, job: jXr }] });
+      ok(jV.status === 201 && (await rq(B, 'POST', '/api/bench/jobs', { to: 'adb', steps: [{ cmd: 'vrapi', from: 1, to: 2, job: '../x' }] })).status === 400, 'vrapi names the job its statistics go onto');
+      await rq(B, 'POST', `/api/bench/jobs/${jV.json().id}/delete`, {});
     });
     await step('bench: cancel a queued job and a running one; the listing; delete', async () => {
       const q = (await rq(B, 'POST', '/api/bench/jobs', { need: 'vr', steps: [{ cmd: 'report' }] })).json().id;
@@ -1951,6 +1980,16 @@ async function benchSteps() {
       ok((await rq(B, 'GET', '/api/bench/jobs/' + q)).json().state === 'expired', 'queued past its ttl: expired');
       ok((await rq(B, 'GET', '/api/bench/jobs/' + r)).json().state === 'running', 'running within its limit and grace: still running');
     });
+    await step('bench: at most 16 long polls held at once; another is answered after one look', async () => {
+      const held = Array.from({ length: 16 }, (_, i) => rq(B, 'GET', `/api/bench/next?hs=poll${String(i).padStart(4, '0')}&xr=&wait=4`));
+      await sleep(500);
+      const t = Date.now(), r = await rq(B, 'GET', '/api/bench/next?hs=pollmore&xr=&wait=4');
+      ok(r.status === 204 && Date.now() - t < 2000, 'the 17th: 204 at once (' + (Date.now() - t) + ' ms)');
+      const all = await Promise.all(held);
+      ok(all.every(x => x.status === 204), 'the 16 held: 204 after their wait');
+      const t2 = Date.now(), r2 = await rq(B, 'GET', '/api/bench/next?hs=pollmore&xr=&wait=1');
+      ok(r2.status === 204 && Date.now() - t2 >= 900, 'then held again');
+    });
     await step('bench: 50 queued at most', async () => {
       const ids = [];
       let r;
@@ -1964,6 +2003,10 @@ async function benchSteps() {
     const logText = RB.out;
     RB.kill();
     await new Promise(r => RB.once('exit', r));
+    // (an ended job from long ago, as a store would hold it: deleted by the first sweep after the restart)
+    const OLD = '20200101-000000-old1';
+    fs.mkdirSync(path.join(T, '.bench', OLD), { recursive: true });
+    fs.writeFileSync(path.join(T, '.bench', OLD, 'job.json'), JSON.stringify({ id: OLD, state: 'done', at: 1, ended: 2, steps: [{ cmd: 'report' }], pics: [], devshots: [] }));
     const RC = await start(['--static', REPO, '--bench', '--token', PASS, '--notes', T]);
     await step('bench: a restart keeps every job; a running job\'s result is still taken', async () => {
       ok(fs.existsSync(path.join(T, '.bench', jXr, 'job.json')) && fs.existsSync(path.join(T, '.bench', jXr, 'pic-1.jpg')), 'kept in <notes>/.bench/<id>/');
@@ -1971,6 +2014,8 @@ async function benchSteps() {
       ok(g.state === 'failed' && g.pics.length === 1 && g.adb, 'the failed job is back with its picture and lines');
       ok((await rq(RC.port, 'GET', '/api/bench/jobs/' + run)).json().state === 'running', 'the running one too');
       ok((await rq(RC.port, 'POST', `/api/bench/jobs/${run}/result`, { hs: HS1, ok: true, steps: [] })).status === 200 && (await rq(RC.port, 'GET', '/api/bench/jobs/' + run)).json().state === 'done', 'and its result is taken');
+      await sleep(6000);
+      ok((await rq(RC.port, 'GET', '/api/bench/jobs/' + OLD)).status === 404 && !fs.existsSync(path.join(T, '.bench', OLD)) && fs.existsSync(path.join(T, '.bench', jXr)), 'an ended job past its fortnight: deleted by the sweep, the others kept');
     });
     await step('bench: the log says ids, states and counts, never a step, a result, a report or the password', async () => {
       const all = logText + RC.out;

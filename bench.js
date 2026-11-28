@@ -32,7 +32,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   // run after an update; phase, why: what the bar and the line say; job: the job running; press: #benchEnter's presses;
   // misses, cuts: asks that went unanswered, long polls cut short; waiting: jobs queued that need a session
   const B = { on: false, until: 0, hs: '', want: 'ar', plan: 'dev', phase: 'off', why: '', job: null, press: { n: 0, trusted: false, at: 0, err: '' },
-    misses: 0, cuts: 0, waiting: 0, loop: 0, ac: null, relay: null, pingAt: 0, helloAt: 0, helloSig: '', idleSince: 0, sig: 0, errs: 0, frameN: 0, picWant: null, rays: null, probes: {}, loading: '', back: '', fell: null };
+    misses: 0, cuts: 0, waiting: 0, auto: null, loop: 0, ac: null, relay: null, pingAt: 0, helloAt: 0, helloSig: '', idleSince: 0, sig: 0, errs: 0, frameN: 0, picWant: null, rays: null, probes: {}, loading: '', back: '', fell: null };
   const T = { ask: 20, idle: 20000, hello: 60000, lostMs: 30000 };   // (tests shorten them: test())
   const bump = () => { B.sig++; paint(); };
   // this device's id: eight letters and digits, made once
@@ -254,8 +254,10 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     const why = 'update: ' + (was.shell !== s.shell ? 'shell ' + G(() => HOST.shell.n, '') : 'the packages changed');
     const base = Object.assign({}, plan, { from: 'auto', why, hs: B.hs });
     delete base.page;
-    if (Array.isArray(plan.page) && plan.page.length) await call('/api/bench/jobs', { body: Object.assign({}, base, { label: (plan.label || B.plan) + ' (page part)', need: 'page', steps: plan.page }) }).catch(() => {});
-    await call('/api/bench/jobs', { body: base }).catch(() => {});
+    // (what the relay said is kept for the next report: a refusal, a full queue, is seen from the cloud's status)
+    const said = r => { B.auto = { at: Date.now(), status: r ? r.status : 0, err: r && r.status >= 300 ? String((r.j && r.j.error) || '').slice(0, 120) : r ? '' : 'the relay did not answer' }; };
+    if (Array.isArray(plan.page) && plan.page.length) said(await call('/api/bench/jobs', { body: Object.assign({}, base, { label: (plan.label || B.plan) + ' (page part)', need: 'page', steps: plan.page }) }).catch(() => null));
+    said(await call('/api/bench/jobs', { body: base }).catch(() => null));
     B.idleSince = now();
     return true;
   }
@@ -282,7 +284,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       device: I.device || '', model: I.model || '', browser: I.browser || '', ua: navigator.userAgent.slice(0, 200), xr: xrNow(),
       visibility: G(() => (HOST.session ? HOST.session.visibilityState : document.visibilityState), ''), hz: I.hz == null ? null : I.hz, hzList: I.hzList || '', eyeW: I.eyeW == null ? null : I.eyeW, eyeH: I.eyeH == null ? null : I.eyeH,
       fbScale: I.fbScale == null ? null : I.fbScale, fov: I.fov == null ? null : I.fov, battery: await battery(), settings: S,
-    }, where(), { phase: B.phase, why: B.why, hs: B.hs, press: Object.assign({}, B.press), mods: G(() => HOST.mods.loaded(), []), errs, url: location.origin + location.pathname });
+    }, where(), { phase: B.phase, why: B.why, hs: B.hs, press: Object.assign({}, B.press), auto: B.auto || null, mods: G(() => HOST.mods.loaded(), []), errs, url: location.origin + location.pathname });
   }
   // (every error while bench mode is on is counted for the next report; a job's measure steps list them: perfrun.js)
   try { HOST.quietly(() => { window.addEventListener('error', () => { B.errs++; }); window.addEventListener('unhandledrejection', () => { B.errs++; }); }); } catch (e) { /* none */ }
@@ -727,7 +729,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     // unless the job says sound
     hold: () => !!B.job, hush: () => !!(B.job && !B.job.sound),
     // fixed for the adb helper (SPEC 9.1)
-    state: () => ({ on: B.on, phase: B.phase, why: B.why, hs: B.hs, xr: xrNow(), want: B.want, job: B.job ? { id: B.job.id, step: B.job.i, of: B.job.of } : null, press: Object.assign({}, B.press), rel: G(() => 'networks-v' + HOST.shell.n, ''), url: location.origin + location.pathname }),
+    state: () => ({ on: B.on, phase: B.phase, why: B.why, hs: B.hs, xr: xrNow(), want: B.want, job: B.job ? { id: B.job.id, step: B.job.i, of: B.job.of } : null, press: Object.assign({}, B.press), rel: G(() => 'networks-v' + HOST.shell.n, ''), url: location.origin + location.pathname, now: Date.now() }),
     sig: () => B.sig + ':' + B.phase,
     settings: () => Object.keys(SET),
     // (tests: shorter waits)

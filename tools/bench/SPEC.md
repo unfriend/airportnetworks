@@ -93,7 +93,8 @@ err }` (`trusted` the event's `isTrusted`, `err` the session request's rejection
 **Refusals.** In a shared room bench mode stays `held` (`in a shared room`); joining a room while a job runs fails the
 job (`why: 'a shared room was joined'`); the room is never told anything. The performance run and the bench never run
 at once: a job refuses while `HOST.perfRun.on()` (`error: 'the performance run is on'`), and the bench does not ask
-for jobs while it runs.
+for jobs while it runs; the other way, `perfrun.js`'s `start()` (and a run waiting on its card for a session) refuses
+while `HOST.bench.hold()`, with the shell's notice *The performance run waits while a bench job runs*.
 
 **Holds while a job runs** (`HOST.bench.hold()`, true only while `busy`), beside the performance run's in
 `index.html`: no slideshow stop, no Repeat (`HOST.ended`), no live swap or reload (`HOST.live` `quiet()`,
@@ -116,12 +117,16 @@ the package index's fingerprints as last read> }`. When it differs from `benchSi
 20 s with nothing queued for it, the bench fetches `bench/plans/<benchPlan>.json` and posts it as a job
 (`from: 'auto'`, `why: 'update: <shell n or the packages changed>'`), then writes `benchSig`. The relay hands it back
 like any job. A plan with `page` steps (section 5.3) is posted as two jobs: its `page` part (`need: 'page'`) at once,
-its main part as written. `benchplan=none` turns this off.
+its main part as written. `benchplan=none` turns this off. What the relay answered to the last automatic plan
+(`{ at, status, err }`: a 507 or 429 among them) is the report's `auto`, so the cloud's `status` and `show` see it.
 
 ## 4. The relay (`--bench`)
 
 **4.1 On and off.** `node relay/server.mjs ... --bench`. Refused at start (a plain message, exit 1) without a password
-(`COLLAB_TOKEN` or `--token`) unless the relay listens only on a loopback address (the tests). Kept beside the notes
+(`COLLAB_TOKEN` or `--token`) unless the relay listens only on a loopback address (the tests), and without one behind
+`--proxy` even on loopback (a reverse proxy in front makes it public). With no password, a request carrying an `Origin`
+that is not the relay's own (or an `--origin`) is refused 403, so no web page of another origin can use the bench
+through the API's `Access-Control-Allow-Origin: *`. Kept beside the notes
 (the notebook must be on: `--bench` with `--no-notes` is refused): `<notes>/.bench/` in a folder, `.notes/.bench/` in
 R2, with the stores of `relay/notes.mjs`'s style (`benchFolderStore`, `benchR2Store` in `relay/bench.mjs`, parsing and
 limits there, routes in `server.mjs` as `benchApi`). `/api/ping` adds `bench: true`. Without `--bench` every
@@ -136,8 +141,8 @@ limits there, routes in `server.mjs` as `benchApi`). `/api/ping` adds `bench: tr
 | `GET /api/bench` | cloud, helper | | `{ now, headsets: [{ hs, seen, ago, phase, why, xr, job, adb: { seen, ago } \| null, report }], queued, running }` (a headset is listed for 10 minutes after it was last seen) |
 | `POST /api/bench/hello` | page | `{ hs, report }` (report at most 32 KB) | `{ ok, now }`; sent at start, on every phase change, after each job and every 60 s |
 | `GET /api/bench/next?hs=&xr=vr\|ar\|&wait=20` | page | `xr` empty: no session | 200 `{ job }` (state now `running`, `hs` set) or 204 after `wait` seconds (at most 25) with nothing; a job is handed only when its `need` is met and its `hs` (if any) matches |
-| `GET /api/bench/next?role=adb&hs=&wait=20` | adb helper | | 200 `{ job }` of `to: 'adb'`, or 204; also marks the helper seen |
-| `POST /api/bench/jobs` | cloud, page (auto plan) | a job (section 5), at most 64 KB | 201 `{ id }`; 400 `{ error }` naming the first bad field; 507 when 1000 jobs are kept; 429 when 50 are queued |
+| `GET /api/bench/next?role=adb&hs=&wait=20` | adb helper | `hs` the page's id, or `adb` (or none) before the helper has read it | 200 `{ job }` of `to: 'adb'` (as `adb`: only jobs with no `hs`), or 204; also marks the helper seen |
+| `POST /api/bench/jobs` | cloud, page (auto plan) | a job (section 5), at most 64 KB | 201 `{ id }`; 400 `{ error }` naming the first bad field; 507 when 1000 jobs are kept and none has ended; 429 when 50 are queued |
 | `GET /api/bench/jobs?state=&limit=50` | cloud | | `{ jobs: [summary] }`, newest first |
 | `GET /api/bench/jobs/<id>` | cloud, helper | | the whole record (section 5.4) |
 | `POST /api/bench/jobs/<id>/progress` | page, helper | `{ hs, step, of, note }` | `{ ok, cancel }`: `cancel: true` when the job was cancelled; also the job's heartbeat |
@@ -150,6 +155,13 @@ limits there, routes in `server.mjs` as `benchApi`). `/api/ping` adds `bench: tr
 | `POST /api/bench/jobs/<id>/cancel` | cloud | | `{ ok, state }`; a queued job becomes `cancelled` at once, a running one when the page next asks (`progress` or `next`) |
 | `POST /api/bench/jobs/<id>/delete` | cloud | | `{ ok }`, its pictures with it |
 
+**Keeping and limits.** An ended job (`done`, `failed`, `cancelled`, `expired`) is deleted with its pictures 14 days
+after it ended (the 5 s sweep). A new job that would make 1001 deletes the oldest ended job first; a picture or device
+screenshot that would take the jobs past 1 GB (pictures, device screenshots, results' and helper lines' JSON) deletes
+the oldest ended jobs first, and is refused 507 only when the queued and running ones alone fill it. In memory: at most
+32 headsets and 32 helper ids (the one heard from longest ago makes room; any not heard from in ten minutes is dropped
+by the sweep), and at most 16 long polls held at once (another `next` is answered after one look, as `wait=0`).
+
 **4.3 Job states** (`state`): `queued` → `running` → `done` | `failed` | `cancelled` | `expired`. `expired`: queued
 longer than its `ttl` (default 900 s, at most 24 h), or running longer than its `limit` plus 60 s with no progress
 (`why: 'no word from the headset'`). A relay restart keeps every job (they are in the store); a `running` job's result
@@ -157,7 +169,7 @@ is still taken after a restart. The queue is the stored jobs in `queued`, oldest
 last report) and the helper's last ask live in memory only.
 
 **4.4 What a log line may say.** `bench job <id> queued <n> steps`, `bench job <id> taken by <hs>`, `bench job <id>
-<state> <ms>`, `bench <hs> listening` (once on the first ask after ten minutes away). Never a step's fields, a result, a
+<state> <ms>`, `bench job <id> deleted (old)`, `bench <hs> listening` (once on the first ask after ten minutes away). Never a step's fields, a result, a
 report, a picture's size beyond bytes, a URL with its query, or the password; the `scrub` of URLs as now.
 
 ## 5. Jobs and results
@@ -194,7 +206,8 @@ characters. At most 200 steps. Unknown fields: 400.
 | `wait` | `sec` (0 to 600), or `until` `quiet` (`!HOST.busy`, 60 s at most) | waits | `{ waited }` |
 | `reload` | | `HOST.live.reload('bench')`: ends the session; last step only | none (the result is posted before) |
 
-`to: 'adb'` jobs have their own commands (section 9.4): `devshot`, `enter`, `open`, `vrapi`.
+`to: 'adb'` jobs have their own commands (section 9.4): `devshot` (`n`), `enter`, `open`, `vrapi` (`from`, `to`, and
+`job`: the id of the job the statistics go onto).
 
 **5.3 A plan** is a file `bench/plans/<name>.json`: a job without `hs`, plus optional `page` (steps for no session).
 `tools/bench/bench.mjs run <name|file>` posts it as a job. Builder ONE ships `bench/plans/dev.json` (every story
@@ -318,6 +331,10 @@ Node 22, no packages; `NOTES_RELAY` (default the test place) and `NOTES_TOKEN` a
 - `pic <id> [n] [--out dir]`, `devshot <id> [n] [--out dir]`: saves the images (default the system's temporary
   folder) and prints their paths.
 - `cancel <id>`.
+- `delete <id> [<id> ...]`, or `delete --state done,failed,cancelled,expired` (ended states only): the jobs and their
+  pictures, gone for good. The relay also deletes ended jobs itself (section 4.2, "Keeping and limits").
+- `send <cmd> ... --to adb`: one step for the adb helper (`devshot n=1`, `enter`, `open`, `vrapi from= to= job=`);
+  exit 3 with *The adb helper is not listening* when the helper has not asked in the last minute.
 
 Exits: 0 done, 1 a job failed or a usage error, 2 the relay refused (401, 404 *this relay has no bench*), 3 no
 headset listening (checked before sending, and again when a wait times out with the job still queued).
@@ -333,11 +350,12 @@ Runs on the owner's computer (Windows, macOS, Linux), Node 22, no packages; `adb
 `_devtools_remote` of the browser's process), `adb logcat -v epoch` filtered to the tag `VrApi`. From the page, over
 DevTools (`adb forward tcp:<free port> localabstract:<socket>`, then `http://127.0.0.1:<port>/json/list`, the page whose
 URL begins with `--site`, its WebSocket): `Runtime.evaluate` of exactly `HOST.bench && HOST.bench.state()` (returned by
-value) and of `document.querySelector('#benchEnter') && JSON.stringify(document.querySelector('#benchEnter').getBoundingClientRect())`.
-Nothing else is evaluated in the page.
+value) and of `EXPR_RECT` in `adb.mjs`: `#benchEnter`'s `getBoundingClientRect()` with `innerWidth`, `innerHeight`,
+`devicePixelRatio` and `visualViewport`'s `scale`, `offsetLeft`, `offsetTop`, `width`, `height`, as one JSON string (or
+null with no button). Nothing else is evaluated in the page.
 
 `HOST.bench.state()` (fixed for builder TWO): `{ on, phase, why, hs, xr, want ('ar'|'vr'), job: { id, step, of } | null,
-press: { n, trusted, at, err }, rel (HOST.shell's release), url }`.
+press: { n, trusted, at, err }, rel (HOST.shell's release), url, now (the headset's Date.now()) }`.
 
 **9.2 The address it opens.** `<site>#dev=on&bench=on&benchxr=ar` with `adb shell am start -a
 android.intent.action.VIEW -d '<address>' com.oculus.browser`: at its start when no page of the site is open, and
@@ -347,21 +365,31 @@ helper never gives the page a password; a page `held` with `why` *the relay want
 
 **9.3 Pressing Enter AR.** Whenever the page's `phase` is `enter` (after every page load, a new shell's reload among
 them): the button's rectangle's centre, then DevTools `Input.dispatchMouseEvent` `mousePressed` and `mouseReleased`
-(button left, clickCount 1, CSS pixels), at most once in 15 s. Then `state().press` tells what happened: `n` grown and
+(button left, clickCount 1, CSS pixels), at most once in 15 s. A centre outside the visible part of the page (the
+visual viewport) is never pressed: *The Enter button is out of view* (with the pinch zoom, when there is one). Pinch-
+zoomed, the presses take the layout's place and the visual viewport's in turn (desktop Chromium takes the first; Quest
+Browser unknown). Quest Browser's own page zoom cannot be seen from the page: a press that does not reach the page
+says it may be that, and to set it back to 100 %. Then `state().press` tells what happened: `n` grown and
 `xr` set within 10 s, done; `err` set, reported with the message; `n` grown, no `err` and no session after 10 s:
 *The browser may be asking a question on the headset (to allow AR for this site). Put it on and allow it once.*;
 `n` not grown, *the press did not reach the page*. A JavaScript dialog (`Page.javascriptDialogOpening`) is reported
 and never answered.
 
-**9.4 Its own jobs** (`to: 'adb'`, taken with `GET /api/bench/next?role=adb&hs=<hs>`, answered with `progress` and
+**9.4 Its own jobs** (`to: 'adb'`, taken with `GET /api/bench/next?role=adb&hs=<hs>`, `hs=adb` until the helper has
+read the page's id, so a job for no headset in particular, an `open` among them, is taken with no page; a refusal other
+than 401 or 404 waits 10 s, not a minute; answered with `progress` and
 `result` as the page's are): `devshot` (`n` 1 to 5: `adb shell am startservice -n
 com.oculus.metacam/.capture.CaptureService -a TAKE_SCREENSHOT`, the newest file of `/sdcard/Oculus/Screenshots` pulled,
 else `adb exec-out screencap -p`; posted to `devshot?n=`; `out: { how }`); `enter` (9.3 once now); `open` (9.2);
-`vrapi` (`from`, `to` ms: the lines of that window posted as 9.5). A device screenshot may show the owner's room
+`vrapi` (`from`, `to` ms on the headset's clock: the lines of that window posted as 9.5 onto the job named by `job`,
+else onto this adb job's own record; `out: { onto, n, all, notes }`). A device screenshot may show the owner's room
 through passthrough: taken only when a job asks, kept only on the test relay.
 
 **9.5 The headset's frame statistics.** The helper keeps the last 30 minutes of `VrApi` lines (logcat on the headset's
-clock, `-v epoch`: the same clock as the page's `Date.now()`). Each `GET /api/bench/jobs?state=done` (every 5 s in
+clock, `-v epoch`: the same clock as the page's `Date.now()`). The computer's clock may differ by seconds or minutes:
+the helper takes the headset's from `state().now` over a round trip under a second (else from the newest `VrApi`
+lines' times as they come, else none) and compares a job's `t0`, `t1` and the lines only with that (`hNow()`); an
+unreadable line is stamped on it as it comes. Each `GET /api/bench/jobs?state=done` (every 5 s in
 watch mode) gives the jobs ended since it last looked; for each of its headset's (`hs`) with `adb` not false and no
 `adb` field yet, it posts `POST /api/bench/jobs/<id>/adb`:
 
@@ -408,7 +436,10 @@ expressions) and `bench/probes/scene.js` (the scene's object, mesh and material 
 
 ## 11. Tests (builder ONE)
 
-`relay/test.mjs --bench`: refused without a password off loopback; 404 without `--bench`; 401 without the password;
+`relay/test.mjs --bench`: refused without a password off loopback or behind `--proxy`; with no password, another
+origin refused (a read and a `text/plain` post); the pruning (age, bytes, room for one, a picture's own job kept, never
+a queued or running job) and an old ended job deleted by the sweep after a restart; the helper asking as `adb`; a
+`vrapi` step's `job`; 16 long polls at most; 404 without `--bench`; 401 without the password;
 a job posted, handed by `next` only to a matching `need` and `hs`, progress, result, pics, `adb` and `devshot`
 attached, cancel queued and running, expiry, limits (64 KB, 200 steps, 50 queued, 1 MB result, 1 MB picture), a restart
 keeping jobs, and no step field, result or password in the log. `tools/bench/test.mjs`: a relay on a free port with
@@ -440,12 +471,17 @@ after) and `pic`. The smoke test gains a block `bench` (`--only bench`): the mod
 - **Long poll through the test place's proxy.** A 20 s held request may be cut by Coolify's proxy; the page treats a
   cut as an empty answer and asks again, falling back to a 5 s poll after three cuts.
 - **Device screenshots** may be black for an immersive page, or include the room through passthrough.
-- **The first try (about ten minutes, with the helper):** on the computer, `adb devices` shows the Quest; in the
-  checkout, `NOTES_TOKEN=<password> node tools/bench/adb/adb.mjs --watch`; it opens the site, and on the headset the
-  owner allows USB debugging once and, if asked, AR for the site; then from the cloud `node tools/bench/bench.mjs
-  status`, `node tools/bench/bench.mjs send report`, `node tools/bench/bench.mjs send pic`, `node tools/bench/bench.mjs
-  run picking`. Without the helper: open the test site on the headset, developer mode on, Debug tab, *Bench mode: on*,
-  Enter AR, set it down, and the same cloud commands.
+- **Browser zoom.** Quest Browser's own page zoom changes what a CSS pixel is for DevTools' input and cannot be read
+  from the page; the helper says so when a press does not land. Pinch zoom is handled (9.3), tried only in desktop
+  Chromium.
+- **The first try (about ten minutes, with the helper):** on the computer, first `export NOTES_TOKEN='<password>'`
+  (PowerShell: `$env:NOTES_TOKEN='<password>'`: `check` asks the relay too and exits 2 without it); `adb devices`
+  shows the Quest; in the checkout, `node tools/bench/adb/adb.mjs check`, then `node tools/bench/adb/adb.mjs --watch`;
+  it opens the site, and on the headset the owner allows USB debugging once and, if asked, AR for the site; then from
+  the cloud `node tools/bench/bench.mjs status`, `node tools/bench/bench.mjs send report`, `node tools/bench/bench.mjs
+  send pic`, `node tools/bench/bench.mjs run picking`. Without the helper: open the test site on the headset, developer
+  mode on, Debug tab, *Bench mode: on*, Enter AR, set it down, and the same cloud commands. The step by step list is
+  `tools/bench/adb/README.md`.
 
 ## 13. What builder ONE learnt while building (v232)
 

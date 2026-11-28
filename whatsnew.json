@@ -12,7 +12,8 @@
     "On the test place, Quest 3: developer mode on, menu, Debug, Bench mode on, Enter AR, then set the headset down. The line under your gaze should say bench mode is on.",
     "Then ask in the cloud session for a report and a picture: the picture should show what the left eye saw.",
     "Switch bench mode off from the Debug tab, and from the page's bar: the line and the bar should go.",
-    "Join a shared room with bench mode on: it should say it is waiting, in a shared room."
+    "Join a shared room with bench mode on: it should say it is waiting, in a shared room.",
+    "While a test runs, start the Performance run from the Debug tab: it should say it waits while a bench job runs."
   ],
   "untested": [
     "All of bench mode on a real headset: hours of waiting unworn, the test place's proxy and long polls, the picture's read-back on the Quest, pretend rays beside real controllers.",

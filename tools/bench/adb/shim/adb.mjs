@@ -5,6 +5,7 @@
 //   SHIM_DEVICES   one (default) | none | two | unauth | other
 //   SHIM_DEVTOOLS  the local Chromium's remote-debugging port (stands in for Quest Browser's DevTools socket)
 //   SHIM_LOG_SEC   how many seconds `logcat` streams before it ends (default 120)
+//   SHIM_SKEW_MS   the headset's clock less the computer's, in ms (default 0): logcat's times are the headset's
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -88,20 +89,21 @@ async function main() {
     // the buffer first (the five seconds before), then one line a second, with odd lines among them
     const sec = +process.env.SHIM_LOG_SEC || 120;
     let n = 0;
-    const now = Date.now();
+    const skew = +process.env.SHIM_SKEW_MS || 0;
+    const now = Date.now() + skew;
     for (let k = 5; k >= 1; k--) out(line(now - k * 1000, SHAPES[n % 3](n++)));
     out('--------- beginning of main\n');
     const t0 = Date.now();
     await new Promise((done) => {
       const iv = setInterval(() => {
-        const t = Date.now();
+        const t = Date.now() + skew;
         out(line(t, SHAPES[n % 3](n)));
         if (n % 4 === 0) out(BAD[(n / 4) % BAD.length] + '\n');
         if (n % 5 === 0) out(line(t, 'FPS=abc,Stale=nope'));          // a stats line with no number: unreadable
         if (n % 6 === 0) out(line(t, 'Some other VrApi message: layer 3 submitted'));
         if (n % 7 === 0) out(line(t, 'FPS=72/72', 'OtherTag'));       // another tag: not ours
         n++;
-        if (t - t0 > sec * 1000) { clearInterval(iv); done(); }
+        if (t - skew - t0 > sec * 1000) { clearInterval(iv); done(); }
       }, 1000);
     });
     return;

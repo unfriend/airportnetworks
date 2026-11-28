@@ -579,6 +579,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (R.on || R.ending) return false;
     // (a kept run in a shared room: closed with its results and its settings put back, not refused on every load)
     if (HOST.collab && HOST.collab.joined) { if (resume) { R.want = null; R.paused = ''; stop('a shared room was joined'); } else refuse(); return false; }
+    if (!resume && G(() => HOST.bench && HOST.bench.hold(), false)) { R.want = null; refuse('The performance run waits while a bench job runs. Try again when it has ended, or switch bench mode off.'); return false; }
     R.part = part; R.want = null; R.on = true; R.stopWhy = ''; R.done = null; R.paused = '';
     R.xr = xrNow();
     hudPage(true);
@@ -677,9 +678,9 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (R.resumeFn) { const f = R.resumeFn; R.resumeFn = null; f(false); }
     return true;
   }
-  function refuse() {
-    const t = 'The performance run does not run in a shared room. Leave the room first.';
-    notice('Not in a shared room', t, 5000);
+  function refuse(why) {
+    const t = why || 'The performance run does not run in a shared room. Leave the room first.';
+    notice(why ? 'A bench job is running' : 'Not in a shared room', t, 5000);
     card('Performance run', [t], [{ id: 'close', label: 'Close', primary: true }]);
   }
   // once a run: the release, the device and browser, the display, the view, VR or AR, the settings that bear on speed
@@ -822,6 +823,8 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (R.on) return false;
     if (R.ending) { Promise.resolve(R.endP).then(() => start(o)); return true; }   // (once the run before has written its result)
     if (HOST.collab && HOST.collab.joined) { refuse(); return false; }
+    // (the bench's job and the performance run never run at once: tools/bench/SPEC.md; the bench refuses the other way)
+    if (G(() => HOST.bench && HOST.bench.hold(), false)) { refuse('The performance run waits while a bench job runs. Try again when it has ended, or switch bench mode off.'); return false; }
     build();
     if (HOST.session || o.where === 'page') return begin(part, o);
     R.want = { part, o };

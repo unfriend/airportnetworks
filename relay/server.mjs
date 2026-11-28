@@ -42,8 +42,8 @@ import { R2, R2Error, r2Config } from './r2.mjs';
 import { makeTrackers, TRK_PORT, frameOf, toRoom, quatToRoom } from './trackers.mjs';
 import { makeOsc, encode as oscEncode, parseTarget, parseIn, OSC_RATE, OSC_IN_RATE, OSC_MAX_FRAME, OSC_MAX_MSGS, OSC_MAX_TARGETS } from './osc.mjs';
 import { MAX_BODY as NET_BODY, MAX_NETS, NET_ID, parseNet, gzip as netGzip, folderStore as netsFolder, r2Store as netsR2 } from './nets.mjs';
-import { MAX_JOB, MAX_JOBS, MAX_QUEUED, MAX_HELLO, MAX_PROGRESS, MAX_RESULT, MAX_PIC, MAX_PICS, MAX_ADB, MAX_DEVSHOT, MAX_DEVSHOTS, BENCH_DIR, ENDED, HS as BENCH_HS,
-  parseJob, parseHello, parseProgress, parseResult, parseAdb, summary as benchSummary, fits as benchFits, picName, devshotName,
+import { MAX_JOB, MAX_JOBS, MAX_QUEUED, MAX_BYTES, MAX_HEADS, MAX_POLLS, MAX_HELLO, MAX_PROGRESS, MAX_RESULT, MAX_PIC, MAX_PICS, MAX_ADB, MAX_DEVSHOT, MAX_DEVSHOTS, BENCH_DIR, ENDED, HS as BENCH_HS,
+  parseJob, parseHello, parseProgress, parseResult, parseAdb, summary as benchSummary, fits as benchFits, prune as benchPrune, picName, devshotName,
   benchFolderStore, benchR2Store, benchMemoryStore, benchJobs } from './bench.mjs';
 import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2,
   LOGS_DIR, MAX_LOGS, MAX_LOG_START, MAX_PART, parseLogStart, parseLogPart, logFolderStore, logR2Store } from './notes.mjs';
@@ -318,6 +318,7 @@ if (NOTES_WANT && !NOTES_ON) console.log('--public without a password keeps no n
 // loopback address, a test's, may go without one)
 const LOOPBACK_HOST = /^(127\.\d+\.\d+\.\d+|::1|localhost)$/i.test(String(OPT.host).trim());
 if (OPT.bench && OPT['no-notes']) { console.log('--bench keeps its jobs beside the notes: it cannot go with --no-notes'); process.exit(1); }
+if (OPT.bench && !TOKEN && OPT.proxy) { console.log('--bench needs the relay\'s password (COLLAB_TOKEN or --token) behind a reverse proxy (--proxy): a loopback address behind one is open to anyone the proxy lets in'); process.exit(1); }
 if (OPT.bench && !TOKEN && !LOOPBACK_HOST) { console.log('--bench needs the relay\'s password (COLLAB_TOKEN or --token): a job drives a headset in someone\'s home. Without one it runs only on a loopback address (--host 127.0.0.1)'); process.exit(1); }
 // shared networks (relay/nets.mjs; the cell story's own networks, shared on purpose by a page): as the notes, wherever the
 // relay keeps scenes or with --nets <dir>; never on a public server without a password (anyone could write into it)
@@ -3028,11 +3029,16 @@ async function logsApi(req, res, url) {
 // in memory when the relay keeps none. A headset (its id, phase and last report) and the helper's last ask live in memory
 // only. Log lines say ids, states, counts of steps and ms; never a step's fields, a result, a report or the password
 const BENCH = !OPT.bench ? null : benchJobs(!NOTES ? benchMemoryStore() : NOTES_DIR ? benchFolderStore(path.join(NOTES_DIR, BENCH_DIR)) : R2C ? benchR2Store(RX, R2C.prefix + '.notes/' + BENCH_DIR + '/') : benchFolderStore(path.join(SCENES, '.notes', BENCH_DIR)));
-const BH = { heads: new Map(), adb: new Map(), waiters: new Set(), timer: null };
+const BH = { heads: new Map(), adb: new Map(), waiters: new Set(), polls: 0, timer: null };
 const benchWake = () => { for (const w of [...BH.waiters]) w(); };
 // queued past its ttl, or running past its limit and a minute with no word from the headset: expired
 async function benchSweep() {
   const now = Date.now();
+  // (the headsets and helpers not heard from in ten minutes are forgotten: GET /api/bench shows only those heard since)
+  for (const [k, h] of BH.heads) if (now - h.seen > 600000) BH.heads.delete(k);
+  for (const [k, t] of BH.adb) if (now - t > 600000) BH.adb.delete(k);
+  // (ended jobs past their fortnight, or past the jobs' bytes, are deleted with their pictures)
+  await benchDrop(benchPrune(await BENCH.list(), now).ids);
   for (const r of await BENCH.list()) {
     let why = '';
     if (r.state === 'queued' && now - r.at > r.ttl * 1000) why = `not taken within ${r.ttl} s`;
@@ -3054,6 +3060,17 @@ function binBody(req, res, max, error) {
     req.on('close', () => { if (!req.complete) done(null); });
   });
 }
+async function benchDrop(ids) {
+  for (const id of ids) { await BENCH.del(id); log(`bench job ${id} deleted (old)`); }
+}
+// a headset's or helper's last word, in a table of at most MAX_HEADS (the one heard from longest ago makes room)
+function benchRoom(map, key, seen) {
+  if (map.has(key) || map.size < MAX_HEADS) return;
+  let old = null, t = Infinity;
+  for (const [k, v] of map) { const s = seen(v); if (s < t) { t = s; old = k; } }
+  if (old !== null) map.delete(old);
+}
+const benchHelper = (hs, t) => { benchRoom(BH.adb, hs, v => v); BH.adb.set(hs, t); };
 const benchJson = async (req, res, max, what) => {
   const text = await smallBody(req, res, max, `${what} is at most ${max >= 1 << 20 ? (max >> 20) + ' MB' : (max >> 10) + ' KB'}`);
   if (text === null) return undefined;
@@ -3062,6 +3079,7 @@ const benchJson = async (req, res, max, what) => {
 function benchSeen(hs, o) {
   const now = Date.now(), h = BH.heads.get(hs) || { hs, seen: 0, phase: '', why: '', xr: '', job: '', report: null };
   if (!h.seen || now - h.seen > 600000) log(`bench ${hs} listening`);
+  benchRoom(BH.heads, hs, v => v.seen);
   h.seen = now;
   Object.assign(h, o);
   BH.heads.set(hs, h);
@@ -3070,6 +3088,9 @@ function benchSeen(hs, o) {
 async function benchApi(req, res, url) {
   const no = (status, error, extra) => answerEarly(req, res, status, { error }, extra);
   if (!BENCH) return no(404, 'this relay has no bench');
+  // (a bench with no password, on loopback only: a page of another origin is refused, so no web page the owner opens can
+  // post jobs or read results with ACAO *; with a password a page needs it anyway)
+  if (!TOKEN && req.headers.origin !== undefined && !originAllowed(req.headers.origin, req)) return no(403, 'origin not allowed: this bench has no password, so only its own pages may use it');
   const m = /^\/api\/bench(?:\/(hello|next|jobs)(?:\/([^/]+)(?:\/(progress|result|pic|adb|devshot|cancel|delete)(?:\/(\d{1,2}))?)?)?)?$/.exec(url.pathname);
   if (!m) return no(404, 'no such endpoint');
   const [, what, id, sub, nth] = m, q = url.searchParams, now = Date.now();
@@ -3099,22 +3120,28 @@ async function benchApi(req, res, url) {
     if (what === 'next') {
       if (id) return no(404, 'no such endpoint');
       if (req.method !== 'GET') return no(405, 'method not allowed', { Allow: 'GET' });
-      const hs = q.get('hs') || '', role = q.get('role') === 'adb' ? 'adb' : 'page', xr = /^(vr|ar)$/.test(q.get('xr') || '') ? q.get('xr') : '';
-      if (!BENCH_HS.test(hs)) return json(res, 400, { error: 'hs: the headset\'s id (eight letters and digits)' });
-      const wait = Math.max(0, Math.min(25, +q.get('wait') || 0)) * 1000, ask = { hs, role, xr };
-      if (role === 'adb') BH.adb.set(hs, now); else benchSeen(hs, { xr });
+      const role = q.get('role') === 'adb' ? 'adb' : 'page', xr = /^(vr|ar)$/.test(q.get('xr') || '') ? q.get('xr') : '';
+      // (the adb helper asks as 'adb' until it has read the page's id: it takes the jobs for no headset in particular,
+      // an open for a headset with no page of the site among them)
+      const hs = role === 'adb' && !q.get('hs') ? 'adb' : q.get('hs') || '';
+      if (!BENCH_HS.test(hs) && !(role === 'adb' && hs === 'adb')) return json(res, 400, { error: 'hs: the headset\'s id (eight letters and digits)' + (role === 'adb' ? ', or adb' : '') });
+      // (at most MAX_POLLS held at once: one more is answered after a single look)
+      const held = BH.polls < MAX_POLLS;
+      const wait = held ? Math.max(0, Math.min(25, +q.get('wait') || 0)) * 1000 : 0, ask = { hs, role, xr };
+      if (role === 'adb') benchHelper(hs, now); else benchSeen(hs, { xr });
       // (a running job of this headset's that was cancelled ends as it asks again)
       if (role === 'page') for (const r of await BENCH.list()) if (r.state === 'running' && r.hs === hs && r.cancel && r.to === 'page') await BENCH.update(r.id, x => { if (x.state !== 'running') return false; x.state = 'cancelled'; x.ended = Date.now(); x.why = x.why || 'cancelled'; });
       let gone = false, wake = null, timer = null;
       req.on('close', () => { gone = true; if (wake) wake(); });
       const until = now + wait;
-      for (;;) {
+      if (wait) BH.polls++;
+      try { for (;;) {
         const queue = (await BENCH.list()).filter(r => benchFits(r, ask)).sort((a, b) => (a.id < b.id ? -1 : 1));
         for (const c of queue) {
           const r = await BENCH.update(c.id, x => { if (!benchFits(x, ask)) return false; x.state = 'running'; x.hs = hs; x.taken = Date.now(); });
           if (r && r.state === 'running' && r.hs === hs && r.taken >= now) {
             if (gone) { await BENCH.update(r.id, x => { x.state = 'queued'; x.taken = 0; if (!c.hs) x.hs = ''; }); benchWake(); return; }   // (the asker went meanwhile: back in the queue)
-            log(`bench job ${r.id} taken by ${role === 'adb' ? 'the adb helper of ' : ''}${hs}`);
+            log(`bench job ${r.id} taken by ${role === 'adb' ? (hs === 'adb' ? 'the adb helper' : 'the adb helper of ' + hs) : hs}`);
             if (role === 'page') { const h = BH.heads.get(hs); if (h) h.job = r.id; }
             return json(res, 200, { job: r }, noStore);
           }
@@ -3129,8 +3156,8 @@ async function benchApi(req, res, url) {
         }
         await new Promise(r => { wake = r; BH.waiters.add(r); timer = setTimeout(r, Math.min(left, 5000)); });
         BH.waiters.delete(wake); clearTimeout(timer); wake = null;
-        if (role === 'adb') BH.adb.set(hs, Date.now()); else { const h = BH.heads.get(hs); if (h) h.seen = Date.now(); }
-      }
+        if (role === 'adb') benchHelper(hs, Date.now()); else { const h = BH.heads.get(hs); if (h) h.seen = Date.now(); }
+      } } finally { if (wait) BH.polls--; }
     }
     // jobs
     if (!id) {
@@ -3144,8 +3171,11 @@ async function benchApi(req, res, url) {
       if (b === undefined) return;
       const r = parseJob(b);
       if (r.error) return json(res, 400, { error: r.error });
+      // (room made by deleting the oldest ended jobs; 507 only when every kept job is still queued or running)
+      const pr = benchPrune(await BENCH.list(), now, 1);
+      await benchDrop(pr.ids);
       const all = await BENCH.list();
-      if (all.length >= MAX_JOBS) return json(res, 507, { error: `at most ${MAX_JOBS} jobs are kept: delete some` });
+      if (all.length >= MAX_JOBS) return json(res, 507, { error: `at most ${MAX_JOBS} jobs are kept, and none has ended: cancel some (tools/bench/bench.mjs cancel)` });
       if (all.filter(x => x.state === 'queued').length >= MAX_QUEUED) return json(res, 429, { error: `at most ${MAX_QUEUED} jobs wait at once` });
       let nid = newId(now);
       for (let i = 0; i < 5 && await BENCH.get(nid); i++) nid = newId(now);
@@ -3200,7 +3230,7 @@ async function benchApi(req, res, url) {
       let late = false;
       const r = await BENCH.update(id, x => {
         if (x.state !== 'running' || (x.to === 'page' && x.hs !== u.result.hs)) { late = true; return false; }
-        x.result = u.result; x.ended = Date.now();
+        x.result = u.result; x.ended = Date.now(); x.rb = JSON.stringify(u.result).length;
         x.state = x.cancel ? 'cancelled' : u.result.ok ? 'done' : 'failed';
         x.why = x.cancel ? 'cancelled' : u.result.why;
       });
@@ -3215,7 +3245,7 @@ async function benchApi(req, res, url) {
       if (b === undefined) return;
       const u = parseAdb(b);
       if (u.error) return json(res, 400, { error: u.error });
-      await BENCH.update(id, x => { x.adb = u.adb; });
+      await BENCH.update(id, x => { x.adb = u.adb; x.ab = JSON.stringify(u.adb).length; });
       return json(res, 200, { ok: true }, noStore);
     }
     // pic and devshot: a picture as the body (image/jpeg; a devshot image/png too), n in the query
@@ -3226,6 +3256,10 @@ async function benchApi(req, res, url) {
     const buf = await binBody(req, res, pic ? MAX_PIC : MAX_DEVSHOT, `a picture is at most ${pic ? '1' : '4'} MB`);
     if (buf === null) return;
     if (!buf.length) return json(res, 400, { error: 'the picture is empty' });
+    // (the jobs' bytes: the oldest ended jobs make room; 507 when the queued and running ones alone fill it)
+    const pr = benchPrune(await BENCH.list(), Date.now(), 0, buf.length, id);
+    await benchDrop(pr.ids);
+    if (pr.bytes + buf.length > MAX_BYTES) return json(res, 507, { error: `the bench keeps at most ${MAX_BYTES >> 20} MB of jobs, and none that has ended is left to delete` });
     await BENCH.putFile(id, pic ? picName(n) : devshotName(n, type), buf);
     await BENCH.update(id, x => {
       const L = pic ? x.pics : x.devshots, e = { n, bytes: buf.length, ...(pic ? {} : { type }) };

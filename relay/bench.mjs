@@ -12,6 +12,9 @@ export const BENCH_DIR = '.bench', JOB = 'job.json';
 export const HS = /^[a-z0-9]{8}$/;
 export const MAX_JOB = 64 << 10, MAX_JOBS = 1000, MAX_QUEUED = 50, MAX_STEPS = 200, MAX_HELLO = 32 << 10, MAX_PROGRESS = 4 << 10,
   MAX_RESULT = 1 << 20, MAX_PIC = 1 << 20, MAX_PICS = 20, MAX_ADB = 512 << 10, MAX_DEVSHOT = 4 << 20, MAX_DEVSHOTS = 5;
+// ended jobs are kept KEEP_ENDED ms, and the oldest ended go first while the jobs' bytes pass MAX_BYTES or a new job needs a
+// place; the headsets and helpers the relay remembers (in memory only), and the long polls held at once
+export const KEEP_ENDED = 14 * 24 * 3600 * 1000, MAX_BYTES = 1 << 30, MAX_HEADS = 32, MAX_POLLS = 16;
 export const STATES = ['queued', 'running', 'done', 'failed', 'cancelled', 'expired'];
 export const ENDED = new Set(['done', 'failed', 'cancelled', 'expired']);
 const isObj = v => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -22,7 +25,7 @@ const PAGE_CMDS = {
   report: [], open: ['story', 'scene', 'src'], seek: ['chapter', 't', 'play'], play: [], pause: [], explore: ['tab'], set: ['name', 'value'],
   measure: ['sec', 'name'], rays: ['hand', 'preset', 'path', 'sec', 'press', 'measure'], pic: ['w', 'q'], probe: ['name', 'args'], wait: ['sec', 'until'], reload: [],
 };
-const ADB_CMDS = { devshot: ['n'], enter: [], open: [], vrapi: ['from', 'to'] };
+const ADB_CMDS = { devshot: ['n'], enter: [], open: [], vrapi: ['from', 'to', 'job'] };
 const JOB_FIELDS = new Set(['v', 'label', 'to', 'need', 'hs', 'with', 'sound', 'limit', 'ttl', 'adb', 'from', 'why', 'steps']);
 const num = (v, a, b) => typeof v === 'number' && isFinite(v) && v >= a && v <= b;
 const prim = v => v === null || typeof v === 'boolean' || (typeof v === 'number' && isFinite(v)) || (typeof v === 'string' && v.length <= 80);
@@ -98,6 +101,7 @@ function stepError(s, i, to) {
       break;
     case 'vrapi':
       if (!num(s.from, 0, 1e14) || !num(s.to, 0, 1e14) || s.to < s.from) return `${at}: from and to (ms)`;
+      if (has('job') && (typeof s.job !== 'string' || !NOTE_ID.test(s.job))) return `${at}.job: a job's id (the statistics go onto that job)`;
       break;
   }
   return '';
@@ -159,6 +163,21 @@ export function parseAdb(b) {
 
 // a job's row in the listing
 export const summary = r => ({ id: r.id, label: r.label, state: r.state, why: r.why || '', at: r.at, ended: r.ended || 0, hs: r.hs || '', steps: r.steps.length, ok: r.result ? !!r.result.ok : null, from: r.from, to: r.to, need: r.need });
+// the bytes a job keeps: its pictures, device screenshots, result and helper's lines (rb and ab: their JSON's length,
+// stamped as they are posted)
+export const bytesOf = r => [...(r.pics || []), ...(r.devshots || [])].reduce((a, e) => a + (e.bytes || 0), 0) + (r.rb || 0) + (r.ab || 0);
+// which ended jobs to delete (oldest ended first): those ended over KEEP_ENDED ago, then as many more as it takes to leave
+// `room` places under MAX_JOBS and `extra` bytes under MAX_BYTES. Queued and running jobs are never chosen.
+export function prune(list, now, room = 0, extra = 0, keepId = '') {
+  const ended = list.filter(r => ENDED.has(r.state) && r.id !== keepId).sort((a, b) => (a.ended || a.at) - (b.ended || b.at));
+  let n = list.length, bytes = list.reduce((a, r) => a + bytesOf(r), 0);
+  const out = [];
+  for (const r of ended) {
+    if (!(now - (r.ended || r.at) > KEEP_ENDED || n + room > MAX_JOBS || bytes + extra > MAX_BYTES)) break;
+    out.push(r.id); n--; bytes -= bytesOf(r);
+  }
+  return { ids: out, n, bytes };
+}
 // may this job go to this asker? (to: page with the page's session kind, or the adb helper; hs: none or the same)
 export function fits(r, ask) {
   if (r.state !== 'queued') return false;

@@ -203,12 +203,13 @@ by long poll and posts results and pictures, the adb helper (`tools/bench/adb/`)
 Off unless given; only on the **test place's** relay, never the main site's (the app refuses bench mode on
 `stories.lbi-netmed.com` anyway). On the test place on Coolify add `--bench` to `RELAY_ARGS` (it already has its password,
 `COLLAB_TOKEN`). The relay refuses to start with `--bench` and no password unless it listens on a loopback address only (a
-test's), and with `--no-notes`. Jobs are kept beside the notes (`.notes/.bench/<id>/`: `job.json`, `pic-<n>.jpg`,
+test's) and is not behind `--proxy`, and with `--no-notes`; with no password a page of another origin is refused (403). Jobs are kept beside the notes (`.notes/.bench/<id>/`: `job.json`, `pic-<n>.jpg`,
 `devshot-<n>.png|jpg`; under `.notes/.bench/` in R2), in memory when the relay keeps no notes; a restart keeps them. Every
-endpoint wants the password. Limits: a job 64 KB and 200 steps, 50 queued, 1000 kept (delete with `POST
-/api/bench/jobs/<id>/delete`), a result 1 MB, a picture 1 MB (20 a job), the helper's lines 512 KB, a device screenshot
-4 MB (5 a job). A queued job expires after its `ttl` (900 s), a running one after its `limit` and a minute without word.
-The log says only `bench job <id> queued <n> steps`, `taken by <hs>`, `<state> <ms>` and `bench <hs> listening`: never a
+endpoint wants the password. Limits: a job 64 KB and 200 steps, 50 queued, 1000 kept, 1 GB of results and pictures
+(ended jobs are deleted 14 days after they end, and the oldest ended first when either limit is reached; by hand:
+`node tools/bench/bench.mjs delete`), a result 1 MB, a picture 1 MB (20 a job), the helper's lines 512 KB, a device
+screenshot 4 MB (5 a job); in memory at most 32 headsets and 32 helpers (ten minutes each) and 16 long polls at once. A queued job expires after its `ttl` (900 s), a running one after its `limit` and a minute without word.
+The log says only `bench job <id> queued <n> steps`, `taken by <hs>`, `<state> <ms>`, `deleted (old)` and `bench <hs> listening`: never a
 step, a result, a report or the password. Its tests: `node relay/test.mjs --bench`, `node tools/bench/test.mjs`.
 
 ## Where the rest is

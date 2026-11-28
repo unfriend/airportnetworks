@@ -282,13 +282,30 @@ class Cdp {
   close() { try { this.ws.close(); } catch {} this.closed = true; }
 }
 
-// The only two things ever evaluated in the page (SPEC section 9.1).
+// The only two things ever evaluated in the page (SPEC section 9.1). The rectangle comes with the window's size and the
+// pinch zoom (visualViewport), so a press is never sent beside the button or out of view.
 const EXPR_STATE = 'HOST.bench && HOST.bench.state()';
-const EXPR_RECT = "document.querySelector('#benchEnter') && JSON.stringify(document.querySelector('#benchEnter').getBoundingClientRect())";
+const EXPR_RECT = "(() => { const b = document.querySelector('#benchEnter'); if (!b) return null; const r = b.getBoundingClientRect(), v = window.visualViewport; " +
+  "return JSON.stringify({ left: r.left, top: r.top, width: r.width, height: r.height, vw: innerWidth, vh: innerHeight, dpr: devicePixelRatio, " +
+  "scale: v ? v.scale : 1, ox: v ? v.offsetLeft : 0, oy: v ? v.offsetTop : 0, w: v ? v.width : innerWidth, h: v ? v.height : innerHeight }); })()";
+// Where to press, in the CSS pixels DevTools' input takes, or why not: never out of the visible part of the page. Pinch-
+// zoomed, desktop Chromium takes the layout's own pixels (tried in the test); whether Quest Browser does is unknown, so
+// `alt` is the same place in the visual viewport's pixels (less the zoom's offset, times its scale), tried every other
+// press. Exported for the test.
+export function pressPoint(rect) {
+  if (!rect || !(rect.width >= 1 && rect.height >= 1)) return { why: 'The Enter button is hidden.' };
+  const scale = rect.scale > 0 ? rect.scale : 1, ox = rect.ox || 0, oy = rect.oy || 0;
+  const cx = rect.left + rect.width / 2, cy = rect.top + rect.height / 2;
+  const w = rect.w > 0 ? rect.w : rect.vw, h = rect.h > 0 ? rect.h : rect.vh;
+  const zoom = Math.abs(scale - 1) > 0.01 ? ' (the page is zoomed in ' + Math.round(scale * 100) + ' %: pinch it back on the headset)' : '';
+  if (!(cx >= ox && cx < ox + w && cy >= oy && cy < oy + h)) return { why: 'The Enter button is out of view' + (zoom || ' (the window is ' + Math.round(rect.vw) + ' x ' + Math.round(rect.vh) + ' and the button is at ' + Math.round(cx) + ', ' + Math.round(cy) + ')') + '.' };
+  return { x: cx, y: cy, zoom, alt: zoom ? { x: (cx - ox) * scale, y: (cy - oy) * scale } : null };
+}
 
 let P = null;          // the page: { cdp, port, id, url }
 let dialog = null;     // an open JavaScript dialog on it (reported, never answered)
 let lastPress = 0;     // when we last pressed, on this page load
+let zoomTries = 0;     // presses on a zoomed page (the two ways of placing them taken in turn)
 async function connectPage() {
   if (P && !P.cdp.closed) return P;
   P = null;
@@ -310,9 +327,15 @@ async function evalValue(cdp, expr) {
   if (r.exceptionDetails) return { err: (r.exceptionDetails.exception && r.exceptionDetails.exception.description || r.exceptionDetails.text || 'an error').split('\n')[0] };
   return { v: r.result ? r.result.value : undefined };
 }
+// The headset's clock less this computer's (ms), from the page's Date.now() over a quick round trip; else from the VrApi
+// lines as they come (an underestimate by the log's delay); else 0. Logcat's times and every job's t0 and t1 are the
+// headset's: the helper compares them only with hNow(), never with its own clock (SPEC 9.5).
+let SKEW = null;
+const hNow = () => Date.now() + (SKEW != null ? SKEW : LOG.skew != null ? LOG.skew : 0);
 async function readState(cdp) {
   if (dialog) return { err: 'a dialog box is open on the page' };
-  const r = await evalValue(cdp, EXPR_STATE);
+  const a = Date.now(), r = await evalValue(cdp, EXPR_STATE), b = Date.now();
+  if (!r.err && r.v && typeof r.v.now === 'number' && b - a < 1000) SKEW = Math.round(r.v.now - (a + b) / 2);
   if (r.err) return { err: /HOST is not defined/.test(r.err) ? 'this page is not the app' : r.err };
   if (!r.v) return { err: 'bench mode is off on the page' };
   return { s: r.v };
@@ -328,8 +351,11 @@ async function pressEnter(cdp) {
   const r = await evalValue(cdp, EXPR_RECT);
   if (r.err || !r.v) return { ok: false, msg: 'The page shows no Enter button (#benchEnter)' + (r.err ? ': ' + r.err : '') + '.' };
   let rect; try { rect = JSON.parse(r.v); } catch { return { ok: false, msg: 'The Enter button has no place on the page.' }; }
-  if (!(rect.width >= 1 && rect.height >= 1)) return { ok: false, msg: 'The Enter button is hidden.' };
-  const x = rect.left + rect.width / 2, y = rect.top + rect.height / 2;
+  const pt = pressPoint(rect);
+  if (pt.why) { lastPress = Date.now(); return { ok: false, msg: pt.why }; }
+  // (zoomed: every other press at the visual viewport's place)
+  const useAlt = !!(pt.alt && (zoomTries++ % 2));
+  const { x, y } = useAlt ? pt.alt : pt;
   lastPress = Date.now();
   try {
     await cdp.send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, button: 'none', buttons: 0 });
@@ -354,7 +380,7 @@ async function pressEnter(cdp) {
   }
   const p = (s && s.press) || before;
   if (p.n > before.n) return { ok: false, msg: 'Pressed Enter ' + want + ' (' + (p.trusted ? 'a trusted press' : 'the page saw an untrusted press') + '), but no session started in 10 s. The browser may be asking a question on the headset (to allow ' + want + ' for this site). Put it on and allow it once.' };
-  return { ok: false, msg: 'Pressed Enter ' + want + ', but the press did not reach the page.' };
+  return { ok: false, msg: 'Pressed Enter ' + want + ', but the press did not reach the page' + (pt.zoom ? pt.zoom + (useAlt ? ', placed for the zoom' : ', placed as unzoomed') : '') + '. The button may be covered, or the browser zoomed (Quest Browser\'s own page zoom: set it back to 100 %); a press is tried again in ' + O.gap + ' s.' };
 }
 
 // ---------- the headset's frame statistics (VrApi lines) ----------
@@ -437,7 +463,7 @@ export function vrapiFor(lines, bad, from, to, steps) {
     notes: 'parsed ' + rows.length + ' VrApi lines; ' + unread + ' unreadable' };
 }
 
-const LOG = { lines: [], bad: [], child: null, keep: 30 * 60 * 1000, got: 0 };
+const LOG = { lines: [], bad: [], child: null, keep: 30 * 60 * 1000, got: 0, est: [], skew: null };
 let quitting = false;
 function logcatStart() {
   if (LOG.child || quitting) return;
@@ -450,7 +476,9 @@ function logcatStart() {
   createInterface({ input: ch.stdout }).on('line', (line) => {
     const r = parseLine(line);
     if (!r) return;
-    const now = Date.now();
+    if (!r.bad) { LOG.est.push(r.t - Date.now()); if (LOG.est.length > 30) LOG.est.shift(); LOG.skew = Math.max(...LOG.est); }
+    // (an unreadable line has no time of its own: stamped on the headset's clock as it comes)
+    const now = hNow();
     if (r.bad) { LOG.bad.push(now); while (LOG.bad.length && LOG.bad[0] < now - LOG.keep) LOG.bad.shift(); return; }
     LOG.got++;
     LOG.lines.push(r);
@@ -541,18 +569,19 @@ const ADB_CMDS = {
     return { msg: r.msg };
   },
   async open() { return { url: await openAddress() }; },
+  // (onto the job named by `job`, else this adb job's own record; the summary is the step's out either way)
   async vrapi(st, job) {
-    const from = +st.from, to = +st.to;
+    const from = +st.from, to = +st.to, onto = typeof st.job === 'string' && /^\d{8}-\d{6}-[a-z0-9]{4}$/.test(st.job) ? st.job : job.id;
     if (!(from > 0 && to >= from)) throw new Error('vrapi needs from and to (ms on the headset\'s clock)');
     const v = vrapiFor(LOG.lines, LOG.bad, from, to, []);
-    const r = await api('/api/bench/jobs/' + job.id + '/adb', { method: 'POST', json: v });
-    if (r.status >= 300) throw new Error('the relay refused the statistics (' + r.status + ')');
-    return { n: v.vrapi ? v.vrapi.n : 0, notes: v.notes };
+    const r = await api('/api/bench/jobs/' + onto + '/adb', { method: 'POST', json: v });
+    if (r.status >= 300) throw new Error('the relay refused the statistics for job ' + onto + ' (' + r.status + ')');
+    return { onto, n: v.vrapi ? v.vrapi.n : 0, all: v.vrapi ? v.vrapi.all : null, notes: v.notes };
   },
 };
 async function runAdbJob(job) {
   const steps = Array.isArray(job.steps) ? job.steps : [];
-  const hs = job.hs || HS;
+  const hs = job.hs || HS || 'adb';
   const res = { hs, ok: true, why: '', t0: Date.now(), t1: 0, steps: [], report: null };
   say('Job ' + job.id + ' (' + steps.length + ' step' + (steps.length === 1 ? '' : 's') + ') taken.');
   for (let i = 0; i < steps.length; i++) {
@@ -578,9 +607,11 @@ async function runAdbJob(job) {
 }
 async function adbJobRound(wait) {
   let r;
-  try { r = await api('/api/bench/next?role=adb&hs=' + encodeURIComponent(HS) + '&wait=' + wait, { ms: (wait + 10) * 1000 }); }
+  // (until the page's id is known the helper asks as 'adb': it then takes the jobs for no headset in particular, an open
+  // for a headset with no page of the site among them)
+  try { r = await api('/api/bench/next?role=adb&hs=' + encodeURIComponent(HS || 'adb') + '&wait=' + wait, { ms: (wait + 10) * 1000 }); }
   catch (e) { relayCut(e); return 'cut'; }
-  if (!relayOk(r)) return 'no';
+  if (!relayOk(r)) return r.status === 401 || r.status === 404 ? 'no' : 'bad';
   if (r.status === 200 && r.data && r.data.job) await runAdbJob(r.data.job);
   return 'ok';
 }
@@ -604,8 +635,9 @@ async function attachRound() {
       const res = rec.result;
       if (!res || !(res.t0 > 0)) { handled.add(sm.id); continue; }
       const t1 = res.t1 > res.t0 ? res.t1 : res.t0;
-      if (Date.now() - t1 > LOG.keep) { handled.add(sm.id); continue; }   // older than the lines kept
-      if (Date.now() - t1 < 3000) continue;                                 // the log's last lines may still be coming
+      const hn = hNow();                                                    // (the headset's clock: t1 is the page's)
+      if (hn - t1 > LOG.keep) { handled.add(sm.id); continue; }             // older than the lines kept
+      if (hn - t1 < 3000) continue;                                         // the log's last lines may still be coming
       const v = vrapiFor(LOG.lines, LOG.bad, res.t0, t1, res.steps);
       if (!LOG.got && !v.vrapi) v.notes = 'the helper has read no VrApi lines from the headset at all (the browser may log none on this system version)';
       try {
@@ -685,11 +717,12 @@ async function cmdCheck() {
 
 async function cmdStats() {
   await findDevice();
-  const t0 = Date.now();
   logcatStart();
   say('Reading the headset\'s VrApi lines for ' + O.sec + ' s ...');
+  await sleep(1500);   // (the first lines give the headset's clock)
+  const t0 = hNow();
   await sleep(O.sec * 1000);
-  const v = vrapiFor(LOG.lines, LOG.bad, t0 - 2000, Date.now(), []);
+  const v = vrapiFor(LOG.lines, LOG.bad, t0 - 2000, hNow(), []);
   console.log(statsTable(v));
   return v.vrapi ? 0 : 1;
 }
@@ -757,7 +790,8 @@ async function cmdWatch() {
   for (;;) {
     if (quitting) break;
     const r = await adbJobRound(20);
-    if (r === 'cut') await sleep(30000); else if (r === 'no') await sleep(60000);
+    // (a cut or another refusal: 10 to 30 s; the relay wanting its password or having no bench: a minute)
+    if (r === 'cut') await sleep(30000); else if (r === 'no') await sleep(60000); else if (r === 'bad') await sleep(10000);
   }
   return 0;
 }

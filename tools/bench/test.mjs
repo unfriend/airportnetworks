@@ -220,6 +220,11 @@ try {
   // ------------------------------------------------------------ the list, the Markdown
   r = bench(['jobs']);
   ok(r.code === 0 && /\| id \| label/.test(r.out) && r.out.includes('cancelled'), 'bench.mjs jobs lists them');
+  r = bench(['delete', '--state', 'cancelled']);
+  const gone = bench(['jobs', '--state', 'cancelled']);
+  ok(r.code === 0 && r.out.includes(vq) && r.out.includes(wq) && /No jobs/.test(gone.out) && bench(['delete', '--state', 'queued']).code === 1, 'bench.mjs delete --state cancelled: gone; a queued state refused (' + r.out.trim().split('\n').length + ')');
+  r = bench(['send', 'devshot', '--to', 'adb']);
+  ok(r.code === 3 && /adb helper is not listening/.test(r.err), 'an adb job with no helper asking: exit 3, said plainly');
   const relayLog = R.out;
   ok(!relayLog.includes(PASS) && !/"cmd"|"steps"|release/.test(relayLog) && /bench job \S+ queued \d+ steps/.test(relayLog) && /bench job \S+ taken by [a-z0-9]{8}/.test(relayLog), 'the relay\'s log says ids, states and counts, never a step, a result or the password');
 

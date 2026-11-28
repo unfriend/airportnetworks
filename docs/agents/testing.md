@@ -4,17 +4,17 @@
 - 25: When the suites run (1.5 KB)
 - 41: Which suite after which change (2.3 KB)
 - 69: Listing the tests and the docs' tools (3.0 KB)
-- 105: The smoke test (`tools/smoke.mjs`) (18.7 KB)
+- 105: The smoke test (`tools/smoke.mjs`) (19.3 KB)
   - 152: Smoke blocks (9.8 KB)
   - 224: `--only <words>` and `--block <id>` (1.7 KB)
   - 243: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-  - 253: The headset bench: testing on the real Quest from the cloud (v232) (1.9 KB)
-- 274: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
-- 341: Other tools (5.6 KB)
-- 368: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 377: Known red results on this machine (8.2 KB)
-- 412: Traps for a test writer (4.7 KB)
-- 460: Useful URL hashes and the console (4.8 KB)
+  - 253: The headset bench: testing on the real Quest from the cloud (v232) (2.4 KB)
+- 278: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
+- 345: Other tools (5.6 KB)
+- 372: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 381: Known red results on this machine (8.2 KB)
+- 416: Traps for a test writer (4.7 KB)
+- 464: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -263,13 +263,17 @@ pictures to the chat. It cannot show: the room through passthrough, comfort, sou
 the system's own menus or permission questions, and anything the shell draws on Sharp text layers the read-back misses;
 its frame figures are the page's (`requestAnimationFrame` intervals, script ms), the headset's own (VrApi: GPU load,
 stale frames, temperature) come only with the adb helper (`tools/bench/adb/`). A result from the bench is a device
-result: say which headset (`hs`), release and settings it ran with.
+result: say which headset (`hs`), release and settings it ran with. Jobs read and done with can go (`delete <id>` or
+`delete --state done,failed,cancelled,expired`); the relay deletes ended jobs after 14 days anyway. Helper jobs go with
+`send <cmd> --to adb` (`devshot`, `enter`, `open`, `vrapi from= to= job=`).
 
 `node tools/bench/test.mjs [--shots dir]` (about 6 min) is the bench's own test in headless Chromium: its own relay
 (`--bench`, a random password, a free port), the smoke test's pretend AR headset (`XR_SEAT`, `FPS_FAKE` read out of
 `tools/smoke.mjs`, its frames on the page's clock), and only `tools/bench/bench.mjs` to drive it; `node relay/test.mjs
 --bench` is the relay's part (seconds). Run both after touching `bench.js`, `relay/bench.mjs`, the bench's routes or
-`tools/bench/bench.mjs`.
+`tools/bench/bench.mjs`. `node tools/bench/adb/test.mjs [--tmp dir]` (about 2 min) is the adb helper's, against a
+stand-in adb, a stand-in relay and a local Chromium (a headset clock five minutes ahead, a pinch-zoomed page among its
+checks); run it after touching `tools/bench/adb/` or `HOST.bench.state()`.
 
 ## Shared rooms: `relay/test.mjs` and `tools/collab.mjs`
 

@@ -26,8 +26,15 @@ the test's stand-in is), `--xr ar|vr`, `--no-awake`, `--once`, `--sec <n>`, `--o
 
 Exit: 0 fine, 1 an error or usage, 2 the relay refused, 3 no headset (none, several, not allowed, no adb), 4 not entered.
 
-What it evaluates in the page: exactly `HOST.bench && HOST.bench.state()` and the `#benchEnter` rectangle (SPEC 9.1),
-nothing else. A JavaScript dialog on the page is reported and never answered.
+What it evaluates in the page: exactly `HOST.bench && HOST.bench.state()` and the `#benchEnter` rectangle with the
+window's size and pinch zoom (SPEC 9.1), nothing else. A JavaScript dialog on the page is reported and never answered.
+A button out of view is never pressed (it says so); on a pinch-zoomed page it tries the layout's place and the visual
+viewport's in turn. The headset's clock is taken from the page's `Date.now()` (else from the `VrApi` lines), so a
+headset whose clock differs from the computer's still gets its statistics.
+
+Its own jobs: until it has read the page's id it asks the relay as `adb` and takes the jobs for no headset in
+particular, so an `open` reaches a headset with no page of the site. `vrapi` with `job=<id>` puts the statistics onto
+that job (else onto its own record); the summary is the step's result either way.
 
 Keeping awake: one table, `AWAKE` in `adb.mjs`, with where each command comes from. A refused command is said once and
 the rest carries on; none changes a stored setting.
@@ -35,7 +42,13 @@ the rest carries on; none changes a stored setting.
 ## The ten-minute first try
 
 On the computer, in the checkout, with the Quest on a USB data cable and developer mode on for it (Meta Horizon app:
-Devices, Headset settings, Developer mode):
+Devices, Headset settings, Developer mode). First give the shell the relay's password, once, for every step below
+(`check` asks the relay too: without it, it ends with *The relay wants its password* and exit 2):
+
+- macOS, Linux: `export NOTES_TOKEN='<the relay's password>'`
+- Windows PowerShell: `$env:NOTES_TOKEN='<the relay's password>'`
+
+(`NOTES_RELAY` only if the relay is not the test site's own origin.)
 
 1. `adb devices -l` lists one line ending `model:Quest_3 ...` with `device`. If it says `unauthorized`, put the headset
    on and allow USB debugging (tick *Always allow*). No line: another cable or port, developer mode on.
@@ -53,12 +66,12 @@ Devices, Headset settings, Developer mode):
 6. `node tools/bench/adb/adb.mjs stats --sec 20` while in AR: a table of fps, stale frames, levels, loads and temperature.
    *No VrApi lines*: the browser logs none on this system version (SPEC 12); everything else still works.
 7. `node tools/bench/adb/adb.mjs shot`: a picture's path; open it (may be black for an immersive page).
-8. `NOTES_TOKEN=<the relay's password> node tools/bench/adb/adb.mjs --watch` (Windows PowerShell:
-   `$env:NOTES_TOKEN='<password>'; node tools/bench/adb/adb.mjs --watch`): *Keeping the headset awake*, the bench's
+8. `node tools/bench/adb/adb.mjs --watch` (the password from the start): *Keeping the headset awake*, the bench's
    phase, and *Pressed Enter AR ...* whenever the page loads. Leave it running; the cloud's `node tools/bench/bench.mjs
    status` lists the helper as seen.
 9. From the cloud: `node tools/bench/bench.mjs send report`, then `run picking`: the watch prints *Frame statistics
-   attached to job ...* a few seconds after each job ends.
+   attached to job ...* a few seconds after each job ends. `node tools/bench/bench.mjs send devshot --to adb` asks the
+   helper for a device screenshot.
 10. Ctrl+C: *The headset may sleep again as it is set to.*
 
 ## Its test
@@ -68,6 +81,9 @@ the test writes into its temporary folder; on Windows it is given as `--adb shim
 remote-debugging port in place of Quest Browser's DevTools, a stand-in relay and a stand-in bench page. It checks no
 device, two devices, unauthorised, not a Quest, no adb; the address in single quotes; a trusted press and the session
 (stand-in); no WebXR; a permission question that never resolves; a dialog box; the password question; watch: Enter
-again after a reload, the helper's own job (devshot, vrapi), statistics of three line shapes with unreadable lines
-attached to a page job and none to `adb: false`; Ctrl+C putting the awake setting back; the password in no output, adb
-command or address. Everything only the Quest can show stays untested.
+again after a reload, an adb job taken before any page is known (asked as `adb`, as the real relay requires), the helper's
+own job (devshot, vrapi, vrapi onto another job), statistics of three line shapes with unreadable lines attached to a
+page job and none to `adb: false`, all with the headset's clock five minutes ahead of the computer's; Ctrl+C putting the
+awake setting back; a page at device pixel ratio 2, pinch-zoomed with the button in view (pressed) and out of view (said,
+not pressed); the password in no output, adb command or address. Quest Browser's own page zoom (not pinch) is not
+tried: desktop Chromium has no stand-in for it. Everything only the Quest can show stays untested.
