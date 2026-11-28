@@ -60,6 +60,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     seg: null, lastT: 0, firstFor: '', firstAt: 0, card: null, cardN: 0, hud: '', hudOff: false, sig: 0, done: null, handsAns: '', paused: '', resumeP: null, resumeFn: null,
     errN: 0, errs: [], emap: [], ecut: 0, ecap: false, qlog: [], q: undefined, lost: 0, logOwn: false, rel: '', batt0: null, quietUntil: 0, stopWhy: '', cardFn: null, hz: 0, hzHow: '', ending: false, endP: null, stopW: [], set0: 0 };
   const T = { tick: 200 };   // (tests)
+  const REC = { seg: null, lastT: 0, errOn: false };   // (the bench's recorder, below: rec)
   let lastSum = null;   // (line(): the last result's line)
   const bump = () => { R.sig++; paint(); };
   const XRS = { vr: false, ar: false };
@@ -154,8 +155,10 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   }
   const segLabel = () => (R.seg ? (R.seg.kind + ' ' + R.seg.story + ' ' + R.seg.key).trim() : '');
   function caught(kind, a) {
-    if (!R.on) return;
+    if (!R.on && !REC.errOn) return;
     const raw = [].map.call(a, x => (x && x.stack ? String(x.message || x) : typeof x === 'object' ? G(() => JSON.stringify(x), String(x)) : String(x))).join(' ');
+    if (REC.errOn) recCaught(kind, raw);
+    if (!R.on) return;
     const msg = G(() => cleanMsg(raw), 'a message that could not be read'), at = Math.round((Date.now() - R.at) / 1000), seg = segLabel(), lvl = kind === 'error' ? 'error' : 'warn';
     R.errN++; if (R.seg) R.seg.errs++;
     if (R.errs.length < 100) R.errs.push({ at, seg, msg: kind + ': ' + msg });
@@ -180,14 +183,15 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   document.addEventListener('visibilitychange', () => { R.lastT = 0; });   // (frame(): the interval across a hidden page is not counted)
   window.addEventListener('error', e => caught('error', [e.message || e.error || 'error']));
   window.addEventListener('unhandledrejection', e => caught('error', [e.reason || 'a promise was rejected']));
-  { const cv = document.getElementById('gl'); if (cv) cv.addEventListener('webglcontextlost', () => { if (!R.on) return; R.lost++; if (R.seg) R.seg.lost = true; caught('error', ['the WebGL context was lost']); }); }
+  { const cv = document.getElementById('gl'); if (cv) cv.addEventListener('webglcontextlost', () => { if (REC.seg) REC.seg.lost = true; if (!R.on) return; R.lost++; if (R.seg) R.seg.lost = true; caught('error', ['the WebGL context was lost']); }); }
 
   // ------------------------------------------------------------------ measuring --
   // a segment: its frames' intervals (ms, from the frame callback's time: the XR frame's in a session), the story's
   // frame counts from HOST.perf.last() (measured while a run is on: index.html HOST.perf), errors, quality changes
+  const segMake = (kind, story, key, o) => Object.assign({ kind, story: story || '', key: String(key || ''), item: R.i, t0: now(), w0: Date.now(), dts: [], sum: 0, clk: 0, long: 0, calls: 0, tri: 0, js: 0, lines: 0, pts: 0, pn: 0, lfN: -1, errs: 0, lost: false, qch: 0, q0: aq(), why: '' }, o || {});
   function segOpen(kind, story, key, o) {
     segClose();
-    R.seg = Object.assign({ kind, story: story || '', key: String(key || ''), item: R.i, t0: now(), w0: Date.now(), dts: [], sum: 0, clk: 0, long: 0, calls: 0, tri: 0, js: 0, pn: 0, lfN: -1, errs: 0, lost: false, qch: 0, q0: aq(), why: '' }, o || {});
+    R.seg = segMake(kind, story, key, o);
     R.lastT = 0;
     return R.seg;
   }
@@ -220,6 +224,15 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     const S = R.seg;
     if (!S) return null;
     R.seg = null;
+    const g = segStats(S, why);
+    g.w = S.w0; g.item = S.item;
+    R.segs.push(g);
+    runEvent('seg', flat(g));
+    save();
+    return g;
+  }
+  // a segment's figures from its frames (the run's segments and the bench's, HOST.perfRun.rec)
+  function segStats(S, why) {
     const d = S.dts.slice().sort((a, b) => a - b), n = d.length, q = p => (n ? d[Math.min(n - 1, Math.max(0, Math.ceil(n * p) - 1))] : null);
     const hz = rate(), P = hz ? 1000 / hz : 0;
     let miss = P ? 0 : null, stall = 0, run = 0;
@@ -233,10 +246,6 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (S.load !== undefined) g.load = S.load;
     if (S.build !== undefined) g.build = S.build;
     if (S.q0 !== g.q) g.q0 = S.q0;
-    g.w = S.w0; g.item = S.item;
-    R.segs.push(g);
-    runEvent('seg', flat(g));
-    save();
     return g;
   }
   // a segment as a run log's event: at most 22 fields of numbers, strings, booleans or null (relay/notes.mjs); p50 is
@@ -255,18 +264,52 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   // taken off, its system menu) is dropped (R.lastT cleared: here, by the quarter-second timer and on visibilitychange)
   const hidden = () => !!(document.hidden || (HOST.session && HOST.session.visibilityState && HOST.session.visibilityState !== 'visible'));
   function frame(t) {
-    if (!R.on) return;
-    if (hidden()) { R.lastT = 0; return; }
+    if (!R.on && !REC.seg) return;
+    if (hidden()) { R.lastT = 0; REC.lastT = 0; return; }
     const tt = Number.isFinite(t) && t > 0 ? t : now();
-    if (R.firstFor && !R.firstAt && HOST.curKey === R.firstFor && HOST.cur && G(() => HOST.loading.built(), false)) R.firstAt = now();
-    const S = R.seg;
-    if (S) {
-      if (R.lastT && tt > R.lastT) { const dt = tt - R.lastT; S.dts.push(dt); S.sum += dt; if (dt >= 1000) S.long++; else S.clk += dt; }
-      const lf = HOST.perf && HOST.perf.last ? HOST.perf.last() : null;
-      if (lf && lf.n !== S.lfN) { if (S.lfN >= 0) { S.calls += lf.calls; S.tri += lf.tri; S.js += lf.js; S.pn++; } S.lfN = lf.n; }
+    if (R.on) {
+      if (R.firstFor && !R.firstAt && HOST.curKey === R.firstFor && HOST.cur && G(() => HOST.loading.built(), false)) R.firstAt = now();
+      feed(R.seg, R.lastT, tt);
+      R.lastT = tt;
     }
-    R.lastT = tt;
+    if (REC.seg) { feed(REC.seg, REC.lastT, tt); REC.lastT = tt; }
   }
+  function feed(S, last, tt) {
+    if (!S) return;
+    if (last && tt > last) { const dt = tt - last; S.dts.push(dt); S.sum += dt; if (dt >= 1000) S.long++; else S.clk += dt; }
+    const lf = HOST.perf && HOST.perf.last ? HOST.perf.last() : null;
+    if (lf && lf.n !== S.lfN) { if (S.lfN >= 0) { S.calls += lf.calls; S.tri += lf.tri; S.js += lf.js; S.lines += lf.lines || 0; S.pts += lf.pts || 0; S.pn++; } S.lfN = lf.n; }
+  }
+
+  // ------------------------------------------------------------------ the recorder, for the headset bench (bench.js, v232) --
+  // A segment measured as the run's are, while no run is on: open() starts it (one at a time), close() returns its figures
+  // (perfrun's segment, kind 'bench', plus lines and pts a story frame, and errlist: the distinct messages caught while it
+  // ran) and neither keeps it nor sends it to a run log. errors(true) catches errors and warnings for a job (each message
+  // cleaned as the run's are, cleanMsg); errors(false) stops
+  function recCaught(kind, raw) {
+    const S = REC.seg;
+    if (!S) return;
+    S.errs++;
+    const msg = G(() => cleanMsg(raw), 'a message that could not be read'), lvl = kind === 'error' ? 'error' : 'warn', k = lvl + ' ' + msg;
+    const e = S.emap.find(x => x.k === k);
+    if (e) e.n++; else if (S.emap.length < ERRMAX) S.emap.push({ k, n: 1, lvl, msg });
+  }
+  const rec = {
+    open(kind, story, key) { REC.seg = segMake(kind || 'bench', story, key, { emap: [] }); REC.lastT = 0; return REC.seg; },
+    close(why) {
+      const S = REC.seg;
+      if (!S) return null;
+      REC.seg = null;
+      const g = segStats(S, why);
+      const pn = S.pn;
+      g.lines = pn ? Math.round(S.lines / pn) : null; g.pts = pn ? Math.round(S.pts / pn) : null;
+      g.errlist = S.emap.map(x => ({ n: x.n, lvl: x.lvl, msg: x.msg }));
+      return g;
+    },
+    on: () => !!REC.seg,
+    info: () => info(),
+    errors(on) { REC.errOn = !!on; return { list: REC.seg ? REC.seg.emap.map(x => ({ n: x.n, lvl: x.lvl, msg: x.msg })) : [] }; },
+  };
 
   // ------------------------------------------------------------------ waiting, with the stop, the pause and a watchdog --
   async function wait(fn, ms, why) {
@@ -856,7 +899,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   }, 250);
 
   return {
-    start, offer, stop, boot, frame, view, press,
+    start, offer, stop, boot, frame, view, press, rec,
     // about how long each part takes, in minutes (the Experiments set's cards in developer mode: HOST.menu, v230)
     minutes: part => (part === 'hands' ? aboutHands({}) : about({})),
     // the shell's holds while a run is on: sound quiet (HOST.audio's mute, never stored), no slideshow stops, no Repeat, no

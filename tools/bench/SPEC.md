@@ -446,3 +446,35 @@ after) and `pic`. The smoke test gains a block `bench` (`--only bench`): the mod
   status`, `node tools/bench/bench.mjs send report`, `node tools/bench/bench.mjs send pic`, `node tools/bench/bench.mjs
   run picking`. Without the helper: open the test site on the headset, developer mode on, Debug tab, *Bench mode: on*,
   Enter AR, set it down, and the same cloud commands.
+
+## 13. What builder ONE learnt while building (v232)
+
+None of sections 4, 5, 8 and 9's names or shapes changed; these are additions and the places the code settles what the
+text left open.
+
+- **The relay without notes** keeps the bench in memory (a startup line says so), so a test relay started as 9.7 says
+  (`--static . --bench --token <random>`, no `--notes`) has a bench; `--bench` with `--no-notes` is still refused.
+- **The record's `adb`** is the job's own `true` or `false` (whether the helper should attach its lines) until the helper
+  posts them; then it is the posted object (`{ vrapi, notes, at }`). So the helper attaches when `adb === true`.
+- **The record's `why`** is the state's (a failure's reason, `cancelled`, an expiry's); a job's own `why` (an automatic
+  plan's reason) is kept as `asked`.
+- **A 204 from `next`** carries `X-Bench-Waiting: <n>`: jobs queued for this headset that wait for a session.
+- **`GET /api/bench`** also lists the helper by itself: `adb: [{ hs, seen, ago }]`. **`GET /api/bench/jobs?state=`**
+  takes a comma list, and `ended` for done, failed, cancelled and expired.
+- **`progress`** on a job that is not running for that `hs` answers 200 `{ ok: false, cancel, state }`; **`cancel`**
+  answers `{ ok, state, cancel }` (`cancel: true` while a running job waits for the page's next word).
+- **`phase: 'enter'`** whenever bench mode listens without a session (not only when a job waits for one): the adb helper
+  presses after every page load, and a page without WebXR records `press.err` (`this browser has no WebXR`). `held`
+  also says `the performance run is on`.
+- **Occlusion's modes** are `off`, `depth`, `room`, `both` (occlusion.js), not `hands`.
+- **Pretend rays** are relative to the head's place and heading at the step's start, not its pitch and roll: a headset
+  lying on a table points anywhere. Presses also dispatch `select` before `selectend`.
+- **`pic` on a page** reads the canvas (the notebook's `grabPage`); its `out` says `xr`. The headset's menu is closed as a
+  job begins in a session (developer mode opens it on What is new), so pictures show the story.
+- **The probe API** adds `rays(o)` (a `rays` step from inside a probe: `hand`, `preset`, `sec`, `measure`) and
+  `session()` (`''`, `'vr'`, `'ar'`). The probes shipped: `picks` (the explore pick's cost a frame: the story's `pickWith`
+  timed by fixed expressions and put back; the caches themselves live inside the sets and are not read), `scene`
+  (counts by set, lines and points among them), `loads` (`LOAD.ms`). Plans: `quick`, `dev`, `picking`.
+- **The test's pretend headset** steps its session on the page's clock (`F.time = performance.now() - 1000 / 72` before
+  each step): FPS_FAKE's own clock starts at 0, and a segment fed both clocks measured nonsense. A real session's frame
+  times are the page's clock.

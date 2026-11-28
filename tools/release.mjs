@@ -7,7 +7,7 @@
 //                                                                      whatsnew.json does not name this release
 //                                   --root <dir>: another copy of the app (the live test's)
 // version.json: { app, version (sw.js VERSION), format (shared.js FORMAT), shell: { n, id }, list, stories: { <key>:
-// { fp, needs } } }. The shell is index.html, shared.js, three.min.js, peerjs.min.js, output.js, sfx.js, occlusion.js, ships.js, notes.js, perfrun.js, ik.js,
+// { fp, needs } } }. The shell is index.html, shared.js, three.min.js, peerjs.min.js, output.js, sfx.js, occlusion.js, ships.js, notes.js, perfrun.js, bench.js, ik.js,
 // flight.js and bodies.js (people's bodies, v164: loaded on demand, as output.js is); its id is their fingerprint
 // (index.html without its stamp and its head's title and link-preview lines, which a running page never shows), and n
 // the release in which they last changed (VERSION's number: a new shell needs a new VERSION). sw.js is not part of it:
@@ -74,11 +74,11 @@ const LISTTAG = /<script src="stories\/list\.js(\?v=[0-9a-f]*)?"><\/script>/;
 if (!LISTTAG.test(index)) fail('index.html does not load stories/list.js as <script src="stories/list.js?v=0"></script>');
 // (the shell's modules loaded on demand, HOST.mods, v226 review: their fingerprints stamped into index.html's MODS_FP, so a
 // page fetches <file>?v=<fp> and refuses a file of another release. Not part of the shell's id: the files themselves are)
-const MODS = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js', perfRun: 'perfrun.js' }, MODSTAMP = /const MODS_FP = \{[^}\n]*\};/;
+const MODS = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js', perfRun: 'perfrun.js', bench: 'bench.js' }, MODSTAMP = /const MODS_FP = \{[^}\n]*\};/;
 if (!MODSTAMP.test(index)) fail('index.html has no MODS_FP stamp (const MODS_FP = {};, in HOST.mods)');
 const shellText = [
   index.replace(STAMP, 'shell: {},').replace(MODSTAMP, 'const MODS_FP = {};').replace(LISTTAG, '<script src="stories/list.js"></script>').replace(/^<(title>|meta (name="(description|twitter:[^"]*)"|property="og:[^"]*"))[^\n]*$/gm, ''),
-  read('shared.js'), read('three.min.js'), read('peerjs.min.js'), read('output.js'), read('sfx.js'), read('occlusion.js'), read('ships.js'), read('notes.js'), read('perfrun.js'),
+  read('shared.js'), read('three.min.js'), read('peerjs.min.js'), read('output.js'), read('sfx.js'), read('occlusion.js'), read('ships.js'), read('notes.js'), read('perfrun.js'), read('bench.js'),
   read('ik.js'), read('bodies.js'), read('flight.js'),
 ].join('\n\u0000\n');
 const id = fingerprint(shellText);

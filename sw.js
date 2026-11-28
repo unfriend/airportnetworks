@@ -2,10 +2,10 @@
 // story package's files are cached as it is first opened (PKG). Bump VERSION when you change any shell file (a change
 // to one package's files alone needs none: its fingerprint in packages/index.json reaches the pages, v193). Every listed
 // story's main.js and miniatures are taken at install too (takeMains), its other files as it is first opened.
-const VERSION = 'networks-v231';
+const VERSION = 'networks-v232';
 // (the studio's two parts loaded on demand, stories/studio-convert.js and studio-edit.js, v226: tools/studio/build.mjs, stand
 // apart from the run of story files that tools/release.mjs writes, after output.js, so it leaves them as they are)
-const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './perfrun.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './stories/studio-convert.js', './stories/studio-edit.js', './manifest.webmanifest',
+const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './perfrun.js', './bench.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './stories/studio-convert.js', './stories/studio-edit.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
   './fonts/B612-Regular.woff2', './fonts/B612-Bold.woff2', './fonts/B612-Italic.woff2'];
 
@@ -307,6 +307,8 @@ self.addEventListener('fetch', e => {
   // with what this page runs); and what is new in it (whatsnew.json, developer mode's box: HOST.dev, and the history of
   // earlier releases in whatsnew/), likewise
   if (url.origin === self.location.origin && /\/(version\.json|whatsnew\.json|whatsnew\/[^/]+\.json)$/.test(url.pathname)) return;
+  // (v232: the headset bench's probes and plans, bench/: never cached, each asked for fresh: tools/bench/SPEC.md 10)
+  if (url.origin === self.location.origin && /\/bench\/(probes|plans)\/[^/]+$/.test(url.pathname)) return;
   // everything else from this app (story files, three.js, icons): network first, checked with the server
   if (url.origin === self.location.origin) {
     e.respondWith(fresh(fetch(req, { cache: 'no-cache' }), url.origin + url.pathname));

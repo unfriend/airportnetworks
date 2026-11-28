@@ -3702,6 +3702,9 @@
     OV.root.add(OV.perf.mesh); OV.perf.mesh.visible = false;
     OV.perfHud = sheet(800, 72, 0.36, 52, true);
     OV.root.add(OV.perfHud.mesh); OV.perfHud.mesh.visible = false; OV.perfHud.text = '';
+    // (v232: the headset bench's line, bench.js: the same size and place as the performance run's read-out, drawBench)
+    OV.benchHud = sheet(800, 72, 0.36, 52, true);
+    OV.root.add(OV.benchHud.mesh); OV.benchHud.mesh.visible = false; OV.benchHud.text = '';
     // the subtitles' strip (drawSubs): over the story's panels, under the menu and the notices
     OV.sub = sheet(SUBS.w, SUBS.h, SUBS.mw, 51, true);
     OV.root.add(OV.sub.mesh); OV.sub.mesh.visible = false; OV.sub.text = ''; OV.sub.want = '';
@@ -4881,7 +4884,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', !!HOST.ships, !!HOST.notes, PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : '', HOST.perfRun ? HOST.perfRun.sig() + (HOST.perfRun.state().line || '') : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', !!HOST.ships, !!HOST.notes, PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : '', HOST.perfRun ? HOST.perfRun.sig() + (HOST.perfRun.state().line || '') : '', HOST.bench ? HOST.bench.sig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
       // (v214: the limited menu, the room's switch, and what the limited page shows that nothing above says)
       (L => [L, roomMenusFull(), subsDefault(), L ? (A => (A ? A.mode + A.playing : ''))(storyApp()) : '', L && HOST.curKey === 'pass' ? langButtons().map(o => o.l + o.on).join() : '', L ? R.state : '', L ? [guideOn(), (U => U.text + U.c)(lineUp()), !!R.calib, !!R.session, CAM.on] : ''])(menuLimited()),
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
@@ -5738,6 +5741,12 @@
         y += 66;
         ctx.font = FONT(21); ctx.fillStyle = MUTED;
         y += wrapText(ctx, ps ? ps.line : 'Performance run: every story and scene by itself, each frame measured. Hands-on test: about five minutes of steps.', x, y, w, 28, 2) + 16;
+        // the headset bench (bench.js, v232): switched on or off here; its line under the button
+        const Bn = HOST.bench, bon = !!(Bn && Bn.on());
+        button(S, 'bench', x, y, bw, 56, 'Bench mode: ' + (bon ? 'on' : 'off'), () => HOST.mods.load('bench').then(M => { if (M) M.set(!M.on(), 'bench mode was switched off from the menu'); }), { px: 21, on: bon });
+        y += 66;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, bon ? nz(() => Bn.line(), '') : 'Bench mode: the cloud may run tests on this headset (tools/bench). Never in a shared room.', x, y, w, 28, 2) + 16;
       }
       // what to tell someone helping: the release, the room's connection, the browser, the frame rate. Drawn here, and
       // then line by line as they change (stripStep, v136: the frame rate and the round trip change every second or so,
@@ -7300,6 +7309,26 @@
     H.mesh.position.set(0, 0, -1).applyQuaternion(H.mesh.quaternion).add(HD.p);
   }
 
+  // The headset bench's line (bench.js, v232): while bench mode is on, in a headset session, one line low in the view as the
+  // performance run's read-out is (its text changed only between a job's steps), so nobody puts the headset on unaware
+  function drawBench() {
+    const Bn = HOST.bench, H = OV.benchHud, t = Bn && Bn.line ? nz(() => Bn.line(), '') : '';
+    const on = !!t && !!HOST.session && HD.ok && !CAM.on && !OV.perfHud.mesh.visible;
+    H.mesh.visible = on;
+    if (!on) return;
+    if (t !== H.text) {
+      H.text = t;
+      const ctx = H.ctx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, H.w, H.h); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      rr(ctx, 2, 2, H.w - 4, H.h - 4, 16); ctx.fillStyle = 'rgba(74,42,0,0.85)'; ctx.fill();
+      ctx.font = FONT(22); ctx.fillStyle = INK; ctx.fillText(fit(ctx, t, H.w - 40), 20, H.h / 2 + 1);
+      H.tex.needsUpdate = true;
+    }
+    _e.set(-PERF.down, PERF.right, 0); _q2.setFromEuler(_e);
+    H.mesh.quaternion.copy(HD.q).multiply(_q2);
+    H.mesh.position.set(0, 0, -1).applyQuaternion(H.mesh.quaternion).add(HD.p);
+  }
+
   // ------------------------------------------- the developer notebook (notes.js, v142) --
   // While a note is recorded in a headset: a small read-out fixed to the head (a red dot, the time, the pins, which button to
   // let go of, a level bar), and each pin where it hit (a bright ball with its number on a sign, over everything, in the
@@ -8760,6 +8789,7 @@
     drawFps();
     drawRec();
     drawPerf();
+    drawBench();
     // what the controllers can point at
     OV.hit.length = 0;
     if (OV.perf.mesh.visible) OV.hit.push(OV.perf.mesh);   // (the performance run's card: perfrun.js)

@@ -18515,7 +18515,7 @@ if (runs('perf run')) {
     xp.on('pageerror', e => bad.push('page error: ' + (e.stack || e.message)));
     xp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) bad.push('console: ' + m.text()); });
     const frames = (fn, ms) => xp.evaluate(([fn, ms]) => window.__fp.runUntil(fn ? new Function('return (' + fn + ')')() : null, ms), [fn ? String(fn) : '', ms]);
-    const TWO = ['perfrun-card', 'handson-card'];
+    const TWO = ['perfrun-card', 'handson-card'], ALL = TWO.concat('bench-card');   // (v232: the headset bench's card after them)
     try {
       await xp.goto(base + 'index.html#experiments');
       await xp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.dev && HOST.picking && HOST.menu.at === 'experiments' && document.querySelector('#picker .card[data-story="stories"]'), null, { timeout: 60000 });
@@ -18526,7 +18526,7 @@ if (runs('perf run')) {
       const rev = await xp.evaluate(() => { const r = HOST.listRev; HOST.dev.set(true); return r; });
       await xp.waitForFunction(() => !!HOST.perfRun && /^About \d+ minutes?, by itself$/.test(document.querySelector('#picker .card[data-story="perfrun-card"] em').textContent), null, { timeout: 30000 }).catch(() => bad.push('no length from perfrun.js on the card'));
       const on = await page(), at = on.indexOf('perfrun-card');
-      if (J(on.slice(-3)) !== J(TWO.concat('stories')) || on[at - 1] !== 'tracker-guide') bad.push('with developer mode on, the cards: ' + J(on));
+      if (J(on.slice(-4)) !== J(ALL.concat('stories')) || on[at - 1] !== 'tracker-guide') bad.push('with developer mode on, the cards: ' + J(on));
       const pic = await xp.evaluate(() => [...document.querySelectorAll('#picker .card[data-story$="-card"] i.pk.svg svg')].length);
       if (pic < 2) bad.push('their pictures: ' + pic);
       if (!(await xp.evaluate(r => HOST.listRev > r, rev))) bad.push('HOST.listRev did not move on as developer mode was switched');
@@ -18566,7 +18566,7 @@ if (runs('perf run')) {
       if (a0.cards.some(k => TWO.includes(k)) || a0.n !== a0.cards.length || !a0.rev) bad.push('the arch with developer mode off: ' + J(a0));
       await xp.evaluate(() => HOST.dev.set(true));
       const a1 = await arch();
-      if (J(a1.cards.slice(-3)) !== J(TWO.concat('stories')) || a1.n !== a1.cards.length || !a1.rev) bad.push('the arch with developer mode on: ' + J(a1));
+      if (J(a1.cards.slice(-4)) !== J(ALL.concat('stories')) || a1.n !== a1.cards.length || !a1.rev) bad.push('the arch with developer mode on: ' + J(a1));
       // pressed on the arch (the card's region, as the ray presses it): in a session the run-through begins at once (with
       // airports, the story on show, first: no story loads before the stop)
       const k = a1.cards.indexOf('perfrun-card') + 1;
@@ -18592,6 +18592,30 @@ if (runs('perf run')) {
 // Later until the next page load. In a headset session the menu opens by itself at its page (the Debug tab's) after the
 // welcome, Got it or Later closing it again; Got it for that version: not again; off: never. The menu's Settings row and
 // the Debug tab's What is new. In a page of its own (its own storage, as a new device)
+// the headset bench (bench.js, v232; tools/bench/SPEC.md): with developer mode, #bench=on loads the module and shows its bar;
+// on a plain server (no relay) it is held saying so; its seam in the frame wrapper is idle (no pretend rays, no job);
+// the bar's Switch off ends it and keeps nothing. Its jobs are tools/bench/test.mjs's
+if (runs('bench')) {
+  await step('bench: #dev=on&bench=on loads bench.js, the bar shows, held without a relay, the seam idle, Switch off', async () => {
+    const bad = [], ctx = await browser.newContext({ viewport: { width: 640, height: 400 } }), bp = await ctx.newPage();
+    bp.on('pageerror', e => bad.push('page error: ' + (e.stack || e.message)));
+    bp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) bad.push('console: ' + m.text()); });
+    try {
+      await bp.goto(base + 'index.html#airports&dev=on&bench=on&benchplan=none');
+      await bp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.bench && HOST.bench.state().phase === 'held' && HOST.curKey === 'airports' && HOST.cur, null, { timeout: 60000 });
+      const r = await bp.evaluate(async () => {
+        const s = HOST.bench.state(), bar = document.getElementById('benchBar');
+        await new Promise(res => setTimeout(res, 500));
+        const idle = HOST.bench.state().job === null && HOST.bench.hold() === false && HOST.bench.hush() === false, shown = !!bar && !bar.hidden, line = bar ? bar.textContent : '';
+        document.getElementById('benchOff').click();
+        return { s, bar: shown, line, idle, mods: HOST.mods.loaded(), off: HOST.bench.state(), kept: localStorage.getItem('benchOn'), barAfter: bar && bar.hidden };
+      });
+      if (!r.s.on || !/^(no relay|the relay has no bench)$/.test(r.s.why) || !r.bar || !/waiting/.test(r.line) || !r.idle || !r.mods.includes('bench')) bad.push('on: ' + JSON.stringify(r));
+      if (r.off.on || r.off.phase !== 'off' || r.kept || !r.barAfter) bad.push('off: ' + JSON.stringify(r.off));
+    } finally { await ctx.close(); }
+    if (bad.length) errors.push(...bad.map(b => 'bench: ' + b));
+  });
+}
 if (runs('developer mode')) {
   const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 760 } });
@@ -18985,7 +19009,7 @@ if (runs('developer mode')) {
     const fs = await import('node:fs'), path = await import('node:path'), os = await import('node:os');
     const here = path.dirname(path.dirname((await import('node:url')).fileURLToPath(import.meta.url))), T = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rel-'));
     try {
-      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'output.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
+      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'bench.js', 'output.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
       fs.cpSync(path.join(here, 'stories'), path.join(T, 'stories'), { recursive: true });
       // (the story packages release.mjs reads: their order, index and each story.json, not their files)
       fs.mkdirSync(path.join(T, 'packages'));

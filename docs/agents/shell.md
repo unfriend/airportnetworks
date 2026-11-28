@@ -1,50 +1,51 @@
 # The shell
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 54: The font, the story list and the cards (7.6 KB)
-- 123: Starting a story: listeners and the renderer (5.5 KB)
-  - 143: The headset's eyes are the shell's (v228) (4.2 KB)
-- 184: The shell's modules on demand (`HOST.mods`, v226) (4.9 KB)
-- 233: Controllers after standby (`HOST.inputsGuard`) (4.8 KB)
-- 278: Loading, and taking over a headset session (2.0 KB)
-- 300: The start screen and the address (4.8 KB)
-- 348: Repeat and the slideshow (3.6 KB)
-- 386: Placement in the headset (3.2 KB)
-- 418: Labels, cards, free moving and subtitles (3.9 KB)
-- 455: The frame rate and the refresh rate (4.6 KB)
-- 497: Automatic quality (4.0 KB)
-- 535: Sharp text: the modes (4.0 KB)
-- 575: Sharp text: the session, each frame, the menu and the panel (5.8 KB)
-- 629: Sharp text: when things go wrong, and what was tried (2.6 KB)
-- 655: Two more settings: real-world occlusion, and your menu shown to your circle (5.7 KB)
-- 710: Moving with the sticks (5.3 KB)
-- 760: Moving with the sticks: in a room, and the studio's two modes (4.9 KB)
-- 807: My body, and what labels, cards, free moving and subtitles do in each mode (5.5 KB)
-- 882: Focus mode (3.4 KB)
-- 914: Phones and tablets (`HOST.handheld`) (6.1 KB)
-- 973: Panels per story (1.4 KB)
-- 994: Developer mode (`HOST.dev`) (4.5 KB)
-- 1037: Sound belongs to the shell (`HOST.audio`) (7.1 KB)
-- 1118: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
-- 1163: The two sound switches and the narration switch (4.4 KB)
-- 1216: What plays when, and the background (2.3 KB)
-- 1249: The sound board (`tools/sfx.html`) (2.3 KB)
-- 1282: Sounds inside the stories (phase 2) (4.5 KB)
-- 1324: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
-- 1372: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
-- 1435: Real-world occlusion: bias, what it hides, tests (3.1 KB)
-- 1466: The developer notebook (`HOST.notes`, `notes.js`) (6.6 KB)
-  - 1498: Run logs (*Record a run*) (1.4 KB)
-  - 1514: Reading notes in a headset (v148) (2.4 KB)
-- 1540: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.3 KB)
-- 1670: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1714: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1779: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1823: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 1910: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 1976: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 2074: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 2165: From CLAUDE.md (6.1 KB)
+- 55: The font, the story list and the cards (7.6 KB)
+- 124: Starting a story: listeners and the renderer (5.5 KB)
+  - 144: The headset's eyes are the shell's (v228) (4.2 KB)
+- 185: The shell's modules on demand (`HOST.mods`, v226) (4.9 KB)
+- 234: Controllers after standby (`HOST.inputsGuard`) (4.8 KB)
+- 279: Loading, and taking over a headset session (2.0 KB)
+- 301: The start screen and the address (4.8 KB)
+- 349: Repeat and the slideshow (3.6 KB)
+- 387: Placement in the headset (3.2 KB)
+- 419: Labels, cards, free moving and subtitles (3.9 KB)
+- 456: The frame rate and the refresh rate (4.6 KB)
+- 498: Automatic quality (4.0 KB)
+- 536: Sharp text: the modes (4.0 KB)
+- 576: Sharp text: the session, each frame, the menu and the panel (5.8 KB)
+- 630: Sharp text: when things go wrong, and what was tried (2.6 KB)
+- 656: Two more settings: real-world occlusion, and your menu shown to your circle (5.7 KB)
+- 711: Moving with the sticks (5.3 KB)
+- 761: Moving with the sticks: in a room, and the studio's two modes (4.9 KB)
+- 808: My body, and what labels, cards, free moving and subtitles do in each mode (5.5 KB)
+- 883: Focus mode (3.4 KB)
+- 915: Phones and tablets (`HOST.handheld`) (6.1 KB)
+- 974: Panels per story (1.4 KB)
+- 995: Developer mode (`HOST.dev`) (4.5 KB)
+- 1038: Sound belongs to the shell (`HOST.audio`) (7.1 KB)
+- 1119: Sound effects (`HOST.sfx`, `sfx.js`) (3.7 KB)
+- 1164: The two sound switches and the narration switch (4.4 KB)
+- 1217: What plays when, and the background (2.3 KB)
+- 1250: The sound board (`tools/sfx.html`) (2.3 KB)
+- 1283: Sounds inside the stories (phase 2) (4.5 KB)
+- 1325: Real-world occlusion (`HOST.occlusion`, `occlusion.js`) (5.0 KB)
+- 1373: Real-world occlusion: each frame, depth, room and a sleep (7.0 KB)
+- 1436: Real-world occlusion: bias, what it hides, tests (3.1 KB)
+- 1467: The developer notebook (`HOST.notes`, `notes.js`) (6.6 KB)
+  - 1499: Run logs (*Record a run*) (1.4 KB)
+  - 1515: Reading notes in a headset (v148) (2.4 KB)
+- 1541: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.3 KB)
+- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (8.0 KB)
+- 1748: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1792: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1857: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1901: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 1988: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 2054: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 2152: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 2243: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -1666,6 +1667,83 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
 - Untested on a headset: all of it (a run inside a real session from start to end, the session handed from story to
   story for an hour, the studio scenes there, the battery, the read-out's and the cards' comfort and placement, the
   hands-on steps, a pause and a resume after the headset is taken off, the numbers themselves).
+
+## The headset bench (`HOST.bench`, `bench.js`, v232)
+
+The owner, 28 November 2026: a way for the cloud session to test things on the real Quest 3 by itself, "with and without
+adb"; the headset stays awake for hours unworn. The design, the JSON and the endpoints are `tools/bench/SPEC.md`; this is
+how the shell does it.
+
+- **What it is.** A shell module loaded on demand (`HOST.mods` name `bench`, stamped in `MODS_FP`, in `sw.js` `SHELL`, the
+  relay's `APP_FILES`, `SHELL_FILES` and the release's shell fingerprint). In bench mode the page asks the relay (started
+  with `--bench`, behind its password) for jobs by long poll (`GET /api/bench/next`, the password as a Bearer header from
+  `relayTokens`, through `HOST.collab.relayFind`), runs each job's steps from a fixed list of commands, and posts the
+  result. Only committed code runs: a `probe` step loads `bench/probes/<name>.js` from this origin; a job never carries
+  script text and nothing turns a job's field into code (an explore tab id is checked against the panel's own list first).
+- **On and off.** Developer mode only: the Debug tab's *Bench mode: on/off* (under *Performance run*), the Experiments
+  set's card *Headset bench* (developer mode), or `#dev=on&bench=on` (`benchxr=ar|vr`, `benchplan=<name>|none`). Kept for
+  twelve hours (`benchOn`), so a reload keeps it. Off: the same row and card, the bar's *Switch off* (`#benchOff`),
+  `#bench=off`, developer mode going off, the twelve hours. Off ends a running job, puts borrowed settings back and stops
+  asking. The headset's id `benchId` (eight letters and digits) tells headsets apart.
+- **What the person sees.** A page: the bar `#benchBar` at the top (one line and *Switch off*), and while there is no
+  session the card `#benchCard` with `#benchEnter` (*Enter AR* or *Enter VR*: it clicks the shell's `btnAR`/`btnVR`
+  inside the press; each press is counted in `state().press = { n, trusted, at, err }`, `err` the session request's
+  refusal as `HOST.xr.request` kept it, `HOST.xr.reqErr()`). A headset: one line drawn by `shared.js` (`OV.benchHud`,
+  the performance run's read-out's size and place, 26 degrees under the gaze; hidden while that read-out shows), its
+  text changed only between a job's steps; and the Debug tab's row with the same line under it.
+- **Phases** (`HOST.bench.state().phase`): `off`; `held` (`why`: in a shared room, main site, developer mode is off, no
+  relay, the relay has no bench, the relay wants its password, the performance run is on); `enter` (listening, no
+  session: the card); `idle` (listening in a session); `busy` (a job runs); `lost` (three asks unanswered; asks every
+  30 s). A long poll cut short mid-wait three times (a proxy) falls back to 5 s polls. `state()` is fixed for the adb
+  helper: `{ on, phase, why, hs, xr, want, job, press, rel, url }`.
+- **Refusals.** Never on the host `stories.lbi-netmed.com` (`DENY`, whatever its relay says); held in a shared room, and
+  a room joined during a job fails it (`a shared room was joined`); the room is never told anything, no room key, no
+  `FORMAT` change, nothing in `state()`. A job refuses while the performance run is on, and the bench does not ask then.
+- **Holds while a job runs** (`hold()`, beside the performance run's in `index.html`): no slideshow stop, no Repeat
+  (`HOST.ended`), no live swap or reload (`HOST.live` `quiet()` and `held()`, `HOST.reloadIfUpdated`), `HOST.perf`'s
+  `meas()` on, sound quiet through `HOST.audio`'s `muted()` (`hush()`) unless the job says `sound: true`. As a job
+  begins in a session the headset's menu is closed (developer mode opens it on What is new as a session begins).
+- **The seam** (`index.html`, `makeRenderer`'s frame wrapper, the only frame hook): `HOST.bench.pre(t, frame)` before the
+  story's frame (after three.js's controllers' update) and `post(t, frame)` after it; nothing runs there until
+  `bench.js` has come, and `pre` returns at once unless a `rays` step runs. `rays` writes the hand's group
+  (`renderer.xr.getController(hand)`: `matrix`, `position`, `quaternion`, `matrixWorld`, `visible`) from a path in the
+  head's frame at the step's start (its place and heading only: a headset lying on a table points anywhere), dispatches
+  `connected` with a pretend source (`profiles: ['bench']`) after `disconnected` for the real one, `selectstart`,
+  `select`, `selectend` at the presses' times, and at the end (or a cancel, a throw, the session's end) `disconnected`
+  and `connected` again for the real source at that index. Stories' code is untouched; `post` counts hovers from the
+  story's ray dot (`XR.ctrls[i].dot.visible`, two fixed expressions; `null` where a story has none).
+- **Measuring** is `perfrun.js`'s own recorder, `HOST.perfRun.rec` (`open`, `close`, `on`, `info`, `errors`): a segment
+  while no run is on, never kept or sent to a run log; perfrun's figures plus `lines` and `pts` a story frame
+  (`HOST.perf.last()` gained `lines`), `tex`, `geo`, `prog` (`renderer.info`) at its end and `errlist` (the distinct
+  messages caught meanwhile, cleaned as the run's are).
+- **The picture** is the notebook's read-back (`HOST.notes.grab(maxW)`: the left eye's viewport of the layer's
+  framebuffer right after the story's frame, after a frame of Sharp text's `sharpPause`; a page's canvas on a page),
+  encoded as a JPEG of at most 1 MB and posted to `pic?n=`. No second render, no camera touched; never the passthrough.
+- **Borrowed settings** (`set`, a job's `with`): the table in `tools/bench/SPEC.md` 6.3 (occlusion's modes are `off`,
+  `depth`, `room`, `both`). The raw `localStorage` values of every key the setter writes go to `benchBorrow` first (the
+  own look's setters write all seven of its keys), then the setter; at the job's end, a failure, a cancel, a switch-off
+  the setters get the old values and the raw values are written back; on every boot a `benchBorrow` left by a reload or
+  a crash is put back before anything else, and the job kept in `benchJob` is posted as failed (`the page reloaded
+  during step <n>`, saying the settings were put back).
+- **Updates.** Package and story updates are taken by `HOST.live` as ever, between jobs. A new shell asked about: while
+  idle the bench takes it (`HOST.live.reload('bench')`, at most once in ten minutes as `HOST.live`'s own); the page
+  reloads, the session ends, bench mode stays on and the page shows `#benchEnter`. Without adb it says `enter` and waits
+  for a person; jobs that need no session (`need: 'page'` or `'any'`) run meanwhile. With the adb helper the button is
+  pressed for it. After an update (`HOST.live.sig()`, new: the shell's id and a fingerprint of the packages' fingerprints)
+  and 20 s idle with nothing waiting, the bench posts `bench/plans/<benchPlan>.json` (default `dev`; its `page` part
+  first, as a job of its own), `from: 'auto'`; the first boot only notes the signature.
+- **Probes** (`bench/probes/`): `picks` (explore picking's cost a frame under pretend sweeping rays: the story's
+  `pickWith` timed by fixed expressions and put back), `scene` (what the story draws, by set: meshes, instances, lines and
+  their vertices, points and their count, materials, geometries; the renderer's counts), `loads` (the story's load steps
+  from `LOAD.ms`, slowest first). A probe calls `HOST.bench.probe('<name>', async (api, args) => ...)`; `api` is
+  `{ args, story, app, peek, frames, wait, until, measure, rays, renderer, session, log }` (`rays` and `session` added to
+  the spec's list). Plans (`bench/plans/`): `quick` (airports and cdk5, a few minutes), `dev` (every story, a chapter,
+  explore with rays, a picture, the studio's `bliss-xp`; about 15 minutes), `picking` (cdk5 and the exposome).
+- Hooks for tests: `state()`, `line()`, `sig()`, `settings()`, `test({ ask, idle, hello, lostMs })`. The test:
+  `node tools/bench/test.mjs` (`docs/agents/testing.md`).
+- Untested on a headset: all of it (the long poll through the test place's proxy for hours, Quest Browser freezing a page
+  it thinks hidden, the eye picture's read-back on the Quest, the pretend rays beside real controllers, the line's
+  comfort and placement, entering AR again after a new shell without adb).
 
 ## Spaceships (`HOST.ships`, `ships.js`)
 

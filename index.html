@@ -894,7 +894,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 231, id: '3ef3ba8f485991c0', format: 'networks-61' },
+  shell: { n: 232, id: '8181eabad034682b', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -922,7 +922,9 @@ const HOST = {
       };
       r.setAnimationLoop = fn => {
         const w = this.loading ? this.loading.wrap(fn) : fn;
-        loop(w && ((t, fr) => { try { return w(t, fr); } finally { if (fr) settle(); } }));
+        // (v232: the headset bench's one seam, bench.js: pre before the story's frame, after three.js's controllers' update
+        // (pretend rays), post after it (frames counted, a picture read back); idle unless bench.js has come)
+        loop(w && ((t, fr) => { const Bn = this.bench; if (Bn) try { Bn.pre(t, fr); } catch (e) { /* never in the way */ } try { return w(t, fr); } finally { if (Bn) try { Bn.post(t, fr); } catch (e) { /* never in the way */ } if (fr) settle(); } }));
         const f = fn && this.built;
         if (f) queueMicrotask(() => { if (this.built !== f) return; this.built = null; try { f(); } catch (e) { console.warn('The place was not put back:', e); } });
       };
@@ -1023,7 +1025,7 @@ HOST.audio = (function () {
   const running = () => !!A.ctx && A.ctx.state === 'running';
   // the mute that applies now: a headset session's own, else the page's
   // (v228: quiet too while the performance run runs, perfrun.js: never stored, the setting comes back as it was)
-  const muted = () => (HOST.perfRun && HOST.perfRun.hush && HOST.perfRun.hush()) || (HOST.inXR() ? A.xmuted : A.pmuted);
+  const muted = () => (HOST.perfRun && HOST.perfRun.hush && HOST.perfRun.hush()) || (HOST.bench && HOST.bench.hush && HOST.bench.hush()) || (HOST.inXR() ? A.xmuted : A.pmuted);   // (v232: and while a bench job runs, unless it asks for sound: bench.js)
   // the Narration switch (HOST.xr.voice(): in a shared room the room's, else this device's narrationOn) turned off: the
   // narration is silent on both engines and the story runs on its own clock, as when muted; the effects and subtitles go on
   const voiceOff = () => !!(HOST.xr && HOST.xr.voice && !HOST.xr.voice());
@@ -1609,7 +1611,7 @@ HOST.xr = (function () {
   const VR = [['local-floor', 'hand-tracking', 'anchors'], ['local-floor', 'hand-tracking'], ['local-floor'], []];
   const KEY = 'xrSteps', ua = navigator.userAgent, SOON = 10000;
   const fresh = () => ({ ua, vr: 0, open: 0, note: '', lay: 0, noLayers: 0, layFail: 0, lv: 2 });
-  let X = fresh(), asked = '', cur = null, last = null;
+  let X = fresh(), asked = '', cur = null, last = null, reqErr = null;
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(X)); } catch (e) { /* private window */ } };
   try {
     const v = JSON.parse(localStorage.getItem(KEY) || 'null');
@@ -2041,7 +2043,9 @@ HOST.xr = (function () {
   async function request(mode, extra) {
     if (HOST.mods) HOST.mods.xr();   // (real-world occlusion and the spaceships on their way while the session is asked for, if not here yet)
     last = null;
-    const s = await ask(mode, extra);
+    let s;
+    // (v232: a refusal kept, so the headset bench's Enter AR can say why: bench.js, HOST.xr.reqErr)
+    try { s = await ask(mode, extra); } catch (e) { reqErr = { at: Date.now(), mode, msg: String(e && e.message || e).slice(0, 200) }; throw e; }
     // (v202: what the session was asked for and what it got, in every note's log: why a session has no layers)
     try { log('xr session', { mode, asked: last || [], got: Array.from(s.enabledFeatures || []), dropped: mode === 'immersive-vr' && X.noLayers ? X.note : '' }); } catch (e) { /* only told */ }
     if (HOST.xr.sharpPrep) try { await HOST.xr.sharpPrep(s); } catch (e) { console.warn('Sharp text was not prepared:', e); }
@@ -2079,6 +2083,7 @@ HOST.xr = (function () {
   return {
     features(mode) { asked = mode; return wanted(mode); },
     request, watch,
+    reqErr: () => reqErr,
     line: () => 'VR asks for: ' + (wanted('immersive-vr').join(', ') || 'nothing extra') + (X.vr || X.noLayers ? ' (less than at first: ' + X.note + ')' : ''),
     // Sharp text's layers dropped after a VR session that closed by itself (the why), and tried again (setSharp)
     layersDropped: () => (X.noLayers ? X.note : ''),
@@ -3124,8 +3129,8 @@ HOST.flightLoad = function () {
 // room's presences do not fetch it at every message)
 HOST.quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
 HOST.mods = (function () {
-  const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js', perfRun: 'perfrun.js' }, M = {}, AGAIN = 30000;   // (perfRun: the performance run, v228, from developer mode or #perfrun)
-  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"31c7f1ffd8283ac5","perfRun":"012e8d4e301faa9b"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
+  const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js', perfRun: 'perfrun.js', bench: 'bench.js' }, M = {}, AGAIN = 30000;   // (perfRun: the performance run, v228, from developer mode or #perfrun; bench: the headset bench, v232, developer mode's #bench=on)
+  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"d41ce77d1edf2dd6","perfRun":"81a5d93da2b4a0c2","bench":"1cb8059dbe0cb7ae"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
   function linked(name) {
     const m = HOST[name];
     try {
@@ -3610,13 +3615,13 @@ HOST.inputsGuard = (function () {
 })();
 
 HOST.perf = (function () {
-  const P = { n: 0, t0: 0, js: 0, tri: 0, calls: 0, out: null, lf: { n: 0, js: 0, tri: 0, calls: 0, pts: 0 } };
+  const P = { n: 0, t0: 0, js: 0, tri: 0, calls: 0, out: null, lf: { n: 0, js: 0, tri: 0, calls: 0, pts: 0, lines: 0 } };
   // the frame-rate read-out wants the counts (fps); since v145 so does the automatic quality, which judges whether a late
   // frame was the script's (CPU-bound: less picture would not help) and sends the frame times home (HOST.xr.frameTimes)
   const reads = () => !!(HOST.xr.fps && HOST.xr.fps());
   const on = () => !!(HOST.session && reads());
   // (and a run being recorded, on a page too: the developer notebook's run log, notes.js, reads each frame's counts, last())
-  const meas = () => !!(HOST.session && (reads() || (HOST.xr.auto && HOST.xr.auto()))) || !!(HOST.notes && HOST.notes.running && HOST.notes.running()) || !!(HOST.perfRun && HOST.perfRun.on());   // (and the performance run: perfrun.js)
+  const meas = () => !!(HOST.session && (reads() || (HOST.xr.auto && HOST.xr.auto()))) || !!(HOST.notes && HOST.notes.running && HOST.notes.running()) || !!(HOST.perfRun && HOST.perfRun.on()) || !!(HOST.bench && HOST.bench.hold && HOST.bench.hold());   // (and the performance run: perfrun.js; a bench job: bench.js)
   function wrap(fn) {
     return function (t, f) {
       const r = HOST.renderer;
@@ -3627,7 +3632,7 @@ HOST.perf = (function () {
         I.autoReset = ar;
         const t2 = performance.now();
         P.n++; P.js += t2 - t1; P.tri += I.render.triangles; P.calls += I.render.calls;
-        const lf = P.lf; lf.n++; lf.js = t2 - t1; lf.tri = I.render.triangles; lf.calls = I.render.calls; lf.pts = I.render.points;
+        const lf = P.lf; lf.n++; lf.js = t2 - t1; lf.tri = I.render.triangles; lf.calls = I.render.calls; lf.pts = I.render.points; lf.lines = I.render.lines;
         if (HOST.session && HOST.xr.aqStory) try { HOST.xr.aqStory(t2 - t1, I.render.triangles, I.render.calls); } catch (e) { /* never in the way */ }
         if (!P.t0) P.t0 = t2;
         else if (t2 - P.t0 >= 1000) { P.out = { tri: P.tri / P.n, calls: P.calls / P.n, js: P.js / P.n, n: P.n, at: t2 }; P.n = P.js = P.tri = P.calls = 0; P.t0 = t2; }
@@ -3833,6 +3838,10 @@ HOST.menu = (function () {
     { key: 'handson-card', menu: 'link', run: 'hands', kick: 'Developer mode', title: 'Hands-on test', col: '#ff9ec4',
       desc: 'One card at a time asks you to do what only a person can: the panel, the menu, the grip, the sticks, walking about.', get len() { return prLen('hands'); },
       svg: '<svg viewBox="0 0 44 44" aria-hidden="true"><rect x="1" y="1" width="42" height="42" rx="8" fill="#10223a" stroke="#ff9ec4" stroke-opacity=".45"/><rect x="14" y="19" width="8" height="18" rx="4" fill="#4a5874" transform="rotate(-14 18 28)"/><circle cx="17" cy="14.5" r="7.5" fill="none" stroke="#9db4ff" stroke-width="3"/><circle cx="17" cy="14.5" r="2.4" fill="#e7eef8"/><path d="M26 29l4 4 8-9" fill="none" stroke="#ff9ec4" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/></svg>' },
+    // (v232: the headset bench, bench.js: a press switches bench mode on or off on this device)
+    { key: 'bench-card', menu: 'link', bench: true, kick: 'Developer mode', title: 'Headset bench', col: '#ffb43b',
+      desc: 'Lets the cloud run tests on this device by itself: open stories, measure, take pictures. Never in a shared room.', get len() { return HOST.bench && HOST.bench.on() ? 'On: press to switch off' : 'Off: press to switch on'; },
+      svg: '<svg viewBox="0 0 44 44" aria-hidden="true"><rect x="1" y="1" width="42" height="42" rx="8" fill="#10223a" stroke="#ffb43b" stroke-opacity=".45"/><rect x="8" y="14" width="28" height="14" rx="7" fill="#3c5072"/><circle cx="16" cy="21" r="4" fill="#ffb43b"/><circle cx="28" cy="21" r="4" fill="#ffb43b"/><path d="M14 33h16" stroke="#9db4ff" stroke-width="3" stroke-linecap="round"/><path d="M22 6v6" stroke="#ffb43b" stroke-width="3" stroke-linecap="round"/></svg>' },
   ];
   const tools = () => {
     if (!(HOST.dev && HOST.dev.on())) return [];
@@ -3852,6 +3861,7 @@ HOST.menu = (function () {
     go(key) {
       const l = api.link(key), meta = l && l.open && HOST.meta(l.open);
       if (l && l.run) { HOST.mods.load('perfRun').then(P => { if (P && P.start) P.start({ part: l.run }); }); return true; }   // (developer mode's: the performance run)
+      if (l && l.bench) { HOST.mods.load('bench').then(Bn => { if (Bn) { Bn.set(!Bn.on(), 'bench mode was switched off'); HOST.listRev++; if (HOST.cards) HOST.cards(); } }); return true; }   // (and the headset bench: bench.js)
       if (!meta || HOST.busy) return false;
       M.link = l.open;   // (its page is on this set of cards: the Stories screen opens on it again, follow)
       if (HOST.collab && HOST.collab.joined) { HOST.start(l.open); return true; }
@@ -3977,7 +3987,7 @@ HOST.slides = (function () {
   return {
     global: () => all,
     setGlobal(on) { all = !!on; per = {}; save(); },
-    on: key => (HOST.perfRun && HOST.perfRun.hold && HOST.perfRun.hold() ? false : typeof per[key] === 'boolean' ? per[key] : all),   // (no stops while the performance run runs: perfrun.js)
+    on: key => ((HOST.perfRun && HOST.perfRun.hold && HOST.perfRun.hold()) || (HOST.bench && HOST.bench.hold && HOST.bench.hold()) ? false : typeof per[key] === 'boolean' ? per[key] : all),   // (no stops while the performance run runs: perfrun.js)
     set(key, on) { per[key] = !!on; save(); },
     sig: () => sig,
   };
@@ -4572,6 +4582,7 @@ HOST.dev = (function () {
 HOST.ended = function () {
   if (this.repeat === 'off' || this.picking || !this.cur) return false;
   if (this.perfRun && this.perfRun.hold && this.perfRun.hold()) return false;   // (the performance run walks the stories itself: perfrun.js)
+  if (this.bench && this.bench.hold && this.bench.hold()) return false;   // (and a bench job: bench.js)
   // a station in a shared room ends as everywhere else in the room: explore mode (no Repeat)
   const st = this.collab && this.collab.live();
   if (st && st.story === this.curKey) return false;
@@ -4717,6 +4728,7 @@ HOST.live = (function () {
     const c = HOST.cur && HOST.cur.collab, A = c && c.APP;
     if (!A || HOST.busy) return false;
     if (HOST.perfRun && HOST.perfRun.hold && HOST.perfRun.hold()) return false;   // (never while the performance run runs: perfrun.js)
+    if (HOST.bench && HOST.bench.hold && HOST.bench.hold()) return false;   // (nor while a bench job runs: bench.js)
     // (v145: in a headset session explore mode and a paused story are not quiet moments: a swap there is a hitch of
     // 100 ms or more in front of the person's eyes. Only the Stories screen, being away from every station or the shell's
     // menu open are; otherwise the swap waits, and happens at the first of those or once the session has ended)
@@ -4930,7 +4942,7 @@ HOST.live = (function () {
   }
   // (never while the performance run runs, perfrun.js: a changed shell file reloads once it has ended, a story's file is
   // swapped in then too)
-  const held = () => !!(HOST.perfRun && HOST.perfRun.hold && HOST.perfRun.hold());
+  const held = () => !!(HOST.perfRun && HOST.perfRun.hold && HOST.perfRun.hold()) || !!(HOST.bench && HOST.bench.hold && HOST.bench.hold());   // (and a bench job: bench.js)
   function shellNew() { if (held()) L.shellAfter = true; else reload('shell'); }
   function heard(type, ev) {
     let d;
@@ -5036,6 +5048,9 @@ HOST.live = (function () {
       }
     },
     check, reread, missing, note, reload, later, watch,
+    // (v232) what this page runs: the shell's id and a fingerprint of the story packages' fingerprints as last read (the
+    // headset bench runs its plan when it changes: bench.js)
+    sig: () => ({ shell: HOST.shell.id, pk: HOST.fingerprint(JSON.stringify(HOST.packages.all().map(m => [m.key, m.fp]))) }),
     // a story package's files changed (HOST.packages): as a story file that changed
     changed: key => story(key, false),
     ask: (kind, key) => ask(kind, key, true),
@@ -6073,6 +6088,10 @@ HOST.bare = (function () {
   // (the performance run, perfrun.js, v228: #perfrun or #handson in the address, or a run kept from before a reload)
   { let kept = null; try { kept = localStorage.getItem('perfRun'); } catch (e) { /* storage blocked */ }
     if (hp.has('perfrun') || hp.has('handson') || kept) HOST.mods.load('perfRun').then(P => { if (P && P.boot) P.boot(hp); }); }
+  // (the headset bench, bench.js, v232: #bench=on (developer mode), or bench mode kept from before a reload, or a job's
+  // borrowed settings to put back)
+  { let kept = null; try { kept = localStorage.getItem('benchOn') || localStorage.getItem('benchBorrow') || localStorage.getItem('benchJob'); } catch (e) { /* storage blocked */ }
+    if (hp.has('bench') || kept) HOST.mods.load('bench').then(Bn => { if (Bn && Bn.boot) Bn.boot(hp); }); }
   // (a device that can enter VR: occlusion.js and ships.js fetched in idle time now, so a press in its first session never
   // waits for them; a phone's AR fetches them as its session is asked for)
   if (navigator.xr && navigator.xr.isSessionSupported) {
@@ -6145,7 +6164,7 @@ if ('serviceWorker' in navigator && window.isSecureContext && location.protocol 
 }
 // a new shell waiting (HOST.live asked about it): taken on the Stories screen by itself, outside a headset
 HOST.reloadIfUpdated = function () {
-  if (this.live.waiting() && this.picking && !this.session && !this.landingVR && !this.busy && !(this.perfRun && this.perfRun.hold && this.perfRun.hold())) this.live.reload('quiet');
+  if (this.live.waiting() && this.picking && !this.session && !this.landingVR && !this.busy && !(this.perfRun && this.perfRun.hold && this.perfRun.hold()) && !(this.bench && this.bench.hold && this.bench.hold())) this.live.reload('quiet');
 };
 // ------------------------------------------------------------ all stories offline --
 // Take all stories (v185, docs/agents/packages.md "The service worker", "Take all stories"; sw.js takeAll): the service worker fetches every

@@ -192,14 +192,14 @@ HOST.notes = (HOST.quietly || (fn => fn()))(function () {
     } catch (e) { url = cv.toDataURL('image/jpeg', 0.82); }
     return String(url).replace(/^data:[^,]*,/, '');
   }
-  function scaled(src, w, h) {
-    const k = Math.min(1, NOTE.shotW / w), cv = document.createElement('canvas');
+  function scaled(src, w, h, maxW) {
+    const k = Math.min(1, (maxW || NOTE.shotW) / w), cv = document.createElement('canvas');
     cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
     cv.getContext('2d').drawImage(src, 0, 0, w, h, 0, 0, cv.width, cv.height);
     return cv;
   }
   // a headset's frame: the layer's framebuffer, the left eye's viewport, flipped; the binding it had put back
-  function grabXR() {
+  function grabXR(maxW) {
     const r = bar(), gl = r && r.getContext && r.getContext();
     if (!gl) throw new Error('no GL context');
     const s = HOST.session || (r.xr && r.xr.getSession && r.xr.getSession()), layer = s && s.renderState && s.renderState.baseLayer, fb = layer && layer.framebuffer;
@@ -219,13 +219,13 @@ HOST.notes = (HOST.quietly || (fn => fn()))(function () {
     for (let i = 3; i < flip.length; i += 4) flip[i] = 255;   // (AR's cleared alpha would make it see-through)
     const cv = document.createElement('canvas'); cv.width = vp.w; cv.height = vp.h;
     cv.getContext('2d').putImageData(new ImageData(flip, vp.w, vp.h), 0, 0);
-    return scaled(cv, vp.w, vp.h);
+    return scaled(cv, vp.w, vp.h, maxW);
   }
   // a page's: the WebGL canvas as it is drawn (this task, right after the story's frame), pins' markers on it at the end
-  function grabPage(end) {
+  function grabPage(end, maxW) {
     const r = bar(), cv = r && r.domElement;
     if (!cv || !cv.width) throw new Error('no canvas');
-    const out = scaled(cv, cv.width, cv.height), c = out.getContext('2d');
+    const out = scaled(cv, cv.width, cv.height, maxW), c = out.getContext('2d');
     const d = c.getImageData(0, 0, out.width, out.height).data;
     if (blank(d)) throw new Error('the canvas read back empty');
     if (end && N.kind === 'page') {
@@ -700,6 +700,9 @@ HOST.notes = (HOST.quietly || (fn => fn()))(function () {
 
   return {
     link(o) { L = o || {}; },
+    // the headset bench's picture (bench.js, v232): the left eye's view as a note's picture is read (a page: its canvas), at
+    // most maxW wide; called right after the story's frame (index.html's frame wrapper), throws when there is none
+    grab: maxW => (inSession() ? grabXR(maxW) : grabPage(false, maxW)),
     state: () => ({ rec: N.rec, since: N.rec ? +rel().toFixed(2) : 0, pins: N.pins.length, outbox: N.outN, sent: N.sent, last: Object.assign({}, N.last), mic: M.state, kind: N.kind, busy: N.busy, strip: N.strip }),
     can: src => !!(devOn() && src && !src.hand && HOST.session),
     // shared.js's sticks: B or Y (button 5) of a controller, its press began at dn (ms); true while it is a hold (0.45 s)

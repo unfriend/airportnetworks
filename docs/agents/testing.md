@@ -1,19 +1,20 @@
 # Testing: when to run what, one row a block, the known red results
 
 <!-- toc (tools/docs/toc.mjs) -->
-- 24: When the suites run (1.5 KB)
-- 40: Which suite after which change (2.3 KB)
-- 68: Listing the tests and the docs' tools (3.0 KB)
-- 104: The smoke test (`tools/smoke.mjs`) (16.9 KB)
-  - 151: Smoke blocks (9.8 KB)
-  - 223: `--only <words>` and `--block <id>` (1.7 KB)
-  - 242: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-- 252: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
-- 319: Other tools (5.3 KB)
-- 345: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 354: Known red results on this machine (8.2 KB)
-- 389: Traps for a test writer (4.7 KB)
-- 437: Useful URL hashes and the console (4.8 KB)
+- 25: When the suites run (1.5 KB)
+- 41: Which suite after which change (2.3 KB)
+- 69: Listing the tests and the docs' tools (3.0 KB)
+- 105: The smoke test (`tools/smoke.mjs`) (18.7 KB)
+  - 152: Smoke blocks (9.8 KB)
+  - 224: `--only <words>` and `--block <id>` (1.7 KB)
+  - 243: Playwright, SwiftShader and what only a headset shows (0.5 KB)
+  - 253: The headset bench: testing on the real Quest from the cloud (v232) (1.9 KB)
+- 274: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
+- 341: Other tools (5.6 KB)
+- 368: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 377: Known red results on this machine (8.2 KB)
+- 412: Traps for a test writer (4.7 KB)
+- 460: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -249,6 +250,27 @@ real-headset behaviour (controllers, session hand-over between stories,
 placement and comfort) can only be confirmed on a device - say so when you
 report results.
 
+### The headset bench: testing on the real Quest from the cloud (v232)
+
+When a change can only be judged on the owner's Quest 3 (a frame rate, a picking cost, a picture of what an eye draws,
+a setting's effect in a real session) and the owner has left a headset in bench mode (`docs/agents/shell.md`, "The
+headset bench"; `tools/bench/SPEC.md`), the cloud runs it there itself: `node tools/bench/bench.mjs status`, then
+`send <cmd> ...` or `run <plan>` (`quick` a few minutes, `dev` about 15, `picking`), `show`, `pic`. It needs the test
+place's relay (started with `--bench`) and its password (`NOTES_TOKEN`); exit 3 means no headset listens: say so and
+report the change as untested on a device. Use it after a push to `dev` has deployed (the headset runs what the test
+place serves; a new shell needs a person, or the adb helper, to enter AR again), one job at a time, and post its
+pictures to the chat. It cannot show: the room through passthrough, comfort, sound as heard, what a person's hands do,
+the system's own menus or permission questions, and anything the shell draws on Sharp text layers the read-back misses;
+its frame figures are the page's (`requestAnimationFrame` intervals, script ms), the headset's own (VrApi: GPU load,
+stale frames, temperature) come only with the adb helper (`tools/bench/adb/`). A result from the bench is a device
+result: say which headset (`hs`), release and settings it ran with.
+
+`node tools/bench/test.mjs [--shots dir]` (about 6 min) is the bench's own test in headless Chromium: its own relay
+(`--bench`, a random password, a free port), the smoke test's pretend AR headset (`XR_SEAT`, `FPS_FAKE` read out of
+`tools/smoke.mjs`, its frames on the page's clock), and only `tools/bench/bench.mjs` to drive it; `node relay/test.mjs
+--bench` is the relay's part (seconds). Run both after touching `bench.js`, `relay/bench.mjs`, the bench's routes or
+`tools/bench/bench.mjs`.
+
 ## Shared rooms: `relay/test.mjs` and `tools/collab.mjs`
 
 Run both after touching `shared.js`, the relay, a story's `collab` hooks or `state()`. `node tools/collab.mjs --list`
@@ -330,6 +352,7 @@ One row a tool; each is a Node script run from the repository's root.
 | `tools/lib/serve.mjs` | (the tests' kit) | Node built-ins only: `serve(dir, { port, pages })` (GitHub Pages' caching with `pages`, a plain no-cache server with a folder's listing without), `freePort()`, `portArg()`; `smoke-all.mjs`, `live.mjs` and `update.mjs` use it |
 | `node tools/room-test.mjs [--port n]` | `room-test/` | about 1 min; its own relay on a free port (8131 before row K); a pretend headset with a real depth texture array; it still stands at the origin (no seat, not moved off it as smoke's and collab's were), so it cannot catch an origin-only fault |
 | `node tools/output/test-page.mjs` | `output.js` | the output page's MIDI, OSC and clock |
+| `node tools/bench/test.mjs [--shots dir]`, `node relay/test.mjs --bench` | `bench.js`, `relay/bench.mjs`, `tools/bench/bench.mjs` | the headset bench (above, "The headset bench"); the cloud's tool on the real headset is `tools/bench/bench.mjs` |
 | `node tools/notes/notes.mjs perfrun <a> [<b>] [--md f]` | (reading, not a test) | the performance run's results as a Markdown table, or two compared segment by segment; each a run log's id on the relay (`NOTES_RELAY`, `NOTES_TOKEN`), its pulled `log.json` or a page's *Download JSON* file. Headless numbers are software drawing: they mean nothing for a headset |
 | `node tools/perf.mjs` | (measuring, not a test) | exits 0 always; script ms and counts, never GPU time; reads `FPS_FAKE` and `OCCL_FAKE` out of `tools/smoke.mjs`: do not rename them; run groups of scenes (about 90 in a run exceeds a background limit); `--from` compares two runs |
 | `packages/<key>/src/shot.mjs`, `sweep.mjs`, `test-*.mjs` | a story's maths, data or sets | a set harness first (cheap), then the story at a few seconds, then the smoke test; plain Node data tests of a second or two. Each story's own list: its `README.md` |

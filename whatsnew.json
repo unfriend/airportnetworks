@@ -1,21 +1,22 @@
 {
-  "version": "networks-v231",
+  "version": "networks-v232",
   "date": "2026-11-28",
   "new": [
-    "The performance run now keeps its error messages, not only how many there were. Each different message goes into the run log as it first comes, with its time, story and segment.",
-    "A message that comes again is counted, not sent again; the counts go at the run's end. After 60 different messages a run only counts.",
-    "Messages lose addresses' queries and hashes, room codes and relay passwords before they are kept or sent.",
-    "The results card says how many messages were different and names the two most frequent.",
-    "notes.mjs perf and perfrun print a table of the errors and warnings. Older runs say their messages were not recorded."
+    "Bench mode: a headset left on in developer mode runs tests the cloud sends, by itself. Turn it on in the menu's Debug tab (Bench mode), on the Experiments card Headset bench, or with #dev=on&bench=on.",
+    "It opens stories, jumps to chapters, measures frames, sweeps pretend controller rays over explore mode, and sends a picture of what the left eye sees.",
+    "A test may change a headset setting for a while; your own value comes back after it, even after a reload.",
+    "A line in the headset and a bar on the page say bench mode is on and how to switch it off. It switches itself off after twelve hours.",
+    "Never in a shared room and never on the main site. Only the test place's relay takes tests, with its password."
   ],
   "test": [
-    "On a Quest: a full performance run with developer mode on, then read it with notes.mjs perfrun: the errors section should name each message.",
-    "Compare its count of errors with the results card's.",
-    "A run on a page: Download JSON should hold errlist with the same messages."
+    "On the test place, Quest 3: developer mode on, menu, Debug, Bench mode on, Enter AR, then set the headset down. The line under your gaze should say bench mode is on.",
+    "Then ask in the cloud session for a report and a picture: the picture should show what the left eye saw.",
+    "Switch bench mode off from the Debug tab, and from the page's bar: the line and the bar should go.",
+    "Join a shared room with bench mode on: it should say it is waiting, in a shared room."
   ],
   "untested": [
-    "The errors of a real headset run: what the Quest Browser's messages say, and whether 60 different ones are enough.",
-    "A plain Record a run still records no errors: only the performance run catches them.",
+    "All of bench mode on a real headset: hours of waiting unworn, the test place's proxy and long polls, the picture's read-back on the Quest, pretend rays beside real controllers.",
+    "After a new version the page reloads and waits for someone to press Enter AR (or the adb helper, which is also untested on a device).",
     "Every synthetic voice is unheard."
   ]
 }

@@ -8628,7 +8628,7 @@ async function reloadRound() {
   // (RP: the relay's one port, restarted on it as a deploy: a free one the system gives at the start, not 8712 as before)
   const F = FORMAT, G = 'networks-' + (fmtN(F) + 1), RP = await freePort();
   const T = fs.mkdtempSync(path.join(os.tmpdir(), 'collab-reload-'));
-  const FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'version.json', 'whatsnew.json'];
+  const FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'bench.js', 'shared.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'peerjs.min.js', 'lowpoly.js', 'version.json', 'whatsnew.json'];
   const copy = (name, format, v, git) => {
     const d = path.join(T, name);
     fs.mkdirSync(d, { recursive: true });

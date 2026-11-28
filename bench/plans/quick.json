@@ -1,0 +1,64 @@
+{
+ "v": 1,
+ "label": "quick: two stories, measured, rays and a picture",
+ "need": "xr",
+ "limit": 900,
+ "ttl": 1800,
+ "steps": [
+  {
+   "cmd": "report"
+  },
+  {
+   "cmd": "open",
+   "story": "airports"
+  },
+  {
+   "cmd": "seek",
+   "chapter": 1,
+   "play": true
+  },
+  {
+   "cmd": "measure",
+   "sec": 10,
+   "name": "chapter 2"
+  },
+  {
+   "cmd": "pic",
+   "w": 640,
+   "soft": true
+  },
+  {
+   "cmd": "open",
+   "story": "cdk5"
+  },
+  {
+   "cmd": "probe",
+   "name": "loads",
+   "soft": true
+  },
+  {
+   "cmd": "explore"
+  },
+  {
+   "cmd": "probe",
+   "name": "picks",
+   "args": {
+    "sec": 10
+   },
+   "soft": true
+  },
+  {
+   "cmd": "probe",
+   "name": "scene",
+   "soft": true
+  },
+  {
+   "cmd": "pic",
+   "w": 640,
+   "soft": true
+  },
+  {
+   "cmd": "report"
+  }
+ ]
+}

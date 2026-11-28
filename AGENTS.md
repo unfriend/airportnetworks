@@ -61,7 +61,7 @@ The files an agent needs before it knows where to look; every file and folder is
 - `shared.js` - the shared-room client (`HOST.collab`, `HOST.room`) and the headset menu.
 - `sw.js` - the service worker (`VERSION`, `SHELL`); `version.json` and `whatsnew/` are written by
   `tools/release.mjs`, `whatsnew.json` by hand at every release.
-- `sfx.js` - the shell's sound effects; `occlusion.js`, `ships.js`, `notes.js`, `perfrun.js` - the shell's modules, loaded on
+- `sfx.js` - the shell's sound effects; `occlusion.js`, `ships.js`, `notes.js`, `perfrun.js`, `bench.js` - the shell's modules, loaded on
   demand by `HOST.mods` (`index.html`) and run only when they match `MODS_FP`, which `tools/release.mjs` stamps:
   after editing one, run `node tools/release.mjs`; `bodies.js`, `ik.js`, `flight.js`, `output.js` - loaded on
   demand.
@@ -124,6 +124,8 @@ file gets at most a line per feature, and only when an agent needs it before it 
 - The performance run (`perfrun.js`, `HOST.perfRun`, v228): every story and the studio's examples played and
   measured by themselves in a headset or on a page, and a short hands-on test (developer mode, `#perfrun`,
   `#handson`); read with `node tools/notes/notes.mjs perfrun` (`docs/agents/shell.md`).
+- The headset bench (`bench.js`, `HOST.bench`, v232): a headset left in bench mode runs jobs the cloud sends through the
+  test relay's `--bench` (`node tools/bench/bench.mjs status|send|run|show|pic`; `tools/bench/SPEC.md`, shell.md).
 - Releases: bump `VERSION` in `sw.js`, run `node tools/release.mjs`, rewrite `whatsnew.json`. The main site is
   GitHub Pages from `main` (`https://stories.lbi-netmed.com/`); `dev` is the test place on the owner's Coolify
   (`https://stories.lab.lbi-netmed.com/`), and `main` also runs there as the main site's relay. Work goes to
