@@ -1,8 +1,8 @@
-// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps (and the run logs'); --nets: only the shared networks' steps (v208); --logs: only the run logs' steps; --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --talk: only Talk's steps (v178); --rooms: only the rooms' versions, the
+// Test of the relay: node relay/test.mjs (--video: only the video conversion's steps; --notes: only the developer notebook's steps (and the run logs'); --nets: only the shared networks' steps (v208); --logs: only the run logs' steps; --bench: only the headset bench's steps (v232); --trackers: only the Vive trackers' steps; --osc: only the OSC steps (the output page); --snd: only live sound's steps (v162); --talk: only Talk's steps (v178); --rooms: only the rooms' versions, the
 // reload order and --keep, v136)
 // Starts relay/server.mjs on a free port (short timeouts, serving the repository), talks to it with
 // Node's WebSocket and with raw sockets (for frames a browser never sends), and exits 1 on a failure.
-import { spawn, execFileSync } from 'node:child_process';
+import { spawn, spawnSync, execFileSync } from 'node:child_process';
 import net from 'node:net';
 import http from 'node:http';
 import https from 'node:https';
@@ -1803,6 +1803,188 @@ async function netsSteps() {
       } finally { await S3.close(); }
     });
   } finally { fs.rmSync(T, { recursive: true, force: true }); }
+}
+
+// ---- the headset bench (--bench; tools/bench/SPEC.md 4, relay/bench.mjs): jobs posted, handed by long poll to a page whose
+// session and id fit, progress, results, pictures, the adb helper's lines and screenshots, cancels, expiry, limits, a
+// restart keeping the jobs, and a log that never says a step, a result or the password. `node relay/test.mjs --bench`
+// runs only these
+async function benchSteps() {
+  const PASS = 'benchpass' + crypto.randomBytes(4).toString('hex');
+  const T = fs.mkdtempSync(path.join(os.tmpdir(), 'relay-bench-'));
+  const H = { Authorization: 'Bearer ' + PASS };
+  const rq = (at, method, p, body, headers = H) => new Promise(resolve => {
+    const buf = body === undefined ? null : Buffer.isBuffer(body) ? body : Buffer.from(typeof body === 'string' ? body : JSON.stringify(body));
+    const r = http.request({ host: '127.0.0.1', port: at, method, path: p, headers: { ...(buf ? { 'Content-Length': buf.length, 'Content-Type': Buffer.isBuffer(body) ? 'image/jpeg' : 'application/json' } : {}), ...headers } }, res => {
+      const parts = [];
+      res.on('data', c => parts.push(c));
+      res.on('end', () => { const b = Buffer.concat(parts); resolve({ status: res.statusCode, headers: res.headers, buf: b, text: b.toString(), json: () => JSON.parse(b.toString()) }); });
+    });
+    r.on('error', err => resolve({ status: 'cut', err, json: () => ({}) }));
+    if (buf) for (let i = 0; i < buf.length; i += 65536) r.write(buf.subarray(i, i + 65536));
+    r.end();
+  });
+  const HS1 = 'abcd1234', HS2 = 'wxyz9876', SECRETSTEP = 'QSTEPQ';
+  try {
+    await step('bench: refused at start without a password off loopback, and with --no-notes', async () => {
+      const a = spawnSync(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '0.0.0.0', '--bench'], { encoding: 'utf8', timeout: 10000, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '' } });
+      ok(a.status === 1 && /--bench needs the relay's password/.test(a.stdout), 'no password, not on loopback: refused (' + a.status + ')');
+      const b = spawnSync(process.execPath, [path.join(HERE, 'server.mjs'), '--port', '0', '--host', '127.0.0.1', '--bench', '--no-notes'], { encoding: 'utf8', timeout: 10000, env: { ...process.env, RELAY_ARGS: '', COLLAB_TOKEN: '' } });
+      ok(b.status === 1 && /cannot go with --no-notes/.test(b.stdout), '--bench with --no-notes: refused');
+    });
+    await step('bench: 404 without --bench; ping says bench only with it', async () => {
+      const r = await rq(port, 'GET', '/api/bench', undefined, {});
+      ok(r.status === 404 && r.json().error === 'this relay has no bench', 'GET /api/bench on a relay without --bench: 404 this relay has no bench');
+      ok(!(await rq(port, 'GET', '/api/ping', undefined, {})).json().bench, 'its ping says no bench');
+    });
+    const RB = await start(['--static', REPO, '--bench', '--token', PASS, '--notes', T]);
+    const B = RB.port;
+    await step('bench: the password; ping; an empty list', async () => {
+      ok((await rq(B, 'GET', '/api/bench', undefined, {})).status === 401 && (await rq(B, 'POST', '/api/bench/jobs', { steps: [{ cmd: 'report' }] }, {})).status === 401, 'without the password: 401');
+      ok((await rq(B, 'GET', '/api/ping')).json().bench === true, 'ping says bench: true');
+      const s = (await rq(B, 'GET', '/api/bench')).json();
+      ok(Array.isArray(s.headsets) && !s.headsets.length && s.queued === 0 && s.running === 0, 'GET /api/bench: no headsets, nothing queued');
+    });
+    let jXr, jHs2, jPage;
+    await step('bench: jobs posted and checked; next hands each only to a fitting session and headset', async () => {
+      const bad = async (b, re, what) => { const r = await rq(B, 'POST', '/api/bench/jobs', b); ok(r.status === 400 && re.test(r.json().error), what + ' (' + r.status + ' ' + r.text.slice(0, 100) + ')'); };
+      await bad({ steps: [] }, /^steps/, 'no steps: 400');
+      await bad({ steps: [{ cmd: 'eval', code: 'x' }] }, /steps\[0\]\.cmd/, 'an unknown command: 400 naming it');
+      await bad({ steps: [{ cmd: 'probe', name: 'picks', code: '1+1' }] }, /steps\[0\]\.code: not a field of probe/, 'a field a command does not take: 400');
+      await bad({ steps: [{ cmd: 'report' }], script: 'x' }, /^script: not a field/, 'an unknown job field: 400');
+      await bad({ steps: [{ cmd: 'report' }], page: [] }, /^page: not a field/, 'a plan\'s page part posted as is: 400');
+      await bad({ steps: [{ cmd: 'probe', name: '../x' }] }, /steps\[0\]\.name/, 'a probe\'s name with a path: 400');
+      await bad({ hs: 'NOPE', steps: [{ cmd: 'report' }] }, /^hs/, 'a bad headset id: 400');
+      await bad({ steps: Array.from({ length: 201 }, () => ({ cmd: 'report' })) }, /^steps/, '201 steps: 400');
+      const big = await rq(B, 'POST', '/api/bench/jobs', { steps: [{ cmd: 'probe', name: 'picks', args: { s: 'x'.repeat(70000) } }] });
+      ok(big.status === 413, 'a job over 64 KB: 413 (' + big.status + ')');
+      const p1 = await rq(B, 'POST', '/api/bench/jobs', { label: 'xr job', steps: [{ cmd: 'open', story: 'cdk5', label: SECRETSTEP }, { cmd: 'pic' }] });
+      jXr = p1.json().id;
+      ok(p1.status === 201 && /^\d{8}-\d{6}-[a-z0-9]{4}$/.test(jXr), 'a job: 201 { id }');
+      jHs2 = (await rq(B, 'POST', '/api/bench/jobs', { label: 'for hs2', hs: HS2, need: 'page', steps: [{ cmd: 'report' }] })).json().id;
+      jPage = (await rq(B, 'POST', '/api/bench/jobs', { label: 'page', need: 'page', steps: [{ cmd: 'report' }] })).json().id;
+      const rec = (await rq(B, 'GET', '/api/bench/jobs/' + jXr)).json();
+      ok(rec.state === 'queued' && rec.need === 'xr' && rec.to === 'page' && rec.limit === 300 && rec.ttl === 900 && rec.adb === true && Array.isArray(rec.pics), 'the record: queued, need xr by default, the defaults filled');
+      ok((await rq(B, 'GET', '/api/bench/jobs/' + jPage)).json().need === 'page', 'need page kept');
+      // a page with no session: the page job, never the xr one, never hs2's
+      const t0 = Date.now(), n1 = await rq(B, 'GET', `/api/bench/next?hs=${HS1}&xr=&wait=2`);
+      ok(n1.status === 200 && n1.json().job.id === jPage && n1.json().job.state === 'running' && n1.json().job.hs === HS1, 'next without a session: the page job (' + n1.status + ')');
+      const n2 = await rq(B, 'GET', `/api/bench/next?hs=${HS1}&xr=&wait=2`);
+      ok(n2.status === 204 && Date.now() - t0 >= 1900 && n2.headers['x-bench-waiting'] === '1', 'then nothing for 2 s: 204, one job waiting for a session (' + n2.headers['x-bench-waiting'] + ')');
+      const n3 = await rq(B, 'GET', `/api/bench/next?hs=${HS1}&xr=ar&wait=2`);
+      ok(n3.status === 200 && n3.json().job.id === jXr, 'with an AR session: the xr job');
+      const n4 = await rq(B, 'GET', `/api/bench/next?hs=${HS2}&xr=&wait=1`);
+      ok(n4.status === 200 && n4.json().job.id === jHs2, 'hs2 gets its own job');
+      // a long poll woken by a new job
+      const waiting = rq(B, 'GET', `/api/bench/next?hs=${HS1}&xr=ar&wait=20`);
+      await sleep(300);
+      const jLate = (await rq(B, 'POST', '/api/bench/jobs', { need: 'any', steps: [{ cmd: 'report' }] })).json().id, t1 = Date.now();
+      const w = await waiting;
+      ok(w.status === 200 && w.json().job.id === jLate && Date.now() - t1 < 3000, 'a long poll is answered as a job comes');
+      await rq(B, 'POST', `/api/bench/jobs/${jLate}/result`, { hs: HS1, ok: true, steps: [] });
+      ok((await rq(B, 'GET', '/api/bench/next?hs=BAD&wait=0')).status === 400, 'next with a bad id: 400');
+    });
+    await step('bench: hello, progress, result, pictures, the adb helper\'s lines and screenshots', async () => {
+      const h = await rq(B, 'POST', '/api/bench/hello', { hs: HS1, report: { phase: 'busy', xr: 'ar', release: 'networks-v232', story: 'cdk5' } });
+      ok(h.status === 200 && h.json().ok, 'hello: ok');
+      const s = (await rq(B, 'GET', '/api/bench')).json(), me = s.headsets.find(x => x.hs === HS1);
+      ok(me && me.phase === 'busy' && me.xr === 'ar' && me.report.story === 'cdk5' && me.ago <= 2 && s.running >= 2, 'GET /api/bench lists the headset with its report (' + JSON.stringify(me).slice(0, 200) + ')');
+      ok((await rq(B, 'POST', '/api/bench/hello', { hs: HS1, report: { x: 'y'.repeat(33000) } })).status === 413, 'a hello over 32 KB: 413');
+      const pr = await rq(B, 'POST', `/api/bench/jobs/${jXr}/progress`, { hs: HS1, step: 0, of: 2, note: 'open' });
+      ok(pr.status === 200 && pr.json().ok && pr.json().cancel === false, 'progress: ok, no cancel');
+      const jpg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff]), crypto.randomBytes(5000)]);
+      const pc = await rq(B, 'POST', `/api/bench/jobs/${jXr}/pic?n=1`, jpg);
+      ok(pc.status === 200 && pc.json().n === 1, 'a picture posted');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jXr}/pic?n=2`, Buffer.alloc((1 << 20) + 10, 1))).status === 413, 'a picture over 1 MB: 413');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jXr}/pic?n=21`, jpg)).status === 400, 'picture 21: 400');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jXr}/pic?n=2`, Buffer.from('x'), { ...H, 'Content-Type': 'text/html' })).status === 415, 'a picture that is not a JPEG: 415');
+      const g = await rq(B, 'GET', `/api/bench/jobs/${jXr}/pic/1`);
+      ok(g.status === 200 && g.headers['content-type'] === 'image/jpeg' && g.headers['x-content-type-options'] === 'nosniff' && g.buf.equals(jpg), 'the picture read back, nosniff');
+      const tooBig = await rq(B, 'POST', `/api/bench/jobs/${jXr}/result`, { hs: HS1, ok: true, steps: [{ i: 0, out: 'z'.repeat((1 << 20) + 10) }] });
+      ok(tooBig.status === 413, 'a result over 1 MB: 413');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jXr}/result`, { hs: HS2, ok: true, steps: [] })).status === 409, 'a result from another headset: 409');
+      const res = await rq(B, 'POST', `/api/bench/jobs/${jXr}/result`, { hs: HS1, ok: false, why: 'needs a headset session', t0: 1, t1: 2, steps: [{ i: 0, cmd: 'open', ok: false, err: 'needs a headset session', out: { secret: SECRETSTEP } }], report: { release: 'networks-v232' } });
+      ok(res.status === 200, 'the result posted');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jXr}/result`, { hs: HS1, ok: true, steps: [] })).status === 409, 'a second result: 409 (not running)');
+      const rec = (await rq(B, 'GET', '/api/bench/jobs/' + jXr)).json();
+      ok(rec.state === 'failed' && rec.why === 'needs a headset session' && rec.result.steps.length === 1 && rec.pics.length === 1 && rec.pics[0].bytes === jpg.length && rec.ended > 0, 'the record: failed with why, its result and picture');
+      // the adb helper: its own jobs, its lines and its screenshots
+      const jA = (await rq(B, 'POST', '/api/bench/jobs', { to: 'adb', hs: HS1, steps: [{ cmd: 'devshot', n: 1 }] })).json().id;
+      ok((await rq(B, 'GET', `/api/bench/next?hs=${HS1}&xr=ar&wait=0`)).status === 204, 'a page never gets an adb job');
+      const na = await rq(B, 'GET', `/api/bench/next?role=adb&hs=${HS1}&wait=1`);
+      ok(na.status === 200 && na.json().job.id === jA, 'the helper gets it');
+      const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47]), crypto.randomBytes(3000)]);
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jA}/devshot?n=1`, png, { ...H, 'Content-Type': 'image/png' })).status === 200, 'a device screenshot (PNG) posted');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jA}/result`, { hs: HS1, ok: true, steps: [{ i: 0, cmd: 'devshot', ok: true, out: { how: 'screencap' } }] })).status === 200, 'the helper\'s result');
+      const vr = { vrapi: { from: 1, to: 2, n: 1, per: [], all: { fps: 72 }, rows: [[1, 72, 0, 4, 4, 0.4, 0.8, 36]], cols: ['t', 'fps', 'stale', 'cpuLvl', 'gpuLvl', 'cpuPct', 'gpuPct', 'tempC'] }, notes: 'parsed 1 VrApi lines; 0 unreadable' };
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jXr}/adb`, vr)).status === 200, 'the helper\'s VrApi lines attached to a page job');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${jXr}/adb`, { vrapi: null, notes: 'x'.repeat(600 << 10) })).status === 413, 'over 512 KB: 413');
+      const ra = (await rq(B, 'GET', '/api/bench/jobs/' + jXr)).json(), rd = (await rq(B, 'GET', '/api/bench/jobs/' + jA)).json();
+      ok(ra.adb && ra.adb.vrapi.all.fps === 72 && rd.devshots.length === 1 && rd.devshots[0].type === 'image/png' && rd.state === 'done', 'the records: adb kept, the devshot listed');
+      const gd = await rq(B, 'GET', `/api/bench/jobs/${jA}/devshot/1`);
+      ok(gd.status === 200 && gd.headers['content-type'] === 'image/png' && gd.buf.equals(png), 'the device screenshot read back');
+      const st = (await rq(B, 'GET', '/api/bench')).json();
+      ok(st.adb.some(a => a.hs === HS1) && st.headsets.find(x => x.hs === HS1).adb, 'the helper is seen beside its headset');
+    });
+    await step('bench: cancel a queued job and a running one; the listing; delete', async () => {
+      const q = (await rq(B, 'POST', '/api/bench/jobs', { need: 'vr', steps: [{ cmd: 'report' }] })).json().id;
+      const c = await rq(B, 'POST', `/api/bench/jobs/${q}/cancel`, {});
+      ok(c.json().state === 'cancelled' && (await rq(B, 'GET', '/api/bench/jobs/' + q)).json().state === 'cancelled', 'a queued job: cancelled at once');
+      const r = (await rq(B, 'POST', '/api/bench/jobs', { need: 'any', steps: [{ cmd: 'wait', sec: 30 }] })).json().id;
+      ok((await rq(B, 'GET', `/api/bench/next?hs=${HS1}&xr=&wait=1`)).json().job.id === r, 'a job taken');
+      const c2 = (await rq(B, 'POST', `/api/bench/jobs/${r}/cancel`, {})).json();
+      ok(c2.state === 'running' && c2.cancel === true, 'a running one: still running, cancel asked');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${r}/progress`, { hs: HS1, step: 0, of: 1 })).json().cancel === true, 'the page learns it at its next progress');
+      await rq(B, 'POST', `/api/bench/jobs/${r}/result`, { hs: HS1, ok: false, why: 'cancelled', steps: [] });
+      ok((await rq(B, 'GET', '/api/bench/jobs/' + r)).json().state === 'cancelled', 'its result ends it as cancelled');
+      const L = (await rq(B, 'GET', '/api/bench/jobs?state=cancelled')).json().jobs;
+      ok(L.length === 2 && L.every(x => x.state === 'cancelled') && L[0].id > L[1].id && 'steps' in L[0] && 'ok' in L[0], 'GET /api/bench/jobs?state=cancelled: newest first, summaries');
+      ok((await rq(B, 'POST', `/api/bench/jobs/${q}/delete`, {})).json().ok && (await rq(B, 'GET', '/api/bench/jobs/' + q)).status === 404, 'delete: gone');
+      ok((await rq(B, 'GET', '/api/bench/jobs/20200101-000000-zzzz')).status === 404 && (await rq(B, 'GET', '/api/bench/jobs/..%2Fx')).status === 404, 'no such job: 404');
+    });
+    await step('bench: a queued job past its ttl and a running one with no word expire', async () => {
+      const q = (await rq(B, 'POST', '/api/bench/jobs', { need: 'vr', ttl: 1, steps: [{ cmd: 'report' }] })).json().id;
+      const r = (await rq(B, 'POST', '/api/bench/jobs', { need: 'any', hs: HS2, limit: 1, steps: [{ cmd: 'report' }] })).json().id;
+      await rq(B, 'GET', `/api/bench/next?hs=${HS2}&xr=&wait=1`);
+      // (running: limit 1 s and a minute of grace; the record's clock moved back instead of waiting)
+      await sleep(7000);
+      ok((await rq(B, 'GET', '/api/bench/jobs/' + q)).json().state === 'expired', 'queued past its ttl: expired');
+      ok((await rq(B, 'GET', '/api/bench/jobs/' + r)).json().state === 'running', 'running within its limit and grace: still running');
+    });
+    await step('bench: 50 queued at most', async () => {
+      const ids = [];
+      let r;
+      for (let i = 0; i < 52; i++) { r = await rq(B, 'POST', '/api/bench/jobs', { need: 'vr', hs: 'zzzz0000', steps: [{ cmd: 'report' }] }); if (r.status !== 201) break; ids.push(r.json().id); }
+      ok(r.status === 429 && ids.length >= 45, 'the 51st queued: 429 (' + ids.length + ' taken)');
+      for (const id of ids) await rq(B, 'POST', `/api/bench/jobs/${id}/delete`, {});
+    });
+    // a restart: the jobs kept in the notes' folder (.bench/), a running job's result still taken
+    const run = (await rq(B, 'POST', '/api/bench/jobs', { need: 'any', steps: [{ cmd: 'report' }] })).json().id;
+    await rq(B, 'GET', `/api/bench/next?hs=${HS1}&xr=&wait=1`);
+    const logText = RB.out;
+    RB.kill();
+    await new Promise(r => RB.once('exit', r));
+    const RC = await start(['--static', REPO, '--bench', '--token', PASS, '--notes', T]);
+    await step('bench: a restart keeps every job; a running job\'s result is still taken', async () => {
+      ok(fs.existsSync(path.join(T, '.bench', jXr, 'job.json')) && fs.existsSync(path.join(T, '.bench', jXr, 'pic-1.jpg')), 'kept in <notes>/.bench/<id>/');
+      const g = (await rq(RC.port, 'GET', '/api/bench/jobs/' + jXr)).json();
+      ok(g.state === 'failed' && g.pics.length === 1 && g.adb, 'the failed job is back with its picture and lines');
+      ok((await rq(RC.port, 'GET', '/api/bench/jobs/' + run)).json().state === 'running', 'the running one too');
+      ok((await rq(RC.port, 'POST', `/api/bench/jobs/${run}/result`, { hs: HS1, ok: true, steps: [] })).status === 200 && (await rq(RC.port, 'GET', '/api/bench/jobs/' + run)).json().state === 'done', 'and its result is taken');
+    });
+    await step('bench: the log says ids, states and counts, never a step, a result, a report or the password', async () => {
+      const all = logText + RC.out;
+      ok(/bench job \S+ queued 2 steps/.test(all) && /bench job \S+ taken by abcd1234/.test(all) && /bench job \S+ failed \d+/.test(all) && /bench abcd1234 listening/.test(all), 'the lines it may say are there');
+      ok(!all.includes(SECRETSTEP) && !all.includes(PASS) && !/networks-v232|"cmd"|cdk5/.test(all), 'no step field, result, report or password');
+    });
+    RC.kill();
+  } finally { fs.rmSync(T, { recursive: true, force: true }); }
+}
+
+if (process.argv.includes('--bench')) {   // only the headset bench's steps (v232)
+  try { await benchSteps(); } finally { await Promise.all(procs.filter(p => p.exitCode === null).map(p => new Promise(r => { p.on('exit', r); p.kill(); }))); }
+  console.log(`\n${passed} checks passed, ${failed} failed`);
+  process.exit(failed ? 1 : 0);
 }
 
 if (process.argv.includes('--nets')) {   // only the shared networks' steps (v208)
@@ -4336,6 +4518,7 @@ if (me === 'hang') setInterval(() => {}, 1000);
   await notesSteps();
   await netsSteps();
   await logsSteps();
+  await benchSteps();
   await videoSteps();
 
   await step('set lines: in order with the others, each key under its writer, +n more past the cap; a large set holds back no presence', async () => {

@@ -42,6 +42,9 @@ import { R2, R2Error, r2Config } from './r2.mjs';
 import { makeTrackers, TRK_PORT, frameOf, toRoom, quatToRoom } from './trackers.mjs';
 import { makeOsc, encode as oscEncode, parseTarget, parseIn, OSC_RATE, OSC_IN_RATE, OSC_MAX_FRAME, OSC_MAX_MSGS, OSC_MAX_TARGETS } from './osc.mjs';
 import { MAX_BODY as NET_BODY, MAX_NETS, NET_ID, parseNet, gzip as netGzip, folderStore as netsFolder, r2Store as netsR2 } from './nets.mjs';
+import { MAX_JOB, MAX_JOBS, MAX_QUEUED, MAX_HELLO, MAX_PROGRESS, MAX_RESULT, MAX_PIC, MAX_PICS, MAX_ADB, MAX_DEVSHOT, MAX_DEVSHOTS, BENCH_DIR, ENDED, HS as BENCH_HS,
+  parseJob, parseHello, parseProgress, parseResult, parseAdb, summary as benchSummary, fits as benchFits, picName, devshotName,
+  benchFolderStore, benchR2Store, benchMemoryStore, benchJobs } from './bench.mjs';
 import { MAX_BODY as NOTE_BODY, MAX_NOTES, MAX_UPDATE, NOTE_ID, newId, parseNote, parseUpdate, folderStore as notesFolder, r2Store as notesR2,
   LOGS_DIR, MAX_LOGS, MAX_LOG_START, MAX_PART, parseLogStart, parseLogPart, logFolderStore, logR2Store } from './notes.mjs';
 
@@ -65,6 +68,8 @@ const OPT = { port: 8787, host: '0.0.0.0', cert: '', key: '', static: '', timeou
   // --notes <dir>: the developer notebook's notes kept in <dir> (else in .notes/ of the scenes' folder, or under .notes/ in R2);
   // --no-notes: none (tools/notes/SPEC.md, "The relay")
   notes: '', 'no-notes': false,
+  // --bench: the headset bench's jobs (tools/bench/SPEC.md: a headset in bench mode takes tests from the cloud); off unless given
+  bench: false,
   // --nets <dir>: the cell story's shared networks kept in <dir> (else in .nets/ of the scenes' folder, or under .nets/ in
   // R2); --no-nets: none (relay/nets.mjs; relay/README.md, "Shared networks")
   nets: '', 'no-nets': false,
@@ -130,6 +135,9 @@ const HELP = `usage: node relay/server.mjs [options]
                    inside the --scenes folder (or under .notes/ in the R2 bucket) whenever the relay keeps scenes; run
                    logs (frame times a second, POST /api/logs) beside them, in .notes/.logs/
   --no-notes       no notes at all (every notes endpoint answers 404)
+  --bench          the headset bench (tools/bench/SPEC.md): jobs the cloud posts for a headset in bench mode, and their
+                   results, at /api/bench; kept beside the notes (.notes/.bench/), in memory when the relay keeps no notes.
+                   Needs the relay's password unless it listens on a loopback address only. Never on the main site's relay
   --nets <dir>     the cell story's shared networks (protein pairs a page shared, POST /api/nets, listed at GET /api/nets):
                    kept in <dir>. Without it they are kept in .nets/ inside the --scenes folder (or under .nets/ in the R2
                    bucket) whenever the relay keeps scenes
@@ -306,6 +314,11 @@ const NOTES_DIR = (() => {
 const NOTES_WANT = !OPT['no-notes'] && (!!NOTES_DIR || SCENES_ON);
 const NOTES_ON = NOTES_WANT && !(PUB && !TOKEN);
 if (NOTES_WANT && !NOTES_ON) console.log('--public without a password keeps no notes (set COLLAB_TOKEN to turn the developer notebook on)');
+// the headset bench (--bench; tools/bench/SPEC.md 4.1): beside the notes, behind the password (a relay that listens only on a
+// loopback address, a test's, may go without one)
+const LOOPBACK_HOST = /^(127\.\d+\.\d+\.\d+|::1|localhost)$/i.test(String(OPT.host).trim());
+if (OPT.bench && OPT['no-notes']) { console.log('--bench keeps its jobs beside the notes: it cannot go with --no-notes'); process.exit(1); }
+if (OPT.bench && !TOKEN && !LOOPBACK_HOST) { console.log('--bench needs the relay\'s password (COLLAB_TOKEN or --token): a job drives a headset in someone\'s home. Without one it runs only on a loopback address (--host 127.0.0.1)'); process.exit(1); }
 // shared networks (relay/nets.mjs; the cell story's own networks, shared on purpose by a page): as the notes, wherever the
 // relay keeps scenes or with --nets <dir>; never on a public server without a password (anyone could write into it)
 if (OPT['no-nets'] && OPT.nets) { console.log('--nets and --no-nets: one or the other'); process.exit(1); }
@@ -1171,7 +1184,7 @@ function api(req, res, url) {
   if (p === '/api/health' && req.method === 'GET') return json(res, 200, { ok: true, protocol: PROTO, rooms: rooms.size });
   if (!authOk(req, res, givenToken(req, url))) return;
   // (versions: a room moves on to a newer version of the app, takeOver; reload: POST /api/rooms/<code>/reload, v136)
-  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(NETS_ON ? { nets: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true, talk: true });
+  if (p === '/api/ping' && req.method === 'GET') return json(res, 200, { now: Date.now(), proto: PROTO, net: netOf(req), versions: 1, reload: true, ...(KEEP ? { keep: true } : {}), ...(WATCH ? { watch: true } : {}), ...(SCENES_ON ? { scenes: true } : {}), ...(NOTES_ON ? { notes: true } : {}), ...(BENCH ? { bench: true } : {}), ...(NETS_ON ? { nets: true } : {}), ...(UNLISTED ? { unlisted: true } : {}), ...(TRK ? TRK.ping() : {}), ...(OSC ? { osc: { out: OSC_OUT.length, in: OSC.inPort, trk: !!TRK } } : {}), snd: true, talk: true });
   if (p === '/api/near' && req.method === 'GET') { const net = netOf(req); return json(res, 200, { net, rooms: nearRooms(net) }); }
   if (p === '/api/watch' && req.method === 'GET') return watchStream(req, res);
   if (p === '/api/rooms' && req.method === 'GET') {   // (--unlisted: none; a room is joined by its code, a link or on its network)
@@ -1183,6 +1196,7 @@ function api(req, res, url) {
   if (p === '/api/notes' || p.startsWith('/api/notes/')) return notesApi(req, res, url);
   if (p === '/api/nets' || p.startsWith('/api/nets/')) return netsApi(req, res, url);
   if (p === '/api/logs' || p.startsWith('/api/logs/')) return logsApi(req, res, url);
+  if (p === '/api/bench' || p.startsWith('/api/bench/')) return benchApi(req, res, url);
   if (p === '/api/scenes' || p.startsWith('/api/scenes/')) return scenesApi(req, res, url);
   if (TRK && (p === '/api/trackers' || p === '/api/trackers/still')) return trackersApi(req, res, url);
   if (room && req.method === 'GET') {   // (a page asks before it joins a room again by itself, or brings one back)
@@ -1653,10 +1667,10 @@ const REAL = ROOT ? fs.realpathSync(ROOT) : '';
 // the studio's KTX2 textures, written in its pages' workers and transcoded as a model loads; tools/studio/engine/ktx2.js.
 // packages/ holds the story packages, served deep as examples/ is: packages/<key>/<at most 4 folders>/<file>, and their
 // index; tools/packages/SPEC.md. fonts/ holds the app's font, B612, v213. Like every app folder it is only ever read here: no endpoint writes to it)
-const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'shared.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
+const APP_FILES = new Set(['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'bench.js', 'shared.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'manifest.webmanifest', 'three.min.js', 'three.LICENSE.txt',
   'peerjs.min.js', 'PEERJS-LICENSE.txt', 'proteins.html', 'spatial.html', 'README.txt', 'version.json', 'whatsnew.json', 'lowpoly.js', 'output.js',
   'LICENSE', 'NOTICE.md']);   // (the project's licence and notices go with every copy of the app it serves)
-const APP_DIRS = new Set(['stories', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis', 'packages', 'fonts']), APP_DEEP = new Set(['examples', 'packages']);
+const APP_DIRS = new Set(['stories', 'icons', 'p2p', 'room-test', 'examples', 'notes', 'whatsnew', 'basis', 'packages', 'fonts', 'bench']), APP_DEEP = new Set(['examples', 'packages', 'bench']);
 // (files of an app folder that are no longer the app's: the design room, parked since v217, whose built file stays in the
 // tree for the room to come back, tools/design/README.md)
 const PARKED = new Set(['stories/design.js']);
@@ -1753,7 +1767,7 @@ function fingerprint(s) {
   return (b >>> 0).toString(16).padStart(8, '0') + (a >>> 0).toString(16).padStart(8, '0');
 }
 const WATCH = OPT.watch ? fs.realpathSync(path.resolve(OPT.watch === true ? OPT.static : OPT.watch)) : '';
-const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js', 'output.js', 'ik.js', 'bodies.js', 'flight.js'];   // (output.js: the output page's, loaded on demand as peerjs.min.js is; ik.js and bodies.js: people's bodies, likewise, v164; flight.js: the VR goggles' game, v197)
+const SHELL_FILES = ['index.html', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'bench.js', 'shared.js', 'sw.js', 'three.min.js', 'peerjs.min.js', 'output.js', 'ik.js', 'bodies.js', 'flight.js'];   // (output.js: the output page's, loaded on demand as peerjs.min.js is; ik.js and bodies.js: people's bodies, likewise, v164; flight.js: the VR goggles' game, v197)
 const STORY_FILE = /^([a-z][a-z0-9-]{0,31})\.js$/;
 const W = { fps: new Map(), timers: new Map(), clients: new Set(), builds: new Map(), queue: new Set(), building: '', buildT: 0 };
 const MAX_WATCHERS = 200;
@@ -3008,6 +3022,223 @@ async function logsApi(req, res, url) {
     if (!res.headersSent) json(res, err instanceof R2Error ? 502 : 500, { error: err instanceof R2Error ? storeSays(err) : 'cannot read or write the run logs' });
   }
 }
+// ---- the headset bench (--bench; tools/bench/SPEC.md 4, relay/bench.mjs): the cloud posts jobs, a page in bench mode asks for
+// them by long poll (GET /api/bench/next, its heartbeat too) and posts its progress, result and pictures; the adb helper
+// asks for its own jobs and attaches its frame statistics and device screenshots. Kept beside the notes (.notes/.bench/),
+// in memory when the relay keeps none. A headset (its id, phase and last report) and the helper's last ask live in memory
+// only. Log lines say ids, states, counts of steps and ms; never a step's fields, a result, a report or the password
+const BENCH = !OPT.bench ? null : benchJobs(!NOTES ? benchMemoryStore() : NOTES_DIR ? benchFolderStore(path.join(NOTES_DIR, BENCH_DIR)) : R2C ? benchR2Store(RX, R2C.prefix + '.notes/' + BENCH_DIR + '/') : benchFolderStore(path.join(SCENES, '.notes', BENCH_DIR)));
+const BH = { heads: new Map(), adb: new Map(), waiters: new Set(), timer: null };
+const benchWake = () => { for (const w of [...BH.waiters]) w(); };
+// queued past its ttl, or running past its limit and a minute with no word from the headset: expired
+async function benchSweep() {
+  const now = Date.now();
+  for (const r of await BENCH.list()) {
+    let why = '';
+    if (r.state === 'queued' && now - r.at > r.ttl * 1000) why = `not taken within ${r.ttl} s`;
+    else if (r.state === 'running' && now - Math.max(r.taken || 0, (r.progress && r.progress.at) || 0) > (r.limit + 60) * 1000) why = 'no word from the headset';
+    if (!why) continue;
+    const u = await BENCH.update(r.id, x => { if (x.state !== r.state) return false; x.state = 'expired'; x.why = why; x.ended = now; });
+    if (u && u.state === 'expired') log(`bench job ${r.id} expired ${now - r.at}`);
+  }
+}
+if (BENCH) { BH.timer = setInterval(() => benchSweep().catch(() => {}), 5000); BH.timer.unref(); }
+// a binary body (a picture) as a Buffer, or null when it was too big (answered) or cut short
+function binBody(req, res, max, error) {
+  return new Promise(done => {
+    const parts = [];
+    let n = 0, over = false;
+    req.on('data', c => { if (over) return; if ((n += c.length) <= max) parts.push(c); else { over = true; answerEarly(req, res, 413, { error }); done(null); } });
+    req.on('end', () => { if (!over) done(Buffer.concat(parts)); });
+    req.on('error', () => done(null));
+    req.on('close', () => { if (!req.complete) done(null); });
+  });
+}
+const benchJson = async (req, res, max, what) => {
+  const text = await smallBody(req, res, max, `${what} is at most ${max >= 1 << 20 ? (max >> 20) + ' MB' : (max >> 10) + ' KB'}`);
+  if (text === null) return undefined;
+  try { return JSON.parse(text); } catch { json(res, 400, { error: 'the body is not JSON' }); return undefined; }
+};
+function benchSeen(hs, o) {
+  const now = Date.now(), h = BH.heads.get(hs) || { hs, seen: 0, phase: '', why: '', xr: '', job: '', report: null };
+  if (!h.seen || now - h.seen > 600000) log(`bench ${hs} listening`);
+  h.seen = now;
+  Object.assign(h, o);
+  BH.heads.set(hs, h);
+  return h;
+}
+async function benchApi(req, res, url) {
+  const no = (status, error, extra) => answerEarly(req, res, status, { error }, extra);
+  if (!BENCH) return no(404, 'this relay has no bench');
+  const m = /^\/api\/bench(?:\/(hello|next|jobs)(?:\/([^/]+)(?:\/(progress|result|pic|adb|devshot|cancel|delete)(?:\/(\d{1,2}))?)?)?)?$/.exec(url.pathname);
+  if (!m) return no(404, 'no such endpoint');
+  const [, what, id, sub, nth] = m, q = url.searchParams, now = Date.now();
+  try {
+    if (!what) {
+      if (req.method !== 'GET') return no(405, 'method not allowed', { Allow: 'GET' });
+      const all = await BENCH.list(), heads = [];
+      for (const h of BH.heads.values()) {
+        if (now - h.seen > 600000) continue;
+        const a = BH.adb.get(h.hs);
+        heads.push({ hs: h.hs, seen: h.seen, ago: Math.round((now - h.seen) / 1000), phase: h.phase, why: h.why, xr: h.xr, job: h.job, adb: a ? { seen: a, ago: Math.round((now - a) / 1000) } : null, report: h.report });
+      }
+      const helper = [...BH.adb.entries()].filter(([, t]) => now - t <= 600000).map(([hs, t]) => ({ hs, seen: t, ago: Math.round((now - t) / 1000) }));
+      return json(res, 200, { now, headsets: heads.sort((a, b) => b.seen - a.seen), adb: helper, queued: all.filter(r => r.state === 'queued').length, running: all.filter(r => r.state === 'running').length }, noStore);
+    }
+    if (what === 'hello') {
+      if (id) return no(404, 'no such endpoint');
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'POST' });
+      const b = await benchJson(req, res, MAX_HELLO, 'a hello');
+      if (b === undefined) return;
+      const r = parseHello(b);
+      if (r.error) return json(res, 400, { error: r.error });
+      const R = r.report;
+      benchSeen(r.hs, { report: R, phase: typeof R.phase === 'string' ? R.phase.slice(0, 20) : '', why: typeof R.why === 'string' ? R.why.slice(0, 80) : '', xr: R.xr === 'ar' || R.xr === 'vr' ? R.xr : '' });
+      return json(res, 200, { ok: true, now }, noStore);
+    }
+    if (what === 'next') {
+      if (id) return no(404, 'no such endpoint');
+      if (req.method !== 'GET') return no(405, 'method not allowed', { Allow: 'GET' });
+      const hs = q.get('hs') || '', role = q.get('role') === 'adb' ? 'adb' : 'page', xr = /^(vr|ar)$/.test(q.get('xr') || '') ? q.get('xr') : '';
+      if (!BENCH_HS.test(hs)) return json(res, 400, { error: 'hs: the headset\'s id (eight letters and digits)' });
+      const wait = Math.max(0, Math.min(25, +q.get('wait') || 0)) * 1000, ask = { hs, role, xr };
+      if (role === 'adb') BH.adb.set(hs, now); else benchSeen(hs, { xr });
+      // (a running job of this headset's that was cancelled ends as it asks again)
+      if (role === 'page') for (const r of await BENCH.list()) if (r.state === 'running' && r.hs === hs && r.cancel && r.to === 'page') await BENCH.update(r.id, x => { if (x.state !== 'running') return false; x.state = 'cancelled'; x.ended = Date.now(); x.why = x.why || 'cancelled'; });
+      let gone = false, wake = null, timer = null;
+      req.on('close', () => { gone = true; if (wake) wake(); });
+      const until = now + wait;
+      for (;;) {
+        const queue = (await BENCH.list()).filter(r => benchFits(r, ask)).sort((a, b) => (a.id < b.id ? -1 : 1));
+        for (const c of queue) {
+          const r = await BENCH.update(c.id, x => { if (!benchFits(x, ask)) return false; x.state = 'running'; x.hs = hs; x.taken = Date.now(); });
+          if (r && r.state === 'running' && r.hs === hs && r.taken >= now) {
+            if (gone) { await BENCH.update(r.id, x => { x.state = 'queued'; x.taken = 0; if (!c.hs) x.hs = ''; }); benchWake(); return; }   // (the asker went meanwhile: back in the queue)
+            log(`bench job ${r.id} taken by ${role === 'adb' ? 'the adb helper of ' : ''}${hs}`);
+            if (role === 'page') { const h = BH.heads.get(hs); if (h) h.job = r.id; }
+            return json(res, 200, { job: r }, noStore);
+          }
+        }
+        if (gone) return;
+        const left = until - Date.now();
+        if (left <= 0) {
+          // (jobs queued for this headset that wait for a headset session: said, so a page without one shows Enter AR)
+          const waiting = role === 'page' ? (await BENCH.list()).filter(r => r.state === 'queued' && r.to === 'page' && (!r.hs || r.hs === hs) && !benchFits(r, ask)).length : 0;
+          res.writeHead(204, { 'Cache-Control': 'no-store', 'X-Bench-Waiting': String(waiting), 'Access-Control-Expose-Headers': 'X-Bench-Waiting' });
+          return res.end();
+        }
+        await new Promise(r => { wake = r; BH.waiters.add(r); timer = setTimeout(r, Math.min(left, 5000)); });
+        BH.waiters.delete(wake); clearTimeout(timer); wake = null;
+        if (role === 'adb') BH.adb.set(hs, Date.now()); else { const h = BH.heads.get(hs); if (h) h.seen = Date.now(); }
+      }
+    }
+    // jobs
+    if (!id) {
+      if (req.method === 'GET') {
+        const want = (q.get('state') || '').split(',').filter(s => s), lim = Math.max(1, Math.min(1000, +q.get('limit') || 50));
+        const rows = (await BENCH.list()).filter(r => !want.length || want.includes(r.state) || (want.includes('ended') && ENDED.has(r.state)));
+        return json(res, 200, { jobs: rows.slice(0, lim).map(benchSummary) }, noStore);
+      }
+      if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'GET, POST' });
+      const b = await benchJson(req, res, MAX_JOB, 'a job');
+      if (b === undefined) return;
+      const r = parseJob(b);
+      if (r.error) return json(res, 400, { error: r.error });
+      const all = await BENCH.list();
+      if (all.length >= MAX_JOBS) return json(res, 507, { error: `at most ${MAX_JOBS} jobs are kept: delete some` });
+      if (all.filter(x => x.state === 'queued').length >= MAX_QUEUED) return json(res, 429, { error: `at most ${MAX_QUEUED} jobs wait at once` });
+      let nid = newId(now);
+      for (let i = 0; i < 5 && await BENCH.get(nid); i++) nid = newId(now);
+      // (adb: the job's true or false, whether the helper should attach its lines, until they come and take its place)
+      const rec = Object.assign(r.job, { id: nid, state: 'queued', why: '', at: now, taken: 0, ended: 0, progress: null, result: null, pics: [], devshots: [] });
+      rec.asked = r.job.why; rec.why = '';   // (the job's own why, an automatic plan's reason, kept apart from the state's)
+      await BENCH.add(rec);
+      log(`bench job ${nid} queued ${rec.steps.length} steps`);
+      benchWake();
+      return json(res, 201, { id: nid }, noStore);
+    }
+    if (!NOTE_ID.test(id)) return no(404, 'no such job');
+    const rec = await BENCH.get(id);
+    if (!rec) return no(404, 'no such job');
+    if (!sub) {
+      if (req.method !== 'GET') return no(405, 'method not allowed', { Allow: 'GET' });
+      return json(res, 200, rec, noStore);
+    }
+    if ((sub === 'pic' || sub === 'devshot') && req.method === 'GET') {
+      const n = +nth, list = sub === 'pic' ? rec.pics : rec.devshots, e = list.find(x => x.n === n);
+      if (!e) return no(404, 'no such picture');
+      const buf = await BENCH.getFile(id, sub === 'pic' ? picName(n) : devshotName(n, e.type));
+      if (!buf) return no(404, 'no such picture');
+      return sendBytes(req, res, Buffer.from(buf), sub === 'pic' ? 'image/jpeg' : e.type);
+    }
+    if (nth) return no(404, 'no such endpoint');
+    if (req.method !== 'POST') return no(405, 'method not allowed', { Allow: 'POST' });
+    if (sub === 'cancel') {
+      const r = await BENCH.update(id, x => { if (x.state === 'queued') { x.state = 'cancelled'; x.ended = Date.now(); x.why = 'cancelled'; } else if (x.state === 'running') x.cancel = true; else return false; });
+      if (r.state === 'cancelled') log(`bench job ${id} cancelled ${Date.now() - r.at}`);
+      return json(res, 200, { ok: true, state: r.state, cancel: !!r.cancel }, noStore);
+    }
+    if (sub === 'delete') {
+      await BENCH.del(id);
+      return json(res, 200, { ok: true }, noStore);
+    }
+    if (sub === 'progress') {
+      const b = await benchJson(req, res, MAX_PROGRESS, 'a progress');
+      if (b === undefined) return;
+      const u = parseProgress(b);
+      if (u.error) return json(res, 400, { error: u.error });
+      if (rec.state !== 'running' || (rec.to === 'page' && rec.hs !== u.hs)) return json(res, 200, { ok: false, cancel: rec.state === 'cancelled', state: rec.state }, noStore);
+      const r = await BENCH.update(id, x => { x.progress = { step: u.step, of: u.of, note: u.note, at: Date.now() }; });
+      if (rec.to === 'page') benchSeen(u.hs, { job: id });
+      return json(res, 200, { ok: true, cancel: !!r.cancel }, noStore);
+    }
+    if (sub === 'result') {
+      const b = await benchJson(req, res, MAX_RESULT, 'a result');
+      if (b === undefined) return;
+      const u = parseResult(b);
+      if (u.error) return json(res, 400, { error: u.error });
+      let late = false;
+      const r = await BENCH.update(id, x => {
+        if (x.state !== 'running' || (x.to === 'page' && x.hs !== u.result.hs)) { late = true; return false; }
+        x.result = u.result; x.ended = Date.now();
+        x.state = x.cancel ? 'cancelled' : u.result.ok ? 'done' : 'failed';
+        x.why = x.cancel ? 'cancelled' : u.result.why;
+      });
+      if (late) return json(res, 409, { error: `the job is ${r.state}, not running for ${u.result.hs}` });
+      log(`bench job ${id} ${r.state} ${r.ended - r.at}`);
+      const h = BH.heads.get(u.result.hs);
+      if (h && h.job === id) h.job = '';
+      return json(res, 200, { ok: true }, noStore);
+    }
+    if (sub === 'adb') {
+      const b = await benchJson(req, res, MAX_ADB, 'the helper\'s lines');
+      if (b === undefined) return;
+      const u = parseAdb(b);
+      if (u.error) return json(res, 400, { error: u.error });
+      await BENCH.update(id, x => { x.adb = u.adb; });
+      return json(res, 200, { ok: true }, noStore);
+    }
+    // pic and devshot: a picture as the body (image/jpeg; a devshot image/png too), n in the query
+    const pic = sub === 'pic', n = +q.get('n'), max = pic ? MAX_PICS : MAX_DEVSHOTS, type = String(req.headers['content-type'] || '').split(';')[0].trim().toLowerCase();
+    if (!(Number.isInteger(n) && n >= 1 && n <= max)) return no(400, `n: 1 to ${max}`);
+    if (type !== 'image/jpeg' && !(type === 'image/png' && !pic)) return no(415, pic ? 'a picture is image/jpeg' : 'a device screenshot is image/png or image/jpeg');
+    if (pic && rec.state !== 'running') return no(409, `the job is ${rec.state}, not running`);
+    const buf = await binBody(req, res, pic ? MAX_PIC : MAX_DEVSHOT, `a picture is at most ${pic ? '1' : '4'} MB`);
+    if (buf === null) return;
+    if (!buf.length) return json(res, 400, { error: 'the picture is empty' });
+    await BENCH.putFile(id, pic ? picName(n) : devshotName(n, type), buf);
+    await BENCH.update(id, x => {
+      const L = pic ? x.pics : x.devshots, e = { n, bytes: buf.length, ...(pic ? {} : { type }) };
+      const i = L.findIndex(y => y.n === n);
+      if (i >= 0) L[i] = e; else L.push(e);
+      L.sort((a, b) => a.n - b.n);
+    });
+    return json(res, 200, { ok: true, n }, noStore);
+  } catch (err) {
+    log('bench: storage error (' + (err instanceof R2Error ? storeSays(err) : err.code || err.message) + ')');
+    if (!res.headersSent) json(res, err instanceof R2Error ? 502 : 500, { error: err instanceof R2Error ? storeSays(err) : 'cannot read or write the bench\'s jobs' });
+  }
+}
 // bytes as a note's file: its type, one byte range (the audio element asks for them), no-store, nosniff
 function sendBytes(req, res, buf, type) {
   const head = { 'Content-Type': type, 'Cache-Control': 'no-store', 'Accept-Ranges': 'bytes', 'X-Content-Type-Options': 'nosniff', 'Access-Control-Expose-Headers': 'Content-Range, Accept-Ranges, Content-Length' };
@@ -3381,6 +3612,7 @@ server.listen(OPT.port, OPT.host, () => {
       (FFMPEG ? `long sounds made mono MP3 by ffmpeg (${FFMPEG})` : 'no ffmpeg found, so long sounds are kept as they are (install ffmpeg, or --ffmpeg <path>)') : ''))).then(() => (R2C && R2UP.ok ? r2Checks() : null))
     .catch(err => log('scenes: ' + err.message));
   if (NETS) console.log(`Shared networks (POST /api/nets, the cell story's Network tab) kept ${NETS_DIR ? 'in ' + NETS_DIR : R2C ? 'in the R2 bucket, under ' + R2C.prefix + '.nets/' : 'in ' + path.join(SCENES, '.nets')}`);
+  if (BENCH) console.log(`The headset bench (/api/bench, tools/bench/SPEC.md): jobs kept ${BENCH.where === 'memory' ? 'in memory only (no notes here: give --notes <dir> to keep them across a restart)' : 'in ' + BENCH.where}`);
   if (NOTES) console.log(`Developer notes (POST /api/notes, the page at /notes/) kept ${NOTES_DIR ? 'in ' + NOTES_DIR : R2C ? 'in the R2 bucket, under ' + R2C.prefix + '.notes/' : 'in ' + path.join(SCENES, '.notes')}`);
   // a public server: what it allows, said once (never the log token)
   if (ORIGIN_RULE) console.log(`Only pages from ${[...ORIGINS].join(', ')} and the relay's own may open a socket or read the API` +

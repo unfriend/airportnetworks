@@ -195,6 +195,22 @@ through a relay on the internet is on that network peer to peer too. One id stan
   does not turn it on: Coolify's `RELAY_ARGS` does (step 6 of [public hosting](docs/operations.md#public-hosting-on-coolify)).
 
 
+## The headset bench (`--bench`)
+
+`--bench` (v232) turns on the headset bench's job queue at `/api/bench` (design and endpoints: `tools/bench/SPEC.md`): the
+cloud posts jobs (`tools/bench/bench.mjs`), a headset in bench mode (developer mode, `#dev=on&bench=on`) asks for them
+by long poll and posts results and pictures, the adb helper (`tools/bench/adb/`) attaches the headset's frame statistics.
+Off unless given; only on the **test place's** relay, never the main site's (the app refuses bench mode on
+`stories.lbi-netmed.com` anyway). On the test place on Coolify add `--bench` to `RELAY_ARGS` (it already has its password,
+`COLLAB_TOKEN`). The relay refuses to start with `--bench` and no password unless it listens on a loopback address only (a
+test's), and with `--no-notes`. Jobs are kept beside the notes (`.notes/.bench/<id>/`: `job.json`, `pic-<n>.jpg`,
+`devshot-<n>.png|jpg`; under `.notes/.bench/` in R2), in memory when the relay keeps no notes; a restart keeps them. Every
+endpoint wants the password. Limits: a job 64 KB and 200 steps, 50 queued, 1000 kept (delete with `POST
+/api/bench/jobs/<id>/delete`), a result 1 MB, a picture 1 MB (20 a job), the helper's lines 512 KB, a device screenshot
+4 MB (5 a job). A queued job expires after its `ttl` (900 s), a running one after its `limit` and a minute without word.
+The log says only `bench job <id> queued <n> steps`, `taken by <hs>`, `<state> <ms>` and `bench <hs> listening`: never a
+step, a result, a report or the password. Its tests: `node relay/test.mjs --bench`, `node tools/bench/test.mjs`.
+
 ## Where the rest is
 
 This file is for running a relay. The rest of what used to be here, word for word, is in `relay/docs/`:
@@ -210,7 +226,7 @@ Other files and code comments say `relay/README.md, "<section>"`: this is where 
 
 | Section | File |
 | --- | --- |
-| Running it; The shared password (`COLLAB_TOKEN`); Rooms on this network | this file |
+| Running it; The shared password (`COLLAB_TOKEN`); Rooms on this network; The headset bench (`--bench`) | this file |
 | A session on one Wi-Fi, step by step | `relay/docs/operations.md` |
 | Public hosting on Coolify; The test place on Coolify | `relay/docs/operations.md` |
 | Your own scenes (the studio); Uploading (the upload page); Converting a video | `relay/docs/operations.md` |
