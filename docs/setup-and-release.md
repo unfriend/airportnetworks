@@ -195,6 +195,48 @@ shared spaces, and whether sound comes out. Report those as untested. What two Q
 
 **Windows.** A tool finds its own folder with `fileURLToPath(import.meta.url)`; the Python data generators open their output with `newline='\n'` so a run on Windows writes LF; a checkout still CRLF is repaired with `git rm --cached -r -q .` and then `git reset --hard` (two commands: PowerShell 5.1 has no `&&`). The reasons are in docs/agents/testing.md "Traps for a test writer".
 
+### Measuring a headset (the performance run)
+
+The performance run (v228) measures every frame while the app plays itself on a headset. It has two parts. The
+run-through plays every story (its load, each chapter for 20 s, explore mode a tab at a time) and the studio's example
+scenes, about 75 minutes, with nobody touching anything. The hands-on test is about five minutes of things only a person
+can do, one card at a time. The details are in docs/agents/shell.md, "The performance run".
+
+**On the headset.**
+
+1. Charge it and turn developer mode on (the Stories screen's foot, or open the app with `#dev=on`), so the results also
+   go to the relay. In a shared room it refuses: leave the room first.
+2. Either open `https://stories.lab.lbi-netmed.com/#perfrun` in Quest Browser and press **Enter VR** (or **Enter AR**) on
+   the card; or, already in VR, open the menu, go to the **Debug** tab and press **Performance run**. Put the headset on
+   and leave it: narration and effects stay quiet, a small line low on the right says where it is (*Performance run · 5
+   of 25 · Airports · chapter 3 of 10*).
+3. To stop: the Debug tab's **Stop the run**, or take the headset out of VR. If the page reloads or the headset view
+   ends, a card offers **Enter VR** to go on where it stopped.
+4. At the end a card shows the totals and the five worst moments. **Hands-on test** starts part 2; it is also on the
+   Debug tab, or `#handson` in the address. Each card says what to do; press **Done** when you have, or **Skip**.
+
+Options in the address (after `#perfrun`): `&prch=10` (10 s a chapter: about 45 minutes), `&prfull` (every chapter
+whole), `&prstories=airports,lbi` (only these), `&praq=off` (automatic quality off for the run, so two runs compare),
+`&prscenes=none` (no studio scenes) or `&prscenes=bliss-xp,relay:<name>`, `&prstory=<key>` (the hands-on test's story).
+Nothing you set is changed for good: what the run changes is put back at its end.
+
+**Where the results land.** On the headset itself (the card, and the last run kept in the browser), on a page as
+**Download JSON**, and with developer mode on in the relay's run logs (the notes page lists them, *Download JSON*). On the
+PC:
+
+```
+NOTES_TOKEN=... node tools/notes/notes.mjs list                     # the run logs among the notes
+NOTES_TOKEN=... node tools/notes/notes.mjs perfrun <run id>         # one run as a Markdown table
+NOTES_TOKEN=... node tools/notes/notes.mjs perfrun <id a> <id b>    # two runs or two headsets compared
+node tools/notes/notes.mjs perfrun result.json --md report.md       # a downloaded result, to a file
+```
+
+**Reading them.** One row a segment: the frame time's mean, median, 95th and 99th percentile and worst (ms; at 90 Hz a
+frame has 11.1 ms), *missed* (the display's refreshes that got no new frame) and *miss %* of all refreshes, the longest
+stall, draw calls and triangles, the script's ms, memory, automatic quality's level, and errors. Look first at the five
+worst and at *miss %*: a few per cent is a smooth run, tens of per cent is visible stutter. A run on a laptop or in the
+tests draws in software and its numbers mean nothing for a headset.
+
 ## 4. Release checklist
 
 `main` is what visitors get, because GitHub Pages publishes it (section 5). Since v116 work goes first to **`dev`**,

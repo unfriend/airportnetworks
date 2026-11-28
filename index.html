@@ -799,7 +799,7 @@ body.focus:not(.picking) #devCard #devBody { max-height: calc(100dvh - var(--fc-
       </div>
       <pre aria-live="off"></pre>
     </div>
-    <div class="devrow"><button class="rep dev" type="button" id="btnDev" aria-pressed="false" title="For testers: what is new in this release and what to test, as the app opens and as each headset session starts">Developer mode: off</button><button class="rep dev" type="button" id="btnNews" title="What is new in this release, and what to test">What is new</button></div>
+    <div class="devrow"><button class="rep dev" type="button" id="btnDev" aria-pressed="false" title="For testers: what is new in this release and what to test, as the app opens and as each headset session starts">Developer mode: off</button><button class="rep dev" type="button" id="btnNews" title="What is new in this release, and what to test">What is new</button><button class="rep dev" type="button" id="btnPerf" hidden title="Developer mode: plays every story and scene by itself and measures each frame, or a short hands-on test">Performance run</button></div>
   </div>
 </div>
 <div id="shared" hidden role="dialog" aria-modal="true" aria-labelledby="shTitle">
@@ -1016,7 +1016,8 @@ HOST.audio = (function () {
   const quiet = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
   const running = () => !!A.ctx && A.ctx.state === 'running';
   // the mute that applies now: a headset session's own, else the page's
-  const muted = () => (HOST.inXR() ? A.xmuted : A.pmuted);
+  // (v228: quiet too while the performance run runs, perfrun.js: never stored, the setting comes back as it was)
+  const muted = () => (HOST.perfRun && HOST.perfRun.hush && HOST.perfRun.hush()) || (HOST.inXR() ? A.xmuted : A.pmuted);
   // the Narration switch (HOST.xr.voice(): in a shared room the room's, else this device's narrationOn) turned off: the
   // narration is silent on both engines and the story runs on its own clock, as when muted; the effects and subtitles go on
   const voiceOff = () => !!(HOST.xr && HOST.xr.voice && !HOST.xr.voice());
@@ -3117,7 +3118,7 @@ HOST.flightLoad = function () {
 // room's presences do not fetch it at every message)
 HOST.quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
 HOST.mods = (function () {
-  const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js' }, M = {}, AGAIN = 30000;
+  const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js', perfRun: 'perfrun.js' }, M = {}, AGAIN = 30000;   // (perfRun: the performance run, v228, from developer mode or #perfrun)
   const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"f9f65b92c14211ad"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
   function linked(name) {
     const m = HOST[name];
@@ -3347,7 +3348,7 @@ HOST.loading = (() => {
       fn = (inner => { let O = null, W = null; return function (t, f) { const o = HOST.occlusion; if (o !== O) { O = o; W = o && o.wrap ? o.wrap(inner) : null; } return W ? W(t, f) : inner(t, f); }; })(fn);
       if (HOST.perf) fn = HOST.perf.wrap(fn);   // (the story's own frame counted for the frame-rate read-out, the fade after it not)
       if (HOST.inputsGuard) fn = HOST.inputsGuard.wrap(fn);   // (controllers a browser replaced without telling three.js, or whose presses it stopped passing on: mended, before the story's frame)
-      fn = (inner => function (t, f) { try { return inner(t, f); } finally { const N = HOST.notes; if (N && N.frame) try { N.frame(t, f); } catch (e) { /* never in the way */ } } })(fn);   // (bound late, notes.js coming with developer mode: the developer notebook's pictures, read back right after the story's frame, only when one is wanted: notes.js)
+      fn = (inner => function (t, f) { try { return inner(t, f); } finally { const N = HOST.notes, P = HOST.perfRun; if (N && N.frame) try { N.frame(t, f); } catch (e) { /* never in the way */ } if (P && P.frame) try { P.frame(t, f); } catch (e) { /* never in the way */ } } })(fn);   // (and the performance run's measures, perfrun.js, bound late likewise)   // (bound late, notes.js coming with developer mode: the developer notebook's pictures, read back right after the story's frame, only when one is wanted: notes.js)
       if (!L.ran && HOST.sfx) try { HOST.sfx.ready(); } catch (e) { /* no chime */ }   // (the story is built: a soft chime, if sound effects are on)
       L.ran = true;
       if (!L.on) return fn;
@@ -3609,7 +3610,7 @@ HOST.perf = (function () {
   const reads = () => !!(HOST.xr.fps && HOST.xr.fps());
   const on = () => !!(HOST.session && reads());
   // (and a run being recorded, on a page too: the developer notebook's run log, notes.js, reads each frame's counts, last())
-  const meas = () => !!(HOST.session && (reads() || (HOST.xr.auto && HOST.xr.auto()))) || !!(HOST.notes && HOST.notes.running && HOST.notes.running());
+  const meas = () => !!(HOST.session && (reads() || (HOST.xr.auto && HOST.xr.auto()))) || !!(HOST.notes && HOST.notes.running && HOST.notes.running()) || !!(HOST.perfRun && HOST.perfRun.on());   // (and the performance run: perfrun.js)
   function wrap(fn) {
     return function (t, f) {
       const r = HOST.renderer;
@@ -3948,7 +3949,7 @@ HOST.slides = (function () {
   return {
     global: () => all,
     setGlobal(on) { all = !!on; per = {}; save(); },
-    on: key => (typeof per[key] === 'boolean' ? per[key] : all),
+    on: key => (HOST.perfRun && HOST.perfRun.hold && HOST.perfRun.hold() ? false : typeof per[key] === 'boolean' ? per[key] : all),   // (no stops while the performance run runs: perfrun.js)
     set(key, on) { per[key] = !!on; save(); },
     sig: () => sig,
   };
@@ -4516,6 +4517,7 @@ HOST.dev = (function () {
   function sync() {
     const b = el('btnDev');
     if (b) { b.textContent = D.on ? 'Developer mode: on' : 'Developer mode: off'; b.setAttribute('aria-pressed', D.on ? 'true' : 'false'); }
+    const pf = el('btnPerf'); if (pf) pf.hidden = !D.on;   // (the performance run: developer mode's, perfrun.js)
   }
   function set(on) { D.on = !!on; put('devMode', D.on ? 'on' : 'off'); sync(); if (HOST.cards) HOST.cards(); if (D.on && HOST.mods) HOST.mods.load('notes'); }   // (the hidden story packages' cards)
   el('devGot').addEventListener('click', () => { gotIt(); D.later = true; card(false); });
@@ -4524,6 +4526,7 @@ HOST.dev = (function () {
   el('devNewer').addEventListener('click', () => step(-1));
   el('btnDev').addEventListener('click', () => set(!D.on));
   el('btnNews').addEventListener('click', () => card(true, 'hand'));
+  el('btnPerf').addEventListener('click', () => HOST.mods.load('perfRun').then(P => { if (P && P.offer) P.offer(); }));
   sync();
   return {
     on: () => D.on, set, load, seen, gotIt, short, card, boot,
@@ -4542,6 +4545,7 @@ HOST.dev = (function () {
 // the last picture) and the story should just stop, false that it opens explore mode as usual
 HOST.ended = function () {
   if (this.repeat === 'off' || this.picking || !this.cur) return false;
+  if (this.perfRun && this.perfRun.hold && this.perfRun.hold()) return false;   // (the performance run walks the stories itself: perfrun.js)
   // a station in a shared room ends as everywhere else in the room: explore mode (no Repeat)
   const st = this.collab && this.collab.live();
   if (st && st.story === this.curKey) return false;
@@ -4686,6 +4690,7 @@ HOST.live = (function () {
   function quiet() {
     const c = HOST.cur && HOST.cur.collab, A = c && c.APP;
     if (!A || HOST.busy) return false;
+    if (HOST.perfRun && HOST.perfRun.hold && HOST.perfRun.hold()) return false;   // (never while the performance run runs: perfrun.js)
     // (v145: in a headset session explore mode and a paused story are not quiet moments: a swap there is a hitch of
     // 100 ms or more in front of the person's eyes. Only the Stories screen, being away from every station or the shell's
     // menu open are; otherwise the swap waits, and happens at the first of those or once the session has ended)
@@ -6034,6 +6039,9 @@ HOST.bare = (function () {
   if (hp.has('focus')) HOST.focus.set(hp.get('focus') !== 'off');
   if (hp.has('dev')) HOST.dev.set(hp.get('dev') !== 'off');   // (developer mode: this device's own)
   if (HOST.dev.on()) HOST.mods.load('notes');   // (the developer notebook, notes.js: with developer mode only, v226)
+  // (the performance run, perfrun.js, v228: #perfrun or #handson in the address, or a run kept from before a reload)
+  { let kept = null; try { kept = localStorage.getItem('perfRun'); } catch (e) { /* storage blocked */ }
+    if (hp.has('perfrun') || hp.has('handson') || kept) HOST.mods.load('perfRun').then(P => { if (P && P.boot) P.boot(hp); }); }
   // (a device that can enter VR: occlusion.js and ships.js fetched in idle time now, so a press in its first session never
   // waits for them; a phone's AR fetches them as its session is asked for)
   if (navigator.xr && navigator.xr.isSessionSupported) {
@@ -6106,7 +6114,7 @@ if ('serviceWorker' in navigator && window.isSecureContext && location.protocol 
 }
 // a new shell waiting (HOST.live asked about it): taken on the Stories screen by itself, outside a headset
 HOST.reloadIfUpdated = function () {
-  if (this.live.waiting() && this.picking && !this.session && !this.landingVR && !this.busy) this.live.reload('quiet');
+  if (this.live.waiting() && this.picking && !this.session && !this.landingVR && !this.busy && !(this.perfRun && this.perfRun.hold && this.perfRun.hold())) this.live.reload('quiet');
 };
 // ------------------------------------------------------------ all stories offline --
 // Take all stories (v185, docs/agents/packages.md "The service worker", "Take all stories"; sw.js takeAll): the service worker fetches every

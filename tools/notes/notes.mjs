@@ -1,8 +1,9 @@
 #!/usr/bin/env node
-// The developer notebook's tool: list, pull, transcribe and finish notes on the relay, and read run logs (perf)
+// The developer notebook's tool: list, pull, transcribe and finish notes on the relay, read run logs (perf) and the
+// performance run's results (perfrun: one as Markdown, or two compared)
 // (tools/notes/SPEC.md).
 // NOTES_RELAY (default the test place) and NOTES_TOKEN (the relay's password; never printed or written).
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -141,6 +142,54 @@ function perf(g) {
   return L.join('\n') + '\n';
 }
 
+// ---- the performance run (perfrun.js, v228; docs/agents/shell.md "The performance run"): a result is either the JSON a page
+// offers (Download JSON: { kind: 'perfrun', info, segs, totals, ... }), or a run log on the relay (or its pulled log.json)
+// whose events carry it ('perfrun' once, a 'seg' for each segment, 'perfend'). perfrun <a> prints one as Markdown;
+// perfrun <a> <b> compares two (two runs, two headsets), segment by segment
+async function perfRunOf(src) {
+  let g;
+  if (existsSync(src)) { try { g = JSON.parse(readFileSync(src, 'utf8')); } catch (e) { die(src + ': not JSON'); } }
+  else g = await getLog(src);
+  if (g && g.kind === 'perfrun' && Array.isArray(g.segs)) return Object.assign({ name: g.id || src }, g);
+  const evs = (g.rows || []).filter(r => r && !Array.isArray(r)), I = evs.find(e => e.ev === 'perfrun');
+  if (!I) die(src + ': no performance run in it (a run log without perfrun events)');
+  const segs = evs.filter(e => e.ev === 'seg').map(e => { const o = Object.assign({}, e); delete o.ev; return o; }), end = evs.find(e => e.ev === 'perfend') || {};
+  const c = g.context || {};
+  return { name: g.id || src, kind: 'perfrun', part: I.part, id: I.id, at: g.at, release: I.release || c.release, dur: end.dur, stopped: end.stopped, batt0: I.batt0, batt1: end.batt1,
+    info: Object.assign({}, I, { settings: { fps: I.fps, auto: I.auto, sharp: I.sharp, occl: I.occl, bodies: I.bodies } }), segs, log: g.id };
+}
+const segName = g => (g.story || '-') + ' ' + (g.kind === 'chapter' ? 'ch ' + g.key : g.kind === 'load' ? 'load' + (g.story === 'studio' ? ' ' + g.key : '') : g.kind === 'explore' ? 'explore ' + g.key : g.kind === 'hand' ? 'step ' + g.key : g.key);
+const cell = v => (v === null || v === undefined || v === '' ? '-' : String(v));
+const missPct = g => (g.n ? (100 * (g.miss || 0) / (g.n + (g.miss || 0))).toFixed(1) : '-');
+function perfRunFacts(r) {
+  const I = r.info || {}, S = I.settings || {};
+  return [`- ${r.part === 'hands' ? 'Hands-on test' : 'Run-through'} ${r.id || ''}, ${new Date(r.at || 0).toISOString().slice(0, 16).replace('T', ' ')}, release ${r.release || '?'}, ${r.dur != null ? mmss(r.dur) : '?'}` + (r.stopped ? `, stopped: ${r.stopped}` : '') + (r.log ? `, run log ${r.log}` : ''),
+    `- ${[I.device, I.model, I.browser].filter(Boolean).join(', ')}; ${I.xr ? I.xr.toUpperCase() : 'a page'} at ${cell(I.hz)} Hz` + (I.hzList ? ` (offers ${I.hzList})` : '') + (I.eyeW ? `, eye ${I.eyeW} x ${I.eyeH}` : '') + (I.fbScale != null ? `, framebuffer ${I.fbScale}` : '') + (I.fov != null ? `, foveation ${I.fov}` : ''),
+    `- Settings: automatic quality ${cell(S.auto)}, frame rate read-out ${cell(S.fps)}, sharp text ${cell(S.sharp)}, occlusion ${cell(S.occl)}, bodies ${cell(S.bodies)}; battery ${cell(r.batt0)} % to ${cell(r.batt1)} %`];
+}
+function perfRunMd(r) {
+  const L = ['# Performance run ' + (r.id || r.name), '', ...perfRunFacts(r), ''];
+  L.push('| segment | s | frames | mean | p50 | p95 | p99 | worst | missed | miss % | stall | calls | tris k | js | heap MB | q | errs | note |', '|---|' + '---:|'.repeat(16) + '---|');
+  for (const g of r.segs) L.push('| ' + [segName(g), cell(g.dur), cell(g.n), cell(g.mean), cell(g.p50), cell(g.p95), cell(g.p99), cell(g.max), cell(g.miss), missPct(g), cell(g.stall), cell(g.calls), g.tri != null ? Math.round(g.tri / 1000) : '-', cell(g.js), cell(g.heap), cell(g.q) + (g.qch ? ' (' + g.qch + ' changes)' : ''), cell(g.errs), [g.why, g.load != null ? 'load ' + g.load + ' ms' : '', g.build ? 'build ' + g.build + ' ms' : ''].filter(Boolean).join(', ')].join(' | ') + ' |');
+  const ok = r.segs.filter(g => g.n), fr = ok.reduce((a, g) => a + g.n, 0), ms = ok.reduce((a, g) => a + (g.miss || 0), 0), mean = fr ? ok.reduce((a, g) => a + g.mean * g.n, 0) / fr : 0;
+  const bad = r.segs.filter(g => g.why && !['skipped', 'only in AR', 'stopped'].includes(g.why));
+  L.push('', `Totals: ${r.segs.length} segments, ${bad.length} failed; ${fr} frames, mean ${mean.toFixed(2)} ms; ${ms} refreshes missed (${fr ? (100 * ms / (fr + ms)).toFixed(1) : '-'} % of them).`);
+  const worst = ok.slice().sort((a, b) => (b.miss || 0) / b.n - (a.miss || 0) / a.n || (b.p95 || 0) - (a.p95 || 0)).slice(0, 5);
+  if (worst.length) L.push('', 'The five worst (by refreshes missed, then p95): ' + worst.map(g => `${segName(g)} (${missPct(g)} %, p95 ${g.p95} ms)`).join('; ') + '.');
+  if (bad.length) L.push('', 'Failed: ' + bad.map(g => `${segName(g)}: ${g.why}`).join('; ') + '.');
+  L.push('', '(ms between frames. missed: refreshes of the display with no new frame; miss %: of all refreshes. stall: the longest run of late frames, over 1.5 periods. calls, tris: the story\'s frame, both eyes. q: automatic quality\'s level, r = the refresh rate stepped down.)');
+  return L.join('\n') + '\n';
+}
+function perfRunCompare(a, b) {
+  const L = ['# Performance runs compared', '', '**A**', ...perfRunFacts(a), '', '**B**', ...perfRunFacts(b), ''];
+  L.push('| segment | A mean | B mean | A p95 | B p95 | p95 B-A | A miss % | B miss % | A calls | B calls | note |', '|---|' + '---:|'.repeat(9) + '---|');
+  const key = g => g.kind + '|' + g.story + '|' + g.key, B = new Map(b.segs.map(g => [key(g), g])), seen = new Set();
+  const row = (x, y) => { const d = x && y && x.p95 != null && y.p95 != null ? (y.p95 - x.p95).toFixed(1) : '-'; L.push('| ' + [segName(x || y), cell(x && x.mean), cell(y && y.mean), cell(x && x.p95), cell(y && y.p95), d, x ? missPct(x) : '-', y ? missPct(y) : '-', cell(x && x.calls), cell(y && y.calls), [x && x.why ? 'A: ' + x.why : '', y && y.why ? 'B: ' + y.why : '', !x ? 'only in B' : !y ? 'only in A' : ''].filter(Boolean).join('; ')].join(' | ') + ' |'); };
+  for (const g of a.segs) { const k = key(g); seen.add(k); row(g, B.get(k)); }
+  for (const g of b.segs) if (!seen.has(key(g))) row(null, g);
+  return L.join('\n') + '\n';
+}
+
 const argv = process.argv.slice(2), cmd = argv[0];
 const opt = (n, def) => { const i = argv.indexOf(n); return i > 0 && argv[i + 1] ? argv[i + 1] : def; };
 const target = argv[1] && !argv[1].startsWith('--') ? argv[1] : '';
@@ -154,6 +203,14 @@ if (cmd === 'list') {
   // the run logs (a relay older than them answers 404: none)
   const lg = await call('/api/logs', null, false, true);
   for (const g of (lg && lg.logs) || []) console.log([g.id, 'log', mmss(g.dur), g.rows + ' s', g.device || '', (g.stories || []).join(',') || '-', g.ended ? '' : '(not ended)'].join('  '));
+} else if (cmd === 'perfrun' && target) {
+  const srcs = argv.slice(1).filter((x, i, A) => !x.startsWith('--') && A[i - 1] !== '--md');
+  if (srcs.length > 2) die('perfrun takes one result, or two to compare');
+  const rs = [];
+  for (const s of srcs) rs.push(await perfRunOf(s));
+  const md = rs.length === 2 ? perfRunCompare(rs[0], rs[1]) : perfRunMd(rs[0]);
+  const to = opt('--md', '');
+  if (to) { writeFileSync(to, md); console.log(to); } else process.stdout.write(md);
 } else if (cmd === 'perf' && target) {
   process.stdout.write(perf(await getLog(target)));
 } else if (cmd === 'pull' && target) {
@@ -179,5 +236,5 @@ if (cmd === 'list') {
   await call('/api/notes/' + encodeURIComponent(target), { status: 'done' });
   console.log(target + ' marked done');
 } else {
-  die('Usage: node tools/notes/notes.mjs list [--all] | pull <id|new> [--out dir] | transcribe <id|new> [--model small] | done <id> | perf <run id>\nEnvironment: NOTES_RELAY, NOTES_TOKEN');
+  die('Usage: node tools/notes/notes.mjs list [--all] | pull <id|new> [--out dir] | transcribe <id|new> [--model small] | done <id> | perf <run id> | perfrun <run id|result.json> [<run id|result.json>] [--md out.md]\nEnvironment: NOTES_RELAY, NOTES_TOKEN');
 }

@@ -5,7 +5,7 @@
 const VERSION = 'networks-v228';
 // (the studio's two parts loaded on demand, stories/studio-convert.js and studio-edit.js, v226: tools/studio/build.mjs, stand
 // apart from the run of story files that tools/release.mjs writes, after output.js, so it leaves them as they are)
-const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './stories/studio-convert.js', './stories/studio-edit.js', './manifest.webmanifest',
+const SHELL = ['./', './index.html', './sfx.js', './occlusion.js', './ships.js', './notes.js', './perfrun.js', './shared.js', './ik.js', './bodies.js', './flight.js', './proteins.html', './spatial.html', './stories/list.js', './stories/studio.js', './lowpoly.js', './three.min.js', './peerjs.min.js', './output.js', './stories/studio-convert.js', './stories/studio-edit.js', './manifest.webmanifest',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png',
   './fonts/B612-Regular.woff2', './fonts/B612-Bold.woff2', './fonts/B612-Italic.woff2'];
 

@@ -717,6 +717,15 @@ HOST.notes = (HOST.quietly || (fn => fn()))(function () {
     pin, start, stop: send => stop(send !== false), frame, context, outbox: () => outAll(), flush,
     // Record a run (run logs): running() for HOST.perf, run(on) to start or stop, runState(), runSig() for the menu
     running: () => R.on, run: on => (on === undefined ? (R.on ? runStop() : runStart()) : on ? runStart() : runStop()), runState, runSig: () => runSig + (R.err ? ':' + R.err : ''),
+    // (v228: another part of the shell's events in the run: the performance run's, perfrun.js; a name of letters and digits,
+    // fields as the relay takes them, at most 22, each a number, a string of at most 200, a boolean or null)
+    runEvent(ev, o) {
+      if (!R.on || !/^[a-z][a-z0-9]{0,30}$/.test(String(ev)) || ['w', 'ev'].some(k => o && k in o)) return false;
+      const x = {};
+      for (const [k, v] of Object.entries(o || {}).slice(0, 22)) x[k] = typeof v === 'string' ? v.slice(0, 200) : typeof v === 'number' ? (isFinite(v) ? v : null) : typeof v === 'boolean' || v === null ? v : String(v).slice(0, 200);
+      runEv(ev, x);
+      return true;
+    },
     runRows: () => R.rows.slice(), runCols: () => RUN_COLS.slice(), runTest(o) { if (o && o.part) RUNT.part = +o.part; if (o && 'tick' in o) runTick(); return Object.assign({}, RUNT); },
     // what shared.js draws while a note is recorded (the read-out, the pins): null when nothing shows
     view() {

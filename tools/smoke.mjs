@@ -18398,6 +18398,113 @@ if (runs('controllers after standby')) {
   });
   await ctx.close();
 }
+// The performance run (v228, perfrun.js, HOST.perfRun; docs/agents/shell.md "The performance run"): a much shortened run.
+// On a page (#perfrun&prgo=page): two stories and one that fails to load (HOST.load refused for it), one chapter each, a
+// second or two a segment, one example scene (the test scene, tiny); the result's shape, the failing story recorded and
+// passed over, the settings put back (automatic quality pinned off for the run, xrAuto as it was after), and a reload in
+// the middle picked up (the item that was going recorded as failed, the rest run). Then in a pretend headset (FPS_FAKE):
+// the run-through in the session (VR in its facts, the read-out drawn, its card's buttons pointable), and the hands-on
+// part with one step done, one skipped and an AR step passed over in VR. In pages of their own
+if (runs('perf run')) {
+  const step = (name, fn) => smokeStep(name, async () => { try { await fn(); } catch (e) { errors.push(name + ': ' + (e.stack || e.message)); } });
+  const seed = () => { try { localStorage.setItem('collabAutoAll', 'off'); localStorage.setItem('collabAskDefault', 'walk'); } catch (e) { /* storage blocked */ } };
+  const SHORT = { chapters: 1, ch: 1.5, ex: 1, tabs: 1, load: 1, settle: 0.5, scene: 1.5, scenes: 'tiny', examples: 'tools/studio/test/examples' };
+  const J = JSON.stringify;
+  await step('perf run: on a page, two stories, one that fails and a scene: the result\'s shape, the failure passed over, the settings put back, a reload picked up', async () => {
+    const bad = [], ctx = await browser.newContext({ viewport: { width: 640, height: 400 } }), pp = await ctx.newPage();
+    await ctx.addInitScript(seed);
+    pp.on('pageerror', e => bad.push('page error: ' + (e.stack || e.message)));
+    pp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) bad.push('console: ' + m.text()); });
+    try {
+      // (automatic quality on as the person has it; the run pins it off)
+      await pp.goto(base + 'index.html#airports&aq=on');
+      await pp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur, null, { timeout: 60000 });
+      const q = new URLSearchParams(Object.assign({ prstories: 'airports,proteins,flock', prchapters: '1', prch: '1.5', prex: '1', prtabs: '1', prload: '1', prsettle: '0.5', prscene: '1.5', prscenes: 'tiny', prexamples: 'tools/studio/test/examples', praq: 'off' })).toString();
+      await pp.goto('about:blank');
+      await pp.goto(base + 'index.html#perfrun&prgo=page&' + q);
+      await pp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.perfRun && HOST.perfRun.state().on, null, { timeout: 60000 });
+      // (proteins does not load: its file refused)
+      await pp.evaluate(() => { const ld = HOST.load; HOST.load = function (k, ...a) { return k === 'proteins' ? Promise.reject(new Error('a test failure')) : ld.call(this, k, ...a); }; });
+      const mid = await pp.evaluate(() => ({ auto: HOST.xr.auto(), raw: localStorage.getItem('xrAuto'), muted: HOST.audio.muted, slides: HOST.slides.on('airports'), ended: (() => { const r = HOST.repeat; HOST.repeat = 'all'; const e = HOST.ended(); HOST.repeat = r; return e; })(), plan: HOST.perfRun.plan().map(p => p.key || p.name) }));
+      if (mid.auto !== false || !mid.muted || mid.slides !== false || mid.ended !== false) bad.push('while it runs: ' + J(mid));
+      if (J(mid.plan) !== J(['airports', 'proteins', 'flock', 'tiny'])) bad.push('the plan: ' + J(mid.plan));
+      // a reload as flock (the third) is going: picked up, flock recorded as failed, the scene run
+      await pp.waitForFunction(() => HOST.perfRun.state().i >= 2 && HOST.curKey !== 'proteins', null, { timeout: 180000, polling: 250 });
+      const kept = await pp.evaluate(() => JSON.parse(localStorage.getItem('perfRun') || 'null'));
+      if (!kept || kept.i !== 2 || kept.cur !== 2 || !kept.segs.length) bad.push('not kept for a reload: ' + J(kept && { i: kept.i, cur: kept.cur, segs: kept.segs.length }));
+      await pp.reload();
+      await pp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.perfRun && HOST.perfRun.state().on, null, { timeout: 60000 });
+      await pp.waitForFunction(() => !HOST.perfRun.state().on && !!HOST.perfRun.result(), null, { timeout: 180000, polling: 500 });
+      await pp.waitForTimeout(500);
+      const r = await pp.evaluate(() => ({ res: HOST.perfRun.result(), auto: HOST.xr.auto(), raw: localStorage.getItem('xrAuto'), kept: localStorage.getItem('perfRun'), last: !!localStorage.getItem('perfRunLast'), card: HOST.perfRun.state().card, dom: !document.getElementById('perfCard').hidden && document.getElementById('perfCard').textContent }));
+      const R = r.res, S = R.segs, find = (story, kind) => S.filter(g => g.story === story && g.kind === kind);
+      if (R.kind !== 'perfrun' || R.part !== 'run' || !R.id || !R.info || R.info.xr !== '' || !R.totals || !Array.isArray(R.worst) || !R.worst.length) bad.push('the result: ' + J(Object.keys(R)) + ' ' + J(R.totals));
+      const a = find('airports', 'chapter')[0];
+      if (!a || !(a.n > 0) || !['mean', 'p50', 'p95', 'p99', 'max', 'miss', 'stall', 'calls', 'tri', 'q', 'errs'].every(k => k in a) || !(a.calls > 0) || !(a.tri > 0)) bad.push('the airports chapter: ' + J(a));
+      if (!find('airports', 'load').some(g => g.load > 0 || g.load === null) || !find('airports', 'explore').length) bad.push('airports load or explore: ' + J(S.filter(g => g.story === 'airports')));
+      if (!S.some(g => g.story === 'proteins' && /test failure/.test(g.why))) bad.push('proteins\' failure not recorded: ' + J(S.filter(g => g.story === 'proteins')));
+      if (!S.some(g => g.story === 'flock' && /reloaded/.test(g.why))) bad.push('flock not recorded as cut by the reload: ' + J(S.filter(g => g.story === 'flock')));
+      if (!S.some(g => g.kind === 'scene' && g.key === 'tiny' && g.n > 0 && !g.why)) bad.push('the scene: ' + J(S.filter(g => g.story === 'studio')));
+      if (R.totals.failed !== 2 || R.failed.length !== 2) bad.push('failed: ' + J(R.failed));
+      if (r.auto !== true || r.raw !== 'on' || r.kept !== null || !r.last) bad.push('after: ' + J({ auto: r.auto, raw: r.raw, kept: !!r.kept, last: r.last }));
+      if (!r.card || !r.card.buttons.includes('json') || !/results/.test(r.card.title) || !/The five worst/.test(r.dom || '')) bad.push('the results card: ' + J(r.card) + ' ' + String(r.dom).slice(0, 200));
+    } catch (e) { bad.push(String(e && e.stack || e)); }
+    await ctx.close();
+    errors.push(...bad.map(b => 'perf run (page): ' + b));
+  });
+  await step('perf run: in a pretend headset, the run-through in the session (its read-out, its card pressed by the ray\'s region) and the hands-on part (one step done, one skipped, an AR step passed over in VR)', async () => {
+    const bad = [], ctx = await browser.newContext({ viewport: { width: 640, height: 400 } }), xp = await ctx.newPage();
+    await xp.addInitScript(FPS_FAKE);
+    xp.on('pageerror', e => bad.push('page error: ' + (e.stack || e.message)));
+    xp.on('console', m => { if (m.type() === 'error' && !/404|Failed to load resource/.test(m.text())) bad.push('console: ' + m.text()); });
+    const frames = (fn, ms) => xp.evaluate(([fn, ms]) => window.__fp.runUntil(fn ? new Function('return (' + fn + ')')() : null, ms), [fn ? String(fn) : '', ms]);
+    const until = async (fn, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if (await xp.evaluate(fn)) return true; await frames(fn, 1500); } return false; };
+    try {
+      await xp.goto(base + 'index.html#airports');
+      await xp.waitForFunction(() => typeof HOST !== 'undefined' && HOST.curKey === 'airports' && HOST.cur && HOST.cur.collab.scene(), null, { timeout: 60000 });
+      await xp.evaluate(() => HOST.cur.peek('xrStart("immersive-vr")'));
+      await xp.waitForFunction(() => window.__fp.session && window.__fp.session.cbs.size && HOST.session === window.__fp.session, null, { timeout: 20000 });
+      await frames(null, 300);
+      await xp.evaluate(() => HOST.mods.load('perfRun'));
+      await xp.evaluate(o => HOST.perfRun.start(Object.assign({ part: 'run', stories: ['airports'] }, o)), SHORT);
+      let hud = '';
+      const done = await until(() => { const s = HOST.perfRun.state(), H = HOST.collab.overlay().perfHud; if (H.mesh.visible && H.text) window.__prHud = H.text; return !s.on && s.i > 0; }, 240000);
+      hud = await xp.evaluate(() => window.__prHud || '');
+      await frames(null, 800);
+      const r = await xp.evaluate(() => ({ res: HOST.perfRun.result(), vis: HOST.collab.overlay().perf.mesh.visible, hit: HOST.collab.overlay().hit.includes(HOST.collab.overlay().perf.mesh), regions: HOST.collab.overlay().perf.regions.map(x => x.id) }));
+      if (!done || r.res.info.xr !== 'vr' || !(r.res.info.hz > 0) || r.res.totals.failed || !r.res.segs.some(g => g.kind === 'scene' && g.n > 0)) bad.push('the run in the session: ' + J({ done, info: r.res.info, totals: r.res.totals, failed: r.res.failed }));
+      if (!/^Performance run · \d of 2 · /.test(hud)) bad.push('the read-out did not show: ' + J(hud));
+      if (!r.vis || !r.hit || J(r.regions) !== J(['close', 'hands'])) bad.push('the results card in the headset: ' + J(r));
+      // Hands-on test from the card (its region pressed, as the ray presses it): the panel done, the menu skipped, occlusion only in AR
+      await xp.evaluate(() => HOST.collab.overlay().perf.regions.find(x => x.id === 'hands').fn());
+      await frames(null, 200);
+      // (the card's Hands-on test starts it with the defaults: stopped and started again with the test's short ones)
+      await xp.evaluate(() => HOST.perfRun.stop('test'));
+      await until(() => !HOST.perfRun.state().on, 30000);
+      await xp.evaluate(o => HOST.perfRun.start(Object.assign({ part: 'hands', story: 'airports', hands: ['panel', 'menu', 'occlon'], hand: 30, handScene: 'tiny' }, o)), SHORT);
+      const seen = [];
+      for (let k = 0; k < 200; k++) {
+        const s = await xp.evaluate(() => HOST.perfRun.state());
+        if (!s.on && s.i > 0) break;
+        if (s.card && s.card.buttons.includes('done') && !seen.includes(s.card.title)) {
+          seen.push(s.card.title);
+          await frames(null, 400);
+          const id = seen.length === 1 ? 'done' : 'skip';
+          await xp.evaluate(id => HOST.collab.overlay().perf.regions.find(x => x.id === id).fn(), id);
+        }
+        await frames(null, 300);
+      }
+      await frames(null, 600);
+      const h = await xp.evaluate(() => HOST.perfRun.result());
+      const hs = h.segs.filter(g => g.kind === 'hand').map(g => [g.key, g.why, g.n > 0]);
+      if (h.part !== 'hands' || J(hs) !== J([['panel', '', true], ['menu', 'skipped', true], ['occlon', 'only in AR', false]])) bad.push('the hands-on part: ' + J({ part: h.part, hs, seen }));
+      if (J(seen) !== J(['The story panel (1 of 3)', 'The menu (2 of 3)'])) bad.push('its cards: ' + J(seen));
+      await xp.evaluate(() => window.__fp.session.end());
+    } catch (e) { bad.push(String(e && e.stack || e)); }
+    await ctx.close();
+    errors.push(...bad.map(b => 'perf run (headset): ' + b));
+  });
+}
 // Developer mode (v125, HOST.dev in index.html; NEWS in shared.js): this device's own, off by default. While on, what is
 // new in this release (whatsnew.json, served by the test server; a stand-in served instead where a step says so) shows as
 // a card over the Stories screen or the story a link opened, once a page load until Got it for that version (devSeen);
@@ -18797,7 +18904,7 @@ if (runs('developer mode')) {
     const fs = await import('node:fs'), path = await import('node:path'), os = await import('node:os');
     const here = path.dirname(path.dirname((await import('node:url')).fileURLToPath(import.meta.url))), T = fs.mkdtempSync(path.join(os.tmpdir(), 'smoke-rel-'));
     try {
-      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'output.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
+      for (const f of ['index.html', 'shared.js', 'three.min.js', 'peerjs.min.js', 'sfx.js', 'occlusion.js', 'ships.js', 'notes.js', 'perfrun.js', 'output.js', 'ik.js', 'bodies.js', 'flight.js', 'sw.js', 'version.json', 'whatsnew.json']) fs.copyFileSync(path.join(here, f), path.join(T, f));
       fs.cpSync(path.join(here, 'stories'), path.join(T, 'stories'), { recursive: true });
       // (the story packages release.mjs reads: their order, index and each story.json, not their files)
       fs.mkdirSync(path.join(T, 'packages'));

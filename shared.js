@@ -3695,6 +3695,13 @@
     OV.root.add(OV.wel.mesh); OV.wel.mesh.visible = false;
     OV.fps = sheet(800, 120, 0.36, 52, true);
     OV.root.add(OV.fps.mesh); OV.fps.mesh.visible = false; OV.fps.text = '';
+    // the performance run's card (perfrun.js, v228: its start, its hands-on steps, its results), pointable as the question
+    // is, and its read-out low in the view (drawPerf)
+    OV.perf = sheet(760, 760, 0.5, 55, true);
+    OV.perf.mesh.userData.shell = { kind: 'perf' };
+    OV.root.add(OV.perf.mesh); OV.perf.mesh.visible = false;
+    OV.perfHud = sheet(800, 72, 0.36, 52, true);
+    OV.root.add(OV.perfHud.mesh); OV.perfHud.mesh.visible = false; OV.perfHud.text = '';
     // the subtitles' strip (drawSubs): over the story's panels, under the menu and the notices
     OV.sub = sheet(SUBS.w, SUBS.h, SUBS.mw, 51, true);
     OV.root.add(OV.sub.mesh); OV.sub.mesh.visible = false; OV.sub.text = ''; OV.sub.want = '';
@@ -4874,7 +4881,7 @@
       C.code ? roomName() : (C.rooms || []).map(r => r.code + r.members + (r.title || '')), C.code ? '' : localRooms().map(r => r.code + r.name), C.roomsErr, C.relay, reloadArmed(), RL.busy, C.code ? nearShown() : [(C.near || []).map(r => r.code + r.members + r.name + r.title), C.netState, C.nearBusy, C.nearErr, (offer() || {}).code], sharedLine(), sourceLine(), versionNote(), scanNote(), fullNote(), floorNote(), forgetArmed(), freshArmed(), canFresh(), !!(R.saved || R.frame), R.sharedAlign, circlesLocked(), stLocked(sesSt()), peopleAll(),
       C.local, C.code ? 0 : localRooms().map(r => r.code + r.stations), !!R.again, HOST.slides ? HOST.slides.sig() : '', menuHint(), HOST.xr.sig(), showing(), showing() && HOST.panels.sig(showing()),
       PNL.page === 'sound' ? Math.floor(performance.now() / 500) + HOST.audio.pref : '', HOST.curKey, HOST.sfx ? HOST.sfx.sig() : '', HOST.xr.voice ? HOST.xr.voice() : '', (L => L && [L.vset, L.voice, L.vg])(look()), HOST.audio.muted, HOST.anchor && HOST.anchor.on, HOST.repeat,
-      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', !!HOST.ships, !!HOST.notes, PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
+      PNL.code, PNL.pass, PNL.kp && [PNL.kp.title, PNL.kp.value, PNL.kp.sh], askFirst(), fpsOn(), myBody(), bodiesOn(), BOD.can, HOST.mode, HOST.xr.walk ? HOST.xr.walk() + HOST.xr.walkWhy() + !!(HOST.cur && HOST.cur.sticks) + walkAway() + C.local + turnSay() : '', devOn(), PNL.page === 'news' ? [HOST.dev && HOST.dev.sig(), NEWS.fl, Math.round(NEWS.sc || 0)] : '', PNL.page === 'notes' ? notesSig() : '',MSH.on, SCN.list.join('/'), AUTH.state, AUTH.at, PNL.home, HOME.state, homeOffer(), (r => r.label + !!r.fn)(recenterRow()), PNL.tab, ringsAll(), timeNow(), PNL.tab === 'story' ? !!storyPanels() : '', HOST.occlusion && HOST.occlusion.sig ? HOST.occlusion.sig() : '', !!HOST.ships, !!HOST.notes, PNL.tab === 'debug' ? [HOST.shell && HOST.shell.n, TRK.show, trkMenuLine(), placesSig(), layerSig(), HOST.notes && HOST.notes.runSig ? HOST.notes.runSig() : '', HOST.perfRun ? HOST.perfRun.sig() + (HOST.perfRun.state().line || '') : ''] : '', PNL.tab === 'settings' ? sharpSig() : '', PNL.tab === 'circles' ? TH.sig : '',
       // (v214: the limited menu, the room's switch, and what the limited page shows that nothing above says)
       (L => [L, roomMenusFull(), subsDefault(), L ? (A => (A ? A.mode + A.playing : ''))(storyApp()) : '', L && HOST.curKey === 'pass' ? langButtons().map(o => o.l + o.on).join() : '', L ? R.state : '', L ? [guideOn(), (U => U.text + U.c)(lineUp()), !!R.calib, !!R.session, CAM.on] : ''])(menuLimited()),
       PNL.tab === 'story' || PNL.tab === 'settings' ? '' : [PNL.gs, guideOn(), (L => L.text + L.c)(lineUp()), checkState().text, CK.arm, CK.self, linedUp(), R.calib && R.calib.step,
@@ -5720,6 +5727,17 @@
           note('This release: what changed and what to test', y);
           y += 72;
         }
+      }
+      // the performance run (perfrun.js, v228; developer mode): the run-through and the hands-on test, started here (the
+      // menu closes so it is not measured), or stopped
+      if (devOn()) {
+        const P = HOST.perfRun, ps = P ? nz(() => P.state(), null) : null, pon = !!(ps && (ps.on || ps.want || ps.paused));
+        const go = k => { menuOpen(false, 'perf'); HOST.mods.load('perfRun').then(M => { if (!M) return; if (k === 'stop') M.stop('stopped from the menu'); else M.start({ part: k }); }); };
+        button(S, 'perfrun', x, y, bw, 56, pon ? 'Stop the run' : 'Performance run', () => go(pon ? 'stop' : 'run'), { px: 21, on: pon, tog: null });
+        button(S, 'handson', x + bw + 16, y, bw, 56, 'Hands-on test', pon ? null : () => go('hands'), { px: 21, tog: null });
+        y += 66;
+        ctx.font = FONT(21); ctx.fillStyle = MUTED;
+        y += wrapText(ctx, ps ? ps.line : 'Performance run: every story and scene by itself, each frame measured. Hands-on test: about five minutes of steps.', x, y, w, 28, 2) + 16;
       }
       // what to tell someone helping: the release, the room's connection, the browser, the frame rate. Drawn here, and
       // then line by line as they change (stripStep, v136: the frame rate and the round trip change every second or so,
@@ -7227,6 +7245,61 @@
     S.mesh.position.set(0, 0, -FPSV.dist).applyQuaternion(S.mesh.quaternion).add(HD.p);
   }
 
+  // ------------------------------------------- the performance run (perfrun.js, v228) --
+  // Its card (one model with the page's #perfCard: HOST.perfRun.view().card { title, lines, buttons, n }), put in front of
+  // you as each new card opens and turned to you (it does not follow the head), pressed by the ray or the finger as the
+  // question is; and its read-out, one line low in the view, 22 degrees under the gaze and 14 to the right (the frame
+  // rate's is to the left), drawn again only when its line changes, which perfrun.js does only as a segment begins
+  const PERF = { n: -1, poke: { armed: true, hov: null }, down: 26 * Math.PI / 180, right: -14 * Math.PI / 180 };
+  function drawPerf() {
+    const P = HOST.perfRun, V = P && P.view ? nz(() => P.view(), null) : null, c = V && V.card, S = OV.perf, H = OV.perfHud;
+    const on = !!c && !!HOST.session && HD.ok && !CAM.on;
+    S.mesh.visible = on;
+    if (!on) { PERF.n = -1; S.regions = []; }
+    else {
+      const sig = [c.n, S.hover].join('|');
+      if (sig !== S.sig) {
+        S.sig = sig;
+        const ctx = S.ctx, W = S.w;
+        ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, W, S.h); ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+        S.regions = [];
+        // (the height it needs first: the title, the lines wrapped, the buttons three a row)
+        ctx.font = FONT(22);
+        const lines = []; for (const l of c.lines) { const ws = String(l).split(/\s+/); let cur = ''; for (const w of ws) { const t = cur ? cur + ' ' + w : w; if (cur && ctx.measureText(t).width > W - 60) { lines.push(cur); cur = w; } else cur = t; } lines.push(cur); }
+        const L = lines.slice(0, 16), rows = Math.ceil(c.buttons.length / 3), hh = Math.min(S.h, 92 + L.length * 30 + 20 + rows * 72 + 16);
+        rr(ctx, 3, 3, W - 6, hh - 6, 24); ctx.fillStyle = 'rgba(8,15,28,0.95)'; ctx.fill(); ctx.lineWidth = 4; ctx.strokeStyle = CYAN; ctx.stroke();
+        ctx.font = FONT(32, 700); ctx.fillStyle = INK; ctx.fillText(fit(ctx, c.title, W - 60), 30, 30);
+        ctx.font = FONT(22); ctx.fillStyle = MUTED;
+        L.forEach((l, k) => ctx.fillText(fit(ctx, l, W - 60), 30, 86 + k * 30));
+        const y0 = 86 + L.length * 30 + 20, bw = (W - 60 - 2 * 16) / 3;
+        c.buttons.forEach((b, k) => button(S, b.id, 30 + (k % 3) * (bw + 16), y0 + Math.floor(k / 3) * 72, bw, 60, b.label, () => P.press(b.id), { primary: !!b.primary, px: 23, tog: null }));
+        showTop(S, hh);
+        S.tex.needsUpdate = true;
+      }
+      if (PERF.n !== c.n && HD.ok) {
+        PERF.n = c.n;
+        _v.set(0, 0, -1).applyQuaternion(HD.q); _v.y = 0;
+        if (_v.lengthSq() < 1e-6) _v.set(0, 0, -1);
+        _v.normalize().multiplyScalar(0.85).add(HD.p); _v.y -= 0.1;
+        S.mesh.position.copy(_v); S.mesh.lookAt(HD.p);
+      }
+    }
+    const t = V && V.hud, hon = !!t && !!HOST.session && HD.ok && !CAM.on;
+    H.mesh.visible = hon;
+    if (!hon) return;
+    if (t !== H.text) {
+      H.text = t;
+      const ctx = H.ctx;
+      ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.clearRect(0, 0, H.w, H.h); ctx.textBaseline = 'middle'; ctx.textAlign = 'left';
+      rr(ctx, 2, 2, H.w - 4, H.h - 4, 16); ctx.fillStyle = 'rgba(8,15,28,0.8)'; ctx.fill();
+      ctx.font = FONT(24); ctx.fillStyle = INK; ctx.fillText(fit(ctx, t, H.w - 40), 20, H.h / 2 + 1);
+      H.tex.needsUpdate = true;
+    }
+    _e.set(-PERF.down, PERF.right, 0); _q2.setFromEuler(_e);
+    H.mesh.quaternion.copy(HD.q).multiply(_q2);
+    H.mesh.position.set(0, 0, -1).applyQuaternion(H.mesh.quaternion).add(HD.p);
+  }
+
   // ------------------------------------------- the developer notebook (notes.js, v142) --
   // While a note is recorded in a headset: a small read-out fixed to the head (a red dot, the time, the pins, which button to
   // let go of, a level bar), and each pin where it hit (a bright ball with its number on a sign, over everything, in the
@@ -7296,7 +7369,7 @@
         const t = sh.target, k = t.kind;
         if (k === 'storypanel') hit = { kind: 'panel', panel: t.which };
         else if (k === 'panel') { const r = OV.panel.at(sh.x, sh.y); hit = { kind: 'shell', what: 'menu', id: r ? String(r.id) : '' }; }
-        else if (k === 'ask' || k === 'eye') { const r = OV[k].at(sh.x, sh.y); hit = { kind: 'shell', what: k, id: r ? String(r.id) : '' }; }
+        else if (k === 'ask' || k === 'eye' || k === 'perf') { const r = OV[k].at(sh.x, sh.y); hit = { kind: 'shell', what: k, id: r ? String(r.id) : '' }; }
         else if (k === 'station') { const s = C.stById.get(t.id); hit = { kind: 'shell', what: 'station', id: String(t.id), story: s ? String(s.story) : '' }; }
         else hit = { kind: 'shell', what: String(k), id: '' };
         if (sh.p) P.copy(sh.p);
@@ -8081,18 +8154,18 @@
     const tip = tipMode();
     const hits = RC.intersectObjects(tip ? OV.hit.filter(m => m === OV.panel.mesh) : OV.hit, false);
     // (the question whether to go into a circle is drawn over everything: on the ray, it is what the ray points at)
-    for (const top of [OV.ask.mesh, OV.eye.mesh, OV.wel.mesh]) { const ah = hits.findIndex(x => x.object === top); if (ah > 0) hits.unshift(hits.splice(ah, 1)[0]); }
+    for (const top of [OV.ask.mesh, OV.eye.mesh, OV.wel.mesh, OV.perf.mesh]) { const ah = hits.findIndex(x => x.object === top); if (ah > 0) hits.unshift(hits.splice(ah, 1)[0]); }
     for (const x of hits) {
       const t = x.object.userData.shell;
       if (!t) continue;
-      if (!tip && near != null && x.distance > near && t.kind !== 'ask' && t.kind !== 'eye' && t.kind !== 'wel') break;   // the story's own panel is in front
+      if (!tip && near != null && x.distance > near && t.kind !== 'ask' && t.kind !== 'eye' && t.kind !== 'wel' && t.kind !== 'perf') break;   // the story's own panel is in front
       // the Story tab: the story's own panel there (the story takes it as its panel, at u, v of its canvas: its buttons,
       // sliders and hover tick as on the panel itself)
       if (t.kind === 'storypanel') { C.hov.set(i, { target: t, at: h.at, p: x.point }); h.hk = ''; return { kind: 'shell', panel: t.which, u: x.uv.x, v: x.uv.y, point: x.point, dist: x.distance }; }
       const S = x.object.userData.sheet, hx = S && x.uv ? x.uv.x * S.w : 0, hy = S && x.uv ? (1 - x.uv.y) * S.vis : 0;
       C.hov.set(i, { target: t, x: hx, y: hy, at: h.at, p: x.point });
       // a soft tick as the pointer comes onto something new: a button of the menu, a station
-      const sh = t.kind === 'panel' || t.kind === 'ask' || t.kind === 'eye', r = sh && S ? S.at(hx, hy) : null, key = sh ? (r && r.fn ? t.kind[0] + ':' + r.id : '') : t.kind === 'station' ? 's:' + t.id : t.kind;
+      const sh = t.kind === 'panel' || t.kind === 'ask' || t.kind === 'eye' || t.kind === 'perf', r = sh && S ? S.at(hx, hy) : null, key = sh ? (r && r.fn ? t.kind[0] + ':' + r.id : '') : t.kind === 'station' ? 's:' + t.id : t.kind;
       if (key && key !== h.hk) sfx('hover', x.point);
       h.hk = key;
       return { kind: 'shell', point: x.point, dist: x.distance };
@@ -8116,7 +8189,7 @@
     if (h.target.kind === 'area') { areaTake(i); return; }   // an area's cross, as it is added (its Stop still works)
     if (h.target.kind === 'pcam') { pcamTake(i); return; }   // the preview camera's place (the menu's button again stops it)
     if (h.target.kind === 'panel') { PNL.used = performance.now(); const r = OV.panel.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log('panel', { id: r.id }); const n = sfxN(); r.fn(); OV.panel.sig = ''; pressSound(r, n, h.p); } }
-    else if (h.target.kind === 'ask' || h.target.kind === 'eye') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log(h.target.kind, { id: r.id }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, h.p); } }
+    else if (h.target.kind === 'ask' || h.target.kind === 'eye' || h.target.kind === 'perf') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r && r.fn && !twice(r.id, 'ray')) { log(h.target.kind, { id: r.id }); const n = sfxN(); r.fn(); S.sig = ''; pressSound(r, n, h.p); } }
     else if (h.target.kind === 'wel') { if (!twice('wel', 'ray')) { welClose('pressed'); sfx('click', h.p); } }   // (Getting around: pressed, it closes)
     // a station runs only where it stands: the trigger on its card or ring says so (the grip still moves it); with the
     // circles asked first (the room's setting) it asks, in a small panel in front of you, whether to go in (not your own
@@ -8152,6 +8225,7 @@
     poke();
     pokeAsk();
     pokeSheet(OV.eye, EYEQ.poke, 'eye');
+    pokeSheet(OV.perf, PERF.poke, 'perf');
   }
   // the menu opens and closes with a click of either stick (xr-standard button 3; no story uses it: they use the stick's
   // axes), a stick held down as its controller appears being no click. Since v125 a stick clicked twice within CLK.gap ms
@@ -8679,14 +8753,16 @@
     drawWelcome();
     drawSubs(dt);
     // the question whether to go into a circle (its hover: the ray's, else the fingertip's), and the frame rate
-    OV.ask.hover = ASK.poke.hov; OV.eye.hover = EYEQ.poke.hov;
-    for (const h of HOV) if (h.target.kind === 'ask' || h.target.kind === 'eye') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r) S.hover = r.id; }
+    OV.ask.hover = ASK.poke.hov; OV.eye.hover = EYEQ.poke.hov; OV.perf.hover = PERF.poke.hov;
+    for (const h of HOV) if (h.target.kind === 'ask' || h.target.kind === 'eye' || h.target.kind === 'perf') { const S = OV[h.target.kind], r = S.at(h.x, h.y); if (r) S.hover = r.id; }
     drawAsk();
     drawEye();
     drawFps();
     drawRec();
+    drawPerf();
     // what the controllers can point at
     OV.hit.length = 0;
+    if (OV.perf.mesh.visible) OV.hit.push(OV.perf.mesh);   // (the performance run's card: perfrun.js)
     if (OV.ask.mesh.visible) OV.hit.push(OV.ask.mesh);
     if (OV.eye.mesh.visible) OV.hit.push(OV.eye.mesh);
     if (OV.wel.mesh.visible) OV.hit.push(OV.wel.mesh);   // (Getting around: pressed, it closes)
