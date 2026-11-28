@@ -1,15 +1,16 @@
 {
-  "version": "networks-v229",
+  "version": "networks-v230",
   "date": "2026-11-28",
   "new": [
-    "The performance run: the headset plays every story and the studio's example scenes by itself, chapter by chapter, and measures every frame. About 75 minutes; #perfrun&prch=10 takes about 45.",
-    "Its hands-on part: about five minutes of one card at a time (the panel, the menu, the grip, the sticks, walking, occlusion, the Stories screen, a studio scene), each with Done and Skip.",
-    "To start either in a headset: turn developer mode on, then open the address with #perfrun (or #handson), or use the Performance run and Hands-on test rows on the menu's Debug tab.",
-    "The results stay on the headset and, with developer mode on, go to the relay as a run log; node tools/notes/notes.mjs perfrun <id> turns one into a table, or compares two.",
-    "A pause of a second or more now counts in the numbers, and a page's display rate is measured once before the run, not guessed from a slow story."
+    "With developer mode on, the Experiments set has two more cards at its end: Performance run and Hands-on test. Each says how long it takes.",
+    "Press one on a page and its start card asks Enter VR, Enter AR or this page. Press one in a headset and it starts at once.",
+    "In a shared room they refuse, as the run always has. Leave the room first.",
+    "The button at the foot of the Stories screen has gone: the cards take its place. The Debug tab's rows and #perfrun and #handson still work."
   ],
   "test": [
-    "On a Quest: start the run-through with #perfrun in VR and let it finish; the results card should show and the run log reach the relay.",
+    "The two cards on a page and on a headset's arch: they should show only with developer mode on, and come and go as you switch it, without a reload.",
+    "Start each from its card in VR and in AR.",
+    "On a Quest: let the run-through finish; the results card should show and the run log reach the relay.",
     "The hands-on part: press Done on some cards and Skip on others.",
     "Run it on two headsets and compare the two runs with notes.mjs perfrun.",
     "Stop a run from the Debug tab, also while a story is loading: it should stop at once and put automatic quality back.",
@@ -17,9 +18,9 @@
     "Any two stories in VR and one in AR: everything looks as before, in stereo (v228's eye lock); the exposome story stays put."
   ],
   "untested": [
+    "The two cards on a real headset's arch: how they read, and pressing them with a ray or a finger.",
     "Everything of the performance run in a real headset: a session of over an hour, the battery, the cards' comfort, every hands-on step and the numbers themselves.",
     "The lock on the eye cameras was tried only with a pretend headset: that it changes nothing in the picture on a Quest is untested.",
-    "Everything in a headset since v220 except calibration, which the owner tried on v226.",
     "Every synthetic voice is unheard."
   ]
 }

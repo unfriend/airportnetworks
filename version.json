@@ -1,10 +1,10 @@
 {
   "app": "networks",
-  "version": "networks-v229",
+  "version": "networks-v230",
   "format": "networks-61",
   "shell": {
-    "n": 229,
-    "id": "ff2dac9949ed7a76"
+    "n": 230,
+    "id": "8f8d6b8cab506dc8"
   },
   "list": "d095202279b28c9e",
   "stories": {

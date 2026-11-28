@@ -1,0 +1,26 @@
+{
+  "version": "networks-v230",
+  "date": "2026-11-28",
+  "new": [
+    "With developer mode on, the Experiments set has two more cards at its end: Performance run and Hands-on test. Each says how long it takes.",
+    "Press one on a page and its start card asks Enter VR, Enter AR or this page. Press one in a headset and it starts at once.",
+    "In a shared room they refuse, as the run always has. Leave the room first.",
+    "The button at the foot of the Stories screen has gone: the cards take its place. The Debug tab's rows and #perfrun and #handson still work."
+  ],
+  "test": [
+    "The two cards on a page and on a headset's arch: they should show only with developer mode on, and come and go as you switch it, without a reload.",
+    "Start each from its card in VR and in AR.",
+    "On a Quest: let the run-through finish; the results card should show and the run log reach the relay.",
+    "The hands-on part: press Done on some cards and Skip on others.",
+    "Run it on two headsets and compare the two runs with notes.mjs perfrun.",
+    "Stop a run from the Debug tab, also while a story is loading: it should stop at once and put automatic quality back.",
+    "Take the headset off mid-run, put it back on and Enter VR: the run should go on from where it stopped.",
+    "Any two stories in VR and one in AR: everything looks as before, in stereo (v228's eye lock); the exposome story stays put."
+  ],
+  "untested": [
+    "The two cards on a real headset's arch: how they read, and pressing them with a ray or a finger.",
+    "Everything of the performance run in a real headset: a session of over an hour, the battery, the cards' comfort, every hands-on step and the numbers themselves.",
+    "The lock on the eye cameras was tried only with a pretend headset: that it changes nothing in the picture on a Quest is untested.",
+    "Every synthetic voice is unheard."
+  ]
+}
