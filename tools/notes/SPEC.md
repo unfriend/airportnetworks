@@ -235,9 +235,9 @@ story }`, `chapter` `{ story, ch, key, t }` (also the first chapter of each stor
 `{ xr, hz }` (a session began or ended), `hidden` / `shown` (`visibilitychange`; `pagehide` as `hidden` `{ pagehide: true }`),
 `gap` `{ ms }`, `stop` `{ why }`. Other parts of the shell add their own through `HOST.notes.runEvent(ev, o)` (v228; a name
 of lower-case letters and digits, at most 22 fields as the relay takes them, false when no run is on): the performance
-run's `perfrun` (once: `id, part, release, device, model, browser, xr, hz, hzList, eyeW, eyeH, fbScale, fov, items,
-batt0, fps, auto, sharp, occl, bodies, opts`), `seg` (each segment: `kind, story, key, why, dur, n, mean, p50, p95, p99,
-max, miss, stall, calls, tri, js, heap, q, qch, errs, load, build`) and `perfend` (`segs, failed, dur, stopped, batt0,
+run's `perfrun` (once: `id, part, release, device, model, browser, xr, hz, hzHow, hzList, eyeW, eyeH, fbScale, fov,
+items, batt0, fps, auto, sharp, occl, bodies, opts`), `seg` (each segment: `kind, story, key, why, dur, n, mean, p95, p99,
+max, miss, stall, long, hz, calls, tri, js, heap, q, qch, errs, load`; v229: `p50` and `build` only in the JSON result) and `perfend` (`segs, failed, dur, stopped, batt0,
 batt1, frames, missed, errs`); docs/agents/shell.md, "The performance run".
 
 **Sending.** `POST /api/logs` as the run begins, then the rows so far as a part every 30 s, as the page is hidden (best
@@ -289,7 +289,9 @@ notes (when, device, stories, length, *Download JSON*, *Delete* with a second pr
   (its `perfrun`, `seg` and `perfend` events), a pulled `log.json` or a page's *Download JSON* file: the run's facts, a
   row a segment (s, frames, mean, p50, p95, p99, worst, missed refreshes and their %, stall, calls, triangles, script ms,
   heap, quality, errors, why), the totals, the five worst and the failures; with two, a row a segment of both (matched by
-  kind, story and key) with the p95's difference.
+  kind, story and key, and a key that comes twice by its turn; a segment cut short by the headset view ending is left out
+  of the match) with the p95's difference, and first a warning for each thing that makes the two not comparable (release,
+  VR, AR or page, the display's rate, automatic quality, the run's options); the note says when a row's rates differ.
 
 `tools/notes/transcribe.py <audio> [--model small]` prints `{ text, lang, segments: [{ start, end, text }] }`; PEP 723
 block naming `faster-whisper`, so `uv run` fetches it, or `python3 -I` with it installed; ffmpeg reads the audio.

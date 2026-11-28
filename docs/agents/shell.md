@@ -148,7 +148,8 @@ repeat the above (the `sfxCue`, `sfxHold`, `sfxAct` and `sfxLive` line, the narr
   `near`/`far` become the session's depth range (as they should).
 - Settled after each frame (`makeRenderer`'s `setAnimationLoop`, `settle`): after every frame of a session the
   renderer draws into the headset again (`renderer.xr.enabled` back on, render target back to `null`), with one
-  console warning the first time. Stories that draw into a texture of their own (the engine's `e2_scene.js`, the
+  console warning a story (v229: once per story key, not once a renderer) and every frame mended counted in
+  `HOST.xrSettled` (the performance run's `totals.settled`). It mends the next frame, not the one just drawn. Stories that draw into a texture of their own (the engine's `e2_scene.js`, the
   studio's pictures) put both back themselves; this catches one that forgot, which would freeze the headset's picture.
 - The static rule: `tools/packages/check.mjs` fails a package whose draw hook (`onBeforeRender`, `onAfterRender`: an
   arrow, a function, a function of the file named there, and one call deep a function of the file handed the camera)
@@ -1533,7 +1534,8 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
   hook (`HOST.loading.wrap`, beside the notebook's: `HOST.perfRun.frame(t)`), `HOST.perf` measuring while it runs, and
   four holds while `HOST.perfRun.on()`: `HOST.audio`'s `muted()` (narration and effects quiet, never stored),
   `HOST.slides.on` (no slideshow stops), `HOST.ended` (no Repeat: a story's end opens explore mode), `HOST.live`'s
-  `quiet()` and `HOST.reloadIfUpdated` (no swap or reload). Its listeners and timers are the shell's (`HOST.quietly`).
+  `quiet()` and `HOST.reloadIfUpdated` (no swap or reload; v229: the relay's `--watch` too, a changed shell file reloading
+  and a changed story swapping in once the run has ended). Its listeners and timers are the shell's (`HOST.quietly`).
   Stories change in nothing: it uses their `APP` (`seek`, `enterStory`, `enterExplore`, `playing`), `CH`, `showTab` and
   the explore panel's `[data-tab]` buttons, `LOAD.ms`, and `XR.stories` (closed so the story shows; opened for the
   hands-on Stories screen).
@@ -1546,7 +1548,11 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
   mode, each of its first four tabs 5 s (`showTab`; a story without tabs: 10 s as it opens). Per scene: the studio opened
   at it (`#studio&scenes=<examples>&scene=<name>`, or, in the studio, as its Scene pane's Open does: `OPT`, `openScene`,
   `findSource`), loaded when its listing is `ok` and no model has been loading for 1 s (at most 75 s), then 3 s as `load`
-  and 20 s as `scene`. A segment's time is its frames' time (intervals under 1 s), so a hidden headset does not count;
+  and 20 s as `scene`. A segment's length is its frames' time (the intervals under 1 s), but every interval is measured,
+  a stall of a second or more too (`long`, v229: in `max`, `miss`, `stall` and `dur`); only the interval across a hidden view (the page hidden, the session's `visibilityState` not
+  `visible`: the headset taken off, its system menu) is dropped, so a hidden headset does not count. After a seek and after
+  each explore tab is shown, `settle` (1 s) is not measured (v229: the tab's own build is not its cost); a segment the
+  run has already measured is not measured again when an item goes on after a session ended;
   each wait has a watchdog (a story 90 s to load; a segment three times its length and 30 s). A story or scene that fails
   to load, throws or stops having frames is a segment with `why`, and the run goes on. All stories: about 75 minutes
   (21 stories of about 8 chapters and five scenes; the start card gives its estimate); `prch=10` about 45.
@@ -1575,8 +1581,10 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
 - **Measured per segment** (`{ kind, story, key, why, dur, n, mean, p50, p95, p99, max, miss, stall, hz, calls, tri, js,
   heap, q, q0, qch, errs, load, build, w, item }`): `kind` `load`, `chapter` (key `<n> <chapter key>`), `explore` (the
   tab), `scene`, `hand`; frame intervals in ms from the frame callback's time (the XR frame's in a session); `miss` the
-  display's refreshes with no new frame (each interval's `round(dt / period) - 1`; the period from the session's rate,
-  `HOST.xr.hzState()`, or on a page found from the frames); `stall` the longest run of frames over 1.5 periods; `calls`,
+  display's refreshes with no new frame (each interval's `round(dt / period) - 1`; v229: the period from the session's
+  rate, `HOST.xr.hzState().got`, and when the headset does not say, `hz` and `miss` are `null`; on a page `prhz=<Hz>`,
+  else found once before the run from a second of the page's own frames at rest, else 60 assumed: `info.hzHow` `session`,
+  `unknown`, `option`, `measured` or `assumed`; never from a segment's own frames); `long` the intervals of a second or more; `stall` the longest run of frames over 1.5 periods; `calls`,
   `tri`, `js` the story's frame from `HOST.perf.last()` (both eyes); `heap` MB (`performance.memory`); `q` automatic
   quality's level at the end (`q0` at the start when different), `qch` its changes (each in the result's `quality`, with
   why); `errs` console errors and warnings, page errors and rejections caught (the first 100 messages in `errors`); a lost
@@ -1585,12 +1593,15 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
   screen, the settings (frame-rate read-out, refresh rate, automatic quality and its rate step, sharp text, moving with
   the sticks, resolution, foveation, my body, occlusion, bodies) and the options; the battery at start and end
   (`navigator.getBattery`, `'87+'` while charging).
-- **The result** (`{ v: 1, kind: 'perfrun', part, id, at, end, dur, release, info, stopped, batt0, batt1, totals: { segs,
-  failed, frames, mean, p95 (the median of the segments' p95), missed, missPct (of all refreshes), worst, stall, errs,
-  qch, lost }, worst (five, by refreshes missed a frame, then p95), failed, segs, errors, quality, log }`): kept on the
+- **The result** (`{ v: 1, kind: 'perfrun', part, id, at, end, dur, release (the running shell's, `HOST.shell`, v229),
+  served (`version.json`'s), info, stopped, batt0, batt1, totals: { segs, failed, frames, mean, p95 (the median of the
+  segments' p95), missed, missPct (of all refreshes), worst, stall, errs, qch, lost, long, settled (frames the shell put
+  back on the headset, `HOST.xrSettled`) }, worst (five, by refreshes missed a frame, then p95), failed, segs, errors, quality, log }`): kept on the
   device (`localStorage` `perfRunLast`), shown on a card (the totals, the five worst, the failures; *Download JSON* on a
-  page, *Hands-on test* after a run-through), and, with developer mode on, sent to the relay as the developer notebook's
-  run log (a run started for it when none is recording, stopped at the end; `log` its id): the events `perfrun` (the
+  page, *Hands-on test* after a run-through), and, with developer mode on (said on the start card; notes.js loaded first
+  if it is not yet; without, the results card says *Not sent to the relay: developer mode is off*, `notSent`), sent to
+  the relay as the developer notebook's run log (a run started for it when none is recording, stopped at the end; `log`
+  its id; a run log ends after two hours, which the start card says when its estimate is over 110 minutes): the events `perfrun` (the
   facts, once), `seg` (each segment, at most 22 fields: `tools/notes/SPEC.md`, "Run logs") and `perfend` (the totals),
   among the log's rows a second. `node tools/notes/notes.mjs perfrun <run id|log.json|result.json> [<second>] [--md
   out.md]` prints a Markdown table, or two compared segment by segment (two runs, two headsets). A skipped step, a step
@@ -1599,8 +1610,13 @@ owner: `docs/setup-and-release.md`, "Measuring a headset".
   segments, the facts and the settings to put back, written at each item and segment. On the next load (`index.html`
   loads the file when the key is there): the item that was going is recorded as failed (*the page reloaded during it*, so
   a story that crashes the page is passed over); a page run goes on by itself after 1.5 s; a headset run shows a card
-  (*Enter VR*, *Go on on this page*, *Stop and show results*). A headset session that ends mid-run pauses it (the item
-  going runs again) with the same card; a kept run older than six hours is closed with its results.
+  (*Enter VR*, *Go on on this page*, *Stop and show results*), the device's settings put back while it waits (pinned
+  again as it goes on). A headset session that ends mid-run pauses it with the same card: the segment cut short stays
+  (*the headset view ended*, not a failure; left out of a comparison) and the item goes on from there, the segments it
+  finished not measured again. A kept run is closed with its results (v229) when it is older than six hours, made by
+  another release (`rel`, the shell's), found in a shared room, or when `#perfrun` or `#handson` asks for a new one
+  (which then starts). A stop while a story loads ends the run at once; no new run begins until the stopped one's result
+  is written.
 - **What shows.** Its card is one model (`view().card { title, lines, buttons, n }`) drawn twice: on a page `#perfCard`,
   in a headset a sheet of `shared.js` (`drawPerf`, `OV.perf`, 760 x 760 px shown to its content's height, 0.5 m wide,
   0.85 m in front as each new card opens, turned to you, pressed by the ray or the finger as the circles' question is,

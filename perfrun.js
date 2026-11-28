@@ -22,7 +22,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   const KEY = 'perfRun', LAST = 'perfRunLast', V = 1;
   // the defaults (seconds): ch a chapter's sample, settle after a seek (not measured), ex a tab of explore mode, tabs at
   // most so many tabs, load the frames measured after a story's first, scene a studio scene, hand a hands-on step at most
-  const DEF = { ch: 20, settle: 1, ex: 5, tabs: 4, load: 3, scene: 20, hand: 45, full: false, aq: 'keep', hud: true, scenes: 'default', stories: null, chapters: 0, hands: null, story: 'ppicell', handScene: 'bliss-xp', examples: 'examples', relayScenes: 1 };
+  const DEF = { ch: 20, settle: 1, ex: 5, tabs: 4, load: 3, scene: 20, hand: 45, full: false, aq: 'keep', hud: true, scenes: 'default', stories: null, chapters: 0, hands: null, story: 'ppicell', handScene: 'bliss-xp', examples: 'examples', relayScenes: 1, hz: 0 };
   const LIMIT = { story: 90, scene: 75, maxAge: 6 * 3600 * 1000 };
   const HANDS = [
     { id: 'panel', title: 'The story panel', say: 'Point at the story\'s panel and press through its tabs, one after another.' },
@@ -44,7 +44,8 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   const r2 = v => (v == null || !isFinite(v) ? null : Math.round(v * 100) / 100);
   const mmss = s => { s = Math.max(0, Math.round(s)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); };
   const KEYRE = /^[a-z][a-z0-9-]{0,31}$/, NAMERE = /^[\w .-]{1,80}$/;
-  const STOP = { stop: true }, PAUSE = { pause: true };
+  const STOP = { stop: true }, PAUSE = { pause: true }, CUT = 'the headset view ended';
+  const NOTFAIL = ['skipped', 'only in AR', 'stopped', CUT];
   const notice = (t, x, ms) => { try { const L = HOST.notesLink; if (L && L.notice) L.notice(t, x, ms); } catch (e) { /* no notice */ } };
   const app = () => G(() => HOST.cur.collab.APP, null);
   const xrNow = () => (HOST.session ? (/ar/i.test(HOST.mode || '') && !/vr/i.test(HOST.mode || '') ? 'ar' : 'vr') : '');
@@ -56,8 +57,9 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   // raw settings to put back; seg: the segment being measured; card: what the card shows; hud: the read-out's line
   const R = { on: false, part: '', want: null, id: '', opts: null, plan: [], i: 0, cur: -1, segs: [], info: null, saved: null, at: 0, xr: '', t0: 0,
     seg: null, lastT: 0, firstFor: '', firstAt: 0, card: null, cardN: 0, hud: '', hudOff: false, sig: 0, done: null, handsAns: '', paused: '', resumeP: null, resumeFn: null,
-    errN: 0, errs: [], qlog: [], q: undefined, lost: 0, logOwn: false, rel: '', batt0: null, quietUntil: 0, stopWhy: '', cardFn: null };
+    errN: 0, errs: [], qlog: [], q: undefined, lost: 0, logOwn: false, rel: '', batt0: null, quietUntil: 0, stopWhy: '', cardFn: null, hz: 0, hzHow: '', ending: false, endP: null, stopW: [], set0: 0 };
   const T = { tick: 200 };   // (tests)
+  let lastSum = null;   // (line(): the last result's line)
   const bump = () => { R.sig++; paint(); };
   const XRS = { vr: false, ar: false };
   try {
@@ -68,13 +70,15 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
       });
     }
   } catch (e) { /* no WebXR */ }
+  // the release this page runs (the shell's: index.html HOST.shell); version.json's (the server's latest) kept beside it
+  const shellRel = () => G(() => (HOST.shell && HOST.shell.n ? 'networks-v' + HOST.shell.n : ''), '');
   const REL = fetch('version.json?t=' + Date.now(), { cache: 'no-store' }).then(r => r.json()).then(v => { if (v && typeof v.version === 'string') R.rel = v.version; }).catch(() => {});
 
   // the options: from a start call or the address (#perfrun or #handson with pr... keys: docs/agents/shell.md)
   function opts(o) {
     const O = Object.assign({}, DEF);
     for (const k of Object.keys(DEF)) if (o && o[k] !== undefined) O[k] = o[k];
-    for (const k of ['ch', 'settle', 'ex', 'tabs', 'load', 'scene', 'hand', 'chapters', 'relayScenes']) { const v = +O[k]; O[k] = isFinite(v) && v >= 0 ? Math.min(v, 3600) : DEF[k]; }
+    for (const k of ['ch', 'settle', 'ex', 'tabs', 'load', 'scene', 'hand', 'chapters', 'relayScenes', 'hz']) { const v = +O[k]; O[k] = isFinite(v) && v >= 0 ? Math.min(v, 3600) : DEF[k]; }
     O.full = !!O.full && O.full !== 'off'; O.hud = O.hud !== false && O.hud !== 'off';
     O.aq = O.aq === 'off' ? 'off' : 'keep';
     const list = v => (Array.isArray(v) ? v : typeof v === 'string' && v ? v.split(/[,\s]+/) : null);
@@ -88,7 +92,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     return O;
   }
   function fromHash(hp) {
-    const o = {}, m = { prstories: 'stories', prch: 'ch', prex: 'ex', prtabs: 'tabs', prscenes: 'scenes', praq: 'aq', prhud: 'hud', prstory: 'story', prhands: 'hands', prchapters: 'chapters', prexamples: 'examples', prscene: 'scene', prhandscene: 'handScene', prload: 'load', prsettle: 'settle', prhand: 'hand' };
+    const o = {}, m = { prstories: 'stories', prch: 'ch', prex: 'ex', prtabs: 'tabs', prscenes: 'scenes', praq: 'aq', prhud: 'hud', prstory: 'story', prhands: 'hands', prchapters: 'chapters', prexamples: 'examples', prscene: 'scene', prhandscene: 'handScene', prload: 'load', prsettle: 'settle', prhand: 'hand', prhz: 'hz' };
     for (const [k, n] of Object.entries(m)) if (hp.has(k)) o[n] = hp.get(k);
     if (hp.has('prfull')) o.full = hp.get('prfull') !== 'off';
     return o;
@@ -97,7 +101,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   // ------------------------------------------------------------------ progress, kept across a reload --
   function save() {
     if (!R.on && !R.paused) return;
-    const s = { v: V, id: R.id, part: R.part, opts: R.opts, plan: R.plan, i: R.i, cur: R.cur, segs: R.segs, info: R.info, saved: R.saved, at: R.at, xr: R.xr, errs: R.errs.slice(-30), errN: R.errN, qlog: R.qlog.slice(-60), batt0: R.batt0, logOwn: R.logOwn };
+    const s = { v: V, id: R.id, part: R.part, opts: R.opts, plan: R.plan, i: R.i, cur: R.cur, segs: R.segs, info: R.info, saved: R.saved, at: R.at, xr: R.xr, errs: R.errs.slice(-30), errN: R.errN, qlog: R.qlog.slice(-60), batt0: R.batt0, logOwn: R.logOwn, rel: shellRel(), hz: R.hz, hzHow: R.hzHow };
     let j = JSON.stringify(s);
     if (j.length > 1500000) { s.qlog = []; s.errs = s.errs.slice(-5); j = JSON.stringify(s); }
     put(KEY, j);
@@ -139,6 +143,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   }
   console.error = function (...a) { caught('error', a); return CON.error.apply(console, a); };
   console.warn = function (...a) { caught('warning', a); return CON.warn.apply(console, a); };
+  document.addEventListener('visibilitychange', () => { R.lastT = 0; });   // (frame(): the interval across a hidden page is not counted)
   window.addEventListener('error', e => caught('error', [e.message || e.error || 'error']));
   window.addEventListener('unhandledrejection', e => caught('error', [e.reason || 'a promise was rejected']));
   { const cv = document.getElementById('gl'); if (cv) cv.addEventListener('webglcontextlost', () => { if (!R.on) return; R.lost++; if (R.seg) R.seg.lost = true; caught('error', ['the WebGL context was lost']); }); }
@@ -148,18 +153,32 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   // frame counts from HOST.perf.last() (measured while a run is on: index.html HOST.perf), errors, quality changes
   function segOpen(kind, story, key, o) {
     segClose();
-    R.seg = Object.assign({ kind, story: story || '', key: String(key || ''), item: R.i, t0: now(), w0: Date.now(), dts: [], sum: 0, calls: 0, tri: 0, js: 0, pn: 0, lfN: -1, errs: 0, lost: false, qch: 0, q0: aq(), why: '' }, o || {});
+    R.seg = Object.assign({ kind, story: story || '', key: String(key || ''), item: R.i, t0: now(), w0: Date.now(), dts: [], sum: 0, clk: 0, long: 0, calls: 0, tri: 0, js: 0, pn: 0, lfN: -1, errs: 0, lost: false, qch: 0, q0: aq(), why: '' }, o || {});
     R.lastT = 0;
     return R.seg;
   }
-  // the display's rate: the session's own, else found from the frames (the fastest tenth, snapped to a common rate)
+  // the display's rate: in a session the session's own (null when the headset does not say: the rate asked for is not
+  // the rate got, so no refreshes are counted missed); on a page the option prhz, else found once before the run from the
+  // page's own frames at rest (probe: the fastest tenth of a second's intervals, snapped to a common rate), else 60
+  // assumed. Never from a segment's frames: a story drawing steadily at 30 on a 60 Hz screen would miss nothing
   const RATES = [30, 45, 48, 50, 60, 72, 75, 80, 90, 100, 120, 144, 165, 240];
-  let hzEst = 0;
-  function rate(d) {
-    const s = HOST.session ? G(() => { const h = HOST.xr.hzState(); return h.got || h.asked || HOST.xr.aq().rate; }, 0) : 0;
-    if (s) return Math.round(s);
-    if (d && d.length >= 10) { const f = 1000 / d[Math.floor(d.length * 0.1)], sn = RATES.reduce((b, h) => (Math.abs(h - f) < Math.abs(b - f) ? h : b), 60); if (sn > hzEst) hzEst = sn; }
-    return hzEst || 60;
+  function rate() {
+    if (HOST.session) { const g = G(() => HOST.xr.hzState().got, 0); return g ? Math.round(g) : null; }
+    return R.hz || 60;
+  }
+  const rateHow = () => (HOST.session ? (rate() ? 'session' : 'unknown') : R.hzHow || 'assumed');
+  async function probe() {
+    if (R.opts && R.opts.hz > 0) { R.hz = Math.round(R.opts.hz); R.hzHow = 'option'; return; }
+    const d = [];
+    await new Promise(res => {
+      const t0 = now(); let l = 0;
+      const f = t => { if (l && t > l) d.push(t - l); l = t; if (d.length >= 60 || now() - t0 > 1500) res(); else requestAnimationFrame(f); };
+      requestAnimationFrame(f); setTimeout(res, 2000);
+    });
+    if (d.length < 10) { R.hz = 60; R.hzHow = 'assumed'; return; }
+    d.sort((a, b) => a - b);
+    const f = 1000 / d[Math.floor(d.length * 0.1)];
+    R.hz = RATES.reduce((b, h) => (Math.abs(h - f) < Math.abs(b - f) ? h : b), 60); R.hzHow = 'measured';
   }
   const aq = () => (HOST.session && HOST.xr && HOST.xr.aq ? G(() => { const q = HOST.xr.aq(); return String(q.level) + (q.low ? 'r' : ''); }, '') : '');
   const heap = () => G(() => (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1048576) : null), null);
@@ -168,13 +187,13 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (!S) return null;
     R.seg = null;
     const d = S.dts.slice().sort((a, b) => a - b), n = d.length, q = p => (n ? d[Math.min(n - 1, Math.max(0, Math.ceil(n * p) - 1))] : null);
-    const hz = rate(d), P = 1000 / hz;
-    let miss = 0, stall = 0, run = 0;
-    for (const x of S.dts) { miss += Math.max(0, Math.round(x / P) - 1); if (x > 1.5 * P) { run += x; if (run > stall) stall = run; } else run = 0; }
+    const hz = rate(), P = hz ? 1000 / hz : 0;
+    let miss = P ? 0 : null, stall = 0, run = 0;
+    if (P) for (const x of S.dts) { miss += Math.max(0, Math.round(x / P) - 1); if (x > 1.5 * P) { run += x; if (run > stall) stall = run; } else run = 0; }
     const pn = S.pn;
     const g = {
       kind: S.kind, story: S.story, key: S.key, why: why || S.why || (S.lost ? 'the WebGL context was lost' : ''), dur: r1(S.sum / 1000), n,
-      mean: n ? r2(S.sum / n) : null, p50: r2(q(0.5)), p95: r2(q(0.95)), p99: r2(q(0.99)), max: r2(n ? d[n - 1] : null), miss, stall: r1(stall), hz,
+      mean: n ? r2(S.sum / n) : null, p50: r2(q(0.5)), p95: r2(q(0.95)), p99: r2(q(0.99)), max: r2(n ? d[n - 1] : null), miss, stall: P ? r1(stall) : null, long: S.long, hz,
       calls: pn ? Math.round(S.calls / pn) : null, tri: pn ? Math.round(S.tri / pn) : null, js: pn ? r2(S.js / pn) : null, heap: heap(), q: aq(), qch: S.qch, errs: S.errs,
     };
     if (S.load !== undefined) g.load = S.load;
@@ -186,24 +205,29 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     save();
     return g;
   }
-  // a segment as a run log's event: at most 22 fields of numbers, strings, booleans or null (relay/notes.mjs)
+  // a segment as a run log's event: at most 22 fields of numbers, strings, booleans or null (relay/notes.mjs); p50 is
+  // left out for hz and long (the JSON result has every field)
   function flat(g) {
     const o = {};
-    for (const k of ['kind', 'story', 'key', 'why', 'dur', 'n', 'mean', 'p50', 'p95', 'p99', 'max', 'miss', 'stall', 'calls', 'tri', 'js', 'heap', 'q', 'qch', 'errs', 'load', 'build']) {
+    for (const k of ['kind', 'story', 'key', 'why', 'dur', 'n', 'mean', 'p95', 'p99', 'max', 'miss', 'stall', 'long', 'hz', 'calls', 'tri', 'js', 'heap', 'q', 'qch', 'errs', 'load']) {
       const v = g[k]; if (v === undefined) continue;
       o[k] = typeof v === 'string' ? v.slice(0, 200) : v;
     }
     return o;
   }
   function runEvent(ev, o) { try { if (HOST.notes && HOST.notes.runEvent) HOST.notes.runEvent(ev, o); } catch (e) { /* no run log */ } }
-  // the frame hook (index.html HOST.loading.wrap, after the story's frame): never throws
+  // the frame hook (index.html HOST.loading.wrap, after the story's frame): never throws. Every interval counts, a stall
+  // of a second or more too (long); only the first after a hidden view (the page hidden, the headset's view not visible:
+  // taken off, its system menu) is dropped (R.lastT cleared: here, by the quarter-second timer and on visibilitychange)
+  const hidden = () => !!(document.hidden || (HOST.session && HOST.session.visibilityState && HOST.session.visibilityState !== 'visible'));
   function frame(t) {
     if (!R.on) return;
+    if (hidden()) { R.lastT = 0; return; }
     const tt = Number.isFinite(t) && t > 0 ? t : now();
     if (R.firstFor && !R.firstAt && HOST.curKey === R.firstFor && HOST.cur && G(() => HOST.loading.built(), false)) R.firstAt = now();
     const S = R.seg;
     if (S) {
-      if (R.lastT && tt > R.lastT) { const dt = tt - R.lastT; if (dt < 1000) { S.dts.push(dt); S.sum += dt; } }
+      if (R.lastT && tt > R.lastT) { const dt = tt - R.lastT; S.dts.push(dt); S.sum += dt; if (dt >= 1000) S.long++; else S.clk += dt; }
       const lf = HOST.perf && HOST.perf.last ? HOST.perf.last() : null;
       if (lf && lf.n !== S.lfN) { if (S.lfN >= 0) { S.calls += lf.calls; S.tri += lf.tri; S.js += lf.js; S.pn++; } S.lfN = lf.n; }
     }
@@ -223,12 +247,16 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
       await sleep(T.tick);
     }
   }
-  // measured until the segment's frames add up to sec (frame time, so a hidden headset does not count), or until done()
+  // measured until the segment's frames add up to sec (frame time: its clock, the intervals under a second, so a long
+  // stall is measured but does not use up the segment's time), or until done()
+  // (stopped(): resolves as the run is stopped, for the waits that are not polls)
+  const stopped = () => new Promise(r => R.stopW.push(r));
+  const wake = () => { for (const f of R.stopW.splice(0)) f(); };
   async function measure(sec, done, guard) {
     const S = R.seg, lim = sec * 3000 + 30000, t0 = now();
     await wait(() => {
       if (guard) guard();
-      if (S.sum >= sec * 1000) return true;
+      if (S.clk >= sec * 1000) return true;
       if (done && done()) return true;
       if (now() - t0 > lim) { S.why = 'watchdog: frames stopped coming'; return true; }
       return false;
@@ -302,7 +330,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     R.firstFor = key; R.firstAt = 0;
     const was = HOST.curKey === key && HOST.cur;
     if (!was) {
-      await Promise.race([HOST.start(key, hash), sleep(LIMIT.story * 1000)]);
+      await Promise.race([HOST.start(key, hash), sleep(LIMIT.story * 1000), stopped()]);
       if (!R.on) throw STOP;
       if (HOST.curKey !== key || !HOST.cur) {
         const line = G(() => document.getElementById('ldLine').textContent, '') || '';
@@ -315,13 +343,15 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     return { load: was ? null : Math.round(R.firstAt - t0), build, was: !!was };
   }
   async function runStory(it) {
-    const key = it.key, O = R.opts;
+    const key = it.key, O = R.opts, did = doneIn(it);
     if (!HOST.meta(key)) throw new Error('not a story on this device');
     hud(title(key) + ' · loading');
     const L = await openStory(key);
-    segOpen('load', key, 'load', { load: L.load, build: L.build });
-    await measure(O.load);
-    segClose();
+    if (!did('load|load')) {
+      segOpen('load', key, 'load', { load: L.load, build: L.build });
+      await measure(O.load);
+      segClose();
+    }
     if (it.only === 'load') return;
     const A = app();
     if (!A) throw new Error('no story clock');
@@ -330,6 +360,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     const keep = () => { const a = app(); if (a && a.mode === 'story' && !a.playing) a.playing = true; showStory(); };
     for (let k = 0; k < n; k++) {
       const c = CH[k], a = app();
+      if (did('chapter|' + (k + 1) + ' ' + c.key)) continue;
       if (!a || HOST.curKey !== key) throw new Error('the story went away');
       hud(title(key) + ' · chapter ' + (k + 1) + ' of ' + CH.length);
       if (a.mode !== 'story') a.enterStory(c.a + 0.05); else a.seek(c.a + 0.05);
@@ -348,14 +379,18 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     await measureAfterSettle(0.5);
     const tabs = G(() => [...document.querySelectorAll('#explore .tabs [data-tab]')].map(x => x.dataset.tab).filter(t => /^[\w-]{1,30}$/.test(t)), []);
     const can = tabs.length && G(() => HOST.cur.peek("typeof showTab === 'function'"), false);
-    if (!can || !O.tabs) { segOpen('explore', key, 'explore'); await measure(O.ex * 2); segClose(); return; }
+    if (!can || !O.tabs) { if (did('explore|explore')) return; await measureAfterSettle(O.settle); segOpen('explore', key, 'explore'); await measure(O.ex * 2); segClose(); return; }
     for (const tb of tabs.slice(0, O.tabs)) {
+      if (did('explore|' + tb)) continue;
       G(() => HOST.cur.peek('showTab(' + JSON.stringify(tb) + ')'), 0);
+      await measureAfterSettle(O.settle);   // (the tab's own build, not its cost)
       segOpen('explore', key, tb);
       await measure(O.ex);
       segClose();
     }
   }
+  // the segments an item measured before a headset session ended (it.done: kind|key), not measured again as it goes on
+  const doneIn = it => k => !!(it.done && it.done.includes(k));
   // a moment after a seek, not measured (the seek's own frame is not the chapter's cost)
   async function measureAfterSettle(sec, guard) { const t0 = now(); await wait(() => { if (guard) guard(); return now() - t0 >= sec * 1000; }, Infinity); }
   // a studio scene: the studio opened at it (the address it reads as it starts), or, already in the studio, the scene
@@ -382,11 +417,15 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     return Math.round(now() - t0);
   }
   async function runScene(it) {
+    const did = doneIn(it);
     hud('Studio · ' + it.name + ' · loading');
     const ms = await openScene(it);
-    segOpen('load', 'studio', it.name, { load: ms });
-    await measure(R.opts.load);
-    segClose();
+    if (!did('load|' + it.name)) {
+      segOpen('load', 'studio', it.name, { load: ms });
+      await measure(R.opts.load);
+      segClose();
+    }
+    if (did('scene|' + it.name)) return;
     hud('Studio · ' + it.name);
     segOpen('scene', 'studio', it.name);
     await measure(R.opts.scene, null, showStory);
@@ -434,7 +473,9 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
         else if (it.kind === 'hand') await runHand(it);
       } catch (e) {
         if (e === STOP) break;
-        if (e === PAUSE) { segClose('the headset view ended'); R.segs = R.segs.filter(g => g.item !== R.i); if (!(await pause())) break; continue; }
+        // (the segment cut short stays, as the run log has it; the item goes on from there: the segments it finished are
+        // not measured again, so the result and the run log agree)
+        if (e === PAUSE) { segClose(CUT); it.done = R.segs.filter(g => g.item === R.i && !g.why).map(g => g.kind + '|' + g.key); if (!(await pause())) break; continue; }
         const why = String(e && e.message || e).slice(0, 200);
         if (R.seg) segClose(why);
         else { segOpen(it.kind === 'hand' ? 'hand' : 'load', it.key || (it.kind === 'scene' ? 'studio' : HOST.curKey || ''), it.kind === 'scene' ? it.name : it.id || 'load'); segClose(why); }
@@ -453,13 +494,14 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   function resumed() { if (R.resumeFn) { const f = R.resumeFn; R.resumeFn = null; R.paused = ''; R.xr = xrNow() || R.xr; card(null); f(true); } }
 
   async function begin(part, o, resume) {
-    if (R.on) return false;
-    if (HOST.collab && HOST.collab.joined) { refuse(); return false; }
+    if (R.on || R.ending) return false;
+    // (a kept run in a shared room: closed with its results and its settings put back, not refused on every load)
+    if (HOST.collab && HOST.collab.joined) { if (resume) { R.want = null; R.paused = ''; stop('a shared room was joined'); } else refuse(); return false; }
     R.part = part; R.want = null; R.on = true; R.stopWhy = ''; R.done = null; R.paused = '';
     R.xr = xrNow();
     hudPage(true);
     if (resume) {
-      Object.assign(R, { id: resume.id, opts: resume.opts, plan: resume.plan, i: resume.i, segs: resume.segs, info: resume.info, saved: resume.saved, at: resume.at, errs: resume.errs || [], errN: resume.errN || 0, qlog: resume.qlog || [], batt0: resume.batt0, logOwn: false });
+      Object.assign(R, { id: resume.id, opts: resume.opts, plan: resume.plan, i: resume.i, segs: resume.segs, info: resume.info, saved: resume.saved, at: resume.at, errs: resume.errs || [], errN: resume.errN || 0, qlog: resume.qlog || [], batt0: resume.batt0, logOwn: false, hz: resume.hz || 0, hzHow: resume.hzHow || '' });
       // (the item that was going when the page went: recorded as failed, so a story that crashes the page is passed over)
       if (resume.cur === resume.i && R.i < R.plan.length) {
         const it = R.plan[R.i];
@@ -473,11 +515,15 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
       R.plan = await plan(R.opts);
       R.batt0 = await battery();
     }
-    await Promise.race([REL, sleep(3000)]);   // (the release's name, for the run's facts)
-    R.t0 = now(); R.lost = 0; R.q = undefined; R.quietUntil = now() + 15000;
+    await Promise.race([REL, sleep(3000)]);   // (the server's release, for the run's facts)
     pin();
+    if (!HOST.session && !R.hz) await probe();
+    if (!R.on) { restore(); hud(''); bump(); return false; }   // (stopped before it began: nothing measured)
+    R.t0 = now(); R.lost = 0; R.q = undefined; R.quietUntil = now() + 15000; R.set0 = HOST.xrSettled || 0;
     R.info = Object.assign(info(), { opts: R.opts, part: R.part });
-    // (developer mode: the notebook's run log carries the run to the relay, its frame times a second and these events)
+    // (developer mode: the notebook's run log carries the run to the relay, its frame times a second and these events;
+    // notes.js comes with developer mode, perhaps not yet loaded)
+    if (HOST.dev && HOST.dev.on() && !HOST.notes && HOST.mods) await Promise.race([HOST.mods.load('notes').catch(() => null), sleep(5000)]);
     if (HOST.dev && HOST.dev.on() && HOST.notes && HOST.notes.run && !HOST.notes.running()) R.logOwn = !!HOST.notes.run(true);
     runEvent('perfrun', flatInfo(R.info));
     save();
@@ -487,26 +533,32 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     loop();
     return true;
   }
+  // (R.ending until the result is written: no new run begins while this one winds up)
   function finish() {
     segClose(R.on ? '' : 'stopped');
     const was = R.on;
-    R.on = false; R.paused = '';
+    R.on = false; R.paused = ''; R.ending = true;
+    wake();
     if (R.resumeFn) { const f = R.resumeFn; R.resumeFn = null; f(false); }
     restore();
     hud('');
-    battery().then(b => {
+    R.endP = battery().then(b => {
       const res = result(b);
       runEvent('perfend', { segs: res.totals.segs, failed: res.totals.failed, dur: res.dur, stopped: res.stopped, batt0: res.batt0, batt1: res.batt1, frames: res.totals.frames, missed: res.totals.missed, errs: res.totals.errs });
-      if (R.logOwn && HOST.notes && HOST.notes.run) { res.log = G(() => HOST.notes.runState().id, '') || ''; HOST.notes.run(false); }
+      const on = G(() => HOST.notes.running(), false);
+      res.log = on ? G(() => HOST.notes.runState().id, '') || '' : '';
+      if (!res.log) res.notSent = !(HOST.dev && HOST.dev.on()) ? 'developer mode is off' : 'no run log was recording';
+      if (R.logOwn && HOST.notes && HOST.notes.run) HOST.notes.run(false);
       R.logOwn = false;
-      R.done = res;
+      R.done = res; lastSum = null;
       let j = JSON.stringify(res);
       if (j.length > 2000000) { res.errors = res.errors.slice(0, 10); j = JSON.stringify(res); }
       put(LAST, j);
       put(KEY, null);
+      R.ending = false;
       results(res);
       bump();
-    });
+    }).catch(() => { R.ending = false; });
     if (was) bump();
   }
   // the result: the run's facts, every segment, the totals and the five worst segments (by frames missed, then p95)
@@ -515,13 +567,13 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     let frames = 0, sum = 0, missed = 0, worst = 0, stall = 0, qch = 0;
     for (const g of ok) { frames += g.n; sum += (g.mean || 0) * g.n; missed += g.miss || 0; worst = Math.max(worst, g.max || 0); stall = Math.max(stall, g.stall || 0); qch += g.qch || 0; }
     const p95s = ok.map(g => g.p95).sort((a, b) => a - b);
-    const bad = segs.filter(g => g.why && !['skipped', 'only in AR', 'stopped'].includes(g.why));
+    const bad = segs.filter(g => g.why && !NOTFAIL.includes(g.why));
     const rank = g => (g.n ? (g.miss || 0) / g.n : -1);
     const worst5 = ok.slice().sort((a, b) => rank(b) - rank(a) || (b.p95 || 0) - (a.p95 || 0)).slice(0, 5);
     return {
-      v: V, kind: 'perfrun', part: R.part, id: R.id, at: R.at, end: Date.now(), dur: Math.round((Date.now() - R.at) / 1000), release: R.rel || (R.info && R.info.release) || '',
+      v: V, kind: 'perfrun', part: R.part, id: R.id, at: R.at, end: Date.now(), dur: Math.round((Date.now() - R.at) / 1000), release: (R.info && R.info.release) || shellRel() || R.rel || '', served: R.rel || '',
       info: R.info, stopped: R.stopWhy || '', batt0: R.batt0, batt1: b1,
-      totals: { segs: segs.length, failed: bad.length, frames, mean: frames ? r2(sum / frames) : null, p95: p95s.length ? p95s[Math.floor(p95s.length / 2)] : null, missed, missPct: frames ? r1(100 * missed / (frames + missed)) : null, worst: r2(worst), stall: r1(stall), errs: R.errN, qch, lost: R.lost },
+      totals: { segs: segs.length, failed: bad.length, frames, mean: frames ? r2(sum / frames) : null, p95: p95s.length ? p95s[Math.floor(p95s.length / 2)] : null, missed, missPct: frames ? r1(100 * missed / (frames + missed)) : null, worst: r2(worst), stall: r1(stall), errs: R.errN, qch, lost: R.lost, long: segs.reduce((a, g) => a + (g.long || 0), 0), settled: Math.max(0, (HOST.xrSettled || 0) - (R.set0 || 0)) },
       worst: worst5.map(g => ({ kind: g.kind, story: g.story, key: g.key, mean: g.mean, p95: g.p95, miss: g.miss, n: g.n })),
       failed: bad.map(g => ({ kind: g.kind, story: g.story, key: g.key, why: g.why })),
       segs, errors: R.errs.slice(), quality: R.qlog.slice(),
@@ -531,12 +583,13 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (R.want) { const res = R.want.resume; R.want = null; card(null); bump(); if (!res) return true; }
     if (!R.on) {
       // (a run kept from before a reload, not going on: put its settings back and keep what it measured)
-      const s = loadSaved();
+      const s = R.ending ? null : loadSaved();
       if (s) { R.saved = s.saved; Object.assign(R, { id: s.id, part: s.part, opts: s.opts, plan: s.plan, segs: s.segs, info: s.info, at: s.at, errs: s.errs || [], errN: s.errN || 0, qlog: s.qlog || [], batt0: s.batt0, i: s.i }); R.stopWhy = why || 'stopped'; R.on = true; finish(); return true; }
       return false;
     }
     R.stopWhy = why || 'stopped';
     R.on = false;
+    wake();
     if (R.resumeFn) { const f = R.resumeFn; R.resumeFn = null; f(false); }
     return true;
   }
@@ -554,14 +607,14 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     set.bodies = G(() => localStorage.getItem('collabBodies') !== 'off', null);
     const hs = G(() => HOST.xr.hzState(), null);
     return {
-      release: R.rel, shell: G(() => HOST.shell.n, null), device: /OculusBrowser|Quest|Pico|Wolvic/i.test(ua) ? 'headset' : /iPad|Tablet/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua)) ? 'tablet' : /iPhone|Android|Mobile/i.test(ua) ? 'phone' : 'desktop',
+      release: shellRel() || R.rel, served: R.rel, shell: G(() => HOST.shell.n, null), device: /OculusBrowser|Quest|Pico|Wolvic/i.test(ua) ? 'headset' : /iPad|Tablet/i.test(ua) || (/Android/i.test(ua) && !/Mobile/i.test(ua)) ? 'tablet' : /iPhone|Android|Mobile/i.test(ua) ? 'phone' : 'desktop',
       model: (/Quest\s?(3S|3|Pro|2)/i.exec(ua) || [])[0] || '', browser: (/OculusBrowser\/([\d.]+)/.exec(ua) || /(?:Chrome|Firefox|Version)\/([\d.]+)/.exec(ua) || [])[0] || '', ua: ua.slice(0, 200),
-      xr: xrNow(), hz: rate(), hzList: hs && hs.list ? hs.list.join(',') : '', eyeW: bl ? Math.round(bl.framebufferWidth / 2) : null, eyeH: bl ? bl.framebufferHeight : null,
+      xr: xrNow(), hz: rate(), hzHow: rateHow(), hzList: hs && hs.list ? hs.list.join(',') : '', eyeW: bl ? Math.round(bl.framebufferWidth / 2) : null, eyeH: bl ? bl.framebufferHeight : null,
       fbScale: G(() => HOST.xr.scaleNow(), null), fov: G(() => HOST.xr.fovNow(), null), screen: innerWidth + 'x' + innerHeight + '@' + (+(devicePixelRatio || 1).toFixed(2)), settings: set,
     };
   }
   function flatInfo(I) {
-    const o = { id: R.id, part: R.part, release: I.release, device: I.device, model: I.model, browser: I.browser, xr: I.xr, hz: I.hz, hzList: I.hzList, eyeW: I.eyeW, eyeH: I.eyeH, fbScale: I.fbScale, fov: I.fov, items: R.plan.length, batt0: R.batt0 };
+    const o = { id: R.id, part: R.part, release: I.release, device: I.device, model: I.model, browser: I.browser, xr: I.xr, hz: I.hz, hzHow: I.hzHow, hzList: I.hzList, eyeW: I.eyeW, eyeH: I.eyeH, fbScale: I.fbScale, fov: I.fov, items: R.plan.length, batt0: R.batt0 };
     const S = I.settings || {};
     for (const k of ['fps', 'auto', 'sharp', 'occl', 'bodies']) if (S[k] !== undefined && S[k] !== null) o[k] = typeof S[k] === 'object' ? String(S[k]) : S[k];
     o.opts = JSON.stringify({ ch: I.opts.ch, full: I.opts.full, ex: I.opts.ex, aq: I.opts.aq, scenes: I.opts.scenes, stories: I.opts.stories }).slice(0, 200);
@@ -586,11 +639,11 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   function results(res) {
     const X = res.totals, L = [];
     L.push(`${X.segs} segments, ${X.failed} failed, in ${mmss(res.dur)}.` + (res.stopped ? ' Stopped: ' + res.stopped + '.' : ''));
-    L.push(`Frames ${X.frames}: mean ${X.mean} ms, median p95 ${X.p95} ms, worst ${X.worst} ms; ${X.missed} refreshes missed (${X.missPct} % of them), longest stall ${X.stall} ms.`);
+    L.push(`Frames ${X.frames}: mean ${X.mean} ms, median p95 ${X.p95} ms, worst ${X.worst} ms; ${X.missed} refreshes missed (${X.missPct} % of them), longest stall ${X.stall} ms` + (X.long ? `; ${X.long} pauses of a second or more` : '') + '.' + (res.info && res.info.hzHow && res.info.hzHow !== 'session' ? ` (Display rate ${res.info.hz || '?'} Hz, ${res.info.hzHow}.)` : ''));
     if (X.errs || X.qch || X.lost) L.push(`${X.errs} errors or warnings, ${X.qch} quality changes` + (X.lost ? `, the WebGL context lost ${X.lost} times` : '') + '.');
     if (res.worst.length) { L.push('The five worst:'); for (const g of res.worst) L.push(`${title(g.story)} ${g.kind === 'chapter' ? 'ch ' + g.key : g.key}: ${g.mean} ms, p95 ${g.p95}, ${g.miss} missed`); }
     if (res.failed.length) L.push('Failed: ' + res.failed.slice(0, 4).map(g => title(g.story) + ' ' + g.key + ' (' + g.why + ')').join('; ') + (res.failed.length > 4 ? '; ...' : '') + '.');
-    L.push('Kept on this device' + (res.log ? ', and in run log ' + res.log + ' on the relay' : '') + '.');
+    L.push('Kept on this device' + (res.log ? ', and in run log ' + res.log + ' on the relay' : '. Not sent to the relay: ' + (res.notSent || 'developer mode is off')) + '.');
     const B = [{ id: 'close', label: 'Close', primary: true }];
     if (!HOST.session) B.unshift({ id: 'json', label: 'Download JSON' });
     if (res.part === 'run') B.push({ id: 'hands', label: 'Hands-on test' });
@@ -681,6 +734,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     o = o || {};
     const part = o.part === 'hands' ? 'hands' : 'run';
     if (R.on) return false;
+    if (R.ending) { Promise.resolve(R.endP).then(() => start(o)); return true; }   // (once the run before has written its result)
     if (HOST.collab && HOST.collab.joined) { refuse(); return false; }
     build();
     if (HOST.session || o.where === 'page') return begin(part, o);
@@ -695,7 +749,13 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     card(part === 'hands' ? 'Hands-on test' : 'Performance run', [
       part === 'hands' ? 'About five minutes in ' + title(opts(o).story) + ': one card at a time tells you what to do, each with Done and Skip.' : 'It plays every story and some studio scenes by itself, chapter by chapter, and measures every frame. About ' + about(o) + ' minutes.',
       vr ? 'Enter VR or AR: it starts as the headset view begins and then runs alone. Narration and effects are quiet while it runs.' : 'This browser has no VR: it runs on this page.',
+      sendLine(part === 'hands' ? 5 : about(o)),
     ], [vr && { id: 'vr', label: 'Enter VR', primary: true }, ar && { id: 'ar', label: 'Enter AR' }, { id: 'page', label: 'Run on this page', primary: !vr }, { id: 'close', label: 'Not now' }].filter(Boolean));
+  }
+  // where the results go: the relay only with developer mode on (the notebook's run log, which ends after two hours)
+  function sendLine(min) {
+    if (!(HOST.dev && HOST.dev.on())) return 'The results stay on this device. To send them to the relay as well, turn developer mode on first.';
+    return 'The results stay on this device and go to the relay as a run log.' + (min > 110 ? ' A run log ends after two hours: what comes later stays on this device only.' : '');
   }
   function offer() {
     build();
@@ -707,7 +767,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   function offerCard() {
     const vr = XRS.vr, ar = XRS.ar;
     card('Performance run', ['Two parts. The run-through plays every story and some studio scenes by itself and measures every frame (about ' + about({}) + ' minutes). The hands-on test is about five minutes of things only a person can do.',
-      vr ? 'Enter VR or AR to run the run-through in the headset, or run it on this page.' : 'This browser has no VR: it runs on this page.'],
+      vr ? 'Enter VR or AR to run the run-through in the headset, or run it on this page.' : 'This browser has no VR: it runs on this page.', sendLine(about({}))],
     [vr && { id: 'vr', label: 'Enter VR', primary: true }, ar && { id: 'ar', label: 'Enter AR' }, { id: 'page', label: 'Run on this page', primary: !vr }, { id: 'hands', label: 'Hands-on test' }, { id: 'close', label: 'Not now' }].filter(Boolean));
   }
   // the boot (index.html): #perfrun or #handson in the address (options with pr... keys), or a run kept from before a
@@ -715,9 +775,15 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
   function boot(hp) {
     build();
     const s = loadSaved();
+    const asked = !!(hp && (hp.has('perfrun') || hp.has('handson')));
     if (s) {
-      if (Date.now() - (+s.at || 0) > LIMIT.maxAge) { stop('the page was away too long'); return; }
+      // (closed with its results, its settings put back: too old, made by another release, or a new run asked for; then
+      // the new one starts)
+      const rel = shellRel(), why = Date.now() - (+s.at || 0) > LIMIT.maxAge ? 'the page was away too long' : s.rel && rel && s.rel !== rel ? 'a new release came meanwhile (' + s.rel + ' to ' + rel + ')' : asked ? 'a new run was asked for' : '';
+      if (why) { stop(why); if (asked) Promise.resolve(R.endP).then(() => boot(hp)); return; }
       if (!s.xr) { setTimeout(() => begin(s.part, null, s), 1500); return; }
+      // (a headset run waits for a session: the device's settings are put back meanwhile, and pinned again as it goes on)
+      R.saved = s.saved; restore();
       R.paused = 'reload';
       R.want = { part: s.part, o: null, resume: s };
       card('The performance run is waiting', ['The page reloaded at ' + (s.i + 1) + ' of ' + s.plan.length + '. Enter ' + (s.xr === 'ar' ? 'AR' : 'VR') + ' to go on where it stopped.'],
@@ -737,6 +803,7 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     if (R.want && HOST.session && !R.on) { const w = R.want; R.want = null; R.paused = ''; card(null); begin(w.part, w.o || {}, w.resume); }
     if (R.paused === 'session' && HOST.session) resumed();
     if (R.on) {
+      if (hidden()) R.lastT = 0;
       const q = aq();
       if (R.q !== undefined && q !== R.q && q) { R.qlog.push({ at: Math.round((Date.now() - R.at) / 1000), from: R.q, to: q, why: G(() => String(HOST.xr.aq().why || '').slice(0, 120), '') }); if (R.seg) R.seg.qch++; }
       R.q = q;
@@ -756,10 +823,14 @@ HOST.perfRun = (HOST.quietly || (fn => fn()))(function () {
     plan: () => R.plan.slice(), opts: () => Object.assign({}, R.opts), hands: () => HANDS.map(h => h.id),
     test(o) { if (o && o.tick > 0) T.tick = +o.tick; return Object.assign({}, T); },
   };
+  // (the last result's line made once: the menu's Debug tab asks for it every frame, and the result is up to 2 MB)
   function line() {
     if (R.on) return (R.part === 'hands' ? 'Hands-on test, step ' : 'Running: ') + Math.min(R.i + 1, R.plan.length) + ' of ' + R.plan.length + (R.hud ? '. ' + R.hud.replace(/^Performance run · \d+ of \d+ · /, '') : '');
     if (R.want) return 'Waiting for the headset view to begin';
-    const r = R.done || G(() => JSON.parse(get(LAST)), null);
-    return r ? 'Last run ' + new Date(r.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ': ' + r.totals.segs + ' segments, ' + r.totals.missPct + ' % of refreshes missed' : 'Every story and scene by itself, each frame measured';
+    if (lastSum === null) {
+      const r = R.done || G(() => JSON.parse(get(LAST)), null);
+      lastSum = r && r.totals ? 'Last run ' + new Date(r.at).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) + ': ' + r.totals.segs + ' segments, ' + r.totals.missPct + ' % of refreshes missed' : 'Every story and scene by itself, each frame measured';
+    }
+    return lastSum;
   }
 });

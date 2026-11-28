@@ -158,21 +158,22 @@ async function perfRunOf(src) {
   return { name: g.id || src, kind: 'perfrun', part: I.part, id: I.id, at: g.at, release: I.release || c.release, dur: end.dur, stopped: end.stopped, batt0: I.batt0, batt1: end.batt1,
     info: Object.assign({}, I, { settings: { fps: I.fps, auto: I.auto, sharp: I.sharp, occl: I.occl, bodies: I.bodies } }), segs, log: g.id };
 }
+const CUT = 'the headset view ended', NOTFAIL = ['skipped', 'only in AR', 'stopped', CUT];
 const segName = g => (g.story || '-') + ' ' + (g.kind === 'chapter' ? 'ch ' + g.key : g.kind === 'load' ? 'load' + (g.story === 'studio' ? ' ' + g.key : '') : g.kind === 'explore' ? 'explore ' + g.key : g.kind === 'hand' ? 'step ' + g.key : g.key);
 const cell = v => (v === null || v === undefined || v === '' ? '-' : String(v));
 const missPct = g => (g.n ? (100 * (g.miss || 0) / (g.n + (g.miss || 0))).toFixed(1) : '-');
 function perfRunFacts(r) {
   const I = r.info || {}, S = I.settings || {};
   return [`- ${r.part === 'hands' ? 'Hands-on test' : 'Run-through'} ${r.id || ''}, ${new Date(r.at || 0).toISOString().slice(0, 16).replace('T', ' ')}, release ${r.release || '?'}, ${r.dur != null ? mmss(r.dur) : '?'}` + (r.stopped ? `, stopped: ${r.stopped}` : '') + (r.log ? `, run log ${r.log}` : ''),
-    `- ${[I.device, I.model, I.browser].filter(Boolean).join(', ')}; ${I.xr ? I.xr.toUpperCase() : 'a page'} at ${cell(I.hz)} Hz` + (I.hzList ? ` (offers ${I.hzList})` : '') + (I.eyeW ? `, eye ${I.eyeW} x ${I.eyeH}` : '') + (I.fbScale != null ? `, framebuffer ${I.fbScale}` : '') + (I.fov != null ? `, foveation ${I.fov}` : ''),
+    `- ${[I.device, I.model, I.browser].filter(Boolean).join(', ')}; ${I.xr ? I.xr.toUpperCase() : 'a page'} at ${cell(I.hz)} Hz` + (I.hzHow && I.hzHow !== 'session' ? ` (${I.hzHow})` : '') + (I.hzList ? ` (offers ${I.hzList})` : '') + (I.eyeW ? `, eye ${I.eyeW} x ${I.eyeH}` : '') + (I.fbScale != null ? `, framebuffer ${I.fbScale}` : '') + (I.fov != null ? `, foveation ${I.fov}` : ''),
     `- Settings: automatic quality ${cell(S.auto)}, frame rate read-out ${cell(S.fps)}, sharp text ${cell(S.sharp)}, occlusion ${cell(S.occl)}, bodies ${cell(S.bodies)}; battery ${cell(r.batt0)} % to ${cell(r.batt1)} %`];
 }
 function perfRunMd(r) {
   const L = ['# Performance run ' + (r.id || r.name), '', ...perfRunFacts(r), ''];
   L.push('| segment | s | frames | mean | p50 | p95 | p99 | worst | missed | miss % | stall | calls | tris k | js | heap MB | q | errs | note |', '|---|' + '---:|'.repeat(16) + '---|');
-  for (const g of r.segs) L.push('| ' + [segName(g), cell(g.dur), cell(g.n), cell(g.mean), cell(g.p50), cell(g.p95), cell(g.p99), cell(g.max), cell(g.miss), missPct(g), cell(g.stall), cell(g.calls), g.tri != null ? Math.round(g.tri / 1000) : '-', cell(g.js), cell(g.heap), cell(g.q) + (g.qch ? ' (' + g.qch + ' changes)' : ''), cell(g.errs), [g.why, g.load != null ? 'load ' + g.load + ' ms' : '', g.build ? 'build ' + g.build + ' ms' : ''].filter(Boolean).join(', ')].join(' | ') + ' |');
+  for (const g of r.segs) L.push('| ' + [segName(g), cell(g.dur), cell(g.n), cell(g.mean), cell(g.p50), cell(g.p95), cell(g.p99), cell(g.max), cell(g.miss), missPct(g), cell(g.stall), cell(g.calls), g.tri != null ? Math.round(g.tri / 1000) : '-', cell(g.js), cell(g.heap), cell(g.q) + (g.qch ? ' (' + g.qch + ' changes)' : ''), cell(g.errs), [g.why, g.long ? g.long + ' over 1 s' : '', g.load != null ? 'load ' + g.load + ' ms' : '', g.build ? 'build ' + g.build + ' ms' : ''].filter(Boolean).join(', ')].join(' | ') + ' |');
   const ok = r.segs.filter(g => g.n), fr = ok.reduce((a, g) => a + g.n, 0), ms = ok.reduce((a, g) => a + (g.miss || 0), 0), mean = fr ? ok.reduce((a, g) => a + g.mean * g.n, 0) / fr : 0;
-  const bad = r.segs.filter(g => g.why && !['skipped', 'only in AR', 'stopped'].includes(g.why));
+  const bad = r.segs.filter(g => g.why && !NOTFAIL.includes(g.why));
   L.push('', `Totals: ${r.segs.length} segments, ${bad.length} failed; ${fr} frames, mean ${mean.toFixed(2)} ms; ${ms} refreshes missed (${fr ? (100 * ms / (fr + ms)).toFixed(1) : '-'} % of them).`);
   const worst = ok.slice().sort((a, b) => (b.miss || 0) / b.n - (a.miss || 0) / a.n || (b.p95 || 0) - (a.p95 || 0)).slice(0, 5);
   if (worst.length) L.push('', 'The five worst (by refreshes missed, then p95): ' + worst.map(g => `${segName(g)} (${missPct(g)} %, p95 ${g.p95} ms)`).join('; ') + '.');
@@ -180,13 +181,24 @@ function perfRunMd(r) {
   L.push('', '(ms between frames. missed: refreshes of the display with no new frame; miss %: of all refreshes. stall: the longest run of late frames, over 1.5 periods. calls, tris: the story\'s frame, both eyes. q: automatic quality\'s level, r = the refresh rate stepped down.)');
   return L.join('\n') + '\n';
 }
+// (v229) what makes two runs not comparable, said first; rows matched by kind, story and key, a key that comes twice by
+// its turn; a segment cut short by the headset view ending left out of the match (the item went on after it)
+const runOpts = r => { const o = r.info && r.info.opts; return typeof o === 'string' ? o : o ? JSON.stringify({ ch: o.ch, full: o.full, ex: o.ex, aq: o.aq, scenes: o.scenes, stories: o.stories }) : ''; };
 function perfRunCompare(a, b) {
   const L = ['# Performance runs compared', '', '**A**', ...perfRunFacts(a), '', '**B**', ...perfRunFacts(b), ''];
+  const IA = a.info || {}, IB = b.info || {}, SA = IA.settings || {}, SB = IB.settings || {}, warn = [];
+  const diff = (what, x, y) => { if (cell(x) !== cell(y)) warn.push(`- **Not alike:** ${what}: A ${cell(x)}, B ${cell(y)}.`); };
+  diff('release', a.release, b.release); diff('VR, AR or a page', IA.xr || 'page', IB.xr || 'page'); diff('display rate (Hz)', IA.hz, IB.hz);
+  diff('automatic quality', SA.auto, SB.auto); diff('options', runOpts(a), runOpts(b));
+  if (warn.length) L.push(...warn, '');
   L.push('| segment | A mean | B mean | A p95 | B p95 | p95 B-A | A miss % | B miss % | A calls | B calls | note |', '|---|' + '---:|'.repeat(9) + '---|');
-  const key = g => g.kind + '|' + g.story + '|' + g.key, B = new Map(b.segs.map(g => [key(g), g])), seen = new Set();
-  const row = (x, y) => { const d = x && y && x.p95 != null && y.p95 != null ? (y.p95 - x.p95).toFixed(1) : '-'; L.push('| ' + [segName(x || y), cell(x && x.mean), cell(y && y.mean), cell(x && x.p95), cell(y && y.p95), d, x ? missPct(x) : '-', y ? missPct(y) : '-', cell(x && x.calls), cell(y && y.calls), [x && x.why ? 'A: ' + x.why : '', y && y.why ? 'B: ' + y.why : '', !x ? 'only in B' : !y ? 'only in A' : ''].filter(Boolean).join('; ')].join(' | ') + ' |'); };
-  for (const g of a.segs) { const k = key(g); seen.add(k); row(g, B.get(k)); }
-  for (const g of b.segs) if (!seen.has(key(g))) row(null, g);
+  const kept = r => r.segs.filter(g => g.why !== CUT), turn = list => { const c = new Map(); return list.map(g => { const k = g.kind + '|' + g.story + '|' + g.key, n = c.get(k) || 0; c.set(k, n + 1); return [k + '#' + n, g]; }); };
+  const A = turn(kept(a)), B = new Map(turn(kept(b))), seen = new Set();
+  const row = (x, y) => { const d = x && y && x.p95 != null && y.p95 != null ? (y.p95 - x.p95).toFixed(1) : '-'; L.push('| ' + [segName(x || y), cell(x && x.mean), cell(y && y.mean), cell(x && x.p95), cell(y && y.p95), d, x ? missPct(x) : '-', y ? missPct(y) : '-', cell(x && x.calls), cell(y && y.calls), [x && x.why ? 'A: ' + x.why : '', y && y.why ? 'B: ' + y.why : '', !x ? 'only in B' : !y ? 'only in A' : '', x && y && x.hz != null && y.hz != null && x.hz !== y.hz ? `rate A ${x.hz} Hz, B ${y.hz} Hz` : ''].filter(Boolean).join('; ')].join(' | ') + ' |'); };
+  for (const [k, g] of A) { seen.add(k); row(g, B.get(k)); }
+  for (const [k, g] of B) if (!seen.has(k)) row(null, g);
+  const cut = a.segs.length + b.segs.length - kept(a).length - kept(b).length;
+  if (cut) L.push('', `(${cut} segments cut short by the headset view ending are left out: their item went on after them.)`);
   return L.join('\n') + '\n';
 }
 
