@@ -699,13 +699,13 @@
       "list": "experiments",
       "minis": "minis.js",
       "icon": "crowds.cube",
-      "needs": 188,
-      "fp": "3cdedbc4be2bd3bd",
-      "bytes": 278409,
+      "needs": 228,
+      "fp": "489d58ee04be6885",
+      "bytes": 299162,
       "files": {
-        "main.js": "b15abbeeb26c97ca",
+        "main.js": "868c5a0482c2f3f5",
         "minis.js": "bc4149d351499be1",
-        "story.json": "efbb1b6e88609ee7"
+        "story.json": "38c16a9132c1b0d6"
       }
     },
     {

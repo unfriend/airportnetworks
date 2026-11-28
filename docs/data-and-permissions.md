@@ -111,8 +111,10 @@ narration is recorded so far (20 November 2026).
 | `flock`, `robots`, `tutorial` | the project's own code and, for the tutorial, words and moves written for it; the flock and robot rules after published papers (above) | the project's owner | the project's own | yes | none | not needed (no third-party data) |
 | `ppicell` | the interactome of Menche et al. (2015), Data S1 | Jörg Menche (an author; LBI for Network Medicine) | by 22 November 2026, as the owner relayed it; **TO FILL (owner):** how | yes (a published paper's supplement) | only derived numbers in the repository (gene symbols, gene numbers in the file's order, kinds of evidence); the file itself kept out | Jörg Menche |
 
-`hello` (the example package) and `cellstress` (a frame-rate test) hold no data of anyone's: made-up numbers only; they are
-on the Experiments set and not in `packages/order.json`, so they need no row above.
+`hello` (the example package), `cellstress` (a frame-rate test) and `crowds` (Protein crowds, a test of drawing and culling)
+hold no data of anyone's: made-up numbers only (`crowds` also reads ppicell's coarse protein shapes, `PPI_STRUCTS`, made
+from Protein Data Bank structures, whose data are CC0); they are on the Experiments set and not in `packages/order.json`,
+so they need no row above.
 
 ## Inputs not in the repository
 

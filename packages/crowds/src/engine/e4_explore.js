@@ -112,11 +112,13 @@ function renderCull() {
   const pane = $('#pane-cull');
   if (!pane) return;
   const held = api('crowds').held && api('crowds').held();
-  pane.innerHTML = `<p class="sub">The balls are sorted into a grid of cells; a draw is a run of neighbouring cells. Each switch leaves out what you would not see, or draws it more cheaply.</p>
+  pane.innerHTML = `<p class="sub">${esc(CULL_INTRO)}</p>
     <p class="sub crowds-read">${esc(readLine())}</p><p class="sub crowds-cull">${esc(cullLine())}</p>${ctlRows('cull')}
     <p class="grp-h">Hold the culling</p><div class="chips">${chip('data-act="hold" data-v="1"', 'Hold here', held)}${chip('data-act="hold" data-v="0"', 'Follow me', !held)}</div>
     <p class="sub">Held, the cells are judged from where you were: walk or turn away and see what is left out. Yours alone.</p>`;
 }
+// the Culling tab's first lines (both panes)
+const CULL_INTRO = 'The balls are sorted into a grid of cells; a draw is a run of neighbouring cells. Each switch leaves out what you would not see, or draws it more cheaply.';
 // ------------------------------------------------------------ the read-out (both panes, page and headset)
 const big = v => (v >= 1e6 ? (v / 1e6).toFixed(v >= 1e7 ? 0 : 1) + 'M' : v >= 1e4 ? Math.round(v / 1000) + 'k' : fmt(Math.round(v)));
 const cst = () => (GL.sets.crowds ? GL.sets.crowds.stats() : null);
@@ -126,7 +128,8 @@ function readLine() {
   if (!s || !s.n) return s && s.building ? `Building ${fmt(s.building)} balls…` : 'Building the crowd…';
   const pct = s.n ? Math.round(100 * s.drawn / s.n) : 0, mesh = s.mode === 1;
   const fr = s.fps ? `${Math.round(s.fps)} frames a second (${s.mean.toFixed(1)} ms, worst ${s.worst.toFixed(0)} ms)` : 'frame rate not yet measured';
-  return `${fmt(s.n)} balls; ${fmt(s.drawn)} drawn (${pct} %) in ${s.cellsDrawn} of ${s.cells} cells, ${s.draws} draws${s.eyes > 1 ? ' an eye' : ''}. `
+  const eyes = s.noEyes ? 'The headset\'s eyes are not known to the story: nothing is culled. ' : '';
+  return `${eyes}${fmt(s.n)} balls; ${fmt(s.drawn)} drawn (${pct} %) in ${s.cellsDrawn} of ${s.cells} cells, ${s.draws} draws${s.eyes > 1 ? ' an eye' : ''}. `
     + `${mesh ? `${big(s.tris)} triangles` : `${big(s.drawn)} points`}; ${fmt(s.calls)} draw calls in all. ${fr}.${s.building ? ` Building ${fmt(s.building)}…` : ''}`;
 }
 // what is in the scene: the crowd's molecules, or the cloud
@@ -134,7 +137,7 @@ function whatLine() {
   const s = cst();
   if (!s || !s.n) return '';
   const names = api('crowds').kindNames || [];
-  const gl = s.gl2 ? '' : ' Meshes need WebGL 2, which this browser lacks: impostors instead.';
+  const gl = (s.gl2 ? '' : ' Meshes need WebGL 2, which this browser lacks: impostors instead.') + (s.fd ? '' : ' This browser cannot write a point\'s depth: every impostor is drawn flat.');
   if (s.what === 1) return `About ${fmt(s.mols)} protein molecules (${s.kinds.map((n, i) => `${big(n)} balls of ${names[i]}`).join(', ')}), copies of one packed cube of cytoplasm about 100 nm across, each copy turned.${gl}`;
   return `A made-up cloud: ${fmt(s.n)} balls at random, a fifth of the cube filled, coloured as the protein kinds.${gl}`;
 }
@@ -143,9 +146,11 @@ function cullLine() {
   const s = cst();
   if (!s || !s.n) return '';
   const [a, b, c] = s.perLod, mesh = s.mode === 1;
-  return `${s.out} cells out of view and ${s.hidden} hidden behind full cells left out; ${fmt(s.thinOut)} far balls thinned out. `
+  const near = mesh ? '' : s.nearOff ? ` Points stop at ${fmt(s.ptMax)} pixels here: very near balls are drawn smaller than they are.`
+    : s.near ? ` ${fmt(s.near)} very near balls drawn as meshes (points stop at ${fmt(s.ptMax)} pixels here).` : '';
+  return `${s.out} cells out of view and ${s.hidden} hidden behind full cells left out${s.fading ? ' (none hidden while the crowd fades)' : ''}; ${fmt(s.thinOut)} far balls thinned out. `
     + (mesh ? `Detail: ${big(a)} balls at 320 triangles, ${big(b)} at 80, ${big(c)} at 20.` : `Detail: ${big(a)} balls with their true depth, ${big(b)} flat and cheaper.`)
-    + ` Grid ${s.G} x ${s.G} x ${s.G}; built in ${fmt(s.ms)} ms.`;
+    + `${near} Grid ${s.G} x ${s.G} x ${s.G}; culling ${s.cullMs.toFixed(2)} ms a frame; built in ${fmt(s.ms)} ms.`;
 }
 // the read-out written again (each half second, from the set): only its lines, not the panes
 function readTick() {

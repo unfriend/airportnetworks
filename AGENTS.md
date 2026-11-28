@@ -247,8 +247,8 @@ of step).
   (pet, micro, ovary, topo), `tissue.js` (micro), `web.js` (soil), `packages/micro/src/sets/organs.js` (pet,
   micro, topo), `packages/nmd/src/sets/motor.js` and `data.js` (endo), `packages/topo/src/sets/look.js` (soil,
   cdk5), `packages/airports/main.js` and `packages/spatial/main.js` (pass), `packages/airports/main.js` and
-  `packages/ppicell/src/sets/cell.js` (exposome), its `structs.js`, `balls.js` and `crowd.js` (crowds, not built by
-  `all.mjs`: `node packages/crowds/src/build.mjs`).
+  `packages/ppicell/src/sets/cell.js` (exposome), its `structs.js`, `balls.js` and `crowd.js` (crowds). `all.mjs` builds
+  only the packages `packages/order.json` names: crowds, cellstress and hello each need their own `src/build.mjs`.
 - A story's data first where it has a generator (`src/data/gen_data.*`, only from the authors' files), and its
   own test after its maths, data or sets (`packages/<key>/src/test-*.mjs`).
 - Never edit `tools/studio/vendor/`. Generated data files (`packages/*/src/sets/data.js`) are never edited by

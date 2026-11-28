@@ -7,7 +7,7 @@ of what is drawn and what a frame costs. It answers "how many protein balls can 
 
 - Made by: the app's authors. Open it from the Experiments set or with `#crowds`.
 - Data: the packed crowd reads the Back into the cell story's molecules at build time (`packages/ppicell/src/sets/`:
-  `structs.js`, each molecule's coarse balls from the Protein Data Bank, public domain; `crowd.js`'s kinds, shares and
+  `structs.js`, each molecule's coarse balls from the Protein Data Bank, whose data are CC0; `crowd.js`'s kinds, shares and
   colours). The made-up cloud is a seeded random draw. Nothing to ask permission for.
 - Narration: none.
 - Sources, the method and the measured sweep: `src/README.md`; the brief: `src/SPEC.md`.

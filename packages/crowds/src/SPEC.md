@@ -18,6 +18,12 @@ Decided with the owner:
    matrices read, never a `getWorld*` call in a draw hook); detail by distance (far balls cheaper, sub-pixel ones
    thinned with the survivors enlarged); front-to-back order of cells (and what `gl_FragDepth` does to early depth
    rejection: measured); hidden cells (a cheap conservative CPU test on the grid that never makes a visible hole).
+   *As built* (`README.md`, "Hidden cells"): the test is a lower bound on the optical depth in front of each cell for a
+   random crowd, its threshold set from the pixels drawn (on average at most 0.01 pixel a frame wrongly left empty, for
+   a random crowd); for the packed proteins it counts molecules, not balls (each kind's shadow share), and is checked by
+   rays (`test-cull.mjs`) and by pictures (`sweep.mjs`), not proved. Honestly counted, the packed crowd at its own size is
+   never deep enough to hide a cell; the test leaves cells out only for the made-up cloud seen from outside and at the
+   Larger size.
 4. **Shading**: lit, flat, outline; a cheap ambient shading from the grid's local density at build time; shadows only
    if cheap (they are not: a shadow pass draws every ball again).
 5. **A measured sweep** (`sweep.mjs`), written up in `README.md` under "What the sweep says", with a plain answer to

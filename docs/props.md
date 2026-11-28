@@ -91,7 +91,7 @@ The first three stories are hand-written single scenes, not made of sets. They c
 Not catalogued below (checked 26 November 2026, v212): the exposome story's sets (`packages/exposome/src/sets/`: `cell`,
 `clot`, `cloud`, `globe`, `look`, `pair`, `ppi`, `xdata`) and the *Back into the cell* story's (`packages/ppicell/src/sets/`),
 which have no set manifests (their parts are in each package's `src/SPEC.md`), and the example and test packages
-`hello` and `cellstress`.
+`hello`, `cellstress` and `crowds`.
 
 ## The sets
 

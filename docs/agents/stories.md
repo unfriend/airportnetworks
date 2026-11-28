@@ -20,9 +20,9 @@
 - 926: The tutorial (`packages/tutorial/`, a story package since v186) is built the same way (5.1 KB)
 - 976: Back into the cell (`packages/ppicell/`, a story package) is built the same way (5.2 KB)
 - 1025: Invisible threads, the exposome story (`packages/exposome/`, a story package on the Experiments set) is built the same way (6.3 KB)
-- 1085: Protein crowds (`packages/crowds/`, a story package on the Experiments set) is built the same way (3.1 KB)
-- 1116: The design room (`stories/design.js`) is built the same way (5.0 KB)
-- 1167: From CLAUDE.md (6.4 KB)
+- 1085: Protein crowds (`packages/crowds/`, a test bed on the Experiments set) (4.3 KB)
+- 1128: The design room (`stories/design.js`) is built the same way (5.0 KB)
+- 1179: From CLAUDE.md (6.4 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The rules all the built stories share (the build budget and
@@ -1082,36 +1082,48 @@ nine minutes and fifty seconds (`NARRATION_SYNC` provisional until the voice is 
 - Wording: "disturbs" or "touches" a gene, "close in the map", "more common where", never "causes"; no brand names;
   countries by their rates only; no health advice. British spelling.
 
-## Protein crowds (`packages/crowds/`, a story package on the Experiments set) is built the same way
+## Protein crowds (`packages/crowds/`, a test bed on the Experiments set)
 
-*Protein crowds* (kick *Measuring*, `list: "experiments"`, `needs` 188, not in `packages/order.json`; from 28 November
+*Protein crowds* (kick *Measuring*, `list: "experiments"`, `needs` 228 for `HOST.xrEyes`, not in `packages/order.json`, so
+`tools/engine/all.mjs` does not rebuild it; from 28 November
 2026): a test bed answering the owner's "how many protein balls can we draw, and how would we cull them efficiently?".
 Its brief is `src/SPEC.md`; its method and the measured sweep `src/README.md`.
 
 - Build: `src/build.mjs` pastes three of ppicell's files by path before its own sets (`structs.js`: `PPI_STRUCTS`;
   `balls.js`: `BALLS.half`; `crowd.js` cut before `SETS.crowd`: `CROWD`'s kinds, shares, colours, side). Rebuild after
-  a change to any of them. Sets: `sets/cull.js` (`CULL`: `erode`, `sweep`, `TAU`; tested in node by `src/test-cull.mjs`,
-  which casts rays to check that no first hit lies in a hidden cell) and `sets/crowds.js` (`CROWDS`, the tile; the set).
+  a change to any of them. Sets: `sets/cull.js` (`CULL`: `erode`, `sweep`, `tauFor`) and `sets/crowds.js` (`CROWDS`: the
+  tile, each kind's shadow share, `build`; the set). `src/test-cull.mjs` (node, about 10 s) runs the real build of a
+  million packed balls and random crowds and casts rays to check that no first hit lies in a hidden cell: evidence for
+  the hidden-cell test, not a proof (random crowds are its model; the packed one is checked, not proved).
 - Contents: the packed crowd is one 100 nm cube packed as crowd.js packs (same kinds, shares, overlap tolerance 0.9, a
   kind stops at its share or 400 misses) but periodically (wrapping round the faces), during the load (`prep`, 25 ms a
   step); a crowd of n balls is the cube cropped from copies of it, each copy turned one of the cube's 24 ways, scaled to
   a 1.2 side. The cloud: n balls at random, a fifth of the cube filled, kinds by CROWD's shares. Both built in slices in
-  the set's update (`buildMs`), the old crowd drawn until the new one is done; sorted into a grid (2 to 10 cells a side,
-  about 1,500 balls a cell), each cell's balls contiguous and shuffled (its first m are a fair sample: thinning).
+  the set's update (`buildMs`; the generator yields every few hundred balls), then sent to the card a piece a frame
+  (impostors: a geometry per 131,072 balls, drawn once unseen into a 1 x 1 target; meshes: a texture a frame), the old
+  crowd drawn until the new one is up; sorted into a grid (2 to 10 cells a side, about 1,500 balls a cell), each cell's
+  balls contiguous and shuffled (its first m are a fair sample: thinning).
 - Drawing: pools of slots (`GPU.pools`: impostor near and far; mesh 320, 80, 20 triangles), each slot an object sharing its
   pool's geometry with its own material (one program), drawing a run of cells; its `onBeforeRender` sets the shared
   geometry's `drawRange` (points) or `instanceCount` (meshes) and nothing else. Meshes read each ball from data textures
   by `uBase + gl_InstanceID` (WebGL 2; without it impostors are drawn and the pane says so). Impostors near write
-  `gl_FragDepth` (their true depth, as crowd.js), far ones the ball's front (no `gl_FragDepth`).
+  `gl_FragDepth` (their true depth, as crowd.js; flat where the card has no `EXT_frag_depth`), far ones the ball's front.
+  A point stops at the card's `ALIASED_POINT_SIZE_RANGE`: balls nearer an eye than that allows are left out by the
+  points' shader and drawn as 320-triangle meshes from attributes of their own, filled each frame (the read-out counts
+  them).
 - Culling (`cull()`, in the set's update each frame): from the page's camera, or a headset's eyes as three.js posed them
-  for the last frame (`HOST.xrEyes`, matrices read only, never a call on a camera; a 3 degree, 2 cm margin for that
-  frame). Hold the culling (`api().hold`, per device, not in the state; `&hold` in the address) keeps the eyes still.
+  for the last frame (`HOST.xrEyes`' ArrayCamera's `cameras`, matrices read only, never a call on a camera; not before
+  three.js has drawn a frame of the session, the last frame's choice kept meanwhile; a margin of 3 degrees and 2 cm
+  plus twice the head's last turn and move). Hidden cells only while the set is opaque (not while it fades, when front
+  to back also turns back to front). Nothing is allocated a frame. Hold the culling (`api().hold`, per device, not in the
+  state; `&hold` in the address) keeps the eyes still.
 - Controls `n` (1k to 1M), `what`, `draw`, `size`, `shade` (lit, flat, outline), `ao`, `col` (kind, cell, detail),
-  `view` (outside, close, inside) on the Balls tab; `grid`, `lod`, `order`, `hide` on the Culling tab; all `STEP` params
+  `view` (outside, close, inside, far) on the Balls tab; `grid`, `lod`, `order`, `hide` on the Culling tab; all `STEP` params
   `crowds_*`. Shared `{ v: 1, tab, scene, ctl }`; `FORMAT` unchanged. Address: `#crowds&explore&n=1000000&draw=1&view=inside`.
 - The read-out (both panes, every half second: `readTick`, and the headset panel's signature): balls, drawn, cells,
   draws, triangles or points, all draw calls (`renderer.info`), frames a second from the set's own frame times; the
-  shell's own read-out in a headset is B or Y twice. `src/sweep.mjs` measures it headless.
+  shell's own read-out in a headset is B or Y twice; the Culling tab adds what each switch left out, near meshes and the
+  culling's own CPU time. `src/sweep.mjs` measures it headless (`api().cullTime`, `force`, `freeze`, `ptMax`).
 
 ## The design room (`stories/design.js`) is built the same way
 

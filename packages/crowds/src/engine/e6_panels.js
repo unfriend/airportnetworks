@@ -40,8 +40,9 @@ function drawScenesPane(ctx, P, x, y, W, bottom) {
   y += textBlock(ctx, whatLine(), x, y, W, 21, 29, VC.muted, 400, 3) + 14;
   drawCtlRows(ctx, P, 'scenes', x, y, W, bottom);
 }
-// the culling: the read-out, what each switch leaves out, the switches and Hold (renderCull's twin)
+// the culling: what the tab is, the read-out, what each switch leaves out, the switches and Hold (renderCull's twin)
 function drawCullPane(ctx, P, x, y, W, bottom) {
+  y += textBlock(ctx, CULL_INTRO, x, y, W, 21, 29, VC.muted, 400, 2) + 8;
   y += textBlock(ctx, readLine(), x, y, W, 23, 31, VC.ink, 400, 4) + 8;
   y += textBlock(ctx, cullLine(), x, y, W, 21, 29, VC.muted, 400, 4) + 14;
   y = drawCtlRows(ctx, P, 'cull', x, y, W, bottom);
