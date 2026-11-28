@@ -893,7 +893,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 228, id: 'a8f0c0ea8825d056', format: 'networks-61' },
+  shell: { n: 229, id: 'ff2dac9949ed7a76', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -907,11 +907,16 @@ const HOST = {
       const r = this.renderer, loop = r.setAnimationLoop;
       // (v228) and after each of a session's frames the renderer draws into the headset again: a story that draws into a
       // texture of its own (xr.enabled off, a render target) puts both back itself, and one that forgot would leave the
-      // headset's picture frozen; put back here, with one warning (two property reads a frame)
-      let unsettled = false;
+      // headset's picture frozen; put back here (two property reads a frame). It mends the next frame, not the one just
+      // drawn; one warning a story (its key), and every frame mended counted (HOST.xrSettled: the Debug tab, the
+      // performance run)
+      let unsettled = '';
+      this.xrSettled = 0;
       const settle = () => {
         if (r.xr.enabled && r.getRenderTarget() === null) return;
-        if (!unsettled) { unsettled = true; console.warn('A frame left the renderer drawing elsewhere than the headset (xr.enabled off or a render target set): put back'); }
+        this.xrSettled++;
+        const k = this.curKey || '-';
+        if (unsettled !== k) { unsettled = k; console.warn('A frame of ' + k + ' left the renderer drawing elsewhere than the headset (xr.enabled off or a render target set): put back for the next frame'); }
         r.xr.enabled = true; r.setRenderTarget(null);
       };
       r.setAnimationLoop = fn => {
@@ -3119,7 +3124,7 @@ HOST.flightLoad = function () {
 HOST.quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
 HOST.mods = (function () {
   const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js', perfRun: 'perfrun.js' }, M = {}, AGAIN = 30000;   // (perfRun: the performance run, v228, from developer mode or #perfrun)
-  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"f9f65b92c14211ad"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
+  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"31c7f1ffd8283ac5","perfRun":"f9e21e29a092f218"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
   function linked(name) {
     const m = HOST[name];
     try {
@@ -4902,6 +4907,10 @@ HOST.live = (function () {
       quietly(() => { for (const t of ['hello', 'story', 'list', 'shell', 'build']) es.addEventListener(t, ev => heard(t, ev)); });
     });
   }
+  // (never while the performance run runs, perfrun.js: a changed shell file reloads once it has ended, a story's file is
+  // swapped in then too)
+  const held = () => !!(HOST.perfRun && HOST.perfRun.hold && HOST.perfRun.hold());
+  function shellNew() { if (held()) L.shellAfter = true; else reload('shell'); }
   function heard(type, ev) {
     let d;
     try { d = JSON.parse(ev.data); } catch (e) { return; }
@@ -4911,12 +4920,12 @@ HOST.live = (function () {
       // laptop slept): anything changed meanwhile
       const first = !L.shellSeen, sh = d.shell || {};
       if (first) L.shellSeen = sh;
-      else if (Object.keys(sh).some(f => sh[f] !== L.shellSeen[f])) return reload('shell');
+      else if (Object.keys(sh).some(f => sh[f] !== L.shellSeen[f])) return shellNew();
       if (!first) reread();
       for (const [k, fp] of Object.entries(d.stories || {})) if (HOST.fp[k] && HOST.fp[k] !== fp) story(k, true);
     } else if (type === 'story') { if (HOST.fp[d.key] && HOST.fp[d.key] !== d.fp) story(d.key, true); }
     else if (type === 'list') reread();
-    else if (type === 'shell') { if (!L.shellSeen || L.shellSeen[d.file] !== d.fp) reload('shell'); }
+    else if (type === 'shell') { if (!L.shellSeen || L.shellSeen[d.file] !== d.fp) shellNew(); }
     else if (type === 'build') {
       if (!d.ok) note(`Building the ${d.key} story failed: ` + String(d.out || '').trim().split('\n').slice(-3).join(' '));
       else if (/^Building the /.test(L.note)) note('');
@@ -4928,8 +4937,9 @@ HOST.live = (function () {
     if (L.pending) {
       const k = L.pending;
       if (k !== HOST.curKey || !HOST.cur) { L.pending = ''; L.urgent = false; L.stale.add(k); }   // gone meanwhile
-      else if (!HOST.busy && (L.urgent || quiet())) { L.pending = ''; L.urgent = false; HOST.swap(k); }
+      else if (!HOST.busy && ((L.urgent && !held()) || quiet())) { L.pending = ''; L.urgent = false; HOST.swap(k); }
     }
+    if (L.shellAfter && !held()) { L.shellAfter = false; reload('shell'); }
     if (L.ask && !L.ask.hidden && HOST.session) xrLoop(HOST.session);
     cdStep();
     const t = performance.now();

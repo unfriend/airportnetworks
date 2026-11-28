@@ -1,20 +1,24 @@
 {
-  "version": "networks-v228",
+  "version": "networks-v229",
   "date": "2026-11-28",
   "new": [
-    "A story can no longer move a headset's eyes. The fault of the exposome story (v212 to v225: the scene stuck to your head, the beams below your hands) came from one line in a story; the shell now keeps the eye cameras to itself, whatever a story does.",
-    "If a story leaves the picture drawing somewhere else after a frame, the shell puts it back on the headset and says so once in the console.",
-    "The package check refuses a story whose drawing code tries to move its camera. The pass story had the same line (harmless, on a page only): it is fixed."
+    "The performance run: the headset plays every story and the studio's example scenes by itself, chapter by chapter, and measures every frame. About 75 minutes; #perfrun&prch=10 takes about 45.",
+    "Its hands-on part: about five minutes of one card at a time (the panel, the menu, the grip, the sticks, walking, occlusion, the Stories screen, a studio scene), each with Done and Skip.",
+    "To start either in a headset: turn developer mode on, then open the address with #perfrun (or #handson), or use the Performance run and Hands-on test rows on the menu's Debug tab.",
+    "The results stay on the headset and, with developer mode on, go to the relay as a run log; node tools/notes/notes.mjs perfrun <id> turns one into a table, or compares two.",
+    "A pause of a second or more now counts in the numbers, and a page's display rate is measured once before the run, not guessed from a slow story."
   ],
   "test": [
-    "Any two stories in VR and one in AR: everything looks as before, in stereo, the beams leaving your hands.",
-    "The exposome story (Invisible threads) in VR and in AR: the scene stays put.",
-    "Sharp text, occlusion and the spaceships in a headset: each still looks right.",
-    "The pass story on a page: the globe and the cell are lit as before."
+    "On a Quest: start the run-through with #perfrun in VR and let it finish; the results card should show and the run log reach the relay.",
+    "The hands-on part: press Done on some cards and Skip on others.",
+    "Run it on two headsets and compare the two runs with notes.mjs perfrun.",
+    "Stop a run from the Debug tab, also while a story is loading: it should stop at once and put automatic quality back.",
+    "Take the headset off mid-run, put it back on and Enter VR: the run should go on from where it stopped.",
+    "Any two stories in VR and one in AR: everything looks as before, in stereo (v228's eye lock); the exposome story stays put."
   ],
   "untested": [
+    "Everything of the performance run in a real headset: a session of over an hour, the battery, the cards' comfort, every hands-on step and the numbers themselves.",
     "The lock on the eye cameras was tried only with a pretend headset: that it changes nothing in the picture on a Quest is untested.",
-    "Stories that draw into a picture first (the studio's small views) are untested in a headset since this change.",
     "Everything in a headset since v220 except calibration, which the owner tried on v226.",
     "Every synthetic voice is unheard."
   ]
