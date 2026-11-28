@@ -12,7 +12,11 @@
 // too. Segments are measured by perfrun.js's recorder (HOST.perfRun.rec); the eye picture is read back as the notebook
 // reads it (notes.js grab); pretend controller rays go through the groups three.js owns, from index.html's one seam
 // (makeRenderer's frame wrapper: pre before the story's frame, post after it). Nothing here is a room's, a story's state
-// or a stored setting of the owner's.
+// or a stored setting of the owner's. The fixed view (v233, SPEC 15; the owner: "make sure that every story is always in
+// front of the headset at the same place so we get measurable results; the headset could be in any position"): while a
+// job with a session runs, the shell answers three.js from a space carried with the head (HOST.xr.benchView), so the head
+// reads level at 1.6 m facing -z however the headset lies, and the story is recentred there; anchors are lent for the job
+// (HOST.anchor.pause).
 // (loaded on demand, HOST.mods: run with HOST.quiet set, so its listeners and timers are the shell's)
 HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   'use strict';
@@ -288,7 +292,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       device: I.device || '', model: I.model || '', browser: I.browser || '', ua: navigator.userAgent.slice(0, 200), xr: xrNow(),
       visibility: G(() => (HOST.session ? HOST.session.visibilityState : document.visibilityState), ''), hz: I.hz == null ? null : I.hz, hzList: I.hzList || '', eyeW: I.eyeW == null ? null : I.eyeW, eyeH: I.eyeH == null ? null : I.eyeH,
       fbScale: I.fbScale == null ? null : I.fbScale, fov: I.fov == null ? null : I.fov, battery: await battery(), settings: S,
-    }, where(), { phase: B.phase, why: B.why, hs: B.hs, press: Object.assign({}, B.press), auto: B.auto || null, mods: G(() => HOST.mods.loaded(), []), errs, url: location.origin + location.pathname });
+    }, where(), { view: B.job && B.job.vw && B.job.vw.n ? viewOut(B.job.vw) : null, phase: B.phase, why: B.why, hs: B.hs, press: Object.assign({}, B.press), auto: B.auto || null, mods: G(() => HOST.mods.loaded(), []), errs, url: location.origin + location.pathname });
   }
   // (every error while bench mode is on is counted for the next report; a job's measure steps list them: perfrun.js)
   try { HOST.quietly(() => { window.addEventListener('error', () => { B.errs++; }); window.addEventListener('unhandledrejection', () => { B.errs++; }); }); } catch (e) { /* none */ }
@@ -309,7 +313,8 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   const until = async (fn, ms, why, J) => { const t0 = now(); for (;;) { if (J && J.stop) throw new Stop(J.stop); let v = false; try { v = fn(); } catch (e) { v = false; } if (v) return v; if (now() - t0 > ms) throw new Error(why || 'timed out after ' + Math.round(ms / 1000) + ' s'); await sleep(100); } };
   const cap = o => { const s = JSON.stringify(o === undefined ? null : o); return s.length <= OUTMAX ? JSON.parse(s) : { cut: true, bytes: s.length, head: s.slice(0, 2000) }; };
   async function runJob(job) {
-    const J = B.job = { id: job.id, label: String(job.label || '').slice(0, 80), steps: job.steps || [], i: -1, of: (job.steps || []).length, cmd: '', stop: '', t0: Date.now(), limit: +job.limit || 300, sound: !!job.sound, picN: 0, need: job.need };
+    const J = B.job = { id: job.id, label: String(job.label || '').slice(0, 80), steps: job.steps || [], i: -1, of: (job.steps || []).length, cmd: '', stop: '', t0: Date.now(), limit: +job.limit || 300, sound: !!job.sound, picN: 0, need: job.need,
+      vw: { mode: job.view === 'asis' ? 'asis' : 'fixed', applied: false, placed: false, lent: false, n: 0, why: '', real: null, head: null, rig: null, world: null } };
     const out = { hs: B.hs, ok: true, why: '', t0: J.t0, t1: 0, steps: [], report: null };
     const keep = () => put('benchJob', JSON.stringify({ id: J.id, step: Math.max(0, J.i), at: J.t0 }));
     keep();
@@ -340,6 +345,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
           if (J.cmd === 'reload') { r.t1 = Date.now(); out.steps.push(r); J.reload = true; break; }
           J.tok = {};
           r.out = cap(await race(step(s, J, rec), limitOf(s), J));
+          if (r.out && typeof r.out === 'object' && !Array.isArray(r.out) && /^(open|explore|seek)$/.test(J.cmd) && J.vw.n) r.out.view = viewOut(J.vw);
         } catch (e) {
           if (e instanceof Stop) { r.ok = false; r.err = e.message; out.steps.push(r); throw e; }
           r.ok = false; r.err = String(e && e.message || e).slice(0, 300);
@@ -360,6 +366,8 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       if (rec) { try { rec.close('the job ended'); } catch (e) { /* none open */ } rec.errors(false); }
       segOwn = null;
       B.picWant = null;
+      out.view = J.vw.n ? viewOut(J.vw) : null;
+      await viewEnd(J).catch(() => {});
       if (giveBack() && !out.why) out.put = 'borrowed settings put back';
       out.t1 = Date.now();
       put('benchJob', null);
@@ -375,7 +383,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   async function step(s, J, rec) {
     switch (s.cmd) {
       case 'report': return report();
-      case 'open': return s.scene ? openScene(s, J) : openStory(s.story, J);
+      case 'open': { const o = s.scene ? await openScene(s, J) : await openStory(s.story, J); await viewPlace(J, true); return o; }
       case 'seek': {
         const A = need(app());
         const CH = G(() => HOST.cur.peek('CH'), null) || [];
@@ -384,6 +392,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
         if (A.mode !== 'story') A.enterStory(t); else A.seek(t);
         A.playing = !!s.play;
         await sleep(1000);
+        await viewPlace(J, true);
         const w = where();
         return { mode: w.mode, chapter: w.chapter, t: w.t, playing: w.playing };
       }
@@ -408,14 +417,15 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
           HOST.cur.peek('showTab(' + JSON.stringify(tab) + ')');
           await sleep(500);
         }
+        await viewPlace(J, true);
         return { tabs, tab };
       }
       case 'set': return borrow(s.name, s.value);
       case 'measure': return measure(rec, +s.sec, s.name || '', J);
       case 'rays': return rays(s, J, rec);
       case 'pic': return pic(s, J);
-      case 'probe': return runProbe(s.name, s.args, J);
-      case 'script': return runProbe('', s.args, J, s.code);
+      case 'probe': await viewKeep(J); return runProbe(s.name, s.args, J);
+      case 'script': await viewKeep(J); return runProbe('', s.args, J, s.code);
       case 'wait':
         if (s.until === 'quiet') { const t0 = now(); await until(() => !HOST.busy, 60000, 'the app stayed busy', J); return { waited: r2((now() - t0) / 1000) }; }
         await sleep((+s.sec || 0) * 1000);
@@ -466,14 +476,16 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   const segEnd = (rec, why) => { if (rec && segOwn) segClose(rec, segOwn, why); };
   async function measure(rec, sec, name, J) {
     if (!rec) throw new Error('the performance run\'s recorder did not load');
+    await viewKeep(J);
     const S = segOpen(rec, name);
     const lim = sec * 3000 + 30000, t0 = now();
     try { await until(() => S.clk >= sec * 1000 || (now() - t0 > lim && (S.why = 'watchdog: frames stopped coming')), lim + 5000, '', J); } catch (e) { segClose(rec, S); throw e; }
     if (segOwn !== S) throw new Stop('the step ended');
-    return extras(segClose(rec, S));
+    return extras(segClose(rec, S), J);
   }
-  function extras(g) {
+  function extras(g, J) {
     if (!g) return g;
+    if (J && J.vw && J.vw.n) g.view = viewOut(J.vw);   // (none on a page: nothing to place)
     const I = G(() => HOST.renderer.info, null);
     g.tex = I ? I.memory.textures : null; g.geo = I ? I.memory.geometries : null; g.prog = I && I.programs ? I.programs.length : null;
     return g;
@@ -512,6 +524,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   }
   async function rays(s, J, rec) {
     if (!HOST.session || !HOST.renderer) throw new Error('needs a headset session');
+    await viewKeep(J);
     raysEnd();
     const hand = s.hand === 0 ? 0 : 1, sec = +s.sec || 10;
     const RY = B.rays = { hand, sec, fn: pathFn(s), press: (s.press || []).slice().sort((a, b) => a.at - b.at), pi: 0, t0: 0, H: null, frames: 0, hovers: 0, hoverOk: true, pressed: 0, src: null, real: null, g: null, done: null, err: '' };
@@ -522,7 +535,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
       await race(fin, sec * 3000 + 30000, J);
     } finally {
       raysEnd(RY);
-      if (S) seg = extras(segClose(rec, S));
+      if (S) seg = extras(segClose(rec, S), J);
     }
     if (J.stop) throw new Stop(J.stop);
     if (RY.err) throw new Error(RY.err);
@@ -586,7 +599,107 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     B.frameN++;
     const RY = B.rays;
     if (RY && RY.H && RY.hoverOk) { try { if (HOST.cur.peek(DOT[RY.hand])) RY.hovers++; } catch (e) { RY.hoverOk = false; } }
-    if (B.picWant) grabNow(fr);
+    if (B.picWant && (fr || !HOST.session)) grabNow(fr);   // (in a session, a session frame: never the page canvas)
+    if (B.viewAsk && fr) { const a = B.viewAsk; B.viewAsk = null; a(fr); }   // (a session frame only)
+  }
+
+  // ---- the fixed view (SPEC 15, v233): the story at one place in front of the eyes, however the headset lies
+  // the job's view (J.vw): mode 'fixed' (the default) or 'asis'; applied: the shell's fixed view holds; placed: the story was
+  // recentred in it this job; lent: the anchor lent (HOST.anchor.pause); n: placements; real: how the headset really lay at
+  // the last one (three.js's own space: y its height, yaw, pitch, roll in degrees); head: the head as the story has it;
+  // rig: the story's frame (GL.rig) from the head (d m, bearing and elev degrees, yaw its turn): the same run to run
+  const D = v => Math.round(v * 10) / 10, CM = v => Math.round(v * 100) / 100;
+  const frames = (n, J) => { const n0 = B.frameN; return until(() => B.frameN >= n0 + n, 5000, 'no frame was drawn', J); };
+  // after the next story frame: the head where the story has it, and its rig from the head (one fixed expression)
+  function viewNums() {
+    return new Promise(res => {
+      const t = setTimeout(() => { if (B.viewAsk === ask) B.viewAsk = null; res(null); }, 3000);
+      const ask = B.viewAsk = fr => {
+        clearTimeout(t);
+        try {
+          const r = HOST.renderer, vp = fr && r ? fr.getViewerPose(r.xr.getReferenceSpace()) : null;
+          if (!vp) { res(null); return; }
+          const H = new THREE.Matrix4().fromArray(vp.transform.matrix), hp = new THREE.Vector3().setFromMatrixPosition(H);
+          const e = new THREE.Euler().setFromRotationMatrix(H, 'YXZ');
+          const o = { head: { y: CM(hp.y), yaw: D(e.y / D2R), pitch: D(e.x / D2R), roll: D(e.z / D2R) }, rig: null, world: null };
+          // (the story's frame, GL.rig, and its scene's root, GL.world: every story has both; seen from the head)
+          const from = name => {
+            const m = G(() => HOST.cur.peek(name === 'rig' ? 'Array.from(GL.rig.matrixWorld.elements)' : 'Array.from(GL.world.matrixWorld.elements)'), null);
+            if (!Array.isArray(m) || m.length !== 16 || !m.every(Number.isFinite)) return null;
+            const rel = H.clone().invert().multiply(new THREE.Matrix4().fromArray(m)), p = new THREE.Vector3().setFromMatrixPosition(rel), hz = Math.hypot(p.x, p.z);
+            const fw = new THREE.Vector3(0, 0, -1).transformDirection(rel);
+            const o = { d: CM(p.length()), bearing: hz < 0.01 ? 0 : D(Math.atan2(p.x, -p.z) / D2R), elev: p.length() < 0.01 ? 0 : D(Math.atan2(p.y, hz) / D2R), s: CM(new THREE.Vector3().setFromMatrixColumn(rel, 0).length()) };
+            // (the frame's turn; not the scene's: an explore view spins its scene by itself)
+            if (name === 'rig') o.yaw = D(Math.atan2(-fw.x, -fw.z) / D2R);
+            return o;
+          };
+          o.rig = from('rig'); o.world = from('world');
+          res(o);
+        } catch (e) { res(null); }
+      };
+    });
+  }
+  // placed (open, explore, seek; and the job's first measuring step): the shell's fixed view from the head's real pose now,
+  // the anchor lent, the story recentred in it; 'asis' only reads the numbers. A page (no session): nothing
+  async function viewPlace(J, again) {
+    const V = J.vw;
+    if (!V) return null;
+    if (!HOST.session || !HOST.renderer) { V.why = 'no headset session'; return null; }
+    if (V.mode === 'fixed') {
+      if (!HOST.xr || !HOST.xr.benchView) { V.why = 'this shell has no fixed view'; V.applied = false; }
+      else {
+        if (!V.lent && HOST.anchor && HOST.anchor.pause) { HOST.anchor.pause(true); V.lent = true; }
+        const a = await HOST.xr.benchView(true);
+        if (a && a.real) { V.applied = true; V.real = a.real; V.why = ''; }
+        else { V.applied = false; V.why = 'the fixed view failed: ' + String((a && a.err) || 'no answer').slice(0, 80); }
+      }
+    }
+    if (V.mode === 'fixed' && (again || !V.placed)) {
+      // (Recenter, as the menu's: the story puts its frame in front of the head three.js now has; the anchor lent, so
+      // Place again does nothing. 'asis' never recentres: the story stays where the headset left it, as before v233)
+      G(() => HOST.cur.recenter && HOST.cur.recenter());
+      V.placed = true;
+      await frames(3, J);
+    } else await frames(2, J);
+    const o = await viewNums();
+    V.n++;
+    if (o) { V.head = o.head; V.rig = o.rig; V.world = o.world; }
+    if (V.mode !== 'fixed' && o) V.real = { y: o.head.y, yaw: o.head.yaw, pitch: o.head.pitch, roll: o.head.roll };
+    return viewOut(V);
+  }
+  // before each measure, rays, pic, probe and script: placed again from where the head lies now (no recentre once placed:
+  // the story stays where it is in the carried room), so a headset that slid keeps the same view; never inside a segment
+  const viewKeep = J => (J && J.vw && HOST.session ? viewPlace(J, false) : Promise.resolve(null));
+  // what a step, a segment and the result record
+  function viewOut(V) {
+    if (!V) return null;
+    const r = V.real, o = { mode: V.mode, applied: !!V.applied };
+    if (r) { o.y = CM(r.y); o.pitch = D(r.pitch); o.roll = D(r.roll); o.yaw = D(r.yaw); }
+    if (V.rig) o.rig = Object.assign({}, V.rig);
+    if (V.world) o.world = Object.assign({}, V.world);
+    if (V.head) o.head = Object.assign({}, V.head);
+    if (V.why) o.why = V.why;
+    return o;
+  }
+  // the job's end: the fixed view let go, the story recentred in front of the real head (the anchor's saved arrangement
+  // with it, as a session starts), then the anchor given back and holding again
+  async function viewEnd(J) {
+    const V = J.vw;
+    if (!V || (!V.applied && !V.lent && !(HOST.xr && HOST.xr.benchViewOn && HOST.xr.benchViewOn()))) return;
+    if (HOST.xr && HOST.xr.benchView) await HOST.xr.benchView(false);
+    if (V.lent && HOST.anchor && HOST.anchor.pause) HOST.anchor.pause('saved');
+    try {
+      if (HOST.session && V.placed) {
+        const n0 = B.frameN;
+        await until(() => B.frameN >= n0 + 1, 2000, '');
+        G(() => HOST.cur.recenter && HOST.cur.recenter());
+        const n1 = B.frameN;
+        await until(() => B.frameN >= n1 + 3, 2000, '');
+      }
+    } catch (e) { /* no frames: the session went */ } finally {
+      if (V.lent && HOST.anchor && HOST.anchor.pause) HOST.anchor.pause(false);
+      V.lent = false; V.applied = false;
+    }
   }
 
   // ---- the left eye's picture (SPEC 1.7): the notebook's read-back of the layer's framebuffer right after the story's frame
@@ -603,6 +716,7 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
   async function pic(s, J) {
     if (!HOST.notes || !HOST.notes.grab) await HOST.mods.load('notes');
     if (J.picN >= 20) throw new Error('no picture: at most 20 a job');
+    await viewKeep(J);
     const w = Math.round(Math.min(1280, Math.max(320, +s.w || 960))), q = Math.min(0.92, Math.max(0.5, +s.q || 0.8));
     const got = await new Promise(res => {
       B.picWant = { w, at: now(), res };
@@ -617,7 +731,9 @@ HOST.bench = (HOST.quietly || (fn => fn()))(function () {
     const R = await relay();
     const r = await fetch(R.base + '/api/bench/jobs/' + J.id + '/pic?n=' + n, { method: 'POST', cache: 'no-store', headers: Object.assign({ 'Content-Type': 'image/jpeg' }, R.token ? { Authorization: 'Bearer ' + R.token } : {}), body: blob });
     if (!r.ok) throw new Error('no picture: the relay answered ' + r.status);
-    return { n, w: cv.width, h: cv.height, bytes: blob.size, xr: xrNow() };
+    const o = { n, w: cv.width, h: cv.height, bytes: blob.size, xr: xrNow() };
+    if (J.vw && J.vw.n) o.view = viewOut(J.vw);
+    return o;
   }
 
   // ---- probes (SPEC 10): bench/probes/<name>.js from this origin, loaded fresh once a page, refused when it names another

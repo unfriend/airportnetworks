@@ -37,15 +37,15 @@
   - 1499: Run logs (*Record a run*) (1.4 KB)
   - 1515: Reading notes in a headset (v148) (2.4 KB)
 - 1541: The performance run (`HOST.perfRun`, `perfrun.js`, v228) (14.3 KB)
-- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (9.7 KB)
-- 1763: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
-- 1807: Spaceships: targets, the leader and the shared set (6.9 KB)
-- 1872: Spaceships: the controller, the look, sounds and tests (4.7 KB)
-- 1916: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
-- 2003: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
-- 2069: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
-- 2167: Inside a story (all sixteen follow the same pattern) (8.0 KB)
-- 2258: From CLAUDE.md (6.1 KB)
+- 1671: The headset bench (`HOST.bench`, `bench.js`, v232) (11.6 KB)
+- 1780: Spaceships (`HOST.ships`, `ships.js`) (4.9 KB)
+- 1824: Spaceships: targets, the leader and the shared set (6.9 KB)
+- 1889: Spaceships: the controller, the look, sounds and tests (4.7 KB)
+- 1933: VR goggles: a flight through the cell (`HOST.flight`, `flight.js`, v197) (9.4 KB)
+- 2020: A story's copy (arrangements, `HOST.arrange`, v170) (7.0 KB)
+- 2086: Hot reload and live updates (`HOST.live`, `HOST.swap`, `tools/release.mjs`, the relay's `--watch`) (8.4 KB)
+- 2184: Inside a story (all sixteen follow the same pattern) (8.0 KB)
+- 2275: From CLAUDE.md (6.1 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. The last section, "From CLAUDE.md", holds old rule bullets that
@@ -1732,6 +1732,22 @@ how the shell does it.
 - **The picture** is the notebook's read-back (`HOST.notes.grab(maxW)`: the left eye's viewport of the layer's
   framebuffer right after the story's frame, after a frame of Sharp text's `sharpPause`; a page's canvas on a page),
   encoded as a JPEG of at most 1 MB and posted to `pic?n=`. No second render, no camera touched; never the passthrough.
+- **The fixed view** (v233, `tools/bench/SPEC.md` 15; the owner: "make sure that every story is always in front of the
+  headset at the same place so we get measurable results; the headset could be in any position"): while a job with a
+  session runs (`view: 'fixed'`, the default; `asis` as before), `HOST.xr.benchView(true)` (`index.html`, the sticks'
+  travel's seam: an offset reference space as `poseSpace`, every frame dressed) carries the room with the head: from the
+  head's real pose on the next session frame, a space whose origin is 1.6 m under the head along its own down, turned
+  with it, so three.js reads the head level at (0, 1.6, 0) facing -z however the headset lies; then the story's own
+  `recenter()`. Every story, life-size ones and the studio included, is then seen as by a standing person after a fresh
+  Recenter; no story code, no eye camera touched (the controllers, rays, menu, occlusion's views and HUD line follow
+  three.js's space). Placed at `open`, `explore`, `seek`; re-placed (no new Recenter) before each `measure`, `rays`,
+  `pic`, `probe`, `script`; travel is off meanwhile (`why()` `bench`). The anchor is lent: `HOST.anchor.pause(true)`
+  (`held()` false, `frame()` and `saved()` null, Place again nothing), at the end `pause('saved')` for the closing
+  Recenter in front of the real head, then `pause(false)`; nothing stored or dropped. Steps, segments, pictures, the
+  report and the result carry `view` (`y`, `pitch`, `roll`, `yaw` as it really lay; `head` as the story has it; `rig`
+  and `world` from the head: the numbers that stay the same run to run); `bench.mjs show` prints one line and marks
+  segments measured *AS IS*. Still varying with the pose: the passthrough behind the story, occlusion's real depth
+  (borrow `occl: 'off'`), the real floor and room, real controllers, the headset's own state.
 - **Borrowed settings** (`set`, a job's `with`): the table in `tools/bench/SPEC.md` 6.3 (occlusion's modes are `off`,
   `depth`, `room`, `both`). The raw `localStorage` values of every key the setter writes go to `benchBorrow` first (the
   own look's setters write all seven of its keys), then the setter; at the job's end, a failure, a cancel, a switch-off
@@ -1753,7 +1769,8 @@ how the shell does it.
   from `LOAD.ms`, slowest first). A probe calls `HOST.bench.probe('<name>', async (api, args) => ...)`; `api` is
   `{ args, story, app, peek, frames, wait, until, measure, rays, renderer, session, log }` (`rays` and `session` added to
   the spec's list). Plans (`bench/plans/`): `quick` (airports and cdk5, a few minutes), `dev` (every story, a chapter,
-  explore with rays, a picture, the studio's `bliss-xp`; about 15 minutes), `picking` (cdk5 and the exposome).
+  explore with rays, a picture, the studio's `bliss-xp`; about 15 minutes; its 22 pictures go as two jobs, since a job
+  takes at most 20: `run` cuts a plan before an `open` step, `--dry` says how), `picking` (cdk5 and the exposome).
 - Hooks for tests: `state()` (with `now`, the headset's clock, for the adb helper), `line()`, `sig()`, `settings()`, `test({ ask, idle, hello, lostMs })`. The test:
   `node tools/bench/test.mjs` (`docs/agents/testing.md`).
 - Untested on a headset: all of it (the long poll through the test place's proxy for hours, Quest Browser freezing a page

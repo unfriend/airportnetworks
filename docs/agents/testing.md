@@ -4,17 +4,17 @@
 - 25: When the suites run (1.5 KB)
 - 41: Which suite after which change (2.3 KB)
 - 69: Listing the tests and the docs' tools (3.0 KB)
-- 105: The smoke test (`tools/smoke.mjs`) (19.5 KB)
+- 105: The smoke test (`tools/smoke.mjs`) (19.6 KB)
   - 152: Smoke blocks (9.8 KB)
   - 224: `--only <words>` and `--block <id>` (1.7 KB)
   - 243: Playwright, SwiftShader and what only a headset shows (0.5 KB)
-  - 253: The headset bench: testing on the real Quest from the cloud (v232) (2.6 KB)
-- 280: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
-- 347: Other tools (5.6 KB)
-- 374: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
-- 383: Known red results on this machine (8.2 KB)
-- 418: Traps for a test writer (4.7 KB)
-- 466: Useful URL hashes and the console (4.8 KB)
+  - 253: The headset bench: testing on the real Quest from the cloud (v232) (2.8 KB)
+- 281: Shared rooms: `relay/test.mjs` and `tools/collab.mjs` (6.5 KB)
+- 348: Other tools (5.6 KB)
+- 375: `tools/sfx-cues.mjs` and `tools/sfx-render.mjs` (0.8 KB)
+- 384: Known red results on this machine (8.2 KB)
+- 419: Traps for a test writer (4.7 KB)
+- 467: Useful URL hashes and the console (4.8 KB)
 <!-- /toc -->
 
 Read on demand; the rules every agent needs are in AGENTS.md. This file says when each suite runs, what each smoke
@@ -271,7 +271,8 @@ result: say which headset (`hs`), release and settings it ran with. Jobs read an
 `node tools/bench/test.mjs [--shots dir]` (about 6 min) is the bench's own test in headless Chromium: its own relay
 (`--bench`, a random password, a free port), the smoke test's pretend AR headset (`XR_SEAT`, `FPS_FAKE` read out of
 `tools/smoke.mjs`, its frames on the page's clock), and only `tools/bench/bench.mjs` to drive it (script jobs on a second
-relay with `--bench-scripts`, on a page without a session); `node relay/test.mjs
+relay with `--bench-scripts`, on a page without a session; the fixed view, v233, on a second pretend headset lying
+pitched and rolled near the floor, `XR_LYING`, with offset spaces the smoke fake lacks, `XR_OFFSETS`); `node relay/test.mjs
 --bench` is the relay's part (seconds). Run both after touching `bench.js`, `relay/bench.mjs`, the bench's routes or
 `tools/bench/bench.mjs`. `node tools/bench/adb/test.mjs [--tmp dir]` (about 2 min) is the adb helper's, against a
 stand-in adb, a stand-in relay and a local Chromium (a headset clock five minutes ahead, a pinch-zoomed page among its

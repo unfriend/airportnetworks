@@ -894,7 +894,7 @@ const HOST = {
   list: (self.STORY_LIST || []).slice(), listRev: 0,
   // this shell's release (written by tools/release.mjs): n, the release whose shell files these are; id, their
   // fingerprint; format, the shared rooms' FORMAT. version.json says the same of the latest release
-  shell: { n: 232, id: '1477eec1cbdff7e3', format: 'networks-61' },
+  shell: { n: 233, id: 'f2cff8a5a234547b', format: 'networks-61' },
   factories: {}, loaded: {}, cur: null, curKey: null, busy: false, queued: '',
   renderer: null, session: null, mode: null, inputs: [], quiet: false,
   // the one renderer all stories draw with; its internal listeners belong to it, not to a story
@@ -2229,11 +2229,16 @@ HOST.xr = (function () {
 // reset of the room's floor with its transform (a recentre, waking) moves the travel with the room (shift), so you stay
 // where you were in it. Stories need nothing for it: their head,
 // controllers, rays, the menu, the sounds' listener and the subtitles all follow three.js's space; their own stick use
-// (an explore view's spin and zoom) waits while walking() is true (xrWalking, the same line in every story)
+// (an explore view's spin and zoom) waits while walking() is true (xrWalking, the same line in every story).
+// The headset bench's fixed view (v233, bench.js; tools/bench/SPEC.md 15) uses the same seam with a whole rigid offset in
+// place of the travel: benchView(true) takes the head's real pose on the next frame and answers three.js from a space
+// whose origin is 1.6 m under the head along its own up, turned with it, so the head reads level at (0, 1.6, 0) facing -z
+// however the headset lies (pitched, rolled, at any height); the travel is kept and comes back with benchView(false)
 Object.assign(HOST.xr, (function () {
   const DZ = 0.2, SPEED = 1.5, TURN = Math.PI / 6, FLICK = 0.6, BACK = 0.3, TDZ = 0.15, RATE = Math.PI / 2, TURNS = ['smooth', 'steps'];
   // (sm: the travel the offset space was made for, which toReal takes back; room: the shared room's code last seen)
-  const W = { on: false, sess: null, base: null, space: null, sm: null, dirty: false, was: false, t: 0, M: { x: 0, z: 0, yaw: 0 }, room: '', grips: new Set(), flick: new WeakMap() };
+  const W = { on: false, sess: null, base: null, space: null, sm: null, dirty: false, was: false, t: 0, M: { x: 0, z: 0, yaw: 0 }, room: '', grips: new Set(), flick: new WeakMap(),
+    bv: null, bvWant: null };   // (bv: the bench's fixed view, { p, q } of its space's origin in three.js's own; bvWant: a placement asked for)
   W.turn = 'smooth';
   try { W.on = localStorage.getItem('xrWalk') === 'on'; const t = localStorage.getItem('xrTurn'); if (TURNS.includes(t)) W.turn = t; } catch (e) { /* storage blocked */ }
   const HOOKED = new WeakSet(), DRESSED = new WeakSet(), _q = new THREE.Quaternion(), _f = new THREE.Vector3(), _r = new THREE.Quaternion(), _y = new THREE.Vector3(0, 1, 0);
@@ -2248,6 +2253,7 @@ Object.assign(HOST.xr, (function () {
   function why() {
     const s = HOST.session, pg = page();
     if (!s) return 'session';
+    if (W.bv) return 'bench';   // (the bench's fixed view: no travel while a job holds the view)
     if (HOST.mode === 'immersive-ar' || (s.environmentBlendMode && s.environmentBlendMode !== 'opaque')) return 'ar';
     if (pg) return '';   // (such a page moves you itself: its scene, in a shared room too; no travel needed)
     if (roomHere()) return 'room';
@@ -2268,6 +2274,10 @@ Object.assign(HOST.xr, (function () {
     if (!W.dirty) return;
     const M = W.M;
     W.dirty = false; W.space = null; W.sm = null;
+    if (W.bv && W.base && typeof XRRigidTransform === 'function' && typeof W.base.getOffsetReferenceSpace === 'function') {
+      try { W.space = W.base.getOffsetReferenceSpace(new XRRigidTransform(W.bv.p, W.bv.q)); } catch (e) { W.space = null; console.warn('the bench\'s fixed view: no offset space', e); }
+      return;   // (toReal takes nothing back meanwhile: the bench is never in a shared room)
+    }
     if (!W.base || (!M.x && !M.z && !M.yaw) || typeof XRRigidTransform !== 'function' || typeof W.base.getOffsetReferenceSpace !== 'function') return;
     const c = Math.cos(M.yaw), s = Math.sin(M.yaw);
     try { W.space = W.base.getOffsetReferenceSpace(new XRRigidTransform({ x: -(M.x * c - M.z * s), y: 0, z: -(M.x * s + M.z * c) }, { x: 0, y: Math.sin(-M.yaw / 2), z: 0, w: Math.cos(-M.yaw / 2) })); } catch (e) { W.space = null; console.warn('moving with the sticks: no offset space', e); }
@@ -2318,6 +2328,7 @@ Object.assign(HOST.xr, (function () {
     const r = ref();
     if (!r || s !== HOST.session) return;
     if (r !== W.base) { W.base = r; W.dirty = true; }   // (a new reference space: the offset made again from it)
+    if (W.bv) { make(); return; }   // (the bench's fixed view: the sticks move nothing while it holds)
     // a shared room joined (or another): the frame of a headset elsewhere is made from where three.js has its head as it
     // joins (shared.js, ownFrame), from where you really stand; in the room with the others there is no travel at all
     const code = inRoom() ? String(HOST.collab.code || '?') : '';
@@ -2372,11 +2383,30 @@ Object.assign(HOST.xr, (function () {
     }
     make();
   }
+  // the bench's fixed view placed from this frame's real head (before the frame is dressed): its space's origin is the
+  // head's pose moved 1.6 m along the head's own down, so the head reads (0, 1.6, 0), level, facing -z
+  function benchPlace(s, f) {
+    const A = W.bvWant, r = ref();
+    if (!A || !r || s !== HOST.session || DRESSED.has(f) || typeof f.getViewerPose !== 'function') return;
+    let vp = null;
+    try { vp = f.getViewerPose(r); } catch (e) { /* not this frame */ }
+    if (!vp) return;
+    W.bvWant = null;
+    if (typeof XRRigidTransform !== 'function' || typeof r.getOffsetReferenceSpace !== 'function') { A.res({ err: 'no offset reference spaces here' }); return; }
+    const p = vp.transform.position, o = vp.transform.orientation, q = new THREE.Quaternion(o.x, o.y, o.z, o.w).normalize();
+    const d = new THREE.Vector3(0, -1.6, 0).applyQuaternion(q), e = new THREE.Euler().setFromQuaternion(q, 'YXZ');
+    W.bv = { p: { x: p.x + d.x, y: p.y + d.y, z: p.z + d.z }, q: { x: q.x, y: q.y, z: q.z, w: q.w } };
+    W.base = r; W.dirty = true; make();
+    const R2D = 180 / Math.PI, k = v => Math.round(v * 1000) / 1000;
+    A.res(W.space ? { real: { x: k(p.x), y: k(p.y), z: k(p.z), yaw: k(e.y * R2D), pitch: k(e.x * R2D), roll: k(e.z * R2D) } } : { err: 'no offset space' });
+    if (!W.space) W.bv = null;
+  }
   function frame(s, t, f) {
     if (!f || typeof f !== 'object') return;
-    // (v145: dressed only while the travel is on or could be, or the automatic quality asks for a smaller view: a frame
-    // no one needs to answer for is left as it is)
-    if (W.space || W.on || (HOST.xr.aqDress && HOST.xr.aqDress())) dress(f);
+    if (W.bvWant) benchPlace(s, f);
+    // (v145: dressed only while the travel is on or could be, the bench's fixed view holds, or the automatic quality asks
+    // for a smaller view: a frame no one needs to answer for is left as it is)
+    if (W.space || W.on || W.bv || (HOST.xr.aqDress && HOST.xr.aqDress())) dress(f);
     if (t === W.t) return;
     if (HOST.xr.aqFrame) try { HOST.xr.aqFrame(s, t, f); } catch (e) { /* never in the way */ }
     const dt = W.t && t > W.t ? Math.min(0.1, (t - W.t) / 1000) : 0;
@@ -2390,7 +2420,7 @@ Object.assign(HOST.xr, (function () {
   // the session's frames, seen first (its requestAnimationFrame on the session itself: three.js's loop and the shell's
   // own callbacks go through it), and its grips
   function hook(s) {
-    if (s !== W.sess) { reset('a new session'); W.sess = s || null; W.t = 0; W.grips.clear(); }
+    if (s !== W.sess) { benchOff('a new session'); reset('a new session'); W.sess = s || null; W.t = 0; W.grips.clear(); }
     if (!s || HOOKED.has(s) || typeof s.requestAnimationFrame !== 'function') return;
     HOOKED.add(s);
     const raf = s.requestAnimationFrame;
@@ -2408,6 +2438,11 @@ Object.assign(HOST.xr, (function () {
       }
     } catch (e) { /* a session without events */ } finally { HOST.quiet = q; }
   }
+  // the bench's fixed view let go (the travel's space made again on the next frame); a placement still asked is answered
+  function benchOff(why) {
+    if (W.bvWant) { const A = W.bvWant; W.bvWant = null; A.res({ err: why }); }
+    if (W.bv) { W.bv = null; W.space = null; W.sm = null; W.dirty = true; }
+  }
   const watch0 = HOST.xr.watch;
   return {
     watch(s) { hook(s); return watch0(s); },
@@ -2423,6 +2458,18 @@ Object.assign(HOST.xr, (function () {
     // the space three.js's poses are in now (and so its world: no story's camera has a parent): the travel's offset
     // space while the sticks have moved you, else three.js's own (Sharp text places its layers in it, v174)
     poseSpace: () => { const r = ref(); return W.space && r && W.base === r ? W.space : r; },
+    // the headset bench's fixed view (bench.js, v233): on, placed again from the head's real pose on the next session frame
+    // (a promise of { real: { x, y, z, yaw, pitch, roll } } in three.js's own space, degrees; or { err }); off, let go
+    benchView(on) {
+      if (!on) { benchOff('let go'); return Promise.resolve({ off: true }); }
+      if (!HOST.session || HOST.session !== W.sess) return Promise.resolve({ err: 'no headset session' });
+      if (W.bvWant) W.bvWant.res({ err: 'asked again' });
+      return new Promise(res => {
+        const A = W.bvWant = { res: v => { clearTimeout(A.t); res(v); } };
+        A.t = setTimeout(() => { if (W.bvWant === A) { W.bvWant = null; res({ err: 'no session frame came' }); } }, 3000);
+      });
+    },
+    benchViewOn: () => !!W.bv,
   };
 })());
 // ------------------------------------------------------------- sharp text (v174, on by default v175) --
@@ -2812,13 +2859,13 @@ HOST.anchor = (function () {
     },
     // Place again: forget the place; the story puts everything in front of you, then it is anchored there
     again() {
-      if (!N.on) return;
+      if (!N.on || N.pause) return;
       drop(); N.off = N.pp = N.q = N.pq = null; N.s = 1; N.pr = 0; N.note = ''; store();
       N.want = 'create';
     },
     // while true, a story must not re-place anything (headset taken off, recentring); also while it stands at
     // its station in a shared room (shared.js)
-    held: () => (N.on && N.placed) || room(),
+    held: () => (N.on && N.placed && !N.pause) || room(),
     // while true, the grip moves nothing: anchored; in a shared room away from its station or while this station's
     // story is locked (Lock this story; the circles lock never locks the scene or panel; at its station what the grip
     // moves goes out to the room, alike for everyone: shared.js); the
@@ -2830,7 +2877,7 @@ HOST.anchor = (function () {
     // no turn, the panel upright at pr)
     saved() {
       if (room()) return HOST.room.saved();
-      if (!N.on || !N.off || !N.pp) return null;
+      if (!N.on || !N.off || !N.pp || N.pause === true) return null;
       const fr = HOST.xr.free();
       return { off: N.off, s: N.s, pp: N.pp, pr: N.pr, q: fr ? N.q : null, pq: fr ? N.pq : null };
     },
@@ -2839,7 +2886,7 @@ HOST.anchor = (function () {
     frame(f, ref) {
       const st = HOST.room && HOST.room.place(f);
       if (st) return st;
-      if (!N.on || !N.session || !f || !ref) return null;
+      if (!N.on || !N.session || !f || !ref || N.pause) return null;
       if (N.want && !N.busy) { const w = N.want; N.want = ''; if (w === 'restore') restore(); else create(f, ref); }
       if (!N.anchor) return null;
       const p = f.trackedAnchors && !f.trackedAnchors.has(N.anchor) ? null : f.getPose(N.anchor.anchorSpace, ref);
@@ -2854,6 +2901,12 @@ HOST.anchor = (function () {
       N.last = { p: [t.x, t.y, t.z], yaw: Math.atan2(2 * (q.x * q.z + q.w * q.y), 1 - 2 * (q.x * q.x + q.y * q.y)) };
       return N.last;
     },
+    // lent to the headset bench (bench.js, v233: its fixed view carries the room, so an anchor's place would fight it):
+    // true, the place is kept but holds nothing (held() false, frame() null, saved() null, Place again does nothing);
+    // 'saved', the same but saved() answers (the job's last recentre, in front of the real head as a session starts);
+    // false, as before. Nothing is dropped or stored: the switch and the saved place stay the owner's
+    pause(v) { N.pause = v === true || v === 'saved' ? v : false; },
+    paused: () => N.pause || false,
     // the shared room's anchor at mark A (shared.js), in the same budget of saved anchors per site: made at
     // pose p, q in space, its handle saved; the handle it replaces (old) is deleted
     keep(f, space, p, q, old) {
@@ -3130,7 +3183,7 @@ HOST.flightLoad = function () {
 HOST.quietly = fn => { const q = HOST.quiet; HOST.quiet = true; try { return fn(); } finally { HOST.quiet = q; } };
 HOST.mods = (function () {
   const FILES = { occlusion: 'occlusion.js', ships: 'ships.js', notes: 'notes.js', perfRun: 'perfrun.js', bench: 'bench.js' }, M = {}, AGAIN = 30000;   // (perfRun: the performance run, v228, from developer mode or #perfrun; bench: the headset bench, v232, developer mode's #bench=on)
-  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"d41ce77d1edf2dd6","perfRun":"bcae740e5c9a678a","bench":"87ff003c2cb2f78c"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
+  const MODS_FP = {"occlusion":"8a10c3111d464f7f","ships":"9fcf8e88bdcdadba","notes":"d41ce77d1edf2dd6","perfRun":"bcae740e5c9a678a","bench":"6011e6e2f9d1af78"};   // (stamped by tools/release.mjs; a name it lacks, an unreleased checkout's, takes the file as it comes)
   function linked(name) {
     const m = HOST[name];
     try {

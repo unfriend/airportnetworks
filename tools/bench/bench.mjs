@@ -57,6 +57,25 @@ const listening = (s, hs) => s.headsets.filter(h => h.ago <= 60 && (!hs || h.hs 
 const helping = (s, hs) => (s.adb || []).filter(a => a.ago <= 60 && (!hs || a.hs === hs));
 const NOHELPER = 'The adb helper is not listening: on the owner\'s computer, node tools/bench/adb/adb.mjs --watch (tools/bench/adb/README.md).';
 
+// the job's view (SPEC 15) in one line: how the headset lay, whether the fixed view held, and the story's frame from the head
+function viewLine(v) {
+  if (!v || (!v.applied && v.y === undefined && !v.why)) return '';
+  const lay = v.y !== undefined ? `the headset lay at ${v.y} m, pitch ${v.pitch}, roll ${v.roll} degrees` : 'no pose';
+  const at = (w, what) => (w ? `; ${what} ${w.d} m away, bearing ${w.bearing}, elevation ${w.elev}` + (w.yaw !== undefined ? `, turned ${w.yaw}` : '') + ' degrees' + (w.s !== undefined && w.s !== 1 ? `, scale ${w.s}` : '') : '');
+  const rig = at(v.world, 'the scene') + at(v.rig, 'its frame');
+  return `View: ${v.applied ? 'fixed' : v.mode === 'asis' ? 'AS IS (asked)' : 'AS IS (' + (v.why || 'not applied') + ')'} (${lay}${rig})`;
+}
+
+// a plan's steps cut into jobs of at most PICS pictures each, only before an open step (a story's steps stay together)
+const PICS = 20;
+function splitPics(steps) {
+  const groups = [];
+  for (const s of steps) { if (!groups.length || (s && s.cmd === 'open')) groups.push([]); groups[groups.length - 1].push(s); }
+  const pics = g => g.filter(s => s && s.cmd === 'pic').length, parts = [];
+  for (const g of groups) { const last = parts[parts.length - 1]; if (last && pics(last) + pics(g) <= PICS) last.push(...g); else parts.push(g.slice()); }
+  return parts.length ? parts : [steps];
+}
+
 // ---- a job's record as Markdown
 const SEGCOLS = ['step', 'story', 's', 'frames', 'mean', 'p50', 'p95', 'p99', 'worst', 'missed', 'stall', 'calls', 'tris k', 'js', 'lines', 'pts', 'tex', 'geo', 'prog', 'heap', 'q', 'errs'];
 const segRow = (label, g) => [label, g.story, g.dur, g.n, g.mean, g.p50, g.p95, g.p99, g.max, g.miss, g.stall, g.calls, g.tri != null ? Math.round(g.tri / 1000) : null, g.js, g.lines, g.pts, g.tex, g.geo, g.prog, g.heap, g.q, g.errs];
@@ -85,6 +104,9 @@ function showMd(r) {
   const sc = r.steps.map((s, i) => (s && s.cmd === 'script' ? `step ${i + 1}: ${Buffer.byteLength(String(s.code || ''))} B, sha256 ${createHash('sha256').update(String(s.code || '')).digest('hex').slice(0, 12)}` : '')).filter(Boolean);
   if (sc.length) L.push(`- Script code: ${sc.join('; ')} (the text: show --json)`);
   if (R.settings) L.push(`- Settings: ${Object.entries(R.settings).map(([k, v]) => k + ' ' + cell(v)).join(', ')}`);
+  // (a relay before v233 keeps no view in the result: the last step that recorded one)
+  const vl = viewLine((r.result && r.result.view) || (((r.result && r.result.steps) || []).map(s => s.out && (s.out.view || (s.out.seg && s.out.seg.view))).filter(Boolean).pop()));
+  if (vl) L.push('- ' + vl);
   if (r.progress && r.state === 'running') L.push(`- Now: step ${r.progress.step + 1} of ${r.progress.of} (${r.progress.note})`);
   const steps = (r.result && r.result.steps) || [];
   if (steps.length) {
@@ -95,7 +117,10 @@ function showMd(r) {
       if (s.cmd === 'rays' && s.out && s.out.seg) segs.push([`${s.i + 1} rays`, s.out.seg]);
       if (s.cmd === 'probe' && s.out && s.out.frame && s.out.pick) segs.push([`${s.i + 1} probe picks`, Object.assign({ story: s.out.story }, s.out.frame)]);
     }
+    for (const sg of segs) if (sg[1].view && !sg[1].view.applied) sg[0] += ' AS IS';
     if (segs.length) L.push('', '## Measured', '', table(SEGCOLS, segs.map(([l, g]) => segRow(l, g))));
+    const asis = segs.filter(([, g]) => g.view && !g.view.applied);
+    if (asis.length) L.push('', `Measured as is (no fixed view: what was in sight depended on how the headset lay): ${asis.map(([l]) => l.replace(/ AS IS$/, '')).join(', ')}.`);
     const picks = steps.filter(s => s.cmd === 'probe' && s.out && s.out.pick);
     if (picks.length) L.push('', '## Picking', '', table(['step', 'story', 'frames', 'pick ms a frame', 'picks a frame', 'slowest pick ms'], picks.map(s => [s.i + 1, s.out.story, s.out.frames, s.out.pick.msFrame, s.out.pick.perFrame, s.out.pick.worst])));
     const errs = [];
@@ -168,7 +193,7 @@ function finish(r, o) {
 
 // ---- the command line
 const argv = process.argv.slice(2), cmd = argv[0];
-const flags = new Set(['--no-wait', '--json']), withVal = new Set(['--need', '--with', '--hs', '--wait', '--md', '--out', '--state', '--label', '--limit', '--to', '--args', '--open']);
+const flags = new Set(['--no-wait', '--json', '--dry']), withVal = new Set(['--need', '--with', '--view', '--hs', '--wait', '--md', '--out', '--state', '--label', '--limit', '--to', '--args', '--open']);
 const O = {}, pos = [];
 for (let i = 1; i < argv.length; i++) {
   const a = argv[i];
@@ -178,20 +203,22 @@ for (let i = 1; i < argv.length; i++) {
   else pos.push(a);
 }
 const WAIT = O.wait ? +O.wait : 600;
+if (O.view !== undefined && O.view !== 'fixed' && O.view !== 'asis') die('Usage: --view fixed (the default: the story at one place in front of the eyes, however the headset lies) or asis');
 const USAGE = `Usage: node tools/bench/bench.mjs <command>
   status                                    the headsets listening and the adb helper (exit 3: none)
-  send <cmd> [key=value ...] [--need xr|ar|vr|page|any] [--with occl=off,auto=false] [--hs id] [--label text] [--limit s] [--wait s] [--no-wait] [--md out.md] [--json]
+  send <cmd> [key=value ...] [--need xr|ar|vr|page|any] [--with occl=off,auto=false] [--view fixed|asis] [--hs id] [--label text] [--limit s] [--wait s] [--no-wait] [--md out.md] [--json]
                                             one step as a job (report, open story=cdk5, seek chapter=1 play=true, explore tab=0,
                                             set name=occl value=off, measure sec=10, rays preset=sweep sec=10 measure=true, pic,
                                             probe name=picks args={"sec":10}, wait sec=5)
   send <cmd> [key=value ...] --to adb       one step for the adb helper (devshot n=1, enter, open,
                                             vrapi from=<ms> to=<ms> job=<id>: the headset's statistics onto that job)
-  script <file.js> [--args '<json>'] [--open story] [--need xr|page|any] [--limit s] [--hs id] [--wait s] [--no-wait] [--md out.md] [--json]
+  script <file.js> [--args '<json>'] [--open story] [--need xr|page|any] [--limit s] [--view fixed|asis] [--hs id] [--wait s] [--no-wait] [--md out.md] [--json]
                                             the file's code run on the page as a probe is (the body of an async function
                                             (api, args) returning JSON; only on a relay with --bench-scripts, else exit 2);
                                             --open opens a story first; --limit: the script's own seconds
-  run <plan name|file.json> [--hs id] [--wait s] [--no-wait] [--md out.md]   a plan (bench/plans/<name>.json; a script
-                                            step may name a "file" beside the plan instead of its code)
+  run <plan name|file.json> [--view fixed|asis] [--hs id] [--wait s] [--no-wait] [--md out.md] [--dry]   a plan (bench/plans/<name>.json; a script
+                                            step may name a "file" beside the plan instead of its code; more than 20 pictures
+                                            go as several jobs, cut before an open step; --dry: say so, post nothing)
   jobs [--state queued,running,...]        the jobs, newest first
   show <id> [--md out.md] [--json]          a job's steps and figures
   pic <id> [n] [--out dir]                  its pictures, saved (default: the system's temporary folder)
@@ -214,6 +241,7 @@ if (cmd === 'status') {
   if (O.hs) job.hs = O.hs;
   if (O.label) job.label = O.label;
   if (O.limit) job.limit = +O.limit;
+  if (O.view) job.view = O.view;
   if (O.with) { job.with = {}; for (const kv of O.with.split(',')) { const i = kv.indexOf('='); if (i < 1) die('Usage: --with name=value,name=value'); job.with[kv.slice(0, i)] = parseVal(kv.slice(i + 1)); } }
   const id = await postJob(job, O);
   console.error('Job ' + id + ' queued.');
@@ -234,6 +262,7 @@ if (cmd === 'status') {
   if (O.need) job.need = O.need;
   if (O.hs) job.hs = O.hs;
   if (O.label) job.label = O.label;
+  if (O.view) job.view = O.view;
   const id = await postJob(job, O);
   console.error('Job ' + id + ' queued.');
   if (O['no-wait']) { console.log(id); process.exit(0); }
@@ -248,9 +277,13 @@ if (cmd === 'status') {
   scriptSteps(plan.steps, dirname(resolve(f)));
   scriptSteps(page, dirname(resolve(f)));
   if (O.hs) plan.hs = O.hs;
+  if (O.view) plan.view = O.view;
+  // (a job holds at most 20 pictures: a plan asking for more goes as several jobs, cut before an open step, in order)
+  const parts = splitPics(plan.steps || []);
+  if (O.dry) { console.log((Array.isArray(page) && page.length ? `page part: ${page.length} steps\n` : '') + parts.map((p, k) => `job ${k + 1} of ${parts.length}: ${p.length} steps, ${p.filter(s => s && s.cmd === 'pic').length} pictures, view ${plan.view || 'fixed'}`).join('\n')); process.exit(0); }
   const ids = [];
   if (Array.isArray(page) && page.length) ids.push(await postJob(Object.assign({}, plan, { label: (plan.label || 'plan').slice(0, 68) + ' (page part)', need: 'page', steps: page }), O));
-  ids.push(await postJob(plan, O));
+  for (let k = 0; k < parts.length; k++) ids.push(await postJob(parts.length > 1 ? Object.assign({}, plan, { label: (plan.label || 'plan').slice(0, 64) + ` (${k + 1} of ${parts.length})`, steps: parts[k] }) : plan, O));
   console.error('Queued: ' + ids.join(', '));
   if (O['no-wait']) { console.log(ids.join('\n')); process.exit(0); }
   let code = 0;

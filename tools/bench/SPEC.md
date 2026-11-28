@@ -189,7 +189,8 @@ report, a picture's size beyond bytes, a URL with its query, or the password; th
 (no session needed; also runs in one) or `any` (default for `report`-only jobs; else `xr`); `hs` empty for any
 headset; `with` settings borrowed for the whole job (6.3); `limit` seconds the whole job may take (default 300, at most
 3600); `adb` false asks the helper not to attach its lines; `from` `cloud` (default) or `auto`; `why` at most 120
-characters. At most 200 steps. Unknown fields: 400.
+characters; `view` `fixed` (default) or `asis` (section 15, v233). At most 200 steps. Unknown fields: 400. A job takes at most 20
+pictures (the page fails a 21st `pic` step: *no picture: at most 20 a job*).
 
 **5.2 The commands** (a step: `{ cmd, ...fields }`; every step may have `label`). A step's out is at most 64 KB.
 
@@ -214,8 +215,9 @@ characters. At most 200 steps. Unknown fields: 400.
 
 **5.3 A plan** is a file `bench/plans/<name>.json`: a job without `hs`, plus optional `page` (steps for no session).
 `tools/bench/bench.mjs run <name|file>` posts it as a job. Builder ONE ships `bench/plans/dev.json` (every story
-opened, one chapter measured 10 s, explore mode with pretend rays swept 10 s measured, one picture; the studio's
-`bliss-xp` 10 s; about 15 minutes) and `bench/plans/picking.json` (cdk5 and the exposome in explore mode, rays swept 20 s
+opened, one chapter measured 10 s (chapter 1, the second; crowds, which has one, chapter 0), explore mode with pretend
+rays swept 10 s measured, one picture; the studio's `bliss-xp` 10 s; about 15 minutes; 22 pictures, so `run` posts it
+as two jobs, v233) and `bench/plans/picking.json` (cdk5 and the exposome in explore mode, rays swept 20 s
 measured: the explore-picking fault of v231).
 
 **5.4 The record** (`GET /api/bench/jobs/<id>`): the job plus `{ id, state, why, at, taken, ended, hs, progress: { step,
@@ -328,8 +330,15 @@ Node 22, no packages; `NOTES_RELAY` (default the test place) and `NOTES_TOKEN` a
 - `send <cmd> [key=value ...] [--need xr] [--with occl=off,auto=false] [--hs id] [--wait 300] [--no-wait]`: one step
   as a job; values parsed as JSON where they parse, else strings. Waits for the result (polling the record every 2 s)
   and prints it.
-- `run <plan name|file.json> [--wait s]`: a plan (a name reads `bench/plans/<name>.json` from the checkout). A script
-  step in a plan may say `"file": "<path>"` (beside the plan, or absolute) instead of `code`: the tool reads it in.
+- `run <plan name|file.json> [--view fixed|asis] [--wait s] [--dry]`: a plan (a name reads `bench/plans/<name>.json`
+  from the checkout). A script step in a plan may say `"file": "<path>"` (beside the plan, or absolute) instead of
+  `code`: the tool reads it in. A plan asking for more than 20 pictures (a job's most) goes as several jobs, cut only
+  before an `open` step, labelled *(k of n)*, posted and waited for in order (v233); `--dry` prints the jobs it would
+  post and posts nothing.
+- `--view fixed|asis` on `send`, `script` and `run`: the job's `view` (section 15); `show` prints the view in one line
+  (*View: fixed (the headset lay at 0.45 m, pitch -70, roll 35 degrees; the scene 1.35 m away, bearing 13, elevation
+  -8.5 degrees, scale 0.5; its frame 0 m away ...)*) and marks every segment measured without the fixed view *AS IS*,
+  with a line under the table naming them.
 - `script <file.js> [--args '<json>'] [--open <story>] [--need xr|page|any] [--limit s]`: one job, an `open` step
   first when `--open` says, then the file as a `script` step (section 14); waits and prints as `run` does. `--limit` is
   the script step's own; the job's limit is at least 300 s and leaves room for it. Exit 2 with *This relay runs no
@@ -569,3 +578,56 @@ No log line holds the code (4.4).
 in the owner's home, with the page's own reach (its origin's storage and the relay's password kept there; not the
 passthrough camera, which no page can read). That is why it is a second switch, always behind the password, and never on the main
 site's relay; turn it on for the test place only while trying probes, and commit a probe once it works.
+
+## 15. The fixed view (v233)
+
+The owner, 28 November 2026, after the first real runs on the Quest 3: "we should make sure that every story is always in
+front of the headset at the same place so we get measurable results; the headset could be in any position". The
+headset lies unworn on a desk at any height, yaw, pitch and roll; until v233 the bench placed nothing, so what was in
+sight, and so the frame time, depended on how it was put down.
+
+**The mechanism: the room carried with the head.** While a job with a session runs (`view: 'fixed'`, the default), the
+shell answers three.js from an offset reference space (`HOST.xr.benchView(true)`, `index.html`, the same seam the sticks'
+travel uses: `poseSpace`, the frame dressed by `dress`). On the next session frame it reads the head's real pose in
+three.js's own space and makes the space whose origin is 1.6 m under the head along the head's own down, turned with the
+head: in it the head reads (0, 1.6, 0), level, facing -z, whatever the headset's height, yaw, pitch and roll. Then the
+story's own Recenter (`HOST.cur.recenter()`, as the menu's) puts its frame in front of that head. Every story, the
+life-size ones and the studio included, then sees exactly what a person standing 1.6 m tall sees after a fresh Recenter:
+the eye cameras, the controllers, the rays, the menu, occlusion's views, the HUD line all follow three.js's space, so no
+story code changed and no eye camera is touched (AGENTS.md: they are the shell's). A constant offset costs nothing a
+frame. Why not Recenter alone: it uses the head's yaw and height, so a headset face up on a desk would look at the
+ceiling and one on its side would see the story on its side.
+
+- **When.** Placed at `open`, `explore` and `seek` (and Recenter run again there); re-placed from the head's pose of the
+  moment, without a new Recenter, before each `measure`, `rays`, `pic`, `probe` and `script` step (a headset that slid
+  keeps the same view); never inside a measured stretch. While it holds the sticks' travel is off (`why()` says
+  `bench`) and kept for after.
+- **Anchors** (`HOST.anchor`) are lent for the job as settings are borrowed: `HOST.anchor.pause(true)` keeps the
+  switch and the stored place but holds nothing (`held()` false, `frame()` and `saved()` null, Place again does
+  nothing). At the job's end the fixed view is let go, the anchor answers `saved()` again (`pause('saved')`) while the
+  story is recentred in front of the real head, as a session starts, and then holds again (`pause(false)`). Nothing is
+  stored or dropped. A new session or the session's end lets the fixed view go by itself.
+- **`asis`** places nothing and never recentres: the story stays where the headset left it, as before v233. Every
+  segment measured so is flagged by `show`.
+- **What is recorded.** `open`, `explore` and `seek` outs, every segment (`measure`, measured `rays`), every picture,
+  the report and the result carry `view`: `{ mode, applied, y, pitch, roll, yaw }` (how the headset really lay at the
+  last placement, three.js's own space, metres and degrees), `head` (the head as the story has it: `y`, `yaw`, `pitch`,
+  `roll`; with the fixed view always 1.6, 0, 0, 0), `rig` (the story's frame, `GL.rig`, from the head: `d` metres,
+  `bearing`, `elev` and `yaw` degrees, `s` its scale) and `world` (its scene's root, `GL.world`, the same without `yaw`:
+  an explore view spins its scene by itself), and `why` when it was not applied (`no headset session`, `the fixed view
+  failed: ...`). `rig` and `world` are the number to compare: with the fixed view they are the same run to run and
+  headset pose to headset pose; `y`, `pitch`, `roll` say how it really lay.
+- **What still varies with the headset's pose.** The passthrough picture behind the story in AR (the real room, seen
+  from wherever the headset lies: the eye pictures differ there, and the compositor's cost of passthrough is the
+  headset's own); occlusion's depth (the real surfaces in front of the lenses: a desk under a headset lying face down
+  hides the story; borrow `occl: 'off'` for comparable figures); anything a story takes from the real room (the floor's
+  real height, planes, hit tests, the room's mesh: none of the stories needs them to draw); the real controllers, if
+  any, lying where they are; and the headset's own state (temperature, tracking quality, a proximity sensor that may
+  sleep the display). Frame times are comparable when the borrowed settings match.
+- **The test** (`tools/bench/test.mjs`, after the first headset's page has closed): a standing pretend headset (1.6 m, turned 37 degrees) and a second one lying near the floor (0.45 m,
+  pitch -70, roll 35, yaw -128, off the origin) run the same plan (cdk5 opened, explore, a paused chapter, a segment, a
+  picture): the same `rig`, `world` and `head` numbers, eye pictures alike; `asis` on the lying one differs and is
+  flagged; the anchor and occlusion's setting are back after the job, lent during it; pretend rays still hover. Smoke's
+  fake answers every space alike, so the test adds offset spaces answered as WebXR does (`XR_OFFSETS`).
+- **Untested on a headset**: all of it until the owner's Quest 3 runs it (how the Quest's tracking behaves unworn and
+  still, whether its offset spaces answer every frame as the fake's do, the eye pictures through passthrough).

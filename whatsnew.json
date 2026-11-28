@@ -1,24 +1,22 @@
 {
-  "version": "networks-v232",
+  "version": "networks-v233",
   "date": "2026-11-28",
   "new": [
-    "Bench mode: a headset left on in developer mode runs tests the cloud sends, by itself. Turn it on in the menu's Debug tab (Bench mode), on the Experiments card Headset bench, or with #dev=on&bench=on.",
-    "It opens stories, jumps to chapters, measures frames, sweeps pretend controller rays over explore mode, and sends a picture of what the left eye sees.",
-    "A test may change a headset setting for a while; your own value comes back after it, even after a reload.",
-    "A line in the headset and a bar on the page say bench mode is on and how to switch it off. It switches itself off after twelve hours.",
-    "Never in a shared room and never on the main site. Only the test place's relay takes tests, with its password.",
-    "To try a new test quickly, the test place's relay can be switched to also send a test's own code, not yet saved in the app. It is off unless switched on, and always needs the password."
+    "Bench mode now shows every story at the same place in front of the headset, however the headset lies: on its side, face up, high or low.",
+    "Before measuring, the bench treats the headset as if a person 1.6 m tall stood level, then recentres the story there.",
+    "Anchors are lent to a test and come back after it, as settings do.",
+    "Each measurement says how the headset really lay and where the story was. A test can still ask for the old way: view as is.",
+    "The full test plan now asks for its pictures in two parts, and jumps to the first chapter of Protein crowds, which has only one."
   ],
   "test": [
-    "On the test place, Quest 3: developer mode on, menu, Debug, Bench mode on, Enter AR, then set the headset down. The line under your gaze should say bench mode is on.",
-    "Then ask in the cloud session for a report and a picture: the picture should show what the left eye saw.",
-    "Switch bench mode off from the Debug tab, and from the page's bar: the line and the bar should go.",
-    "Join a shared room with bench mode on: it should say it is waiting, in a shared room.",
-    "While a test runs, start the Performance run from the Debug tab: it should say it waits while a bench job runs."
+    "On the test place, Quest 3: bench mode on, Enter AR, then lay the headset on its side on the desk. A cloud test with a picture should show the story upright and in front.",
+    "Run the same test with the headset face up and then standing: the view numbers and the pictures should match.",
+    "With an anchored place saved, run a test: afterwards the story should be back at its anchored place.",
+    "Run the full plan: it should finish as two jobs, with no picture refused."
   ],
   "untested": [
-    "All of bench mode on a real headset: hours of waiting unworn, the test place's proxy and long polls, the picture's read-back on the Quest, pretend rays beside real controllers.",
-    "After a new version the page reloads and waits for someone to press Enter AR (or the adb helper, which is also untested on a device).",
+    "The fixed view on a real headset: how the Quest tracks while it lies still and unworn, and the pictures through passthrough.",
+    "With occlusion on, a desk right in front of the lenses can still hide the story.",
     "Every synthetic voice is unheard."
   ]
 }

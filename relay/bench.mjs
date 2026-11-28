@@ -27,7 +27,7 @@ const PAGE_CMDS = {
   script: ['code', 'args', 'limit'],   // (SPEC 14: only on a relay with --bench-scripts, which server.mjs checks before this)
 };
 const ADB_CMDS = { devshot: ['n'], enter: [], open: [], vrapi: ['from', 'to', 'job'] };
-const JOB_FIELDS = new Set(['v', 'label', 'to', 'need', 'hs', 'with', 'sound', 'limit', 'ttl', 'adb', 'from', 'why', 'steps']);
+const JOB_FIELDS = new Set(['v', 'label', 'to', 'need', 'hs', 'with', 'sound', 'limit', 'ttl', 'adb', 'from', 'why', 'steps', 'view']);
 const num = (v, a, b) => typeof v === 'number' && isFinite(v) && v >= a && v <= b;
 const prim = v => v === null || typeof v === 'boolean' || (typeof v === 'number' && isFinite(v)) || (typeof v === 'string' && v.length <= 80);
 
@@ -128,6 +128,7 @@ export function parseJob(b) {
     for (const [k, v] of Object.entries(b.with)) if (!/^[a-zA-Z]{1,20}$/.test(k) || !prim(v) || v === null) return { error: `with.${k.slice(0, 20)}: a setting's name and a number, string or true or false` };
   }
   if (b.sound !== undefined && typeof b.sound !== 'boolean') return { error: 'sound: true or false' };
+  if (b.view !== undefined && b.view !== 'fixed' && b.view !== 'asis') return { error: 'view: fixed or asis' };   // (v233, SPEC 15)
   if (b.limit !== undefined && !num(b.limit, 1, 3600)) return { error: 'limit: 1 to 3600 seconds' };
   if (b.ttl !== undefined && !num(b.ttl, 1, 86400)) return { error: 'ttl: 1 to 86400 seconds' };
   if (b.adb !== undefined && typeof b.adb !== 'boolean') return { error: 'adb: true or false' };
@@ -139,7 +140,7 @@ export function parseJob(b) {
   const light = b.steps.every(s => s.cmd === 'report' || s.cmd === 'wait');
   const job = {
     v: 1, label: b.label || b.steps.map(s => s.cmd).slice(0, 4).join(', '), to, need: b.need || (to === 'adb' || light ? 'any' : 'xr'), hs: b.hs || '',
-    with: b.with || {}, sound: !!b.sound, limit: b.limit || 300, ttl: b.ttl || 900, adb: b.adb !== false, from: b.from || 'cloud', why: b.why || '', steps: b.steps,
+    with: b.with || {}, sound: !!b.sound, limit: b.limit || 300, ttl: b.ttl || 900, adb: b.adb !== false, from: b.from || 'cloud', why: b.why || '', view: b.view || 'fixed', steps: b.steps,
   };
   return { job };
 }
@@ -160,7 +161,8 @@ export function parseResult(b) {
   if (b.why !== undefined && typeof b.why !== 'string') return { error: 'why: a string' };
   if (b.steps !== undefined && (!Array.isArray(b.steps) || b.steps.length > MAX_STEPS + 1)) return { error: 'steps: a list' };
   if (b.report !== undefined && b.report !== null && !isObj(b.report)) return { error: 'report: an object' };
-  return { result: { hs: b.hs, ok: b.ok, why: String(b.why || '').slice(0, 300), t0: num(b.t0, 0, 1e14) ? b.t0 : 0, t1: num(b.t1, 0, 1e14) ? b.t1 : 0, steps: b.steps || [], report: b.report || null } };
+  if (b.view !== undefined && b.view !== null && !isObj(b.view)) return { error: 'view: an object' };
+  return { result: { hs: b.hs, ok: b.ok, why: String(b.why || '').slice(0, 300), t0: num(b.t0, 0, 1e14) ? b.t0 : 0, t1: num(b.t1, 0, 1e14) ? b.t1 : 0, steps: b.steps || [], report: b.report || null, view: b.view || null } };
 }
 export function parseAdb(b) {
   if (!isObj(b)) return { error: 'the body is { vrapi, notes }' };

@@ -1,0 +1,22 @@
+{
+  "version": "networks-v233",
+  "date": "2026-11-28",
+  "new": [
+    "Bench mode now shows every story at the same place in front of the headset, however the headset lies: on its side, face up, high or low.",
+    "Before measuring, the bench treats the headset as if a person 1.6 m tall stood level, then recentres the story there.",
+    "Anchors are lent to a test and come back after it, as settings do.",
+    "Each measurement says how the headset really lay and where the story was. A test can still ask for the old way: view as is.",
+    "The full test plan now asks for its pictures in two parts, and jumps to the first chapter of Protein crowds, which has only one."
+  ],
+  "test": [
+    "On the test place, Quest 3: bench mode on, Enter AR, then lay the headset on its side on the desk. A cloud test with a picture should show the story upright and in front.",
+    "Run the same test with the headset face up and then standing: the view numbers and the pictures should match.",
+    "With an anchored place saved, run a test: afterwards the story should be back at its anchored place.",
+    "Run the full plan: it should finish as two jobs, with no picture refused."
+  ],
+  "untested": [
+    "The fixed view on a real headset: how the Quest tracks while it lies still and unworn, and the pictures through passthrough.",
+    "With occlusion on, a desk right in front of the lenses can still hide the story.",
+    "Every synthetic voice is unheard."
+  ]
+}

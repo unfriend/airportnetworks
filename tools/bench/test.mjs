@@ -68,6 +68,58 @@ console.log('relay with --bench on ' + BASE);
 const SMOKE = fs.readFileSync(path.join(ROOT, 'tools', 'smoke.mjs'), 'utf8');
 const fnText = name => { const at = SMOKE.indexOf('function ' + name + '('); if (at < 0) throw new Error('smoke.mjs has no ' + name); return SMOKE.slice(at, SMOKE.indexOf('\n}\n', at) + 2); };
 const SEAT = fnText('XR_SEAT'), FAKE = fnText('FPS_FAKE');
+// (v233, the fixed view: smoke's fake answers every space alike, so spaces made by getOffsetReferenceSpace are added here,
+// answered as WebXR does: a pose in an offset space is the offset's inverse times the pose in its base)
+function XR_OFFSETS() {
+  const F = window.__fp;
+  if (!F || !window.XRSession) return;
+  const mul = (a, b) => { const o = new Float32Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k * 4 + j] * b[i * 4 + k]; o[i * 4 + j] = v; } return o; };
+  const rt = (p, q) => { const { x, y, z, w } = q, m = new Float32Array([1 - 2 * (y * y + z * z), 2 * (x * y + z * w), 2 * (x * z - y * w), 0, 2 * (x * y - z * w), 1 - 2 * (x * x + z * z), 2 * (y * z + x * w), 0, 2 * (x * z + y * w), 2 * (y * z - x * w), 1 - 2 * (x * x + y * y), 0, p.x, p.y, p.z, 1]); return m; };
+  const inv = m => { const o = new Float32Array(16); for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) o[i * 4 + j] = m[j * 4 + i]; for (let j = 0; j < 3; j++) o[12 + j] = -(o[j] * m[12] + o[4 + j] * m[13] + o[8 + j] * m[14]); o[15] = 1; return o; };
+  const quat = m => {
+    const t = m[0] + m[5] + m[10];
+    if (t > 0) { const k = 0.5 / Math.sqrt(t + 1); return { x: (m[6] - m[9]) * k, y: (m[8] - m[2]) * k, z: (m[1] - m[4]) * k, w: 0.25 / k }; }
+    if (m[0] > m[5] && m[0] > m[10]) { const k = 2 * Math.sqrt(1 + m[0] - m[5] - m[10]); return { x: 0.25 * k, y: (m[4] + m[1]) / k, z: (m[8] + m[2]) / k, w: (m[6] - m[9]) / k }; }
+    if (m[5] > m[10]) { const k = 2 * Math.sqrt(1 + m[5] - m[0] - m[10]); return { x: (m[4] + m[1]) / k, y: 0.25 * k, z: (m[9] + m[6]) / k, w: (m[8] - m[2]) / k }; }
+    const k = 2 * Math.sqrt(1 + m[10] - m[0] - m[5]); return { x: (m[8] + m[2]) / k, y: (m[9] + m[6]) / k, z: 0.25 * k, w: (m[1] - m[4]) / k };
+  };
+  const posed = m => ({ matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: quat(m) });
+  if (typeof window.XRRigidTransform !== 'function') window.XRRigidTransform = class { constructor(p = {}, o = {}) { this.position = { x: p.x || 0, y: p.y || 0, z: p.z || 0, w: 1 }; this.orientation = { x: o.x || 0, y: o.y || 0, z: o.z || 0, w: o.w === undefined ? 1 : o.w }; } };
+  const offsetable = sp => { sp.getOffsetReferenceSpace = t => offsetable(Object.assign({ addEventListener() {}, removeEventListener() {} }, { type: sp.type, floor: sp.floor, off: sp.off ? mul(sp.off, rt(t.position, t.orientation)) : rt(t.position, t.orientation) })); return sp; };
+  const P = window.XRSession.prototype, rq = P.requestReferenceSpace;
+  P.requestReferenceSpace = async function (type) { return offsetable(await rq.call(this, type)); };
+  const f0 = F.frame;
+  F.frame = () => {
+    const fr = f0(), gv = fr.getViewerPose, gp = fr.getPose;
+    const into = (b, t) => posed(mul(inv(b.off), t.matrix));
+    fr.getViewerPose = b => { const vp = gv.call(fr, b); return vp && b && b.off ? { transform: into(b, vp.transform), views: vp.views.map(v => Object.assign({}, v, { transform: into(b, v.transform) })) } : vp; };
+    fr.getPose = (sp, b) => { const p = gp.call(fr, sp, b); return p && b && b.off ? { transform: into(b, p.transform) } : p; };
+    return fr;
+  };
+}
+// a pretend headset lying on a desk (in place of XR_SEAT): [x, height, z, yaw, pitch, roll] in degrees, never at the origin;
+// its head, eyes and controllers through window.__xrSeat as XR_SEAT's, with H 0 (the height is in M)
+function XR_LYING(at) {
+  const [x, y, z, yd, pd, rd] = at, R = Math.PI / 180;
+  const mul = (a, b) => { const o = new Float32Array(16); for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) { let v = 0; for (let k = 0; k < 4; k++) v += a[k * 4 + j] * b[i * 4 + k]; o[i * 4 + j] = v; } return o; };
+  const c = Math.cos, s = Math.sin, a = yd * R, b = pd * R, g = rd * R;
+  const Ry = new Float32Array([c(a), 0, -s(a), 0, 0, 1, 0, 0, s(a), 0, c(a), 0, 0, 0, 0, 1]), Rx = new Float32Array([1, 0, 0, 0, 0, c(b), s(b), 0, 0, -s(b), c(b), 0, 0, 0, 0, 1]);
+  const Rz = new Float32Array([c(g), s(g), 0, 0, -s(g), c(g), 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]), Tm = new Float32Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, x, y, z, 1]);
+  const M = mul(Tm, mul(Ry, mul(Rx, Rz)));
+  const quat = m => {
+    const t = m[0] + m[5] + m[10];
+    if (t > 0) { const k = 0.5 / Math.sqrt(t + 1); return { x: (m[6] - m[9]) * k, y: (m[8] - m[2]) * k, z: (m[1] - m[4]) * k, w: 0.25 / k }; }
+    if (m[0] > m[5] && m[0] > m[10]) { const k = 2 * Math.sqrt(1 + m[0] - m[5] - m[10]); return { x: 0.25 * k, y: (m[4] + m[1]) / k, z: (m[8] + m[2]) / k, w: (m[6] - m[9]) / k }; }
+    if (m[5] > m[10]) { const k = 2 * Math.sqrt(1 + m[5] - m[0] - m[10]); return { x: (m[4] + m[1]) / k, y: 0.25 * k, z: (m[9] + m[6]) / k, w: (m[8] - m[2]) / k }; }
+    const k = 2 * Math.sqrt(1 + m[10] - m[0] - m[5]); return { x: (m[8] + m[2]) / k, y: (m[9] + m[6]) / k, z: 0.25 * k, w: (m[1] - m[4]) / k };
+  };
+  const Q = quat(M), qm = (p, q) => ({ x: p.w * q.x + p.x * q.w + p.y * q.z - p.z * q.y, y: p.w * q.y - p.x * q.z + p.y * q.w + p.z * q.x, z: p.w * q.z + p.x * q.y - p.y * q.x + p.z * q.w, w: p.w * q.w - p.x * q.x - p.y * q.y - p.z * q.z });
+  window.__xrSeat = { x, z, yaw: a, deg: yd, H: 0, origin: false, M, mul, quat, lying: true,
+    m: (m, lift) => { const o = new Float32Array(m); o[13] += lift || 0; return mul(M, o); },
+    p: v => ({ x: M[0] * v.x + M[4] * v.y + M[8] * v.z + M[12], y: M[1] * v.x + M[5] * v.y + M[9] * v.z + M[13], z: M[2] * v.x + M[6] * v.y + M[10] * v.z + M[14] }),
+    q: v => qm(Q, v),
+    pose: m => ({ matrix: m, position: { x: m[12], y: m[13], z: m[14], w: 1 }, orientation: quat(m) }) };
+}
 const { chromium } = await import(process.env.PLAYWRIGHT_MODULE || 'playwright');
 const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || undefined,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist', '--host-resolver-rules=MAP stories.lbi-netmed.com 127.0.0.1'] });
@@ -82,8 +134,9 @@ async function page(url, o = {}) {
     } catch (e) { /* storage blocked */ }
   }, [new URL(url).origin, PASS]);
   if (o.xr !== false) {
-    await ctx.addInitScript(`(${SEAT})(${JSON.stringify([1.8, 1.8, 37])});`);
+    await ctx.addInitScript(o.lying ? `(${XR_LYING})(${JSON.stringify(o.lying)});` : `(${SEAT})(${JSON.stringify([1.8, 1.8, 37])});`);
     await ctx.addInitScript(`(${FAKE})();`);
+    await ctx.addInitScript(`(${XR_OFFSETS})();`);
     // (the pretend headset's frames: a timer steps its session, as the headset's own display would, on the page's clock as
     // a real session's frame times are)
     await ctx.addInitScript(() => { setInterval(() => { const F = window.__fp; if (F && F.session && !F.session.ended && F.session.cbs.size) { F.time = performance.now() - 1000 / 72; F.step(1); } }, 15); });
@@ -248,6 +301,84 @@ try {
   await H.p.evaluate(() => HOST.session && HOST.session.end()).catch(() => {});
   ok(errors.length === 0, 'console.error clean on the headset\'s page' + (errors.length ? ': ' + errors.slice(0, 5).join(' | ') : ''));
   await H.ctx.close();
+
+  // ------------------------------------------------------------ the fixed view (SPEC 15, v233): the same view however the headset lies
+  {
+    // (the shipped plan asks for more pictures than a job holds: run cuts it into jobs of at most 20, before an open step)
+    const dry = bench(['run', 'dev', '--dry']);
+    const pn = [...dry.out.matchAll(/(\d+) pictures/g)].map(m => +m[1]);
+    ok(dry.code === 0 && pn.length > 1 && pn.every(n => n <= 20) && /view fixed/.test(dry.out), 'run dev --dry: the plan goes as jobs of at most 20 pictures, the view fixed by default (' + dry.out.trim().replace(/\n/g, '; ') + ')');
+
+    // (the picture of a paused story moment: an explore view spins its scene by itself, so two of its pictures differ anyway)
+    // the same plan on the standing headset (its seat: 1.6 m, level, turned 37 degrees) and on one lying on a desk near the
+    // floor, pitched and rolled; then on the lying one as is
+    const viewPlan = path.join(SHOTS, 'test-view.json');
+    fs.writeFileSync(viewPlan, JSON.stringify({ v: 1, label: 'fixed view', need: 'xr', limit: 300, with: { occl: 'off' }, steps: [{ cmd: 'open', story: 'cdk5' }, { cmd: 'explore', tab: 0 }, { cmd: 'seek', chapter: 0, play: false }, { cmd: 'wait', sec: 2 }, { cmd: 'measure', sec: 1 }, { cmd: 'pic', w: 640 }] }));
+    const runView = (hs, view) => { const x = bench(['run', viewPlan, '--hs', hs, ...(view ? ['--view', view] : [])], { timeout: 300 }); const id = (x.err.match(/Queued: (\S+)/) || [])[1]; const sh = id ? bench(['show', id, '--json']) : { code: 1 }; return { x, id, j: sh.code === 0 ? jobOf(sh) : {} }; };
+    const picOf = id => { const f = bench(['pic', id, '--out', SHOTS]); return f.code === 0 ? f.out.trim().split('\n')[0] : ''; };
+    const vOf = J => (J.result && J.result.view) || {};
+    // (each on a fresh page of its own, after the first headset's page has closed, one at a time: pages stepped at once
+    // hold up the shared software GPU and its read-back, which says nothing of the bench)
+    const fresh = async (tag, o) => {
+      const P = await page(`${BASE}/index.html#dev=on&bench=on&benchplan=none`, Object.assign({ tag }, o));
+      await waitPhase(P.p, 'enter');
+      await P.p.click('#benchEnter');
+      await P.p.waitForFunction(() => !!HOST.session && HOST.bench.state().phase === 'idle', null, { timeout: 60000 });
+      return Object.assign(P, { hs: (await state(P.p)).hs });
+    };
+    const S = await fresh('standing', {});
+    const A = runView(S.hs);
+    const va = vOf(A.j), sa = A.j.result ? A.j.result.steps : [];
+    if (A.x.code !== 0 || !A.j.result) console.log('the fixed-view plan: exit ' + A.x.code + ' ' + A.x.err.slice(-400) + A.x.out.slice(0, 1500));
+    ok(A.x.code === 0 && va.applied && va.mode === 'fixed' && va.rig && Math.abs(va.y - 1.6) < 0.02 && Math.abs(va.pitch) < 1 && Math.abs(va.roll) < 1 && va.head && va.head.y === 1.6 && va.head.pitch === 0 && va.head.roll === 0 && va.head.yaw === 0,
+      'the standing headset: the fixed view held, the head as the story has it level at 1.6 m facing ahead (' + JSON.stringify(va) + ')');
+    ok(sa.length === 6 && sa.every(x => x.out) && sa[0].out.view && sa[1].out.view && sa[2].out.view && sa[4].out.view && sa[4].out.view.applied && sa[5].out.view, 'open, explore, seek, the segment and the picture each record the view');
+    ok(/View: fixed \(the headset lay at 1\.6 m, pitch -?0, roll -?0 degrees; the scene .* m away.*; its frame/.test(A.x.out), 'bench.mjs show prints the view in one line (' + (A.x.out.split('\n').find(l => /View:/.test(l)) || '') + ')');
+    const picA = picOf(A.id);
+    if (process.env.BENCH_VIEW_DEBUG) console.log(JSON.stringify(sa.map(x => [x.cmd, x.ok, x.err, x.t1 - x.t0, x.out && (x.out.view || (x.out.seg && x.out.seg.view))])));
+    await S.p.evaluate(() => HOST.session && HOST.session.end()).catch(() => {});
+    await S.ctx.close();
+    // the lying headset (another page, its own id): enters AR, an anchor on (no anchors in this fake: the switch alone)
+    const L = await fresh('lying', { lying: [-1.8, 0.45, -1.7, -128, -70, 35] }), HS2 = L.hs;
+    // (an anchored place made first, its arrangement stored: the job must leave it as it was)
+    await L.p.evaluate(() => HOST.anchor.set(true));
+    await L.p.waitForFunction(() => { try { return !!JSON.parse(localStorage.getItem('xrPlace') || '{}').pp; } catch (e) { return false; } }, null, { timeout: 20000 });
+    const an0 = await L.p.evaluate(() => ({ on: HOST.anchor.on, paused: HOST.anchor.paused(), a: localStorage.getItem('xrAnchor'), p: localStorage.getItem('xrPlace'), occl: localStorage.getItem('xrOccl') }));
+    const B2 = runView(HS2);
+    const vb = vOf(B2.j);
+    ok(B2.x.code === 0 && vb.applied && Math.abs(vb.y - 0.45) < 0.02 && Math.abs(vb.pitch + 70) < 1 && Math.abs(vb.roll - 35) < 1, 'the lying headset: how it lay is recorded (' + JSON.stringify({ y: vb.y, pitch: vb.pitch, roll: vb.roll, yaw: vb.yaw }) + ')');
+    ok(va.world && JSON.stringify(vb.world) === JSON.stringify(va.world) && JSON.stringify(vb.rig) === JSON.stringify(va.rig) && JSON.stringify(vb.head) === JSON.stringify(va.head), 'the same view numbers on both headsets: the scene from the head ' + JSON.stringify(va.world) + ' and ' + JSON.stringify(vb.world) + ', its frame ' + JSON.stringify(va.rig) + ' and ' + JSON.stringify(vb.rig));
+    const picB = picOf(B2.id);
+    const an1 = await L.p.evaluate(() => ({ on: HOST.anchor.on, paused: HOST.anchor.paused(), a: localStorage.getItem('xrAnchor'), p: localStorage.getItem('xrPlace'), occl: localStorage.getItem('xrOccl'), bv: HOST.xr.benchViewOn(), b: localStorage.getItem('benchBorrow') }));
+    ok(an1.on === an0.on && an1.paused === false && an1.a === an0.a && an1.p === an0.p && an1.occl === an0.occl && !an1.bv && !an1.b, 'after the job the anchor is back (on, not lent, its stored place unchanged), occlusion\'s setting put back, the fixed view let go (' + JSON.stringify({ an0, an1 }) + ')');
+    // lent during a job
+    bench(['send', 'measure', 'sec=4', '--hs', HS2, '--no-wait']);
+    const lent = await L.p.waitForFunction(() => !!HOST.bench.state().job && HOST.anchor.paused() === true && HOST.anchor.on && HOST.xr.benchViewOn(), null, { timeout: 20000 }).then(() => true).catch(() => false);
+    ok(lent, 'while a job measures in a session the anchor is lent to it (paused, still on) and the fixed view holds');
+    await L.p.waitForFunction(() => !HOST.bench.state().job && !HOST.anchor.paused(), null, { timeout: 30000 });
+    // pretend rays in the fixed view still hover
+    let r2 = bench(['send', 'rays', 'preset=sweep', 'sec=5', '--hs', HS2, '--json'], { timeout: 200 });
+    const ry2 = r2.code === 0 ? jobOf(r2).result.steps[0].out : null;
+    ok(r2.code === 0 && ry2 && ry2.frames > 10 && ry2.hovers > 0, 'pretend rays in the fixed view on the lying headset still hover (' + JSON.stringify(ry2 && { frames: ry2.frames, hovers: ry2.hovers }) + ')');
+    // as is: nothing placed, the view differs, the segment flagged
+    const C2 = runView(HS2, 'asis');
+    const vc = vOf(C2.j);
+    ok(C2.x.code === 0 && vc.mode === 'asis' && !vc.applied && JSON.stringify(vc.world) !== JSON.stringify(va.world) && Math.abs(vc.pitch + 70) < 1, 'view asis: not applied, the scene seen otherwise (' + JSON.stringify({ world: vc.world, head: vc.head }) + ')');
+    ok(/AS IS/.test(C2.x.out) && /Measured as is/.test(C2.x.out), 'bench.mjs show flags the segment measured as is');
+    const picC = picOf(C2.id);
+    // the eye pictures: the two fixed ones alike, the lying one as is unlike them (mean difference a channel, 0 to 255)
+    const cmp = await L.p.evaluate(async files => {
+      const load = src => new Promise((res, rej) => { const im = new Image(); im.onload = () => res(im); im.onerror = rej; im.src = src; });
+      const ims = await Promise.all(files.map(load)), w = 320, h = Math.round(320 * ims[0].height / ims[0].width);
+      const px = ims.map(im => { const c = document.createElement('canvas'); c.width = w; c.height = h; const g = c.getContext('2d'); g.drawImage(im, 0, 0, w, h); return g.getImageData(0, 0, w, h).data; });
+      const d = (a, b) => { let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - b[i]) + Math.abs(a[i + 1] - b[i + 1]) + Math.abs(a[i + 2] - b[i + 2]); return Math.round(s / (a.length / 4 * 3) * 100) / 100; };
+      return { same: d(px[0], px[1]), asis: d(px[1], px[2]) };
+    }, [picA, picB, picC].map(f => 'data:image/jpeg;base64,' + (f ? fs.readFileSync(f).toString('base64') : '')));
+    ok(cmp.same < 4 && cmp.asis > 2 * cmp.same, 'the eye pictures: standing and lying with the fixed view alike, the lying one as is unlike (mean difference ' + JSON.stringify(cmp) + '; ' + [picA, picB, picC].join(', ') + ')');
+    await L.p.evaluate(() => { HOST.anchor.set(false); return HOST.session && HOST.session.end(); }).catch(() => {});
+    await L.ctx.close();
+  }
+
 
   // ------------------------------------------------------------ refusals
   r = bench(['status'], { token: '' });
